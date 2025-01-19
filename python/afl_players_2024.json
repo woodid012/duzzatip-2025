@@ -1,0 +1,3387 @@
+{
+    "116": {
+        "player_name": "Taylor Walker",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "122": {
+        "player_name": "Brodie Smith",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "806": {
+        "player_name": "Chris Burgess",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "979": {
+        "player_name": "Rory Laird",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "980": {
+        "player_name": "Matthew Crouch",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "981": {
+        "player_name": "Reilly O'Brien",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "982": {
+        "player_name": "Jordan Dawson",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "983": {
+        "player_name": "Ben Keays",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "984": {
+        "player_name": "Wayne Milera",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "985": {
+        "player_name": "Mitchell Hinge",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "986": {
+        "player_name": "Darcy Fogarty",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "987": {
+        "player_name": "Lachlan Murphy",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "988": {
+        "player_name": "Ned McHenry",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "989": {
+        "player_name": "Mark Keane",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "990": {
+        "player_name": "Izak Rankine",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "992": {
+        "player_name": "Josh Worrell",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "993": {
+        "player_name": "Sam Berry",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "995": {
+        "player_name": "Luke Pedlar",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "996": {
+        "player_name": "Lachlan Gollant",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "997": {
+        "player_name": "Joshua Rachele",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "998": {
+        "player_name": "Jake Soligo",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "999": {
+        "player_name": "Patrick Parnell",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1000": {
+        "player_name": "James Borlase",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1001": {
+        "player_name": "Max Michalanney",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1002": {
+        "player_name": "Luke Nankervis",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1531": {
+        "player_name": "Elliott Himmelberg",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1534": {
+        "player_name": "Chayce Jones",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1580": {
+        "player_name": "William Hamill",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1603": {
+        "player_name": "Lachlan Sholl",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1615": {
+        "player_name": "Jordon Butts",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1661": {
+        "player_name": "Brayden Cook",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1777": {
+        "player_name": "Billy Dowling",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1788": {
+        "player_name": "Daniel Curtin",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1813": {
+        "player_name": "Kieran Strachan",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1814": {
+        "player_name": "Harry Schoenberg",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1819": {
+        "player_name": "Zac Taylor",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1822": {
+        "player_name": "Jack Hutchinson",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1845": {
+        "player_name": "Zac Taylor",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "1846": {
+        "player_name": "Joel Freijah",
+        "club_name": "Adelaide Crows",
+        "club_id": 1
+    },
+    "144": {
+        "player_name": "Ryan Lester",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "682": {
+        "player_name": "Lachie Neale",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "697": {
+        "player_name": "Jarryd Lyons",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "707": {
+        "player_name": "Dayne Zorko",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "719": {
+        "player_name": "Lincoln McCarthy",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "867": {
+        "player_name": "Joe Daniher",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "868": {
+        "player_name": "Charlie Cameron",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "869": {
+        "player_name": "Darcy Gardiner",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "870": {
+        "player_name": "Harris Andrews",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "871": {
+        "player_name": "Conor McKenna",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "872": {
+        "player_name": "Eric Hipwood",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "873": {
+        "player_name": "Callum Ah Chee",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "874": {
+        "player_name": "Josh Dunkley",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "875": {
+        "player_name": "Hugh McCluggage",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "876": {
+        "player_name": "Jarrod Berry",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "877": {
+        "player_name": "Oscar McInerney",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "878": {
+        "player_name": "Jack Payne",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "879": {
+        "player_name": "Cameron Rayner",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "880": {
+        "player_name": "Brandon Starcevich",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "881": {
+        "player_name": "Zac Bailey",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "882": {
+        "player_name": "Darcy Fort",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "883": {
+        "player_name": "Deven Robertson",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "884": {
+        "player_name": "Keidean Coleman",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "885": {
+        "player_name": "Harry Sharp",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "886": {
+        "player_name": "Kai Lohmann",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "887": {
+        "player_name": "Darcy Wilmot",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "888": {
+        "player_name": "Jaspa Fletcher",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1519": {
+        "player_name": "Darragh Joyce",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1546": {
+        "player_name": "Noah Answerth",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1629": {
+        "player_name": "Jaxon Prior",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1689": {
+        "player_name": "James Tunstill",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1769": {
+        "player_name": "Logan Morris",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1786": {
+        "player_name": "Henry Smith",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1791": {
+        "player_name": "Bruce Reville",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1803": {
+        "player_name": "Shadeau Brain",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1830": {
+        "player_name": "Will Ashcroft",
+        "club_name": "Brisbane Lions",
+        "club_id": 2
+    },
+    "1096": {
+        "player_name": "Patrick Cripps",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1097": {
+        "player_name": "Blake Acres",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1098": {
+        "player_name": "George Hewett",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1099": {
+        "player_name": "Adam Saad",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1100": {
+        "player_name": "Marc Pittonet",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1101": {
+        "player_name": "Caleb Marchbank",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1102": {
+        "player_name": "Charlie Curnow",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1103": {
+        "player_name": "Harry McKay",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1104": {
+        "player_name": "Jacob Weitering",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1105": {
+        "player_name": "Mitch McGovern",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1106": {
+        "player_name": "David Cuningham",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1107": {
+        "player_name": "Nic Newman",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1109": {
+        "player_name": "Adam Cerra",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1111": {
+        "player_name": "Lachie Fogarty",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1112": {
+        "player_name": "Tom De Koning",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1113": {
+        "player_name": "Matthew Owies",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1114": {
+        "player_name": "Sam Walsh",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1115": {
+        "player_name": "Matthew Cottrell",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1116": {
+        "player_name": "Brodie Kemp",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1117": {
+        "player_name": "Corey Durdin",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1119": {
+        "player_name": "Alex Cincotta",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1120": {
+        "player_name": "Oliver Hollands",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1210": {
+        "player_name": "Sam Docherty",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1214": {
+        "player_name": "Zachary Williams",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1317": {
+        "player_name": "Orazio Fantasia",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1408": {
+        "player_name": "Matthew Kennedy",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1435": {
+        "player_name": "Sam Durdin",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1463": {
+        "player_name": "Lewis Young",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1672": {
+        "player_name": "Jordan Boyd",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1677": {
+        "player_name": "Jack Carroll",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1699": {
+        "player_name": "Elijah Hollands",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1707": {
+        "player_name": "Lachlan Cowan",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1738": {
+        "player_name": "Jaxon Binns",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1781": {
+        "player_name": "Hudson O'Keeffe",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1792": {
+        "player_name": "Jack Martin",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1824": {
+        "player_name": "Jesse Motlop",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1866": {
+        "player_name": "Ashton Moir",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1868": {
+        "player_name": "Cooper Lord",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1869": {
+        "player_name": "Harry Lemmey",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "1870": {
+        "player_name": "Billy Wilson",
+        "club_name": "Carlton Blues",
+        "club_id": 3
+    },
+    "156": {
+        "player_name": "Scott Pendlebury",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "164": {
+        "player_name": "Steele Sidebottom",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "537": {
+        "player_name": "Jeremy Howe",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "643": {
+        "player_name": "Will Hoskin-Elliott",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "686": {
+        "player_name": "Jack Crisp",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "715": {
+        "player_name": "Jamie Elliott",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "751": {
+        "player_name": "Tom Mitchell",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "753": {
+        "player_name": "Jordan de Goey",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "754": {
+        "player_name": "Mason Cox",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "755": {
+        "player_name": "Brayden Maynard",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "756": {
+        "player_name": "Oleg Markov",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "757": {
+        "player_name": "Josh Daicos",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "758": {
+        "player_name": "Darcy Cameron",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "759": {
+        "player_name": "Patrick Lipinski",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "760": {
+        "player_name": "Billy Frampton",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "761": {
+        "player_name": "Brody Mihocek",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "762": {
+        "player_name": "Isaac Quaynor",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "763": {
+        "player_name": "Ian Hill",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "764": {
+        "player_name": "John Noble",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "765": {
+        "player_name": "Finlay Macrae",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "767": {
+        "player_name": "Reef McInnes",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "851": {
+        "player_name": "Lachlan Schultz",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1363": {
+        "player_name": "Darcy Moore",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1607": {
+        "player_name": "Jack Bytel",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1632": {
+        "player_name": "Beau McCreery",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1665": {
+        "player_name": "Nick Daicos",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1697": {
+        "player_name": "Ash Johnson",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1725": {
+        "player_name": "Harvey Harrison",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1743": {
+        "player_name": "Charlie Dean",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1774": {
+        "player_name": "Joe Richards",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1784": {
+        "player_name": "Lachlan Sullivan",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1797": {
+        "player_name": "Edward Allan",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1798": {
+        "player_name": "Aiden Begg",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1799": {
+        "player_name": "Nathan Kreuger",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1816": {
+        "player_name": "Wil Parker",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1817": {
+        "player_name": "Tew Jiath",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1838": {
+        "player_name": "Ned Long",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1854": {
+        "player_name": "Daniel McStay",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "1864": {
+        "player_name": "Harry DeMattia",
+        "club_name": "Collingwood Magpies",
+        "club_id": 4
+    },
+    "297": {
+        "player_name": "Dyson Heppell",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "355": {
+        "player_name": "Todd Goldstein",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "723": {
+        "player_name": "Zach Merrett",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "724": {
+        "player_name": "Kyle Langford",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "726": {
+        "player_name": "Jayden Laverde",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "728": {
+        "player_name": "Darcy Parish",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "730": {
+        "player_name": "Mason Redman",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "731": {
+        "player_name": "Sam Weideman",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "733": {
+        "player_name": "Andrew McGrath",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "734": {
+        "player_name": "Will Setterfield",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "737": {
+        "player_name": "Nick Hind",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "740": {
+        "player_name": "Nikolas Cox",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "741": {
+        "player_name": "Archie Perkins",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "742": {
+        "player_name": "Sam Durham",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "744": {
+        "player_name": "Ben Hobbs",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "745": {
+        "player_name": "Nicholas Martin",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "746": {
+        "player_name": "Jye Menzie",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "747": {
+        "player_name": "Alwyn Davey Jnr",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "750": {
+        "player_name": "Elijah Tsatas",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "774": {
+        "player_name": "Ben McKay",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "899": {
+        "player_name": "Jade Gresham",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1016": {
+        "player_name": "Xavier Duursma",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1209": {
+        "player_name": "Jake Stringer",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1342": {
+        "player_name": "Jake Kelly",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1360": {
+        "player_name": "Peter Wright",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1487": {
+        "player_name": "Matt Guelfi",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1567": {
+        "player_name": "Jye Caldwell",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1597": {
+        "player_name": "Sam Draper",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1624": {
+        "player_name": "Harrison Jones",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1638": {
+        "player_name": "Zach Reid",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1775": {
+        "player_name": "Nate Caddy",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1779": {
+        "player_name": "Archie Roberts",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1780": {
+        "player_name": "Jayden Davey",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1794": {
+        "player_name": "Dylan Shiel",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1804": {
+        "player_name": "Nick Bryan",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "1821": {
+        "player_name": "Jordan Ridley",
+        "club_name": "Essendon Bombers",
+        "club_id": 5
+    },
+    "147": {
+        "player_name": "Michael Walters",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "155": {
+        "player_name": "Nathan Fyfe",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "749": {
+        "player_name": "Patrick Voss",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "844": {
+        "player_name": "James Aish",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "845": {
+        "player_name": "Alex Pearce",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "847": {
+        "player_name": "Brennan Cox",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "848": {
+        "player_name": "Luke Ryan",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "849": {
+        "player_name": "Andrew Brayshaw",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "850": {
+        "player_name": "Sam Switkowski",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "852": {
+        "player_name": "Sam Sturt",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "853": {
+        "player_name": "Jordan Clark",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "854": {
+        "player_name": "Luke Jackson",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "855": {
+        "player_name": "Minairo Frederick",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "856": {
+        "player_name": "Caleb Serong",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "857": {
+        "player_name": "Hayden Young",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "859": {
+        "player_name": "Josh Treacy",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "861": {
+        "player_name": "Neil Erasmus",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "862": {
+        "player_name": "Karl Worner",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "863": {
+        "player_name": "Jye Amiss",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "864": {
+        "player_name": "Matthew Johnson",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "865": {
+        "player_name": "Liam Reidy",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "866": {
+        "player_name": "Tom Emmett",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1183": {
+        "player_name": "Jaeger O'Meara",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1238": {
+        "player_name": "Matthew Taberner",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1378": {
+        "player_name": "Oscar McDonald",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1382": {
+        "player_name": "Ethan Hughes",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1452": {
+        "player_name": "Will Brodie",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1457": {
+        "player_name": "Sean Darcy",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1474": {
+        "player_name": "Bailey Banfield",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1605": {
+        "player_name": "Jeremy Sharp",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1631": {
+        "player_name": "Heath Chapman",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1651": {
+        "player_name": "Brandon Walker",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1760": {
+        "player_name": "Cooper Simpson",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1761": {
+        "player_name": "Joshua Draper",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1772": {
+        "player_name": "Hugh Davies",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1793": {
+        "player_name": "Corey Wagner",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "1860": {
+        "player_name": "Nathan O'Driscoll",
+        "club_name": "Fremantle Dockers",
+        "club_id": 6
+    },
+    "54": {
+        "player_name": "Mitchell Duncan",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "68": {
+        "player_name": "Tom Hawkins",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "78": {
+        "player_name": "Cameron Guthrie",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "127": {
+        "player_name": "Patrick Dangerfield",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "326": {
+        "player_name": "Gary Rohan",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "423": {
+        "player_name": "Rhys Stanley",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "552": {
+        "player_name": "Zach Tuohy",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "648": {
+        "player_name": "Jeremy Cameron",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "916": {
+        "player_name": "Jake Kolodjashnij",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "917": {
+        "player_name": "Zach Guthrie",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "918": {
+        "player_name": "Brandan Parfitt",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "919": {
+        "player_name": "Tom Stewart",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "920": {
+        "player_name": "Jack Bowes",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "921": {
+        "player_name": "Tyson Stengle",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "922": {
+        "player_name": "Mark O'Connor",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "924": {
+        "player_name": "Gryan Miers",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "925": {
+        "player_name": "Tom Atkins",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "926": {
+        "player_name": "Oliver Henry",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "927": {
+        "player_name": "Sam De Koning",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "928": {
+        "player_name": "Shannon Neale",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "929": {
+        "player_name": "Max Holmes",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "930": {
+        "player_name": "Oliver Dempsey",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "931": {
+        "player_name": "Mitch Knevitt",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "932": {
+        "player_name": "Toby Conway",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "934": {
+        "player_name": "Oisin Mullin",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1196": {
+        "player_name": "Mark Blicavs",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1485": {
+        "player_name": "Jack Henry",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1595": {
+        "player_name": "Bradley Close",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1626": {
+        "player_name": "Tanner Bruhn",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1721": {
+        "player_name": "Jhye Clark",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1750": {
+        "player_name": "Shaun Mannagh",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1778": {
+        "player_name": "Connor O'Sullivan",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1834": {
+        "player_name": "Lawson Humphries",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1839": {
+        "player_name": "Jed Bews",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1851": {
+        "player_name": "Ted Clohesy",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "1865": {
+        "player_name": "Mitch Hardie",
+        "club_name": "Geelong Cats",
+        "club_id": 7
+    },
+    "498": {
+        "player_name": "Jack Gunston",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "509": {
+        "player_name": "Luke Breust",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "766": {
+        "player_name": "Jack Ginnivan",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "801": {
+        "player_name": "Mabior Chol",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "818": {
+        "player_name": "James Sicily",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "819": {
+        "player_name": "Karl Amon",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "820": {
+        "player_name": "Jarman Impey",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "821": {
+        "player_name": "Blake Hardwick",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "822": {
+        "player_name": "Harry Morrison",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "823": {
+        "player_name": "Connor Nash",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "824": {
+        "player_name": "Jack Scrimshaw",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "825": {
+        "player_name": "Lloyd Meek",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "826": {
+        "player_name": "James Worpel",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "827": {
+        "player_name": "Dylan Moore",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "829": {
+        "player_name": "Will Day",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "830": {
+        "player_name": "Finn Maginness",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "832": {
+        "player_name": "Ned Reeves",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "833": {
+        "player_name": "Jai Newcombe",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "834": {
+        "player_name": "Connor Macdonald",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "835": {
+        "player_name": "Seamus Mitchell",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "836": {
+        "player_name": "Josh Ward",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "838": {
+        "player_name": "Jai Serong",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "839": {
+        "player_name": "Henry Hustwaite",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "840": {
+        "player_name": "Cam Mackenzie",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "841": {
+        "player_name": "Josh Weddle",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1163": {
+        "player_name": "Sam Frost",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1505": {
+        "player_name": "Mitch Lewis",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1684": {
+        "player_name": "Sam Butler",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1693": {
+        "player_name": "Massimo D'Ambrosio",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1720": {
+        "player_name": "Max Ramsden",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1745": {
+        "player_name": "Ethan Phillips",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1746": {
+        "player_name": "Nick Watson",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1790": {
+        "player_name": "Calsher Dear",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "1811": {
+        "player_name": "Changkuoth Jiath",
+        "club_name": "Hawthorn Hawks",
+        "club_id": 8
+    },
+    "475": {
+        "player_name": "Steven May",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "538": {
+        "player_name": "Max Gawn",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "630": {
+        "player_name": "Tom McDonald",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "655": {
+        "player_name": "Adam Tomlinson",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "894": {
+        "player_name": "Jack Billings",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1074": {
+        "player_name": "Jack Viney",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1075": {
+        "player_name": "Lachlan Hunter",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1076": {
+        "player_name": "Christian Salem",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1078": {
+        "player_name": "Jake Lever",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1079": {
+        "player_name": "Alex Neal-Bullen",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1080": {
+        "player_name": "Ed Langdon",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1081": {
+        "player_name": "Clayton Oliver",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1082": {
+        "player_name": "Christian Petracca",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1084": {
+        "player_name": "Bayley Fritsch",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1085": {
+        "player_name": "Kade Chandler",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1086": {
+        "player_name": "Tom Sparrow",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1087": {
+        "player_name": "Kysaiah Pickett",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1088": {
+        "player_name": "Trent Rivers",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1089": {
+        "player_name": "Jake Bowey",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1090": {
+        "player_name": "Bailey Laurie",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1091": {
+        "player_name": "Judd McVee",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1092": {
+        "player_name": "Daniel Turner",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1093": {
+        "player_name": "Jacob van Rooyen",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1094": {
+        "player_name": "Taj Woewodin",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1306": {
+        "player_name": "Ben Brown",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1386": {
+        "player_name": "Josh Schache",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1493": {
+        "player_name": "Charlie Spargo",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1520": {
+        "player_name": "Harrison Petty",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1535": {
+        "player_name": "Marty Hore",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1613": {
+        "player_name": "Thomas Fullarton",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1736": {
+        "player_name": "Blake Howes",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1737": {
+        "player_name": "Caleb Windsor",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1755": {
+        "player_name": "Koltyn Tholstrup",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1812": {
+        "player_name": "Shane McAdam",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1827": {
+        "player_name": "Kynan Brown",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1842": {
+        "player_name": "Jake Melksham",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1843": {
+        "player_name": "Andy Moniz-Wakefield",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "1861": {
+        "player_name": "Matthew Jefferson",
+        "club_name": "Melbourne Demons",
+        "club_id": 9
+    },
+    "213": {
+        "player_name": "Liam Shiels",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "770": {
+        "player_name": "Aidan Corr",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "773": {
+        "player_name": "Darcy Tucker",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "775": {
+        "player_name": "Nick Larkey",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "776": {
+        "player_name": "Jy Simpkin",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "777": {
+        "player_name": "Hugh Greenwood",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "779": {
+        "player_name": "Tristan Xerri",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "780": {
+        "player_name": "Bailey Scott",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "785": {
+        "player_name": "Eddie Ford",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "786": {
+        "player_name": "Charlie Lazzaro",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "787": {
+        "player_name": "Will Phillips",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "788": {
+        "player_name": "Tom Powell",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "789": {
+        "player_name": "Miller Bergman",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "790": {
+        "player_name": "Paul Curtis",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "791": {
+        "player_name": "Joshua Goater",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "792": {
+        "player_name": "Kallan Dawson",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "793": {
+        "player_name": "Harry Sheezel",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "794": {
+        "player_name": "Blake Drury",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1068": {
+        "player_name": "Dylan Stephens",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1108": {
+        "player_name": "Zac Fisher",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1270": {
+        "player_name": "Luke McDonald",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1462": {
+        "player_name": "Cameron Zurhaar",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1475": {
+        "player_name": "Luke Davies-Uniacke",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1477": {
+        "player_name": "Jaidyn Stephenson",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1552": {
+        "player_name": "Callum Coleman-Jones",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1662": {
+        "player_name": "Charlie Comben",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1685": {
+        "player_name": "Bigoa Nyuon",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1701": {
+        "player_name": "Jackson Archer",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1724": {
+        "player_name": "George Wardlaw",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1733": {
+        "player_name": "Robert Hansen Jr",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1747": {
+        "player_name": "Toby Pink",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1748": {
+        "player_name": "Colby McKercher",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1749": {
+        "player_name": "Zane Duursma",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1770": {
+        "player_name": "Tyler Sellers",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1787": {
+        "player_name": "Riley Hardeman",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1808": {
+        "player_name": "Curtis Taylor",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1809": {
+        "player_name": "Wil Dawson",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1832": {
+        "player_name": "Brynn Teakle",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "1855": {
+        "player_name": "Griffin Logue",
+        "club_name": "North Melbourne Kangaroos",
+        "club_id": 10
+    },
+    "104": {
+        "player_name": "Travis Boak",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "361": {
+        "player_name": "Charlie Dixon",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "381": {
+        "player_name": "Trent McKenzie",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "736": {
+        "player_name": "Brandon Zerk-Thatcher",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "947": {
+        "player_name": "Jordon Sweet",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1003": {
+        "player_name": "Oliver Wines",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1004": {
+        "player_name": "Darcy Byrne-Jones",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1005": {
+        "player_name": "Aliir Aliir",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1006": {
+        "player_name": "Jeremy Finlayson",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1007": {
+        "player_name": "Ryan Burton",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1008": {
+        "player_name": "Willem Drew",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1009": {
+        "player_name": "Dan Houston",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1010": {
+        "player_name": "Sam Powell-Pepper",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1011": {
+        "player_name": "Todd Marshall",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1012": {
+        "player_name": "Willie Rioli",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1013": {
+        "player_name": "Kane Farrell",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1015": {
+        "player_name": "Zak Butters",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1017": {
+        "player_name": "Connor Rozee",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1019": {
+        "player_name": "Dylan Williams",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1020": {
+        "player_name": "Miles Bergman",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1021": {
+        "player_name": "Francis Evans",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1022": {
+        "player_name": "Lachlan Jones",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1023": {
+        "player_name": "Jed McEntee",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1024": {
+        "player_name": "Dante Visentini",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1025": {
+        "player_name": "Jason Horne-Francis",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1033": {
+        "player_name": "Ivan Soldo",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1269": {
+        "player_name": "Tom Clurey",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1480": {
+        "player_name": "Esava Ratugolea",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1576": {
+        "player_name": "Mitchell Georgiades",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1667": {
+        "player_name": "Jackson Mead",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1669": {
+        "player_name": "Josh Sinn",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1691": {
+        "player_name": "Jase Burgoyne",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1815": {
+        "player_name": "Tom Anastasopoulos",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1825": {
+        "player_name": "Ollie Lord",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1828": {
+        "player_name": "Quinton Narkle",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1835": {
+        "player_name": "Will Lorenz",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "1847": {
+        "player_name": "Logan Evans",
+        "club_name": "Port Adelaide Power",
+        "club_id": 11
+    },
+    "41": {
+        "player_name": "Dustin Martin",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "385": {
+        "player_name": "Dion Prestia",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "415": {
+        "player_name": "Dylan Grimes",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "486": {
+        "player_name": "Thomas Lynch",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "828": {
+        "player_name": "Jacob Koschitzke",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1027": {
+        "player_name": "Kamdyn McIntosh",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1028": {
+        "player_name": "Nick Vlastuin",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1029": {
+        "player_name": "Toby Nankervis",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1030": {
+        "player_name": "Jayden Short",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1031": {
+        "player_name": "Nathan Broad",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1032": {
+        "player_name": "Daniel Rioli",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1034": {
+        "player_name": "Jacob Hopper",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1035": {
+        "player_name": "Tim Taranto",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1036": {
+        "player_name": "Shai Bolton",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1037": {
+        "player_name": "Jack Graham",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1038": {
+        "player_name": "Liam Baker",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1039": {
+        "player_name": "Noah Balta",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1040": {
+        "player_name": "Ben Miller",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1041": {
+        "player_name": "Jack Ross",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1042": {
+        "player_name": "Marlion Pickett",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1043": {
+        "player_name": "Thomson Dow",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1044": {
+        "player_name": "Rhyan Mansell",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1045": {
+        "player_name": "Maurice Rioli",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1046": {
+        "player_name": "Tom Brown",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1047": {
+        "player_name": "Sam Banks",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1048": {
+        "player_name": "Tylar Young",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1050": {
+        "player_name": "James Trezise",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1327": {
+        "player_name": "Sam Naismith",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1645": {
+        "player_name": "Hugo Ralphsmith",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1653": {
+        "player_name": "Samson Ryan",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1664": {
+        "player_name": "Joshua Gibcus",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1687": {
+        "player_name": "Noah Cumberland",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1688": {
+        "player_name": "Judson Clarke",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1698": {
+        "player_name": "Tyler Sonsie",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1740": {
+        "player_name": "Steely Green",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1741": {
+        "player_name": "Seth Campbell",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1764": {
+        "player_name": "Mykelti Lefau",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1767": {
+        "player_name": "Kane McAuliffe",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1810": {
+        "player_name": "Kaleb Smith",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1836": {
+        "player_name": "Jacob Blight",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1852": {
+        "player_name": "Matthew Coulthard",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "1862": {
+        "player_name": "Jacob Bauer",
+        "club_name": "Richmond Tigers",
+        "club_id": 12
+    },
+    "689": {
+        "player_name": "Bradley Hill",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "858": {
+        "player_name": "Liam Henry",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "889": {
+        "player_name": "Jimmy Webster",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "890": {
+        "player_name": "Tom Campbell",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "891": {
+        "player_name": "Brad Crouch",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "892": {
+        "player_name": "Mason Wood",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "893": {
+        "player_name": "Tim Membrey",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "895": {
+        "player_name": "Dan Butler",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "896": {
+        "player_name": "Jack Steele",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "897": {
+        "player_name": "Jack Sinclair",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "898": {
+        "player_name": "Zaine Cordy",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "900": {
+        "player_name": "Josh Battle",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "901": {
+        "player_name": "Rowan Marshall",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "902": {
+        "player_name": "Jack Higgins",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "905": {
+        "player_name": "Liam Stocker",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "906": {
+        "player_name": "Callum Wilkie",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "907": {
+        "player_name": "Ryan Byrnes",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "908": {
+        "player_name": "Cooper Sharman",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "909": {
+        "player_name": "Jack Hayes",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "910": {
+        "player_name": "Mitch Owens",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "911": {
+        "player_name": "Nasiah Wanganeen-Milera",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "912": {
+        "player_name": "Marcus Windhager",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "913": {
+        "player_name": "Mattaes Phillipou",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1179": {
+        "player_name": "Seb Ross",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1305": {
+        "player_name": "Zak Jones",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1388": {
+        "player_name": "Dougal Howard",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1423": {
+        "player_name": "Riley Bonner",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1578": {
+        "player_name": "Max King",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1711": {
+        "player_name": "Anthony Caminiti",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1751": {
+        "player_name": "Darcy Wilson",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1752": {
+        "player_name": "Arie Schoenmaker",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1753": {
+        "player_name": "Lance Collard",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1754": {
+        "player_name": "Hugo Garcia",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1765": {
+        "player_name": "Angus Hastie",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1801": {
+        "player_name": "Paddy Dow",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1802": {
+        "player_name": "Ben Paton",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1820": {
+        "player_name": "Hunter Clark",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1849": {
+        "player_name": "Max Heath",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "1850": {
+        "player_name": "Angus McLennan",
+        "club_name": "St Kilda Saints",
+        "club_id": 13
+    },
+    "505": {
+        "player_name": "Luke Parker",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "658": {
+        "player_name": "Harry Cunningham",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "694": {
+        "player_name": "Taylor Adams",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "843": {
+        "player_name": "Joel Hamling",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1051": {
+        "player_name": "Jake Lloyd",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1052": {
+        "player_name": "Dane Rampe",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1053": {
+        "player_name": "Isaac Heeney",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1054": {
+        "player_name": "Lewis Melican",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1056": {
+        "player_name": "Tom Papley",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1058": {
+        "player_name": "Aaron Francis",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1059": {
+        "player_name": "Oliver Florent",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1060": {
+        "player_name": "Robbie Fox",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1061": {
+        "player_name": "Will Hayward",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1062": {
+        "player_name": "Tom McCartin",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1063": {
+        "player_name": "Joel Amartey",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1064": {
+        "player_name": "Nick Blakey",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1065": {
+        "player_name": "James Rowbottom",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1066": {
+        "player_name": "Samuel Wicks",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1067": {
+        "player_name": "Hayden McLean",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1069": {
+        "player_name": "Chad Warner",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1070": {
+        "player_name": "Braeden Campbell",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1071": {
+        "player_name": "Errol Gulden",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1072": {
+        "player_name": "Logan McDonald",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1073": {
+        "player_name": "Matty Roberts",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1250": {
+        "player_name": "Brodie Grundy",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1541": {
+        "player_name": "Justin McInerney",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1551": {
+        "player_name": "Peter Ladhams",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1622": {
+        "player_name": "James Jordon",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1666": {
+        "player_name": "Angus Sheldrick",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1716": {
+        "player_name": "Corey Warner",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1744": {
+        "player_name": "Caleb Mitchell",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1768": {
+        "player_name": "Jacob Konstanty",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1782": {
+        "player_name": "Caiden Cleary",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1831": {
+        "player_name": "Lachlan McAndrew",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1848": {
+        "player_name": "Callum Mills",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "1853": {
+        "player_name": "Sam Reid",
+        "club_name": "Sydney Swans",
+        "club_id": 14
+    },
+    "286": {
+        "player_name": "Jack Darling",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "338": {
+        "player_name": "Andrew Gaff",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "468": {
+        "player_name": "Jamie Cripps",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "717": {
+        "player_name": "Elliot Yeo",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "831": {
+        "player_name": "Tyler Brockman",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "958": {
+        "player_name": "Jeremy McGovern",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "959": {
+        "player_name": "Jayden Hunt",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "960": {
+        "player_name": "Liam Duggan",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "961": {
+        "player_name": "Tom Cole",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "962": {
+        "player_name": "Josh Rotham",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "963": {
+        "player_name": "Alex Witherden",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "965": {
+        "player_name": "Jamaine Jones",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "966": {
+        "player_name": "Tim Kelly",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "967": {
+        "player_name": "Oscar Allen",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "968": {
+        "player_name": "Jack Petruccelle",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "969": {
+        "player_name": "Bailey J. Williams",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "971": {
+        "player_name": "Luke Edwards",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "972": {
+        "player_name": "Brady Hough",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "973": {
+        "player_name": "Jack Williams",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "975": {
+        "player_name": "Campbell Chesser",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "977": {
+        "player_name": "Noah Long",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "978": {
+        "player_name": "Ryan Maric",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1281": {
+        "player_name": "Dom Sheed",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1370": {
+        "player_name": "Tom Barrass",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1481": {
+        "player_name": "Liam Ryan",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1482": {
+        "player_name": "Jake Waterman",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1600": {
+        "player_name": "Harry Edwards",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1671": {
+        "player_name": "Callum Jamieson",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1696": {
+        "player_name": "Jai Culley",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1708": {
+        "player_name": "Reuben Ginbey",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1728": {
+        "player_name": "Harry Barnett",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1758": {
+        "player_name": "Tyrell Dewar",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1759": {
+        "player_name": "Harley Reid",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1766": {
+        "player_name": "Harvey Johnston",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1771": {
+        "player_name": "Loch Rawlinson",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1818": {
+        "player_name": "Zane Trew",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1837": {
+        "player_name": "Jack Hutchinson",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1857": {
+        "player_name": "Archer Reid",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "1859": {
+        "player_name": "Clay Hall",
+        "club_name": "West Coast Eagles",
+        "club_id": 15
+    },
+    "230": {
+        "player_name": "Liam Jones",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "309": {
+        "player_name": "Thomas Liberatore",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "679": {
+        "player_name": "Adam Treloar",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "904": {
+        "player_name": "Nick Coffield",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "936": {
+        "player_name": "Rory Lobb",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "937": {
+        "player_name": "Marcus Bontempelli",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "938": {
+        "player_name": "Bailey Dale",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "939": {
+        "player_name": "Caleb Daniel",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "941": {
+        "player_name": "Bailey Williams",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "942": {
+        "player_name": "Timothy English",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "943": {
+        "player_name": "Alex Keath",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "944": {
+        "player_name": "Aaron Naughton",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "945": {
+        "player_name": "Oskar Baker",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "946": {
+        "player_name": "Ed Richards",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "948": {
+        "player_name": "Laitham Vandermeer",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "949": {
+        "player_name": "Rhylee West",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "950": {
+        "player_name": "Cody Weightman",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "951": {
+        "player_name": "Riley Garcia",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "952": {
+        "player_name": "Caleb Poulter",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "953": {
+        "player_name": "Lachlan McNeil",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "955": {
+        "player_name": "Jamarra Ugle-Hagan",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "957": {
+        "player_name": "James O'Donnell",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1169": {
+        "player_name": "Jason Johannissen",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1204": {
+        "player_name": "Taylor Duryea",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1206": {
+        "player_name": "Jackson Macrae",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1365": {
+        "player_name": "James Harmes",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1644": {
+        "player_name": "Buku Khamis",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1652": {
+        "player_name": "Lachlan Bramble",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1702": {
+        "player_name": "Sam Darcy",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1714": {
+        "player_name": "Arthur Jones",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1756": {
+        "player_name": "Ryley Sanders",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1757": {
+        "player_name": "Harvey Gallagher",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1789": {
+        "player_name": "Charlie Clarke",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1805": {
+        "player_name": "Anthony Scott",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1806": {
+        "player_name": "Luke Cleary",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1807": {
+        "player_name": "Joel Freijah",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "1823": {
+        "player_name": "Jedd Busslinger",
+        "club_name": "Western Bulldogs",
+        "club_id": 16
+    },
+    "384": {
+        "player_name": "David Swallow",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "488": {
+        "player_name": "Sam Day",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "659": {
+        "player_name": "Brandon Ellis",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "710": {
+        "player_name": "Alex Sexton",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "795": {
+        "player_name": "Levi Casboult",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "796": {
+        "player_name": "Jarrod Witts",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "797": {
+        "player_name": "Rory Atkins",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "799": {
+        "player_name": "Touk Miller",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "800": {
+        "player_name": "Sam Collins",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "802": {
+        "player_name": "Darcy MacPherson",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "803": {
+        "player_name": "Brayden Fiorini",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "804": {
+        "player_name": "Ben Ainsworth",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "805": {
+        "player_name": "Charlie Ballard",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "807": {
+        "player_name": "Noah Anderson",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "808": {
+        "player_name": "Connor Budarick",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "809": {
+        "player_name": "Matthew Rowell",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "810": {
+        "player_name": "Sam Flanders",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "811": {
+        "player_name": "Malcolm Rosas",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "813": {
+        "player_name": "Ned Moyle",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "815": {
+        "player_name": "Mac Andrew",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1322": {
+        "player_name": "Nick Holman",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1440": {
+        "player_name": "Ben Long",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1517": {
+        "player_name": "Wil Powell",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1538": {
+        "player_name": "Jack Lukosius",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1550": {
+        "player_name": "Ben King",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1579": {
+        "player_name": "Thomas Berry",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1659": {
+        "player_name": "Joel Jeffrey",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1710": {
+        "player_name": "Bodhi Uwland",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1715": {
+        "player_name": "Bailey Humphrey",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1739": {
+        "player_name": "Will Graham",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1762": {
+        "player_name": "Sam Clohesy",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1763": {
+        "player_name": "Jed Walter",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1773": {
+        "player_name": "Ethan Read",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1783": {
+        "player_name": "Jake Rogers",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1795": {
+        "player_name": "Alex Davies",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1796": {
+        "player_name": "Lloyd Johnston",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1833": {
+        "player_name": "Sean Lemmens",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "1856": {
+        "player_name": "Lachie Weller",
+        "club_name": "Gold Coast Suns",
+        "club_id": 17
+    },
+    "306": {
+        "player_name": "Callan Ward",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "600": {
+        "player_name": "Lachlan Keeffe",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "649": {
+        "player_name": "Stephen Coniglio",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "651": {
+        "player_name": "Toby Greene",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "720": {
+        "player_name": "Nick Haynes",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1121": {
+        "player_name": "Lachie Whitfield",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1122": {
+        "player_name": "Jesse Hogan",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1123": {
+        "player_name": "Joshua Kelly",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1124": {
+        "player_name": "Harrison Himmelberg",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1128": {
+        "player_name": "Harry Perryman",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1129": {
+        "player_name": "Jack Buckley",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1130": {
+        "player_name": "Brent Daniels",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1131": {
+        "player_name": "Sam Taylor",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1132": {
+        "player_name": "Kieren Briggs",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1133": {
+        "player_name": "Callum M. Brown",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1134": {
+        "player_name": "Connor Idun",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1135": {
+        "player_name": "Toby Bedford",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1136": {
+        "player_name": "Lachlan Ash",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1137": {
+        "player_name": "Tom Green",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1138": {
+        "player_name": "Jake Riccardi",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1139": {
+        "player_name": "Ryan Angwin",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1141": {
+        "player_name": "Toby McMullin",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1606": {
+        "player_name": "Xavier O'Halloran",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1660": {
+        "player_name": "James Peatling",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1673": {
+        "player_name": "Finn Callaghan",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1686": {
+        "player_name": "Jacob Wehr",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1700": {
+        "player_name": "Leek Aleer",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1718": {
+        "player_name": "Aaron Cadman",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1742": {
+        "player_name": "Harvey Thomas",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1776": {
+        "player_name": "Max Gruzewski",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1785": {
+        "player_name": "Darcy Jones",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1800": {
+        "player_name": "Conor Stone",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1826": {
+        "player_name": "Harry Rowston",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1840": {
+        "player_name": "Isaac Cumming",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    },
+    "1841": {
+        "player_name": "Joe Fonti",
+        "club_name": "Greater Western Sydney Giants",
+        "club_id": 18
+    }
+}

@@ -1,0 +1,1154 @@
+[
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "41",
+        "Player_Name": "Dustin Martin",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.585814"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "385",
+        "Player_Name": "Dion Prestia",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.585837"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "415",
+        "Player_Name": "Dylan Grimes",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.585849"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "486",
+        "Player_Name": "Thomas Lynch",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.585859"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "828",
+        "Player_Name": "Jacob Koschitzke",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.585868"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1027",
+        "Player_Name": "Kamdyn McIntosh",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.585878"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1028",
+        "Player_Name": "Nick Vlastuin",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.585887"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1029",
+        "Player_Name": "Toby Nankervis",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.585896"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1030",
+        "Player_Name": "Jayden Short",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.585905"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1031",
+        "Player_Name": "Nathan Broad",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.585914"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1032",
+        "Player_Name": "Daniel Rioli",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.585922"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1034",
+        "Player_Name": "Jacob Hopper",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.585932"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1035",
+        "Player_Name": "Tim Taranto",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.585942"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1036",
+        "Player_Name": "Shai Bolton",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.585951"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1037",
+        "Player_Name": "Jack Graham",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.585959"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1038",
+        "Player_Name": "Liam Baker",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.585968"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1039",
+        "Player_Name": "Noah Balta",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.585977"
+    },
+    {
+        "Team_ID": 1,
+        "Team_Name": "Scrennys Soldiers",
+        "Player_ID": "1040",
+        "Player_Name": "Ben Miller",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.585986"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "54",
+        "Player_Name": "Mitchell Duncan",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.586005"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "68",
+        "Player_Name": "Tom Hawkins",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.586014"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "78",
+        "Player_Name": "Cameron Guthrie",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.586023"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "127",
+        "Player_Name": "Patrick Dangerfield",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.586032"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "326",
+        "Player_Name": "Gary Rohan",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.586042"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "423",
+        "Player_Name": "Rhys Stanley",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.586051"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "552",
+        "Player_Name": "Zach Tuohy",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.586061"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "648",
+        "Player_Name": "Jeremy Cameron",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.586070"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "916",
+        "Player_Name": "Jake Kolodjashnij",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.586079"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "917",
+        "Player_Name": "Zach Guthrie",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.586089"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "918",
+        "Player_Name": "Brandan Parfitt",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.586098"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "919",
+        "Player_Name": "Tom Stewart",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.586107"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "920",
+        "Player_Name": "Jack Bowes",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.586115"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "921",
+        "Player_Name": "Tyson Stengle",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.586123"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "922",
+        "Player_Name": "Mark O'Connor",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.586132"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "924",
+        "Player_Name": "Gryan Miers",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.586140"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "925",
+        "Player_Name": "Tom Atkins",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.586148"
+    },
+    {
+        "Team_ID": 2,
+        "Team_Name": "Scotts Tots",
+        "Player_ID": "926",
+        "Player_Name": "Oliver Henry",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.586156"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "104",
+        "Player_Name": "Travis Boak",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.586171"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "361",
+        "Player_Name": "Charlie Dixon",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.586180"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "381",
+        "Player_Name": "Trent McKenzie",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.586188"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "736",
+        "Player_Name": "Brandon Zerk-Thatcher",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.586196"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "947",
+        "Player_Name": "Jordon Sweet",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.586204"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1003",
+        "Player_Name": "Oliver Wines",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.586214"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1004",
+        "Player_Name": "Darcy Byrne-Jones",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.586222"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1005",
+        "Player_Name": "Aliir Aliir",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.586231"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1006",
+        "Player_Name": "Jeremy Finlayson",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.586239"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1007",
+        "Player_Name": "Ryan Burton",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.586247"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1008",
+        "Player_Name": "Willem Drew",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.586255"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1009",
+        "Player_Name": "Dan Houston",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.586264"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1010",
+        "Player_Name": "Sam Powell-Pepper",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.586272"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1011",
+        "Player_Name": "Todd Marshall",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.586281"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1012",
+        "Player_Name": "Willie Rioli",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.586289"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1013",
+        "Player_Name": "Kane Farrell",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.586297"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1015",
+        "Player_Name": "Zak Butters",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.586305"
+    },
+    {
+        "Team_ID": 3,
+        "Team_Name": "ROBbed",
+        "Player_ID": "1017",
+        "Player_Name": "Connor Rozee",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.586314"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "116",
+        "Player_Name": "Taylor Walker",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.586329"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "122",
+        "Player_Name": "Brodie Smith",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.586338"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "806",
+        "Player_Name": "Chris Burgess",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.586347"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "979",
+        "Player_Name": "Rory Laird",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.586355"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "980",
+        "Player_Name": "Matthew Crouch",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.586364"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "981",
+        "Player_Name": "Reilly O'Brien",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.586372"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "982",
+        "Player_Name": "Jordan Dawson",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.586380"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "983",
+        "Player_Name": "Ben Keays",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.586388"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "984",
+        "Player_Name": "Wayne Milera",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.586399"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "985",
+        "Player_Name": "Mitchell Hinge",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.586408"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "986",
+        "Player_Name": "Darcy Fogarty",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.586416"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "987",
+        "Player_Name": "Lachlan Murphy",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.586425"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "988",
+        "Player_Name": "Ned McHenry",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.586433"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "989",
+        "Player_Name": "Mark Keane",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.586442"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "990",
+        "Player_Name": "Izak Rankine",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.586450"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "992",
+        "Player_Name": "Josh Worrell",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.586458"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "993",
+        "Player_Name": "Sam Berry",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.586467"
+    },
+    {
+        "Team_ID": 4,
+        "Team_Name": "Le Mallards",
+        "Player_ID": "995",
+        "Player_Name": "Luke Pedlar",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.586475"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "144",
+        "Player_Name": "Ryan Lester",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.586489"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "682",
+        "Player_Name": "Lachie Neale",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.586498"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "697",
+        "Player_Name": "Jarryd Lyons",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.586506"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "707",
+        "Player_Name": "Dayne Zorko",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.586514"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "719",
+        "Player_Name": "Lincoln McCarthy",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.586523"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "867",
+        "Player_Name": "Joe Daniher",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.586532"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "868",
+        "Player_Name": "Charlie Cameron",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.586540"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "869",
+        "Player_Name": "Darcy Gardiner",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.586549"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "870",
+        "Player_Name": "Harris Andrews",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.586557"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "871",
+        "Player_Name": "Conor McKenna",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.586566"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "872",
+        "Player_Name": "Eric Hipwood",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.586574"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "873",
+        "Player_Name": "Callum Ah Chee",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.586583"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "874",
+        "Player_Name": "Josh Dunkley",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.586592"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "875",
+        "Player_Name": "Hugh McCluggage",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.586600"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "876",
+        "Player_Name": "Jarrod Berry",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.586609"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "877",
+        "Player_Name": "Oscar McInerney",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.586617"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "878",
+        "Player_Name": "Jack Payne",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.586625"
+    },
+    {
+        "Team_ID": 5,
+        "Team_Name": "Clarries Cookers",
+        "Player_ID": "879",
+        "Player_Name": "Cameron Rayner",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.586633"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "147",
+        "Player_Name": "Michael Walters",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.586648"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "155",
+        "Player_Name": "Nathan Fyfe",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.586656"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "749",
+        "Player_Name": "Patrick Voss",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.586665"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "844",
+        "Player_Name": "James Aish",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.586674"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "845",
+        "Player_Name": "Alex Pearce",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.586683"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "847",
+        "Player_Name": "Brennan Cox",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.586692"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "848",
+        "Player_Name": "Luke Ryan",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.586700"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "849",
+        "Player_Name": "Andrew Brayshaw",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.586708"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "850",
+        "Player_Name": "Sam Switkowski",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.586717"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "852",
+        "Player_Name": "Sam Sturt",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.586725"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "853",
+        "Player_Name": "Jordan Clark",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.586734"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "854",
+        "Player_Name": "Luke Jackson",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.586742"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "855",
+        "Player_Name": "Minairo Frederick",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.586750"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "856",
+        "Player_Name": "Caleb Serong",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.586758"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "857",
+        "Player_Name": "Hayden Young",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.586767"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "859",
+        "Player_Name": "Josh Treacy",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.586775"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "861",
+        "Player_Name": "Neil Erasmus",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.586783"
+    },
+    {
+        "Team_ID": 6,
+        "Team_Name": "Balls Deep",
+        "Player_ID": "862",
+        "Player_Name": "Karl Worner",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.586792"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "156",
+        "Player_Name": "Scott Pendlebury",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.586806"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "164",
+        "Player_Name": "Steele Sidebottom",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.586816"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "537",
+        "Player_Name": "Jeremy Howe",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.586824"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "643",
+        "Player_Name": "Will Hoskin-Elliott",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.586833"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "686",
+        "Player_Name": "Jack Crisp",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.586841"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "715",
+        "Player_Name": "Jamie Elliott",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.586849"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "751",
+        "Player_Name": "Tom Mitchell",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.586864"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "753",
+        "Player_Name": "Jordan de Goey",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.586873"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "754",
+        "Player_Name": "Mason Cox",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.586881"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "755",
+        "Player_Name": "Brayden Maynard",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.586889"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "756",
+        "Player_Name": "Oleg Markov",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.586898"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "757",
+        "Player_Name": "Josh Daicos",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.586906"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "758",
+        "Player_Name": "Darcy Cameron",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.586914"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "759",
+        "Player_Name": "Patrick Lipinski",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.586923"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "760",
+        "Player_Name": "Billy Frampton",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.586931"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "761",
+        "Player_Name": "Brody Mihocek",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.586939"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "762",
+        "Player_Name": "Isaac Quaynor",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.586948"
+    },
+    {
+        "Team_ID": 7,
+        "Team_Name": "Briz Strings Souvlakis",
+        "Player_ID": "763",
+        "Player_Name": "Ian Hill",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.586956"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "213",
+        "Player_Name": "Liam Shiels",
+        "Draft_Pick": 1,
+        "Active": "2025-01-19T16:29:46.586971"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "770",
+        "Player_Name": "Aidan Corr",
+        "Draft_Pick": 2,
+        "Active": "2025-01-19T16:29:46.586979"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "773",
+        "Player_Name": "Darcy Tucker",
+        "Draft_Pick": 3,
+        "Active": "2025-01-19T16:29:46.586987"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "775",
+        "Player_Name": "Nick Larkey",
+        "Draft_Pick": 4,
+        "Active": "2025-01-19T16:29:46.586997"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "776",
+        "Player_Name": "Jy Simpkin",
+        "Draft_Pick": 5,
+        "Active": "2025-01-19T16:29:46.587006"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "777",
+        "Player_Name": "Hugh Greenwood",
+        "Draft_Pick": 6,
+        "Active": "2025-01-19T16:29:46.587014"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "779",
+        "Player_Name": "Tristan Xerri",
+        "Draft_Pick": 7,
+        "Active": "2025-01-19T16:29:46.587022"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "780",
+        "Player_Name": "Bailey Scott",
+        "Draft_Pick": 8,
+        "Active": "2025-01-19T16:29:46.587031"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "785",
+        "Player_Name": "Eddie Ford",
+        "Draft_Pick": 9,
+        "Active": "2025-01-19T16:29:46.587039"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "786",
+        "Player_Name": "Charlie Lazzaro",
+        "Draft_Pick": 10,
+        "Active": "2025-01-19T16:29:46.587048"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "787",
+        "Player_Name": "Will Phillips",
+        "Draft_Pick": 11,
+        "Active": "2025-01-19T16:29:46.587056"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "788",
+        "Player_Name": "Tom Powell",
+        "Draft_Pick": 12,
+        "Active": "2025-01-19T16:29:46.587064"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "789",
+        "Player_Name": "Miller Bergman",
+        "Draft_Pick": 13,
+        "Active": "2025-01-19T16:29:46.587072"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "790",
+        "Player_Name": "Paul Curtis",
+        "Draft_Pick": 14,
+        "Active": "2025-01-19T16:29:46.587080"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "791",
+        "Player_Name": "Joshua Goater",
+        "Draft_Pick": 15,
+        "Active": "2025-01-19T16:29:46.587088"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "792",
+        "Player_Name": "Kallan Dawson",
+        "Draft_Pick": 16,
+        "Active": "2025-01-19T16:29:46.587097"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "793",
+        "Player_Name": "Harry Sheezel",
+        "Draft_Pick": 17,
+        "Active": "2025-01-19T16:29:46.587105"
+    },
+    {
+        "Team_ID": 8,
+        "Team_Name": "Cutsys Cucks",
+        "Player_ID": "794",
+        "Player_Name": "Blake Drury",
+        "Draft_Pick": 18,
+        "Active": "2025-01-19T16:29:46.587114"
+    }
+]
