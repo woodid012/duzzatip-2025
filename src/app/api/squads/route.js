@@ -19,8 +19,8 @@ export async function GET() {
         };
       }
       teams[player.Team_ID].players.push({
-        player_id: player.Player_ID,
-        player_name: player.Player_Name,
+        id: player.Player_ID,
+        name: player.Player_Name,
         draftPick: player.Draft_Pick,
       });
     });
@@ -49,8 +49,8 @@ export async function POST(request) {
       team.players.map(player => ({
         Team_ID: parseInt(teamId),
         Team_Name: team.teamName,
-        Player_ID: player.player_id,
-        Player_Name: player.player_name,
+        Player_ID: player.id,
+        Player_Name: player.name,
         Draft_Pick: player.draftPick,
         Active: new Date().toISOString()
       }))
