@@ -151,15 +151,14 @@ export default function Squads() {
                           onChange={(e) => handlePlayerChange(teamId, player.id, e.target.value)}
                           className="flex-1 p-1 text-sm border rounded min-w-[200px]"
                         >
-                          {Object.entries(players).map(([clubId, clubPlayers]) => (
-                            <optgroup key={clubId} label={clubPlayers[0]?.teamName || 'Unknown Team'}>
-                              {clubPlayers.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
+                          {Object.values(players)
+                            .flat()
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({p.teamName})
+                              </option>
+                            ))}
                         </select>
                         <span className="text-xs text-gray-500 w-16">#{player.id}</span>
                         <span className="text-xs text-gray-500 w-32">
