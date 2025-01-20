@@ -1,63 +1,5 @@
-import { MongoClient } from 'mongodb';
-import { promises as fs } from 'fs';
-import path from 'path';
-import {CURRENT_YEAR } from '@/app/lib/constants';
-
-const MONGODB_URI = "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
-const CACHE_DIR = path.join(process.cwd(), 'public', 'cache');
-
-// Helper function to get cache file path
-const getCacheFilePath = (year, round) => {
-    return path.join(CACHE_DIR, `team_selection_${year}_${round}.json`);
-};
-
-// Helper function to read cache
-async function readCache(year, round) {
-    try {
-        const filePath = getCacheFilePath(year, round);
-        const data = await fs.readFile(filePath, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        return null;
-    }
-}
-
-// Helper function to write cache
-async function writeCache(year, round, data) {
-    try {
-        // Check if we have write permissions
-        try {
-            // Ensure cache directory exists
-            await fs.mkdir(CACHE_DIR, { recursive: true });
-            // Test write permissions with a temp file
-            const testPath = path.join(CACHE_DIR, '.write-test');
-            await fs.writeFile(testPath, 'test');
-            await fs.unlink(testPath);
-        } catch (permError) {
-            console.warn('Cache directory not writable:', permError);
-            return false;
-        }
-
-        const filePath = getCacheFilePath(year, round);
-        await fs.writeFile(filePath, JSON.stringify(data));
-        return true;
-    } catch (error) {
-        console.error('Cache write error:', error);
-        return false;
-    }
-}
-
-// Helper function to invalidate cache
-async function invalidateCache(year, round) {
-    try {
-        const filePath = getCacheFilePath(year, round);
-        await fs.unlink(filePath);
-        return true;
-    } catch (error) {
-        console.warn('Cache invalidation error:', error);
-        return false;
-    }
-}
+import { connectToDatabase } from '../../lib/mongodb';
+import { CURRENT_YEAR } from '@/app/lib/constants';
 
 export async function GET(request) {
     try {
@@ -70,26 +12,23 @@ export async function GET(request) {
             return Response.json({ error: 'Round is required' }, { status: 400 });
         }
 
-        // Try to get cached data first
-        const cachedData = await readCache(year, round);
-        if (cachedData) {
-            return Response.json(cachedData, {
-                headers: {
-                    'X-Cache': 'HIT'
-                }
-            });
-        }
-
-        const client = await MongoClient.connect(MONGODB_URI);
-        const db = client.db('afl_database');
+        // Get cached database connection
+        const { db } = await connectToDatabase();
         const collection = db.collection(`${year}_team_selection`);
 
-        // Fetch team selection for the specific round
+        // Fetch team selection for the specific round with optimized projection
         const teamSelectionDocs = await collection.find({ 
             Round: parseInt(round) 
+        }, {
+            projection: {
+                User: 1,
+                Position: 1,
+                Player_ID: 1,
+                Player_Name: 1,
+                Backup_Position: 1,
+                _id: 0
+            }
         }).toArray();
-
-        await client.close();
 
         // Transform docs into the expected client-side format
         const teamSelection = {};
@@ -114,14 +53,7 @@ export async function GET(request) {
             teamSelection[User][Position] = playerEntry;
         });
 
-        // Write to cache
-        await writeCache(year, round, teamSelection);
-
-        return Response.json(teamSelection, {
-            headers: {
-                'X-Cache': 'MISS'
-            }
-        });
+        return Response.json(teamSelection);
         
     } catch (error) {
         console.error('Database Error:', error);
@@ -138,8 +70,8 @@ export async function POST(request) {
             return Response.json({ error: 'Year, round, and team selection are required' }, { status: 400 });
         }
 
-        const client = await MongoClient.connect(MONGODB_URI);
-        const db = client.db('afl_database');
+        // Get cached database connection
+        const { db } = await connectToDatabase();
         const collection = db.collection(`${year}_team_selection`);
 
         // Clear existing entries for this round
@@ -163,15 +95,13 @@ export async function POST(request) {
             }))
         );
 
-        // Insert new data
+        // Insert new data with better performance options
         if (documents.length > 0) {
-            await collection.insertMany(documents);
+            await collection.insertMany(documents, { 
+                ordered: false, // Better performance for bulk inserts
+                writeConcern: { w: 1 } // Minimal write concern for speed
+            });
         }
-
-        // Invalidate cache for this round
-        await invalidateCache(year, round);
-
-        await client.close();
 
         return Response.json({ 
             success: true, 
