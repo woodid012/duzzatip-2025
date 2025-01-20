@@ -7,10 +7,12 @@ export default function TeamCard({
   teamSelection,
   squadPlayers,
   isEditing,
-  onPlayerChange
+  onPlayerChange,
+  currentRound,
+  onCopyFromPrevious
 }) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 grid grid-rows-[auto_1fr]">
+    <div className="bg-white rounded-lg shadow-md p-4 grid grid-rows-[auto_auto_1fr]">
       <div className="mb-4">
         <h2 className="text-xl font-bold">
           {squadPlayers[user]?.teamName || `Team ${user}`} (User {user})
@@ -24,6 +26,14 @@ export default function TeamCard({
           </div>
         )}
       </div>
+      {isEditing && currentRound > 1 && (
+        <button
+          onClick={() => onCopyFromPrevious(user)}
+          className="mb-4 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300"
+        >
+          Copy from Round {currentRound - 1}
+        </button>
+      )}
       <div className="grid grid-rows-[repeat(auto-fill,minmax(40px,1fr))] gap-2">
         {POSITION_TYPES.map(position => (
           <div 

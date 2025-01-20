@@ -149,7 +149,7 @@ export default function Squads() {
                         <select
                           value={player.id}
                           onChange={(e) => handlePlayerChange(teamId, player.id, e.target.value)}
-                          className="flex-1 p-1 text-sm border rounded min-w-[200px]"
+                          className="flex-1 p-1 text-sm border rounded"
                         >
                           {Object.values(players)
                             .flat()
@@ -160,19 +160,11 @@ export default function Squads() {
                               </option>
                             ))}
                         </select>
-                        <span className="text-xs text-gray-500 w-16">#{player.id}</span>
-                        <span className="text-xs text-gray-500 w-32">
-                          {player.currentTeam}
-                        </span>
                       </div>
                     ) : (
                       <div className="flex w-full items-center gap-2">
                         <span className="text-xs text-gray-500 w-16">Pick {player.draftPick}</span>
-                        <span className="text-sm flex-1">{player.name}</span>
-                        <span className="text-xs text-gray-600 w-12">#{player.id}</span>
-                        <span className="text-xs text-gray-600 w-24">
-                          {player.currentTeam}
-                        </span>
+                        <span className="text-sm flex-1">{player.name} ({player.currentTeam})</span>
                       </div>
                     )}
                   </div>

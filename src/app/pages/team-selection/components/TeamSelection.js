@@ -76,6 +76,42 @@ export default function TeamSelection() {
     fetchData();
   }, [currentRound]);
 
+  const handleCopyFromPrevious = async (user) => {
+    try {
+      if (currentRound <= 1) return;
+
+      const prevRoundRes = await fetch(`/api/team-selection?year=${CURRENT_YEAR}&round=${currentRound - 1}`);
+      
+      if (!prevRoundRes.ok) {
+        throw new Error('Failed to fetch previous round data');
+      }
+
+      const prevRoundData = await prevRoundRes.json();
+      
+      if (!prevRoundData[user]) {
+        throw new Error('No data found for previous round');
+      }
+
+      setTeamSelection(prev => {
+        const newTeamSelection = { ...prev };
+        
+        // Copy data from previous round for this user
+        newTeamSelection[user] = Object.entries(prevRoundData[user]).reduce((acc, [position, data]) => {
+          acc[position] = {
+            ...data,
+            last_updated: new Date().toISOString()
+          };
+          return acc;
+        }, {});
+
+        return newTeamSelection;
+      });
+    } catch (err) {
+      console.error('Copy from Previous Round Error:', err);
+      setError('Failed to copy from previous round');
+    }
+  };
+
   const handlePlayerChange = (user, position, newPlayerId, backupPosition = null) => {
     setTeamSelection(prev => {
       const newTeamSelection = {...prev};
@@ -311,6 +347,8 @@ export default function TeamSelection() {
             squadPlayers={squadPlayers}
             isEditing={isEditing}
             onPlayerChange={handlePlayerChange}
+            currentRound={currentRound}
+            onCopyFromPrevious={handleCopyFromPrevious}
           />
         ))}
       </div>
