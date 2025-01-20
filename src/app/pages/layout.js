@@ -19,12 +19,11 @@ const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }
   );
 };
 
-export default function Home() {
+export default function PagesLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   
   React.useEffect(() => {
-    // Redirect to round-results if we're at the root
     if (pathname === '/') {
       router.push('/pages/round-results');
     }
@@ -73,7 +72,7 @@ export default function Home() {
 
           {/* Main Content Area */}
           <div className="flex-1 bg-white rounded-lg shadow p-6">
-            {/* Content will be rendered by the page components */}
+            {children}
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { CURRENT_YEAR } from '@/app/lib/config';
+import { POSITION_TYPES, TEAM_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function Squads() {
   const [squads, setSquads] = useState({});
@@ -133,9 +133,9 @@ export default function Squads() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {Object.entries(squads).map(([teamId, team]) => (
-          <div key={teamId} className="bg-white rounded-lg shadow-md p-4 h-[800px] flex flex-col">
+          <div key={teamId} className="bg-white rounded-lg shadow-md p-4 grid grid-rows-[auto_1fr]">
             <h2 className="text-xl font-bold mb-4">{team.teamName}</h2>
-            <div className="space-y-2 flex-1 overflow-y-auto">
+            <div className="grid grid-rows-[repeat(auto-fill,minmax(40px,1fr))] gap-2">
               {team.players
                 .sort((a, b) => a.draftPick - b.draftPick)
                 .map((player) => (

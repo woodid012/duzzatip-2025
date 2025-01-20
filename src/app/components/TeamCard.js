@@ -1,76 +1,65 @@
 'use client'
 
 import React from 'react';
-import { POSITIONS } from '../lib/scoring_rules';
+import { POSITIONS } from '@/app/lib/scoring_rules';
 
-const TeamCard = ({ team }) => {
-  const playerScores = team.players.map(player => ({
-    position: POSITIONS[player.position].name,
-    score: POSITIONS[player.position].calculation(player.stats).total
-  }));
+const getUserName = (userId) => {
+  const userNames = {
+    1: "User 1",
+    2: "User 2",
+    3: "User 3",
+    4: "User 4",
+    5: "User 5",
+    6: "User 6",
+    7: "User 7",
+    8: "User 8"
+  };
+  return userNames[userId] || `User ${userId}`;
+};
 
-  const mainTeamScore = playerScores.reduce((total, player) => total + player.score, 0);
-  const backupScore = POSITIONS[team.bench.backup.position].calculation(team.bench.backup.stats).total;
-  const reserveScores = team.bench.reserves.map(reserve => ({
-    position: POSITIONS[reserve.position].name,
-    score: POSITIONS[reserve.position].calculation(reserve.stats).total
-  }));
-  
-  const deadCerts = 0;
-  const totalScore = mainTeamScore + deadCerts;
+const TeamCard = ({ team, userId }) => {
+  // Early return if team is not provided
+  if (!team) return null;
+
+  // Transform team selection data into player scores
+  const playerScores = Object.entries(team).map(([position, playerData]) => {
+    // Include bench players with their backup position
+    const displayPosition = position === 'Bench' 
+      ? `Bench (${playerData.backup_position || 'No backup set'})`
+      : position;
+    
+    return {
+      position: displayPosition,
+      playerName: playerData.player_name,
+      // We'll need to add score calculation once we have stats data
+      // score: POSITIONS[position].calculation(playerData.stats).total
+      score: 0 // Placeholder until we have stats
+    };
+  }).filter(Boolean); // Remove null entries (bench players)
 
   return (
-    <div className="bg-white rounded-lg p-6 shadow-sm">
-      <h2 className="text-xl font-bold text-center text-gray-800 pb-4 border-b border-gray-200">
-        {team.name}
-      </h2>
-      
-      <div className="space-y-3 mt-4">
-        <div className="grid gap-2">
-          <div className="flex justify-between items-center bg-gray-50 p-3 rounded-md">
-            <span className="text-gray-600">Player Score:</span>
-            <span className="font-bold text-gray-800">{mainTeamScore}</span>
-          </div>
-          <div className="flex justify-between items-center bg-gray-50 p-3 rounded-md">
-            <span className="text-gray-600">Dead Certs:</span>
-            <span className="font-bold text-gray-800">{deadCerts}</span>
-          </div>
-          <div className="flex justify-between items-center bg-blue-50 p-3 rounded-md">
-            <span className="text-gray-600 font-semibold">Total Score:</span>
-            <span className="font-bold text-gray-800">{totalScore}</span>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold text-gray-700 mb-3">Starting Players</h3>
-          <div className="space-y-2">
-            {team.players.map((player, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 bg-gray-50 p-2 rounded-md hover:bg-gray-100 transition-colors">
-                <span className="text-gray-600">{POSITIONS[player.position].name}</span>
-                <span className="text-gray-600">{player.name || '(No name)'}</span>
-                <span className="font-semibold text-gray-800 text-right">{POSITIONS[player.position].calculation(player.stats).total}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold text-gray-700 mb-3">Bench</h3>
-          <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-2 bg-gray-50 p-2 rounded-md">
-              <span className="text-gray-600">{POSITIONS[team.bench.backup.position].name}</span>
-              <span className="text-gray-600">{team.bench.backup.name || '(No name)'}</span>
-              <span className="font-semibold text-gray-800 text-right">{backupScore}</span>
+    <div className="flex-1 bg-white p-4 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4 text-gray-800">{getUserName(userId)}</h3>
+      <div className="space-y-4">
+        {playerScores.map((player, index) => (
+          <div key={index} className="flex justify-between items-center">
+            <div>
+              <div className="text-sm font-medium text-gray-600">{player.position}</div>
+              <div className="text-sm text-gray-900">{player.playerName || 'No player selected'}</div>
             </div>
-            {team.bench.reserves.map((reserve, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 bg-gray-50 p-2 rounded-md">
-                <span className="text-gray-600">{POSITIONS[reserve.position].name}</span>
-                <span className="text-gray-600">{reserve.name || '(No name)'}</span>
-                <span className="font-semibold text-gray-800 text-right">
-                  {POSITIONS[reserve.position].calculation(reserve.stats).total}
-                </span>
-              </div>
-            ))}
+            <div className="text-sm font-medium text-gray-900">
+              {player.score}
+            </div>
+          </div>
+        ))}
+
+        {/* Summary section */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex justify-between items-center">
+            <span className="font-medium text-gray-700">Total Score</span>
+            <span className="font-bold text-gray-900">
+              {playerScores.reduce((sum, player) => sum + player.score, 0)}
+            </span>
           </div>
         </div>
       </div>

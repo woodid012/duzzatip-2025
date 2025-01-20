@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import { CURRENT_YEAR } from '@/app/lib/config';
+import {CURRENT_YEAR } from '@/app/lib/constants';
 
 const MONGODB_URI = "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
 
