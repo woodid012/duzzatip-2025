@@ -1,0 +1,678 @@
+player_id,player_name,club_name,club_id
+116,Taylor Walker,Adelaide Crows,1
+122,Brodie Smith,Adelaide Crows,1
+806,Chris Burgess,Adelaide Crows,1
+979,Rory Laird,Adelaide Crows,1
+980,Matthew Crouch,Adelaide Crows,1
+981,Reilly O'Brien,Adelaide Crows,1
+982,Jordan Dawson,Adelaide Crows,1
+983,Ben Keays,Adelaide Crows,1
+984,Wayne Milera,Adelaide Crows,1
+985,Mitchell Hinge,Adelaide Crows,1
+986,Darcy Fogarty,Adelaide Crows,1
+987,Lachlan Murphy,Adelaide Crows,1
+988,Ned McHenry,Adelaide Crows,1
+989,Mark Keane,Adelaide Crows,1
+990,Izak Rankine,Adelaide Crows,1
+992,Josh Worrell,Adelaide Crows,1
+993,Sam Berry,Adelaide Crows,1
+995,Luke Pedlar,Adelaide Crows,1
+996,Lachlan Gollant,Adelaide Crows,1
+997,Joshua Rachele,Adelaide Crows,1
+998,Jake Soligo,Adelaide Crows,1
+999,Patrick Parnell,Adelaide Crows,1
+1000,James Borlase,Adelaide Crows,1
+1001,Max Michalanney,Adelaide Crows,1
+1002,Luke Nankervis,Adelaide Crows,1
+1531,Elliott Himmelberg,Adelaide Crows,1
+1534,Chayce Jones,Adelaide Crows,1
+1580,William Hamill,Adelaide Crows,1
+1603,Lachlan Sholl,Adelaide Crows,1
+1615,Jordon Butts,Adelaide Crows,1
+1661,Brayden Cook,Adelaide Crows,1
+1777,Billy Dowling,Adelaide Crows,1
+1788,Daniel Curtin,Adelaide Crows,1
+1813,Kieran Strachan,Adelaide Crows,1
+1814,Harry Schoenberg,Adelaide Crows,1
+1819,Zac Taylor,Adelaide Crows,1
+1822,Jack Hutchinson,Adelaide Crows,1
+1845,Zac Taylor,Adelaide Crows,1
+1846,Joel Freijah,Adelaide Crows,1
+144,Ryan Lester,Brisbane Lions,2
+682,Lachie Neale,Brisbane Lions,2
+697,Jarryd Lyons,Brisbane Lions,2
+707,Dayne Zorko,Brisbane Lions,2
+719,Lincoln McCarthy,Brisbane Lions,2
+867,Joe Daniher,Brisbane Lions,2
+868,Charlie Cameron,Brisbane Lions,2
+869,Darcy Gardiner,Brisbane Lions,2
+870,Harris Andrews,Brisbane Lions,2
+871,Conor McKenna,Brisbane Lions,2
+872,Eric Hipwood,Brisbane Lions,2
+873,Callum Ah Chee,Brisbane Lions,2
+874,Josh Dunkley,Brisbane Lions,2
+875,Hugh McCluggage,Brisbane Lions,2
+876,Jarrod Berry,Brisbane Lions,2
+877,Oscar McInerney,Brisbane Lions,2
+878,Jack Payne,Brisbane Lions,2
+879,Cameron Rayner,Brisbane Lions,2
+880,Brandon Starcevich,Brisbane Lions,2
+881,Zac Bailey,Brisbane Lions,2
+882,Darcy Fort,Brisbane Lions,2
+883,Deven Robertson,Brisbane Lions,2
+884,Keidean Coleman,Brisbane Lions,2
+885,Harry Sharp,Brisbane Lions,2
+886,Kai Lohmann,Brisbane Lions,2
+887,Darcy Wilmot,Brisbane Lions,2
+888,Jaspa Fletcher,Brisbane Lions,2
+1519,Darragh Joyce,Brisbane Lions,2
+1546,Noah Answerth,Brisbane Lions,2
+1629,Jaxon Prior,Brisbane Lions,2
+1689,James Tunstill,Brisbane Lions,2
+1769,Logan Morris,Brisbane Lions,2
+1786,Henry Smith,Brisbane Lions,2
+1791,Bruce Reville,Brisbane Lions,2
+1803,Shadeau Brain,Brisbane Lions,2
+1830,Will Ashcroft,Brisbane Lions,2
+1096,Patrick Cripps,Carlton Blues,3
+1097,Blake Acres,Carlton Blues,3
+1098,George Hewett,Carlton Blues,3
+1099,Adam Saad,Carlton Blues,3
+1100,Marc Pittonet,Carlton Blues,3
+1101,Caleb Marchbank,Carlton Blues,3
+1102,Charlie Curnow,Carlton Blues,3
+1103,Harry McKay,Carlton Blues,3
+1104,Jacob Weitering,Carlton Blues,3
+1105,Mitch McGovern,Carlton Blues,3
+1106,David Cuningham,Carlton Blues,3
+1107,Nic Newman,Carlton Blues,3
+1109,Adam Cerra,Carlton Blues,3
+1111,Lachie Fogarty,Carlton Blues,3
+1112,Tom De Koning,Carlton Blues,3
+1113,Matthew Owies,Carlton Blues,3
+1114,Sam Walsh,Carlton Blues,3
+1115,Matthew Cottrell,Carlton Blues,3
+1116,Brodie Kemp,Carlton Blues,3
+1117,Corey Durdin,Carlton Blues,3
+1119,Alex Cincotta,Carlton Blues,3
+1120,Oliver Hollands,Carlton Blues,3
+1210,Sam Docherty,Carlton Blues,3
+1214,Zachary Williams,Carlton Blues,3
+1317,Orazio Fantasia,Carlton Blues,3
+1408,Matthew Kennedy,Carlton Blues,3
+1435,Sam Durdin,Carlton Blues,3
+1463,Lewis Young,Carlton Blues,3
+1672,Jordan Boyd,Carlton Blues,3
+1677,Jack Carroll,Carlton Blues,3
+1699,Elijah Hollands,Carlton Blues,3
+1707,Lachlan Cowan,Carlton Blues,3
+1738,Jaxon Binns,Carlton Blues,3
+1781,Hudson O'Keeffe,Carlton Blues,3
+1792,Jack Martin,Carlton Blues,3
+1824,Jesse Motlop,Carlton Blues,3
+1866,Ashton Moir,Carlton Blues,3
+1868,Cooper Lord,Carlton Blues,3
+1869,Harry Lemmey,Carlton Blues,3
+1870,Billy Wilson,Carlton Blues,3
+156,Scott Pendlebury,Collingwood Magpies,4
+164,Steele Sidebottom,Collingwood Magpies,4
+537,Jeremy Howe,Collingwood Magpies,4
+643,Will Hoskin-Elliott,Collingwood Magpies,4
+686,Jack Crisp,Collingwood Magpies,4
+715,Jamie Elliott,Collingwood Magpies,4
+751,Tom Mitchell,Collingwood Magpies,4
+753,Jordan de Goey,Collingwood Magpies,4
+754,Mason Cox,Collingwood Magpies,4
+755,Brayden Maynard,Collingwood Magpies,4
+756,Oleg Markov,Collingwood Magpies,4
+757,Josh Daicos,Collingwood Magpies,4
+758,Darcy Cameron,Collingwood Magpies,4
+759,Patrick Lipinski,Collingwood Magpies,4
+760,Billy Frampton,Collingwood Magpies,4
+761,Brody Mihocek,Collingwood Magpies,4
+762,Isaac Quaynor,Collingwood Magpies,4
+763,Ian Hill,Collingwood Magpies,4
+764,John Noble,Collingwood Magpies,4
+765,Finlay Macrae,Collingwood Magpies,4
+767,Reef McInnes,Collingwood Magpies,4
+851,Lachlan Schultz,Collingwood Magpies,4
+1363,Darcy Moore,Collingwood Magpies,4
+1607,Jack Bytel,Collingwood Magpies,4
+1632,Beau McCreery,Collingwood Magpies,4
+1665,Nick Daicos,Collingwood Magpies,4
+1697,Ash Johnson,Collingwood Magpies,4
+1725,Harvey Harrison,Collingwood Magpies,4
+1743,Charlie Dean,Collingwood Magpies,4
+1774,Joe Richards,Collingwood Magpies,4
+1784,Lachlan Sullivan,Collingwood Magpies,4
+1797,Edward Allan,Collingwood Magpies,4
+1798,Aiden Begg,Collingwood Magpies,4
+1799,Nathan Kreuger,Collingwood Magpies,4
+1816,Wil Parker,Collingwood Magpies,4
+1817,Tew Jiath,Collingwood Magpies,4
+1838,Ned Long,Collingwood Magpies,4
+1854,Daniel McStay,Collingwood Magpies,4
+1864,Harry DeMattia,Collingwood Magpies,4
+297,Dyson Heppell,Essendon Bombers,5
+355,Todd Goldstein,Essendon Bombers,5
+723,Zach Merrett,Essendon Bombers,5
+724,Kyle Langford,Essendon Bombers,5
+726,Jayden Laverde,Essendon Bombers,5
+728,Darcy Parish,Essendon Bombers,5
+730,Mason Redman,Essendon Bombers,5
+731,Sam Weideman,Essendon Bombers,5
+733,Andrew McGrath,Essendon Bombers,5
+734,Will Setterfield,Essendon Bombers,5
+737,Nick Hind,Essendon Bombers,5
+740,Nikolas Cox,Essendon Bombers,5
+741,Archie Perkins,Essendon Bombers,5
+742,Sam Durham,Essendon Bombers,5
+744,Ben Hobbs,Essendon Bombers,5
+745,Nicholas Martin,Essendon Bombers,5
+746,Jye Menzie,Essendon Bombers,5
+747,Alwyn Davey Jnr,Essendon Bombers,5
+750,Elijah Tsatas,Essendon Bombers,5
+774,Ben McKay,Essendon Bombers,5
+899,Jade Gresham,Essendon Bombers,5
+1016,Xavier Duursma,Essendon Bombers,5
+1209,Jake Stringer,Essendon Bombers,5
+1342,Jake Kelly,Essendon Bombers,5
+1360,Peter Wright,Essendon Bombers,5
+1487,Matt Guelfi,Essendon Bombers,5
+1567,Jye Caldwell,Essendon Bombers,5
+1597,Sam Draper,Essendon Bombers,5
+1624,Harrison Jones,Essendon Bombers,5
+1638,Zach Reid,Essendon Bombers,5
+1775,Nate Caddy,Essendon Bombers,5
+1779,Archie Roberts,Essendon Bombers,5
+1780,Jayden Davey,Essendon Bombers,5
+1794,Dylan Shiel,Essendon Bombers,5
+1804,Nick Bryan,Essendon Bombers,5
+1821,Jordan Ridley,Essendon Bombers,5
+147,Michael Walters,Fremantle Dockers,6
+155,Nathan Fyfe,Fremantle Dockers,6
+749,Patrick Voss,Fremantle Dockers,6
+844,James Aish,Fremantle Dockers,6
+845,Alex Pearce,Fremantle Dockers,6
+847,Brennan Cox,Fremantle Dockers,6
+848,Luke Ryan,Fremantle Dockers,6
+849,Andrew Brayshaw,Fremantle Dockers,6
+850,Sam Switkowski,Fremantle Dockers,6
+852,Sam Sturt,Fremantle Dockers,6
+853,Jordan Clark,Fremantle Dockers,6
+854,Luke Jackson,Fremantle Dockers,6
+855,Minairo Frederick,Fremantle Dockers,6
+856,Caleb Serong,Fremantle Dockers,6
+857,Hayden Young,Fremantle Dockers,6
+859,Josh Treacy,Fremantle Dockers,6
+861,Neil Erasmus,Fremantle Dockers,6
+862,Karl Worner,Fremantle Dockers,6
+863,Jye Amiss,Fremantle Dockers,6
+864,Matthew Johnson,Fremantle Dockers,6
+865,Liam Reidy,Fremantle Dockers,6
+866,Tom Emmett,Fremantle Dockers,6
+1183,Jaeger O'Meara,Fremantle Dockers,6
+1238,Matthew Taberner,Fremantle Dockers,6
+1378,Oscar McDonald,Fremantle Dockers,6
+1382,Ethan Hughes,Fremantle Dockers,6
+1452,Will Brodie,Fremantle Dockers,6
+1457,Sean Darcy,Fremantle Dockers,6
+1474,Bailey Banfield,Fremantle Dockers,6
+1605,Jeremy Sharp,Fremantle Dockers,6
+1631,Heath Chapman,Fremantle Dockers,6
+1651,Brandon Walker,Fremantle Dockers,6
+1760,Cooper Simpson,Fremantle Dockers,6
+1761,Joshua Draper,Fremantle Dockers,6
+1772,Hugh Davies,Fremantle Dockers,6
+1793,Corey Wagner,Fremantle Dockers,6
+1860,Nathan O'Driscoll,Fremantle Dockers,6
+54,Mitchell Duncan,Geelong Cats,7
+68,Tom Hawkins,Geelong Cats,7
+78,Cameron Guthrie,Geelong Cats,7
+127,Patrick Dangerfield,Geelong Cats,7
+326,Gary Rohan,Geelong Cats,7
+423,Rhys Stanley,Geelong Cats,7
+552,Zach Tuohy,Geelong Cats,7
+648,Jeremy Cameron,Geelong Cats,7
+916,Jake Kolodjashnij,Geelong Cats,7
+917,Zach Guthrie,Geelong Cats,7
+918,Brandan Parfitt,Geelong Cats,7
+919,Tom Stewart,Geelong Cats,7
+920,Jack Bowes,Geelong Cats,7
+921,Tyson Stengle,Geelong Cats,7
+922,Mark O'Connor,Geelong Cats,7
+924,Gryan Miers,Geelong Cats,7
+925,Tom Atkins,Geelong Cats,7
+926,Oliver Henry,Geelong Cats,7
+927,Sam De Koning,Geelong Cats,7
+928,Shannon Neale,Geelong Cats,7
+929,Max Holmes,Geelong Cats,7
+930,Oliver Dempsey,Geelong Cats,7
+931,Mitch Knevitt,Geelong Cats,7
+932,Toby Conway,Geelong Cats,7
+934,Oisin Mullin,Geelong Cats,7
+1196,Mark Blicavs,Geelong Cats,7
+1485,Jack Henry,Geelong Cats,7
+1595,Bradley Close,Geelong Cats,7
+1626,Tanner Bruhn,Geelong Cats,7
+1721,Jhye Clark,Geelong Cats,7
+1750,Shaun Mannagh,Geelong Cats,7
+1778,Connor O'Sullivan,Geelong Cats,7
+1834,Lawson Humphries,Geelong Cats,7
+1839,Jed Bews,Geelong Cats,7
+1851,Ted Clohesy,Geelong Cats,7
+1865,Mitch Hardie,Geelong Cats,7
+498,Jack Gunston,Hawthorn Hawks,8
+509,Luke Breust,Hawthorn Hawks,8
+766,Jack Ginnivan,Hawthorn Hawks,8
+801,Mabior Chol,Hawthorn Hawks,8
+818,James Sicily,Hawthorn Hawks,8
+819,Karl Amon,Hawthorn Hawks,8
+820,Jarman Impey,Hawthorn Hawks,8
+821,Blake Hardwick,Hawthorn Hawks,8
+822,Harry Morrison,Hawthorn Hawks,8
+823,Connor Nash,Hawthorn Hawks,8
+824,Jack Scrimshaw,Hawthorn Hawks,8
+825,Lloyd Meek,Hawthorn Hawks,8
+826,James Worpel,Hawthorn Hawks,8
+827,Dylan Moore,Hawthorn Hawks,8
+829,Will Day,Hawthorn Hawks,8
+830,Finn Maginness,Hawthorn Hawks,8
+832,Ned Reeves,Hawthorn Hawks,8
+833,Jai Newcombe,Hawthorn Hawks,8
+834,Connor Macdonald,Hawthorn Hawks,8
+835,Seamus Mitchell,Hawthorn Hawks,8
+836,Josh Ward,Hawthorn Hawks,8
+838,Jai Serong,Hawthorn Hawks,8
+839,Henry Hustwaite,Hawthorn Hawks,8
+840,Cam Mackenzie,Hawthorn Hawks,8
+841,Josh Weddle,Hawthorn Hawks,8
+1163,Sam Frost,Hawthorn Hawks,8
+1505,Mitch Lewis,Hawthorn Hawks,8
+1684,Sam Butler,Hawthorn Hawks,8
+1693,Massimo D'Ambrosio,Hawthorn Hawks,8
+1720,Max Ramsden,Hawthorn Hawks,8
+1745,Ethan Phillips,Hawthorn Hawks,8
+1746,Nick Watson,Hawthorn Hawks,8
+1790,Calsher Dear,Hawthorn Hawks,8
+1811,Changkuoth Jiath,Hawthorn Hawks,8
+475,Steven May,Melbourne Demons,9
+538,Max Gawn,Melbourne Demons,9
+630,Tom McDonald,Melbourne Demons,9
+655,Adam Tomlinson,Melbourne Demons,9
+894,Jack Billings,Melbourne Demons,9
+1074,Jack Viney,Melbourne Demons,9
+1075,Lachlan Hunter,Melbourne Demons,9
+1076,Christian Salem,Melbourne Demons,9
+1078,Jake Lever,Melbourne Demons,9
+1079,Alex Neal-Bullen,Melbourne Demons,9
+1080,Ed Langdon,Melbourne Demons,9
+1081,Clayton Oliver,Melbourne Demons,9
+1082,Christian Petracca,Melbourne Demons,9
+1084,Bayley Fritsch,Melbourne Demons,9
+1085,Kade Chandler,Melbourne Demons,9
+1086,Tom Sparrow,Melbourne Demons,9
+1087,Kysaiah Pickett,Melbourne Demons,9
+1088,Trent Rivers,Melbourne Demons,9
+1089,Jake Bowey,Melbourne Demons,9
+1090,Bailey Laurie,Melbourne Demons,9
+1091,Judd McVee,Melbourne Demons,9
+1092,Daniel Turner,Melbourne Demons,9
+1093,Jacob van Rooyen,Melbourne Demons,9
+1094,Taj Woewodin,Melbourne Demons,9
+1306,Ben Brown,Melbourne Demons,9
+1386,Josh Schache,Melbourne Demons,9
+1493,Charlie Spargo,Melbourne Demons,9
+1520,Harrison Petty,Melbourne Demons,9
+1535,Marty Hore,Melbourne Demons,9
+1613,Thomas Fullarton,Melbourne Demons,9
+1736,Blake Howes,Melbourne Demons,9
+1737,Caleb Windsor,Melbourne Demons,9
+1755,Koltyn Tholstrup,Melbourne Demons,9
+1812,Shane McAdam,Melbourne Demons,9
+1827,Kynan Brown,Melbourne Demons,9
+1842,Jake Melksham,Melbourne Demons,9
+1843,Andy Moniz-Wakefield,Melbourne Demons,9
+1861,Matthew Jefferson,Melbourne Demons,9
+213,Liam Shiels,North Melbourne Kangaroos,10
+770,Aidan Corr,North Melbourne Kangaroos,10
+773,Darcy Tucker,North Melbourne Kangaroos,10
+775,Nick Larkey,North Melbourne Kangaroos,10
+776,Jy Simpkin,North Melbourne Kangaroos,10
+777,Hugh Greenwood,North Melbourne Kangaroos,10
+779,Tristan Xerri,North Melbourne Kangaroos,10
+780,Bailey Scott,North Melbourne Kangaroos,10
+785,Eddie Ford,North Melbourne Kangaroos,10
+786,Charlie Lazzaro,North Melbourne Kangaroos,10
+787,Will Phillips,North Melbourne Kangaroos,10
+788,Tom Powell,North Melbourne Kangaroos,10
+789,Miller Bergman,North Melbourne Kangaroos,10
+790,Paul Curtis,North Melbourne Kangaroos,10
+791,Joshua Goater,North Melbourne Kangaroos,10
+792,Kallan Dawson,North Melbourne Kangaroos,10
+793,Harry Sheezel,North Melbourne Kangaroos,10
+794,Blake Drury,North Melbourne Kangaroos,10
+1068,Dylan Stephens,North Melbourne Kangaroos,10
+1108,Zac Fisher,North Melbourne Kangaroos,10
+1270,Luke McDonald,North Melbourne Kangaroos,10
+1462,Cameron Zurhaar,North Melbourne Kangaroos,10
+1475,Luke Davies-Uniacke,North Melbourne Kangaroos,10
+1477,Jaidyn Stephenson,North Melbourne Kangaroos,10
+1552,Callum Coleman-Jones,North Melbourne Kangaroos,10
+1662,Charlie Comben,North Melbourne Kangaroos,10
+1685,Bigoa Nyuon,North Melbourne Kangaroos,10
+1701,Jackson Archer,North Melbourne Kangaroos,10
+1724,George Wardlaw,North Melbourne Kangaroos,10
+1733,Robert Hansen Jr,North Melbourne Kangaroos,10
+1747,Toby Pink,North Melbourne Kangaroos,10
+1748,Colby McKercher,North Melbourne Kangaroos,10
+1749,Zane Duursma,North Melbourne Kangaroos,10
+1770,Tyler Sellers,North Melbourne Kangaroos,10
+1787,Riley Hardeman,North Melbourne Kangaroos,10
+1808,Curtis Taylor,North Melbourne Kangaroos,10
+1809,Wil Dawson,North Melbourne Kangaroos,10
+1832,Brynn Teakle,North Melbourne Kangaroos,10
+1855,Griffin Logue,North Melbourne Kangaroos,10
+104,Travis Boak,Port Adelaide Power,11
+361,Charlie Dixon,Port Adelaide Power,11
+381,Trent McKenzie,Port Adelaide Power,11
+736,Brandon Zerk-Thatcher,Port Adelaide Power,11
+947,Jordon Sweet,Port Adelaide Power,11
+1003,Oliver Wines,Port Adelaide Power,11
+1004,Darcy Byrne-Jones,Port Adelaide Power,11
+1005,Aliir Aliir,Port Adelaide Power,11
+1006,Jeremy Finlayson,Port Adelaide Power,11
+1007,Ryan Burton,Port Adelaide Power,11
+1008,Willem Drew,Port Adelaide Power,11
+1009,Dan Houston,Port Adelaide Power,11
+1010,Sam Powell-Pepper,Port Adelaide Power,11
+1011,Todd Marshall,Port Adelaide Power,11
+1012,Willie Rioli,Port Adelaide Power,11
+1013,Kane Farrell,Port Adelaide Power,11
+1015,Zak Butters,Port Adelaide Power,11
+1017,Connor Rozee,Port Adelaide Power,11
+1019,Dylan Williams,Port Adelaide Power,11
+1020,Miles Bergman,Port Adelaide Power,11
+1021,Francis Evans,Port Adelaide Power,11
+1022,Lachlan Jones,Port Adelaide Power,11
+1023,Jed McEntee,Port Adelaide Power,11
+1024,Dante Visentini,Port Adelaide Power,11
+1025,Jason Horne-Francis,Port Adelaide Power,11
+1033,Ivan Soldo,Port Adelaide Power,11
+1269,Tom Clurey,Port Adelaide Power,11
+1480,Esava Ratugolea,Port Adelaide Power,11
+1576,Mitchell Georgiades,Port Adelaide Power,11
+1667,Jackson Mead,Port Adelaide Power,11
+1669,Josh Sinn,Port Adelaide Power,11
+1691,Jase Burgoyne,Port Adelaide Power,11
+1815,Tom Anastasopoulos,Port Adelaide Power,11
+1825,Ollie Lord,Port Adelaide Power,11
+1828,Quinton Narkle,Port Adelaide Power,11
+1835,Will Lorenz,Port Adelaide Power,11
+1847,Logan Evans,Port Adelaide Power,11
+41,Dustin Martin,Richmond Tigers,12
+385,Dion Prestia,Richmond Tigers,12
+415,Dylan Grimes,Richmond Tigers,12
+486,Thomas Lynch,Richmond Tigers,12
+828,Jacob Koschitzke,Richmond Tigers,12
+1027,Kamdyn McIntosh,Richmond Tigers,12
+1028,Nick Vlastuin,Richmond Tigers,12
+1029,Toby Nankervis,Richmond Tigers,12
+1030,Jayden Short,Richmond Tigers,12
+1031,Nathan Broad,Richmond Tigers,12
+1032,Daniel Rioli,Richmond Tigers,12
+1034,Jacob Hopper,Richmond Tigers,12
+1035,Tim Taranto,Richmond Tigers,12
+1036,Shai Bolton,Richmond Tigers,12
+1037,Jack Graham,Richmond Tigers,12
+1038,Liam Baker,Richmond Tigers,12
+1039,Noah Balta,Richmond Tigers,12
+1040,Ben Miller,Richmond Tigers,12
+1041,Jack Ross,Richmond Tigers,12
+1042,Marlion Pickett,Richmond Tigers,12
+1043,Thomson Dow,Richmond Tigers,12
+1044,Rhyan Mansell,Richmond Tigers,12
+1045,Maurice Rioli,Richmond Tigers,12
+1046,Tom Brown,Richmond Tigers,12
+1047,Sam Banks,Richmond Tigers,12
+1048,Tylar Young,Richmond Tigers,12
+1050,James Trezise,Richmond Tigers,12
+1327,Sam Naismith,Richmond Tigers,12
+1645,Hugo Ralphsmith,Richmond Tigers,12
+1653,Samson Ryan,Richmond Tigers,12
+1664,Joshua Gibcus,Richmond Tigers,12
+1687,Noah Cumberland,Richmond Tigers,12
+1688,Judson Clarke,Richmond Tigers,12
+1698,Tyler Sonsie,Richmond Tigers,12
+1740,Steely Green,Richmond Tigers,12
+1741,Seth Campbell,Richmond Tigers,12
+1764,Mykelti Lefau,Richmond Tigers,12
+1767,Kane McAuliffe,Richmond Tigers,12
+1810,Kaleb Smith,Richmond Tigers,12
+1836,Jacob Blight,Richmond Tigers,12
+1852,Matthew Coulthard,Richmond Tigers,12
+1862,Jacob Bauer,Richmond Tigers,12
+689,Bradley Hill,St Kilda Saints,13
+858,Liam Henry,St Kilda Saints,13
+889,Jimmy Webster,St Kilda Saints,13
+890,Tom Campbell,St Kilda Saints,13
+891,Brad Crouch,St Kilda Saints,13
+892,Mason Wood,St Kilda Saints,13
+893,Tim Membrey,St Kilda Saints,13
+895,Dan Butler,St Kilda Saints,13
+896,Jack Steele,St Kilda Saints,13
+897,Jack Sinclair,St Kilda Saints,13
+898,Zaine Cordy,St Kilda Saints,13
+900,Josh Battle,St Kilda Saints,13
+901,Rowan Marshall,St Kilda Saints,13
+902,Jack Higgins,St Kilda Saints,13
+905,Liam Stocker,St Kilda Saints,13
+906,Callum Wilkie,St Kilda Saints,13
+907,Ryan Byrnes,St Kilda Saints,13
+908,Cooper Sharman,St Kilda Saints,13
+909,Jack Hayes,St Kilda Saints,13
+910,Mitch Owens,St Kilda Saints,13
+911,Nasiah Wanganeen-Milera,St Kilda Saints,13
+912,Marcus Windhager,St Kilda Saints,13
+913,Mattaes Phillipou,St Kilda Saints,13
+1179,Seb Ross,St Kilda Saints,13
+1305,Zak Jones,St Kilda Saints,13
+1388,Dougal Howard,St Kilda Saints,13
+1423,Riley Bonner,St Kilda Saints,13
+1578,Max King,St Kilda Saints,13
+1711,Anthony Caminiti,St Kilda Saints,13
+1751,Darcy Wilson,St Kilda Saints,13
+1752,Arie Schoenmaker,St Kilda Saints,13
+1753,Lance Collard,St Kilda Saints,13
+1754,Hugo Garcia,St Kilda Saints,13
+1765,Angus Hastie,St Kilda Saints,13
+1801,Paddy Dow,St Kilda Saints,13
+1802,Ben Paton,St Kilda Saints,13
+1820,Hunter Clark,St Kilda Saints,13
+1849,Max Heath,St Kilda Saints,13
+1850,Angus McLennan,St Kilda Saints,13
+505,Luke Parker,Sydney Swans,14
+658,Harry Cunningham,Sydney Swans,14
+694,Taylor Adams,Sydney Swans,14
+843,Joel Hamling,Sydney Swans,14
+1051,Jake Lloyd,Sydney Swans,14
+1052,Dane Rampe,Sydney Swans,14
+1053,Isaac Heeney,Sydney Swans,14
+1054,Lewis Melican,Sydney Swans,14
+1056,Tom Papley,Sydney Swans,14
+1058,Aaron Francis,Sydney Swans,14
+1059,Oliver Florent,Sydney Swans,14
+1060,Robbie Fox,Sydney Swans,14
+1061,Will Hayward,Sydney Swans,14
+1062,Tom McCartin,Sydney Swans,14
+1063,Joel Amartey,Sydney Swans,14
+1064,Nick Blakey,Sydney Swans,14
+1065,James Rowbottom,Sydney Swans,14
+1066,Samuel Wicks,Sydney Swans,14
+1067,Hayden McLean,Sydney Swans,14
+1069,Chad Warner,Sydney Swans,14
+1070,Braeden Campbell,Sydney Swans,14
+1071,Errol Gulden,Sydney Swans,14
+1072,Logan McDonald,Sydney Swans,14
+1073,Matty Roberts,Sydney Swans,14
+1250,Brodie Grundy,Sydney Swans,14
+1541,Justin McInerney,Sydney Swans,14
+1551,Peter Ladhams,Sydney Swans,14
+1622,James Jordon,Sydney Swans,14
+1666,Angus Sheldrick,Sydney Swans,14
+1716,Corey Warner,Sydney Swans,14
+1744,Caleb Mitchell,Sydney Swans,14
+1768,Jacob Konstanty,Sydney Swans,14
+1782,Caiden Cleary,Sydney Swans,14
+1831,Lachlan McAndrew,Sydney Swans,14
+1848,Callum Mills,Sydney Swans,14
+1853,Sam Reid,Sydney Swans,14
+286,Jack Darling,West Coast Eagles,15
+338,Andrew Gaff,West Coast Eagles,15
+468,Jamie Cripps,West Coast Eagles,15
+717,Elliot Yeo,West Coast Eagles,15
+831,Tyler Brockman,West Coast Eagles,15
+958,Jeremy McGovern,West Coast Eagles,15
+959,Jayden Hunt,West Coast Eagles,15
+960,Liam Duggan,West Coast Eagles,15
+961,Tom Cole,West Coast Eagles,15
+962,Josh Rotham,West Coast Eagles,15
+963,Alex Witherden,West Coast Eagles,15
+965,Jamaine Jones,West Coast Eagles,15
+966,Tim Kelly,West Coast Eagles,15
+967,Oscar Allen,West Coast Eagles,15
+968,Jack Petruccelle,West Coast Eagles,15
+969,Bailey J. Williams,West Coast Eagles,15
+971,Luke Edwards,West Coast Eagles,15
+972,Brady Hough,West Coast Eagles,15
+973,Jack Williams,West Coast Eagles,15
+975,Campbell Chesser,West Coast Eagles,15
+977,Noah Long,West Coast Eagles,15
+978,Ryan Maric,West Coast Eagles,15
+1281,Dom Sheed,West Coast Eagles,15
+1370,Tom Barrass,West Coast Eagles,15
+1481,Liam Ryan,West Coast Eagles,15
+1482,Jake Waterman,West Coast Eagles,15
+1600,Harry Edwards,West Coast Eagles,15
+1671,Callum Jamieson,West Coast Eagles,15
+1696,Jai Culley,West Coast Eagles,15
+1708,Reuben Ginbey,West Coast Eagles,15
+1728,Harry Barnett,West Coast Eagles,15
+1758,Tyrell Dewar,West Coast Eagles,15
+1759,Harley Reid,West Coast Eagles,15
+1766,Harvey Johnston,West Coast Eagles,15
+1771,Loch Rawlinson,West Coast Eagles,15
+1818,Zane Trew,West Coast Eagles,15
+1837,Jack Hutchinson,West Coast Eagles,15
+1857,Archer Reid,West Coast Eagles,15
+1859,Clay Hall,West Coast Eagles,15
+230,Liam Jones,Western Bulldogs,16
+309,Thomas Liberatore,Western Bulldogs,16
+679,Adam Treloar,Western Bulldogs,16
+904,Nick Coffield,Western Bulldogs,16
+936,Rory Lobb,Western Bulldogs,16
+937,Marcus Bontempelli,Western Bulldogs,16
+938,Bailey Dale,Western Bulldogs,16
+939,Caleb Daniel,Western Bulldogs,16
+941,Bailey Williams,Western Bulldogs,16
+942,Timothy English,Western Bulldogs,16
+943,Alex Keath,Western Bulldogs,16
+944,Aaron Naughton,Western Bulldogs,16
+945,Oskar Baker,Western Bulldogs,16
+946,Ed Richards,Western Bulldogs,16
+948,Laitham Vandermeer,Western Bulldogs,16
+949,Rhylee West,Western Bulldogs,16
+950,Cody Weightman,Western Bulldogs,16
+951,Riley Garcia,Western Bulldogs,16
+952,Caleb Poulter,Western Bulldogs,16
+953,Lachlan McNeil,Western Bulldogs,16
+955,Jamarra Ugle-Hagan,Western Bulldogs,16
+957,James O'Donnell,Western Bulldogs,16
+1169,Jason Johannissen,Western Bulldogs,16
+1204,Taylor Duryea,Western Bulldogs,16
+1206,Jackson Macrae,Western Bulldogs,16
+1365,James Harmes,Western Bulldogs,16
+1644,Buku Khamis,Western Bulldogs,16
+1652,Lachlan Bramble,Western Bulldogs,16
+1702,Sam Darcy,Western Bulldogs,16
+1714,Arthur Jones,Western Bulldogs,16
+1756,Ryley Sanders,Western Bulldogs,16
+1757,Harvey Gallagher,Western Bulldogs,16
+1789,Charlie Clarke,Western Bulldogs,16
+1805,Anthony Scott,Western Bulldogs,16
+1806,Luke Cleary,Western Bulldogs,16
+1807,Joel Freijah,Western Bulldogs,16
+1823,Jedd Busslinger,Western Bulldogs,16
+384,David Swallow,Gold Coast Suns,17
+488,Sam Day,Gold Coast Suns,17
+659,Brandon Ellis,Gold Coast Suns,17
+710,Alex Sexton,Gold Coast Suns,17
+795,Levi Casboult,Gold Coast Suns,17
+796,Jarrod Witts,Gold Coast Suns,17
+797,Rory Atkins,Gold Coast Suns,17
+799,Touk Miller,Gold Coast Suns,17
+800,Sam Collins,Gold Coast Suns,17
+802,Darcy MacPherson,Gold Coast Suns,17
+803,Brayden Fiorini,Gold Coast Suns,17
+804,Ben Ainsworth,Gold Coast Suns,17
+805,Charlie Ballard,Gold Coast Suns,17
+807,Noah Anderson,Gold Coast Suns,17
+808,Connor Budarick,Gold Coast Suns,17
+809,Matthew Rowell,Gold Coast Suns,17
+810,Sam Flanders,Gold Coast Suns,17
+811,Malcolm Rosas,Gold Coast Suns,17
+813,Ned Moyle,Gold Coast Suns,17
+815,Mac Andrew,Gold Coast Suns,17
+1322,Nick Holman,Gold Coast Suns,17
+1440,Ben Long,Gold Coast Suns,17
+1517,Wil Powell,Gold Coast Suns,17
+1538,Jack Lukosius,Gold Coast Suns,17
+1550,Ben King,Gold Coast Suns,17
+1579,Thomas Berry,Gold Coast Suns,17
+1659,Joel Jeffrey,Gold Coast Suns,17
+1710,Bodhi Uwland,Gold Coast Suns,17
+1715,Bailey Humphrey,Gold Coast Suns,17
+1739,Will Graham,Gold Coast Suns,17
+1762,Sam Clohesy,Gold Coast Suns,17
+1763,Jed Walter,Gold Coast Suns,17
+1773,Ethan Read,Gold Coast Suns,17
+1783,Jake Rogers,Gold Coast Suns,17
+1795,Alex Davies,Gold Coast Suns,17
+1796,Lloyd Johnston,Gold Coast Suns,17
+1833,Sean Lemmens,Gold Coast Suns,17
+1856,Lachie Weller,Gold Coast Suns,17
+306,Callan Ward,Greater Western Sydney Giants,18
+600,Lachlan Keeffe,Greater Western Sydney Giants,18
+649,Stephen Coniglio,Greater Western Sydney Giants,18
+651,Toby Greene,Greater Western Sydney Giants,18
+720,Nick Haynes,Greater Western Sydney Giants,18
+1121,Lachie Whitfield,Greater Western Sydney Giants,18
+1122,Jesse Hogan,Greater Western Sydney Giants,18
+1123,Joshua Kelly,Greater Western Sydney Giants,18
+1124,Harrison Himmelberg,Greater Western Sydney Giants,18
+1128,Harry Perryman,Greater Western Sydney Giants,18
+1129,Jack Buckley,Greater Western Sydney Giants,18
+1130,Brent Daniels,Greater Western Sydney Giants,18
+1131,Sam Taylor,Greater Western Sydney Giants,18
+1132,Kieren Briggs,Greater Western Sydney Giants,18
+1133,Callum M. Brown,Greater Western Sydney Giants,18
+1134,Connor Idun,Greater Western Sydney Giants,18
+1135,Toby Bedford,Greater Western Sydney Giants,18
+1136,Lachlan Ash,Greater Western Sydney Giants,18
+1137,Tom Green,Greater Western Sydney Giants,18
+1138,Jake Riccardi,Greater Western Sydney Giants,18
+1139,Ryan Angwin,Greater Western Sydney Giants,18
+1141,Toby McMullin,Greater Western Sydney Giants,18
+1606,Xavier O'Halloran,Greater Western Sydney Giants,18
+1660,James Peatling,Greater Western Sydney Giants,18
+1673,Finn Callaghan,Greater Western Sydney Giants,18
+1686,Jacob Wehr,Greater Western Sydney Giants,18
+1700,Leek Aleer,Greater Western Sydney Giants,18
+1718,Aaron Cadman,Greater Western Sydney Giants,18
+1742,Harvey Thomas,Greater Western Sydney Giants,18
+1776,Max Gruzewski,Greater Western Sydney Giants,18
+1785,Darcy Jones,Greater Western Sydney Giants,18
+1800,Conor Stone,Greater Western Sydney Giants,18
+1826,Harry Rowston,Greater Western Sydney Giants,18
+1840,Isaac Cumming,Greater Western Sydney Giants,18
+1841,Joe Fonti,Greater Western Sydney Giants,18

@@ -300,7 +300,7 @@ export default function TeamSelection() {
               onChange={(e) => setCurrentRound(Number(e.target.value))}
               className="p-2 border rounded"
             >
-              {[...Array(20)].map((_, i) => (
+              {[...Array(28)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>
                   Round {i + 1}
                 </option>
