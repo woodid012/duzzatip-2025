@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-
 import ResultCard from './ResultCard';
 import { POSITIONS } from '@/app/lib/scoring_rules';
 import { POSITION_TYPES, TEAM_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function Results() {
+  // State declarations remain the same
   const [roundData, setRoundData] = useState({
     teamSelections: {},
     playerStats: {},
@@ -16,13 +16,13 @@ export default function Results() {
   const [error, setError] = useState(null);
   const users = [1, 2, 3, 4, 5, 6, 7, 8];
 
+  // Rest of the component remains the same until the round selector
   useEffect(() => {
     const fetchRoundData = async () => {
       try {
         console.log('Fetching round data for round:', currentRound);
         setLoading(true);
         
-        // First get team selections
         const selectionsRes = await fetch(`/api/team-selection?year=${CURRENT_YEAR}&round=${currentRound}`);
         
         if (!selectionsRes.ok) {
@@ -31,7 +31,6 @@ export default function Results() {
         
         const teamSelections = await selectionsRes.json();
         
-        // Get all selected player IDs
         const playerIds = new Set();
         Object.values(teamSelections).forEach(userSelections => {
           Object.values(userSelections).forEach(selection => {
@@ -41,7 +40,6 @@ export default function Results() {
           });
         });
         
-        // Fetch stats for all selected players
         const playerStats = {};
         await Promise.all(Array.from(playerIds).map(async (playerId) => {
           const statsRes = await fetch(
@@ -70,7 +68,6 @@ export default function Results() {
     fetchRoundData();
   }, [currentRound]);
 
-  // Calculate team points based on selections and player stats
   const calculateTeamPoints = () => {
     const results = {};
 
@@ -81,17 +78,14 @@ export default function Results() {
         positions: {}
       };
 
-      // Get reserve players for filling in missing/zero scores
       const reserveA = userSelections['Reserve A'];
       const reserveB = userSelections['Reserve B'];
       let reserveAUsed = null;
       let reserveBUsed = null;
 
-      // First pass: Calculate initial points for all positions
       const positionsNeedingSubstitution = [];
       
       Object.entries(userSelections).forEach(([position, selection]) => {
-        // Skip reserve positions and bench in first pass
         if (['Reserve A', 'Reserve B', 'Bench'].includes(position)) return;
 
         const playerStats = roundData.playerStats[selection.player_id] || {};
@@ -100,7 +94,6 @@ export default function Results() {
         if (positionRule) {
           const result = positionRule.calculation(playerStats);
           
-          // If player has no stats or zero points, mark for substitution
           if (!playerStats.player_id || result.total === 0) {
             positionsNeedingSubstitution.push(position);
           } else {
@@ -114,12 +107,10 @@ export default function Results() {
         }
       });
 
-      // Second pass: Handle substitutions for missing/zero scores
-      positionsNeedingSubstitution.forEach((position, index) => {
+      positionsNeedingSubstitution.forEach((position) => {
         const positionRule = POSITIONS[position.toUpperCase()];
         let substituteMade = false;
 
-        // Try Reserve A first if not already used
         if (!reserveAUsed && reserveA) {
           const reserveStats = roundData.playerStats[reserveA.player_id] || {};
           const reserveResult = positionRule.calculation(reserveStats);
@@ -138,7 +129,6 @@ export default function Results() {
           }
         }
         
-        // If Reserve A wasn't used or didn't have points, try Reserve B
         if (!substituteMade && !reserveBUsed && reserveB) {
           const reserveStats = roundData.playerStats[reserveB.player_id] || {};
           const reserveResult = positionRule.calculation(reserveStats);
@@ -157,7 +147,6 @@ export default function Results() {
           }
         }
 
-        // If no substitution was made, set to zero
         if (!substituteMade) {
           const originalSelection = userSelections[position];
           userResults.positions[position] = {
@@ -169,7 +158,6 @@ export default function Results() {
         }
       });
 
-      // Third pass: Check if bench player can improve any position
       const benchSelection = userSelections.Bench;
       if (benchSelection?.backup_position) {
         const benchStats = roundData.playerStats[benchSelection.player_id] || {};
@@ -180,7 +168,6 @@ export default function Results() {
           const originalPosition = userResults.positions[benchSelection.backup_position];
 
           if (benchResult.total > (originalPosition?.points || 0)) {
-            // Substitute bench player
             userResults.positions[benchSelection.backup_position] = {
               player_id: benchSelection.player_id,
               player_name: benchSelection.player_name,
@@ -193,7 +180,6 @@ export default function Results() {
         }
       }
 
-      // Calculate final total
       userResults.total = Object.values(userResults.positions)
         .reduce((sum, pos) => sum + pos.points, 0);
 
@@ -224,7 +210,7 @@ export default function Results() {
               onChange={(e) => setCurrentRound(Number(e.target.value))}
               className="p-2 border rounded"
             >
-              {[...Array(20)].map((_, i) => (
+              {[...Array(28)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>
                   Round {i + 1}
                 </option>
@@ -234,12 +220,10 @@ export default function Results() {
         </div>
       </div>
 
-      {/* Leaderboard */}
       <div className="mb-6 p-4 bg-white rounded-lg shadow-md">
         <h2 className="text-xl font-bold mb-4">Round {currentRound} Standings</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {users.map(user => {
-            // Find position in standings
             const position = users.map(u => ({
               user: u,
               total: roundResults[u]?.total || 0
@@ -263,7 +247,6 @@ export default function Results() {
         </div>
       </div>
       
-      {/* Team Results */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {users.map(user => (
           <ResultCard

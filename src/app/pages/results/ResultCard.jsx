@@ -56,7 +56,6 @@ export default function ResultCard({ user, teamSelection, results }) {
                 )}
               </div>
 
-              {/* Point Breakdown */}
               {resultData?.breakdown && resultData.breakdown.length > 0 && (
                 <div className="mt-2 pl-2 text-xs text-gray-600 border-l-2 border-gray-200">
                   {resultData.breakdown.map((line, index) => (
