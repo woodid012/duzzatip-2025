@@ -1,6 +1,6 @@
 export const POSITIONS = {
   FORWARD: {
-    name: 'Forward',
+    name: 'Full Forward',
     calculation: (stats) => {
       const points = stats.goals * 9 + stats.behinds;
       return {

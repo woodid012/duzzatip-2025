@@ -4,7 +4,7 @@ export const CURRENT_YEAR = 2024;
 
 export const POSITION_TYPES = [
   'Forward', 
-  'Full Forward', 
+  'Tall Forward', 
   'Offensive', 
   'Midfielder', 
   'Tackler', 
@@ -16,7 +16,7 @@ export const POSITION_TYPES = [
 
 export const BACKUP_POSITIONS = [
   'Forward', 
-  'Full Forward', 
+  'Tall Forward', 
   'Offensive', 
   'Midfielder', 
   'Tackler', 
