@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import { Star } from 'lucide-react';
+import { GiCrab } from 'react-icons/gi';
 import { CURRENT_YEAR, USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import { POSITIONS } from '@/app/lib/scoring_rules';
 
@@ -88,6 +90,33 @@ export default function TeamSelection() {
   if (loading) return <div className="p-4">Loading stats...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
+  // Calculate all final scores to determine highest and lowest
+  const allFinalScores = Object.entries(teams).map(([userId, team]) => {
+    const userTeam = teams[userId] || {};
+    const benchPlayers = Object.entries(userTeam)
+      .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
+      .map(([_, data]) => playerStats[userId]?.[data.player_name])
+      .filter(Boolean);
+
+    const mainTeamPositions = POSITION_TYPES.filter(pos => 
+      !pos.includes('Bench') && !pos.includes('Reserve'));
+    
+    const totalScore = mainTeamPositions.reduce((total, position) => {
+      const playerData = Object.entries(userTeam).find(([pos]) => pos === position)?.[1];
+      if (!playerData) return total;
+      
+      const mainPlayerStats = playerStats[userId]?.[playerData.player_name];
+      const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
+      
+      return total + (bestPlayer?.scoring?.total || 0);
+    }, 0);
+
+    return { userId, totalScore: totalScore + 0 }; // Adding deadCertsScore (0)
+  });
+
+  const highestScore = Math.max(...allFinalScores.map(s => s.totalScore));
+  const lowestScore = Math.min(...allFinalScores.map(s => s.totalScore));
+
   return (
     <div className="p-6 w-full mx-auto">
       <div className="flex items-center gap-4 mb-6">
@@ -134,7 +163,11 @@ export default function TeamSelection() {
           return (
             <div key={userId} className="bg-white shadow-sm rounded-lg p-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">{userName}</h2>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  {userName}
+                  {finalTotalScore === highestScore && <Star className="text-yellow-500" size={20} />}
+                  {finalTotalScore === lowestScore && <GiCrab className="text-red-500" size={20} />}
+                </h2>
                 <div className="text-lg font-semibold">Total: {finalTotalScore}</div>
               </div>
               
