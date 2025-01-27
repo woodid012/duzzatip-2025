@@ -1,5 +1,5 @@
 export const POSITIONS = {
-  FORWARD: {
+  FULL_FORWARD: {
     name: 'Full Forward',
     calculation: (stats) => {
       const points = stats.goals * 9 + stats.behinds;
@@ -44,8 +44,9 @@ export const POSITIONS = {
   MIDFIELDER: {
     name: 'Midfielder',
     calculation: (stats) => {
-      const basePoints = Math.min(stats.disposals, 30);
-      const extraDisposals = Math.max(0, stats.disposals - 30);
+      const disposals = stats.kicks + stats.handballs;
+      const basePoints = Math.min(disposals, 30);
+      const extraDisposals = Math.max(0, disposals - 30);
       const extraPoints = extraDisposals * 3;
       return {
         total: basePoints + extraPoints,

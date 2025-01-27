@@ -1,261 +1,243 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import ResultCard from './ResultCard';
+import { CURRENT_YEAR, USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import { POSITIONS } from '@/app/lib/scoring_rules';
-import { POSITION_TYPES, TEAM_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
-export default function Results() {
-  // State declarations remain the same
-  const [roundData, setRoundData] = useState({
-    teamSelections: {},
-    playerStats: {},
-  });
-  const [currentRound, setCurrentRound] = useState(1);
+export default function TeamSelection() {
+  const [round, setRound] = useState(0);
+  const [teams, setTeams] = useState({});
+  const [playerStats, setPlayerStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const users = [1, 2, 3, 4, 5, 6, 7, 8];
 
-  // Rest of the component remains the same until the round selector
-  useEffect(() => {
-    const fetchRoundData = async () => {
-      try {
-        console.log('Fetching round data for round:', currentRound);
-        setLoading(true);
-        
-        const selectionsRes = await fetch(`/api/team-selection?year=${CURRENT_YEAR}&round=${currentRound}`);
-        
-        if (!selectionsRes.ok) {
-          throw new Error(`Failed to fetch team selections: ${selectionsRes.status}`);
+  const calculateScore = (position, stats, backupPosition = null) => {
+    if (!stats) return { total: 0, breakdown: [] };
+    
+    // If it's a bench position, use the backup position for scoring
+    if ((position === 'BENCH' || position.startsWith('RESERVE')) && backupPosition) {
+      const backupPositionType = backupPosition.toUpperCase().replace(/\s+/g, '_');
+      return POSITIONS[backupPositionType]?.calculation(stats) || { total: 0, breakdown: [] };
+    }
+
+    // For regular positions, use the position's scoring rules
+    const formattedPosition = position.replace(/\s+/g, '_');
+    return POSITIONS[formattedPosition]?.calculation(stats) || { total: 0, breakdown: [] };
+  };
+
+  // Function to check if bench player should replace main team player
+  const getBestPlayerForPosition = (mainPlayer, benchPlayers, position) => {
+    if (!mainPlayer || !benchPlayers) return mainPlayer;
+
+    const mainScore = mainPlayer.scoring?.total || 0;
+    let bestPlayer = mainPlayer;
+    let bestScore = mainScore;
+
+    benchPlayers.forEach(benchPlayer => {
+      if (benchPlayer.backup_position === position) {
+        const benchScore = benchPlayer.scoring?.total || 0;
+        if (benchScore > bestScore) {
+          bestPlayer = benchPlayer;
+          bestScore = benchScore;
         }
-        
-        const teamSelections = await selectionsRes.json();
-        
-        const playerIds = new Set();
-        Object.values(teamSelections).forEach(userSelections => {
-          Object.values(userSelections).forEach(selection => {
-            if (selection.player_id) {
-              playerIds.add(selection.player_id);
-            }
-          });
-        });
-        
-        const playerStats = {};
-        await Promise.all(Array.from(playerIds).map(async (playerId) => {
-          const statsRes = await fetch(
-            `/api/player-stats?year=${CURRENT_YEAR}&round=${currentRound}&player_id=${playerId}`
-          );
-          if (statsRes.ok) {
-            const data = await statsRes.json();
-            if (data.stats) {
-              playerStats[playerId] = data.stats;
+      }
+    });
+
+    return bestPlayer;
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const teamsRes = await fetch(`/api/team-selection?round=${round}`);
+        if (!teamsRes.ok) throw new Error('Failed to fetch teams');
+        const teamsData = await teamsRes.json();
+        setTeams(teamsData);
+
+        const allStats = {};
+        for (const [userId, team] of Object.entries(teamsData)) {
+          const playerStats = {};
+          for (const [position, data] of Object.entries(team)) {
+            const res = await fetch(`/api/player-stats?round=${round}&player_name=${encodeURIComponent(data.player_name)}`);
+            if (res.ok) {
+              const stats = await res.json();
+              const positionType = position.toUpperCase().replace(/\s+/g, '_');
+              
+              const scoring = calculateScore(positionType, stats, data.backup_position);
+              playerStats[data.player_name] = {
+                ...stats,
+                scoring,
+                backup_position: data.backup_position,
+                original_position: position
+              };
             }
           }
-        }));
-
-        setRoundData({
-          teamSelections,
-          playerStats
-        });
-        setLoading(false);
+          allStats[userId] = playerStats;
+        }
+        setPlayerStats(allStats);
       } catch (err) {
-        console.error('Error fetching round data:', err);
         setError(err.message);
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchRoundData();
-  }, [currentRound]);
+    fetchData();
+  }, [round]);
 
-  const calculateTeamPoints = () => {
-    const results = {};
-
-    users.forEach(user => {
-      const userSelections = roundData.teamSelections[user] || {};
-      const userResults = {
-        total: 0,
-        positions: {}
-      };
-
-      const reserveA = userSelections['Reserve A'];
-      const reserveB = userSelections['Reserve B'];
-      let reserveAUsed = null;
-      let reserveBUsed = null;
-
-      const positionsNeedingSubstitution = [];
-      
-      Object.entries(userSelections).forEach(([position, selection]) => {
-        if (['Reserve A', 'Reserve B', 'Bench'].includes(position)) return;
-
-        const playerStats = roundData.playerStats[selection.player_id] || {};
-        const positionRule = POSITIONS[position.toUpperCase()];
-        
-        if (positionRule) {
-          const result = positionRule.calculation(playerStats);
-          
-          if (!playerStats.player_id || result.total === 0) {
-            positionsNeedingSubstitution.push(position);
-          } else {
-            userResults.positions[position] = {
-              player_id: selection.player_id,
-              player_name: selection.player_name,
-              points: result.total,
-              breakdown: result.breakdown
-            };
-          }
-        }
-      });
-
-      positionsNeedingSubstitution.forEach((position) => {
-        const positionRule = POSITIONS[position.toUpperCase()];
-        let substituteMade = false;
-
-        if (!reserveAUsed && reserveA) {
-          const reserveStats = roundData.playerStats[reserveA.player_id] || {};
-          const reserveResult = positionRule.calculation(reserveStats);
-          
-          if (reserveResult.total > 0) {
-            userResults.positions[position] = {
-              player_id: reserveA.player_id,
-              player_name: reserveA.player_name,
-              points: reserveResult.total,
-              breakdown: reserveResult.breakdown,
-              substituted: true,
-              substitutionSource: 'Reserve A'
-            };
-            reserveAUsed = position;
-            substituteMade = true;
-          }
-        }
-        
-        if (!substituteMade && !reserveBUsed && reserveB) {
-          const reserveStats = roundData.playerStats[reserveB.player_id] || {};
-          const reserveResult = positionRule.calculation(reserveStats);
-          
-          if (reserveResult.total > 0) {
-            userResults.positions[position] = {
-              player_id: reserveB.player_id,
-              player_name: reserveB.player_name,
-              points: reserveResult.total,
-              breakdown: reserveResult.breakdown,
-              substituted: true,
-              substitutionSource: 'Reserve B'
-            };
-            reserveBUsed = position;
-            substituteMade = true;
-          }
-        }
-
-        if (!substituteMade) {
-          const originalSelection = userSelections[position];
-          userResults.positions[position] = {
-            player_id: originalSelection.player_id,
-            player_name: originalSelection.player_name,
-            points: 0,
-            breakdown: ['No valid player or substitute available']
-          };
-        }
-      });
-
-      const benchSelection = userSelections.Bench;
-      if (benchSelection?.backup_position) {
-        const benchStats = roundData.playerStats[benchSelection.player_id] || {};
-        const backupRule = POSITIONS[benchSelection.backup_position.toUpperCase()];
-        
-        if (backupRule) {
-          const benchResult = backupRule.calculation(benchStats);
-          const originalPosition = userResults.positions[benchSelection.backup_position];
-
-          if (benchResult.total > (originalPosition?.points || 0)) {
-            userResults.positions[benchSelection.backup_position] = {
-              player_id: benchSelection.player_id,
-              player_name: benchSelection.player_name,
-              points: benchResult.total,
-              breakdown: benchResult.breakdown,
-              substituted: true,
-              substitutionSource: 'Bench'
-            };
-          }
-        }
-      }
-
-      userResults.total = Object.values(userResults.positions)
-        .reduce((sum, pos) => sum + pos.points, 0);
-
-      results[user] = userResults;
-    });
-
-    return results;
-  };
-
-  if (loading) return <div className="p-4">Loading results...</div>;
+  if (loading) return <div className="p-4">Loading stats...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
-
-  const roundResults = calculateTeamPoints();
 
   return (
     <div className="p-6 w-full mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Round Results {CURRENT_YEAR}</h1>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <div>
-            <label htmlFor="round-select" className="mr-2">Round:</label>
-            <select 
-              id="round-select"
-              value={currentRound}
-              onChange={(e) => setCurrentRound(Number(e.target.value))}
-              className="p-2 border rounded"
-            >
-              {[...Array(28)].map((_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  Round {i + 1}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6 p-4 bg-white rounded-lg shadow-md">
-        <h2 className="text-xl font-bold mb-4">Round {currentRound} Standings</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {users.map(user => {
-            const position = users.map(u => ({
-              user: u,
-              total: roundResults[u]?.total || 0
-            }))
-            .sort((a, b) => b.total - a.total)
-            .findIndex(item => item.user === user) + 1;
-
-            return (
-              <div 
-                key={user} 
-                className={`p-3 rounded border ${
-                  position === 1 ? 'border-yellow-400 bg-yellow-50' : ''
-                }`}
-              >
-                <div className="text-sm text-gray-600">#{position}</div>
-                <div className="font-bold">{TEAM_NAMES[user]}</div>
-                <div className="text-lg">{roundResults[user]?.total || 0} points</div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="flex items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold">Team Scores - Round {round}</h1>
+        <select 
+          value={round}
+          onChange={(e) => setRound(Number(e.target.value))}
+          className="p-2 border rounded"
+        >
+          {[...Array(29)].map((_, i) => (
+            <option key={i} value={i}>Round {i}</option>
+          ))}
+        </select>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {users.map(user => (
-          <ResultCard
-            key={user}
-            user={user}
-            teamSelection={roundData.teamSelections[user] || {}}
-            results={roundResults[user]?.positions || {}}
-          />
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Object.entries(USER_NAMES).map(([userId, userName]) => {
+          const userTeam = teams[userId] || {};
+          
+          // Get bench players
+          const benchPlayers = Object.entries(userTeam)
+            .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
+            .map(([_, data]) => playerStats[userId]?.[data.player_name])
+            .filter(Boolean);
+
+          // Calculate main team score with potential bench replacements
+          const mainTeamPositions = POSITION_TYPES.filter(pos => 
+            !pos.includes('Bench') && !pos.includes('Reserve'));
+          
+          const totalScore = mainTeamPositions.reduce((total, position) => {
+            const playerData = Object.entries(userTeam).find(([pos]) => pos === position)?.[1];
+            if (!playerData) return total;
+            
+            const mainPlayerStats = playerStats[userId]?.[playerData.player_name];
+            const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
+            
+            return total + (bestPlayer?.scoring?.total || 0);
+          }, 0);
+
+          // Add Dead Certs score (currently 0)
+          const deadCertsScore = 0;
+          const finalTotalScore = totalScore + deadCertsScore;
+
+          return (
+            <div key={userId} className="bg-white shadow-sm rounded-lg p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">{userName}</h2>
+                <div className="text-lg font-semibold">Total: {finalTotalScore}</div>
+              </div>
+              
+              {/* Main Team */}
+              <div className="space-y-4 mb-6">
+                <h3 className="text-lg font-semibold border-b pb-2">Main Team</h3>
+                <div className="grid grid-cols-12 gap-2 font-semibold border-b pb-2">
+                  <div className="col-span-2">Position</div>
+                  <div className="col-span-3">Player</div>
+                  <div className="col-span-5">Calculation</div>
+                  <div className="col-span-2 text-right">Score</div>
+                </div>
+                {mainTeamPositions.map((positionType) => {
+                  const position = Object.entries(userTeam).find(([pos]) => pos === positionType)?.[0];
+                  if (!position) return null;
+                  
+                  const data = userTeam[position];
+                  const mainPlayerStats = playerStats[userId]?.[data.player_name];
+                  const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
+                  
+                  return (
+                    <div key={position} className="grid grid-cols-12 gap-2 border-b pb-2">
+                      <div className="col-span-2 font-medium">{position}</div>
+                      <div className="col-span-3">
+                        {bestPlayer !== mainPlayerStats ? (
+                          <span className="text-green-600">Bench: {bestPlayer.player_name}</span>
+                        ) : (
+                          data.player_name
+                        )}
+                      </div>
+                      <div className="col-span-5 text-sm text-gray-600">
+                        {bestPlayer?.scoring?.breakdown.map((line, i) => (
+                          <div key={i}>{line}</div>
+                        ))}
+                      </div>
+                      <div className="col-span-2 text-right font-semibold">
+                        {bestPlayer?.scoring?.total || 0}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Dead Certs */}
+              <div className="space-y-4 mb-6">
+                <h3 className="text-lg font-semibold border-b pb-2">Dead Certs</h3>
+                <div className="text-right font-semibold">
+                  Score: {deadCertsScore}
+                </div>
+              </div>
+
+              {/* Bench/Reserves */}
+              <div className="space-y-4 bg-gray-50 p-4 rounded">
+                <h3 className="text-lg font-semibold border-b pb-2">Bench/Reserves</h3>
+                {Object.entries(userTeam)
+                  .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
+                  .map(([position, data]) => {
+                    const benchStats = playerStats[userId]?.[data.player_name];
+                    const backupPosition = data.backup_position;
+                    
+                    // Find if this bench player is being used in the main team
+                    const replacedPosition = mainTeamPositions.find(pos => {
+                      const posData = userTeam[pos];
+                      const posStats = playerStats[userId]?.[posData?.player_name];
+                      const bestPlayer = getBestPlayerForPosition(posStats, benchPlayers, pos);
+                      return bestPlayer?.player_name === data.player_name;
+                    });
+
+                    // If bench player is being used, get the original player's stats
+                    const isBeingUsed = !!replacedPosition;
+                    const originalPlayerData = isBeingUsed ? userTeam[replacedPosition] : null;
+                    const displayStats = isBeingUsed ? 
+                      playerStats[userId]?.[originalPlayerData?.player_name] : 
+                      benchStats;
+                    
+                    return (
+                      <div key={position} className="grid grid-cols-12 gap-2 border-b pb-2">
+                        <div className="col-span-2 font-medium">
+                          {position}
+                          {backupPosition && ` (${backupPosition})`}
+                        </div>
+                        <div className="col-span-3">
+                          {isBeingUsed ? (
+                            <span className="text-red-600">{originalPlayerData?.player_name}</span>
+                          ) : (
+                            data.player_name
+                          )}
+                        </div>
+                        <div className="col-span-5 text-sm text-gray-600">
+                          {displayStats?.scoring?.breakdown.map((line, i) => (
+                            <div key={i}>{line}</div>
+                          ))}
+                        </div>
+                        <div className="col-span-2 text-right font-semibold">
+                          {displayStats?.scoring?.total || 0}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { CURRENT_YEAR, TEAM_NAMES } from '@/app/lib/constants';
+import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import TeamCard from './TeamCard';
 
 export default function TeamSelection() {
   const [squadPlayers, setSquadPlayers] = useState({});
   const [allPlayers, setAllPlayers] = useState({});
   const [teamSelection, setTeamSelection] = useState({});
+  const [editedTeamSelection, setEditedTeamSelection] = useState({});
   const [currentRound, setCurrentRound] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,6 @@ export default function TeamSelection() {
     try {
       setLoading(true);
       
-      // Fetch squads, players, and team selection data concurrently
       const [squadsRes, playersRes, teamSelectionRes] = await Promise.all([
         fetch('/api/squads'),
         fetch('/api/players'),
@@ -37,31 +37,21 @@ export default function TeamSelection() {
       setSquadPlayers(squadPlayersData);
       setAllPlayers(playersData);
       
-      // Ensure player names are correctly populated from player data
       const updatedTeamSelection = {};
       Object.entries(teamSelectionData).forEach(([user, positions]) => {
         updatedTeamSelection[user] = {};
         Object.entries(positions).forEach(([position, playerData]) => {
-          // Find the player in the all players data
-          let playerName = playerData.player_name;
-          
-          // Look through all teams to find the player name
-          for (const teamId in playersData) {
-            const matchingPlayer = playersData[teamId].find(p => p.id === playerData.player_id);
-            if (matchingPlayer) {
-              playerName = matchingPlayer.name;
-              break;
-            }
-          }
-
           updatedTeamSelection[user][position] = {
-            ...playerData,
-            player_name: playerName
+            player_name: playerData.player_name,
+            position: position,
+            last_updated: playerData.last_updated,
+            ...(playerData.backup_position && { backup_position: playerData.backup_position })
           };
         });
       });
 
       setTeamSelection(updatedTeamSelection || {});
+      setEditedTeamSelection(updatedTeamSelection || {});
       setLoading(false);
       return { squadPlayersData, playersData, teamSelectionData: updatedTeamSelection };
     } catch (err) {
@@ -92,10 +82,8 @@ export default function TeamSelection() {
         throw new Error('No data found for previous round');
       }
 
-      setTeamSelection(prev => {
+      setEditedTeamSelection(prev => {
         const newTeamSelection = { ...prev };
-        
-        // Copy data from previous round for this user
         newTeamSelection[user] = Object.entries(prevRoundData[user]).reduce((acc, [position, data]) => {
           acc[position] = {
             ...data,
@@ -103,7 +91,6 @@ export default function TeamSelection() {
           };
           return acc;
         }, {});
-
         return newTeamSelection;
       });
     } catch (err) {
@@ -112,37 +99,20 @@ export default function TeamSelection() {
     }
   };
 
-  const handlePlayerChange = (user, position, newPlayerId, backupPosition = null) => {
-    setTeamSelection(prev => {
+  const handlePlayerChange = (user, position, newPlayerName, backupPosition = null) => {
+    setEditedTeamSelection(prev => {
       const newTeamSelection = {...prev};
       
-      // Find the selected player's details
-      const userTeam = squadPlayers[user];
-      const newPlayerData = userTeam.players.find(p => p.id === Number(newPlayerId));
-
-      // Look up the full player details in allPlayers
-      let playerName = newPlayerData ? newPlayerData.name : '';
-      for (const teamId in allPlayers) {
-        const matchingPlayer = allPlayers[teamId].find(p => p.id === Number(newPlayerId));
-        if (matchingPlayer) {
-          playerName = matchingPlayer.name;
-          break;
-        }
-      }
-
-      // Update or add the team selection entry
       if (!newTeamSelection[user]) {
         newTeamSelection[user] = {};
       }
       
       const entryData = {
-        player_id: Number(newPlayerId),
-        player_name: playerName,
+        player_name: newPlayerName,
         position: position,
         last_updated: new Date().toISOString()
       };
 
-      // Add backup position for Bench
       if (position === 'Bench' && backupPosition) {
         entryData.backup_position = backupPosition;
       }
@@ -157,11 +127,10 @@ export default function TeamSelection() {
     const duplicates = [];
     const playerCounts = new Map();
 
-    // Count each player's occurrences
-    Object.entries(teamSelection).forEach(([userId, positions]) => {
+    Object.entries(editedTeamSelection).forEach(([userId, positions]) => {
       Object.entries(positions).forEach(([position, data]) => {
-        if (data.player_id) {
-          const key = `${data.player_id}-${data.player_name}`;
+        if (data.player_name) {
+          const key = data.player_name;
           if (!playerCounts.has(key)) {
             playerCounts.set(key, {
               count: 0,
@@ -180,7 +149,6 @@ export default function TeamSelection() {
       });
     });
 
-    // Find players used more than once
     playerCounts.forEach((value, key) => {
       if (value.count > 1) {
         duplicates.push({
@@ -197,9 +165,9 @@ export default function TeamSelection() {
   const validateBenchPlayers = () => {
     const benchErrors = [];
     
-    Object.entries(teamSelection).forEach(([userId, positions]) => {
+    Object.entries(editedTeamSelection).forEach(([userId, positions]) => {
       const benchPlayer = positions['Bench'];
-      if (benchPlayer?.player_id && !benchPlayer.backup_position) {
+      if (benchPlayer?.player_name && !benchPlayer.backup_position) {
         benchErrors.push({
           user: userId,
           player: benchPlayer.player_name
@@ -211,7 +179,6 @@ export default function TeamSelection() {
   };
 
   const handleSave = async () => {
-    // Just run the checks to update the warnings
     checkForDuplicates();
     validateBenchPlayers();
 
@@ -224,7 +191,7 @@ export default function TeamSelection() {
         body: JSON.stringify({
           year: CURRENT_YEAR,
           round: currentRound,
-          team_selection: teamSelection
+          team_selection: editedTeamSelection
         })
       });
 
@@ -234,9 +201,7 @@ export default function TeamSelection() {
         throw new Error(responseData.error || 'Failed to save');
       }
 
-      // Immediately refetch to ensure we have the latest data
-      await fetchData(currentRound);
-
+      setTeamSelection(editedTeamSelection);
       setIsEditing(false);
     } catch (err) {
       console.error('Save Error:', err);
@@ -245,8 +210,7 @@ export default function TeamSelection() {
   };
 
   const handleCancel = () => {
-    // Revert to original data
-    fetchData(currentRound);
+    setEditedTeamSelection(teamSelection);
     setIsEditing(false);
   };
 
@@ -267,7 +231,7 @@ export default function TeamSelection() {
                     {duplicate.player} selected in multiple positions:
                     {duplicate.positions.map((pos, i) => (
                       <span key={i} className="ml-1">
-                        {TEAM_NAMES[pos.user]} ({pos.position}){i < duplicate.positions.length - 1 ? ',' : ''}
+                        {USER_NAMES[pos.user]} ({pos.position}){i < duplicate.positions.length - 1 ? ',' : ''}
                       </span>
                     ))}
                   </li>
@@ -282,7 +246,7 @@ export default function TeamSelection() {
               <ul className="text-sm text-yellow-600">
                 {validateBenchPlayers().map((error, index) => (
                   <li key={index} className="mb-1">
-                    {TEAM_NAMES[error.user]}: {error.player} needs a backup position set
+                    {USER_NAMES[error.user]}: {error.player} needs a backup position set
                   </li>
                 ))}
               </ul>
@@ -291,7 +255,6 @@ export default function TeamSelection() {
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Round Selection Dropdown */}
           <div>
             <label htmlFor="round-select" className="mr-2">Round:</label>
             <select 
@@ -308,7 +271,6 @@ export default function TeamSelection() {
             </select>
           </div>
 
-          {/* Edit/Save Buttons */}
           <div className="space-x-2">
             {isEditing ? (
               <>
@@ -342,8 +304,9 @@ export default function TeamSelection() {
           <TeamCard
             key={user}
             user={user}
-            teamName={TEAM_NAMES[user]}
+            teamName={USER_NAMES[user]}
             teamSelection={teamSelection}
+            editedTeamSelection={editedTeamSelection}
             squadPlayers={squadPlayers}
             isEditing={isEditing}
             onPlayerChange={handlePlayerChange}

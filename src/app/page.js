@@ -26,12 +26,12 @@ export default function Home() {
   React.useEffect(() => {
     // Redirect to round-results if we're at the root
     if (pathname === '/') {
-      router.push('/pages/round-results');
+      router.push('/pages/results');
     }
   }, [pathname, router]);
 
   const navigationItems = [
-    { name: 'Round Results', path: '/pages/round-results', id: 'round-results' },
+    { name: 'Round Results', path: '/pages/results', id: 'results' },
     { name: 'Team Selection', path: '/pages/team-selection', id: 'team-selection' },
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
   ];

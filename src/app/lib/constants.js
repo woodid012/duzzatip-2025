@@ -3,7 +3,7 @@
 export const CURRENT_YEAR = 2024;
 
 export const POSITION_TYPES = [
-  'Forward', 
+  'Full Forward', 
   'Tall Forward', 
   'Offensive', 
   'Midfielder', 
@@ -15,7 +15,7 @@ export const POSITION_TYPES = [
 ];
 
 export const BACKUP_POSITIONS = [
-  'Forward', 
+  'Full Forward', 
   'Tall Forward', 
   'Offensive', 
   'Midfielder', 
@@ -23,7 +23,7 @@ export const BACKUP_POSITIONS = [
   'Ruck'
 ];
 
-export const TEAM_NAMES = {
+export const USER_NAMES = {
   1: "Scrennys Soldiers",
   2: "Scotts Tots",
   3: "ROBbed",

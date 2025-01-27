@@ -1,48 +1,65 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
+import { POSITIONS } from '@/app/lib/scoring_rules';
 
 export async function GET(request) {
     try {
-        // Parse URL parameters
         const { searchParams } = new URL(request.url);
-        const year = parseInt(searchParams.get('year')) || 2024;
-        const round = parseInt(searchParams.get('round')) || 1;
+        const round = parseInt(searchParams.get('round'));
+        const userId = parseInt(searchParams.get('userId'));
 
-        // Get cached database connection
+        if (!round || !userId) {
+            return Response.json({ error: 'Round and userId are required' }, { status: 400 });
+        }
+
         const { db } = await connectToDatabase();
 
-        // Optimized query with projection
-        const stats = await db.collection(`${year}_game_results`)
-            .find(
-                { week: round - 1 },
-                { projection: { player_id: 1, statistics: 1, _id: 0 } }
-            )
+        const teamSelection = await db.collection('2024_team_selection')
+            .find({ 
+                Round: round,
+                User: userId,
+                Active: 1 
+            })
             .toArray();
 
-        const playerStats = {};
-        stats.forEach(stat => {
-            playerStats[stat.player_id] = stat.statistics;
+        const playerStats = await db.collection('2024_game_results')
+            .find({ round: round })
+            .toArray();
+
+        const positions = teamSelection.map(selection => {
+            const playerStat = playerStats.find(stat => 
+                stat.player_name === selection.Player_Name
+            );
+
+            if (!playerStat) {
+                return {
+                    position: selection.Position,
+                    player: selection.Player_Name,
+                    scoring: { total: 0, breakdown: ['Player stats not found'] },
+                    stats: {}
+                };
+            }
+
+            const positionType = selection.Position.toUpperCase().replace(' ', '_');
+            const scoring = POSITIONS[positionType]?.calculation(playerStat) || {
+                total: 0,
+                breakdown: ['Invalid position type']
+            };
+
+            return {
+                position: selection.Position,
+                player: playerStat.player_name,
+                team: playerStat.team,
+                scoring,
+                stats: playerStat
+            };
         });
 
-        return new Response(JSON.stringify({
-            year,
-            round,
-            stats: playerStats
-        }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+        const total = positions.reduce((sum, pos) => sum + pos.scoring.total, 0);
+
+        return Response.json({ total, positions });
 
     } catch (error) {
         console.error('API Error:', error);
-        return new Response(JSON.stringify({
-            error: 'Failed to fetch player stats'
-        }), {
-            status: 500,
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
+        return Response.json({ error: 'Failed to fetch round results' }, { status: 500 });
     }
 }

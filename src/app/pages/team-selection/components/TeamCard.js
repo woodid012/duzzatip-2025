@@ -1,6 +1,6 @@
 'use client'
 
-import { POSITION_TYPES, TEAM_NAMES, CURRENT_YEAR, BACKUP_POSITIONS } from '@/app/lib/constants';
+import { POSITION_TYPES, USER_NAMES, CURRENT_YEAR, BACKUP_POSITIONS } from '@/app/lib/constants';
 
 export default function TeamCard({ 
   user,
@@ -44,19 +44,18 @@ export default function TeamCard({
               <div className="flex w-full gap-2 items-center">
                 <span className="text-sm flex-1">{position}</span>
                 <select
-                  value={teamSelection[user]?.[position]?.player_id || ''}
+                  value={teamSelection[user]?.[position]?.player_name || ''}
                   onChange={(e) => onPlayerChange(user, position, e.target.value)}
                   className="flex-1 p-1 text-sm border rounded min-w-[200px]"
                 >
                   <option value="">Select Player</option>
                   {squadPlayers[user]?.players?.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
+                    <option key={p.name} value={p.name}>
+                      {p.name} ({p.team})
                     </option>
                   ))}
                 </select>
                 
-                {/* Backup Position Dropdown for Bench */}
                 {position === 'Bench' && (
                   <select
                     value={teamSelection[user]?.[position]?.backup_position || ''}
@@ -65,7 +64,7 @@ export default function TeamCard({
                       onPlayerChange(
                         user, 
                         position, 
-                        currentPlayerData?.player_id || '', 
+                        currentPlayerData?.player_name || '', 
                         e.target.value
                       );
                     }}
