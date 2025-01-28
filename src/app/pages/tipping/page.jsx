@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Papa from 'papaparse';
-import { USER_NAMES } from '@/app/lib/constants';
+import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
 const TippingPage = () => {
   const [fixtures, setFixtures] = useState([]);
@@ -15,29 +14,33 @@ const TippingPage = () => {
   useEffect(() => {
     const loadFixtures = async () => {
       try {
-        const response = await fetch('/afl-2025-AUSEasternStandardTime.csv');
+        const response = await fetch('/api/tipping-data');
         if (!response.ok) {
-          throw new Error(`Failed to load CSV: ${response.status}`);
+          throw new Error(`Failed to load fixtures: ${response.status}`);
         }
-        const csvText = await response.text();
+        const jsonData = await response.json();
         
-        Papa.parse(csvText, {
-          header: true,
-          dynamicTyping: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            const processedData = results.data.map(row => ({
-              ...row,
-              'Round Number': row['Round Number'] === 'OR' ? '0' : row['Round Number']
-            }));
-            setFixtures(processedData);
-            setLoading(false);
-          },
-          error: (error) => {
-            console.error('Error parsing CSV:', error);
-            setLoading(false);
-          }
-        });
+        // Process the data and convert dates to Melbourne time
+        const processedData = jsonData.map(fixture => ({
+          ...fixture,
+          DateUtc: new Date(fixture.DateUtc).toLocaleString('en-AU', {
+            timeZone: 'Australia/Melbourne',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+          }),
+          'Match Number': fixture.MatchNumber,
+          'Round Number': fixture.RoundNumber.toString(),
+          'Home Team': fixture.HomeTeam,
+          'Away Team': fixture.AwayTeam,
+          isComplete: fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null
+        }));
+
+        setFixtures(processedData);
+        setLoading(false);
       } catch (error) {
         console.error('Error loading fixtures:', error);
         setLoading(false);
@@ -54,7 +57,7 @@ const TippingPage = () => {
   }, []);
 
   const filteredFixtures = fixtures.filter(fixture => 
-    fixture['Round Number'].toString() === selectedRound
+    fixture['Round Number'] === selectedRound
   );
 
   const handleTipSelect = (matchNumber, team) => {
@@ -93,6 +96,18 @@ const TippingPage = () => {
     return round === '0' ? 'Opening Round' : `Round ${round}`;
   };
 
+  const checkTipResult = (fixture, tip) => {
+    if (!fixture.isComplete || !tip) return null;
+    
+    const winningTeam = fixture.HomeTeamScore > fixture.AwayTeamScore 
+      ? fixture.HomeTeam 
+      : fixture.AwayTeamScore > fixture.HomeTeamScore 
+        ? fixture.AwayTeam 
+        : 'Draw';
+    
+    return tip === winningTeam;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -104,7 +119,7 @@ const TippingPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">AFL 2025 Tips</h1>
+        <h1 className="text-3xl font-bold">AFL {CURRENT_YEAR} Tips</h1>
         <div className="flex items-center gap-4">
           {savedMessage && (
             <span className="text-green-600">{savedMessage}</span>
@@ -155,57 +170,79 @@ const TippingPage = () => {
         <table className="min-w-full bg-white border">
           <thead>
             <tr className="bg-gray-100">
+              <th className="py-2 px-4 border">Date</th>
               <th className="py-2 px-4 border">Home Team</th>
+              <th className="py-2 px-4 border">Score</th>
               <th className="py-2 px-4 border">Away Team</th>
               <th className="py-2 px-4 border">Your Tip</th>
               <th className="py-2 px-4 border">Dead Cert</th>
+              <th className="py-2 px-4 border">Result</th>
             </tr>
           </thead>
           <tbody>
-            {filteredFixtures.map((fixture) => (
-              <tr key={fixture['Match Number']} className="hover:bg-gray-50">
-                <td className="py-2 px-4 border">
-                  <button
-                    onClick={() => handleTipSelect(fixture['Match Number'], fixture['Home Team'])}
-                    className={`px-3 py-1 rounded ${
-                      tips[fixture['Match Number']]?.team === fixture['Home Team']
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                  >
-                    {fixture['Home Team']}
-                  </button>
-                </td>
-                <td className="py-2 px-4 border">
-                  <button
-                    onClick={() => handleTipSelect(fixture['Match Number'], fixture['Away Team'])}
-                    className={`px-3 py-1 rounded ${
-                      tips[fixture['Match Number']]?.team === fixture['Away Team']
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                  >
-                    {fixture['Away Team']}
-                  </button>
-                </td>
-                <td className="py-2 px-4 border text-center">
-                  {tips[fixture['Match Number']]?.team || '-'}
-                </td>
-                <td className="py-2 px-4 border text-center">
-                  <button
-                    onClick={() => handleDeadCertToggle(fixture['Match Number'])}
-                    disabled={!tips[fixture['Match Number']]?.team}
-                    className={`px-3 py-1 rounded ${
-                      tips[fixture['Match Number']]?.deadCert
-                        ? 'bg-yellow-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
-                    } ${!tips[fixture['Match Number']]?.team ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {tips[fixture['Match Number']]?.deadCert ? 'Yes' : 'No'}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filteredFixtures.map((fixture) => {
+              const tipResult = checkTipResult(fixture, tips[fixture['Match Number']]?.team);
+              
+              return (
+                <tr key={fixture['Match Number']} className="hover:bg-gray-50">
+                  <td className="py-2 px-4 border">{fixture.DateUtc}</td>
+                  <td className="py-2 px-4 border">
+                    <button
+                      onClick={() => handleTipSelect(fixture['Match Number'], fixture['Home Team'])}
+                      className={`px-3 py-1 rounded ${
+                        tips[fixture['Match Number']]?.team === fixture['Home Team']
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                    >
+                      {fixture['Home Team']}
+                    </button>
+                  </td>
+                  <td className="py-2 px-4 border text-center">
+                    {fixture.isComplete ? `${fixture.HomeTeamScore} - ${fixture.AwayTeamScore}` : '-'}
+                  </td>
+                  <td className="py-2 px-4 border">
+                    <button
+                      onClick={() => handleTipSelect(fixture['Match Number'], fixture['Away Team'])}
+                      className={`px-3 py-1 rounded ${
+                        tips[fixture['Match Number']]?.team === fixture['Away Team']
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                    >
+                      {fixture['Away Team']}
+                    </button>
+                  </td>
+                  <td className="py-2 px-4 border text-center">
+                    {tips[fixture['Match Number']]?.team || '-'}
+                  </td>
+                  <td className="py-2 px-4 border text-center">
+                    <button
+                      onClick={() => handleDeadCertToggle(fixture['Match Number'])}
+                      disabled={!tips[fixture['Match Number']]?.team}
+                      className={`px-3 py-1 rounded ${
+                        tips[fixture['Match Number']]?.deadCert
+                          ? 'bg-yellow-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      } ${!tips[fixture['Match Number']]?.team ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {tips[fixture['Match Number']]?.deadCert ? 'Yes' : 'No'}
+                    </button>
+                  </td>
+                  <td className="py-2 px-4 border text-center">
+                    {fixture.isComplete ? (
+                      tipResult === true ? (
+                        <span className="text-green-600">✓</span>
+                      ) : tipResult === false ? (
+                        <span className="text-red-600">✗</span>
+                      ) : (
+                        '-'
+                      )
+                    ) : '-'}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
