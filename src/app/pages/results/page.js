@@ -127,31 +127,34 @@ export default function TeamSelection() {
   const lowestScore = Math.min(...allFinalScores.map(s => s.totalScore));
 
   return (
-    <div className="p-6 w-full mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold">Team Scores - Round {round}</h1>
-        <select 
-          value={round}
-          onChange={(e) => setRound(Number(e.target.value))}
-          className="p-2 border rounded"
-        >
-          {[...Array(29)].map((_, i) => (
-            <option key={i} value={i}>Round {i}</option>
-          ))}
-        </select>
+    <div className="p-4 sm:p-6 w-full mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <h1 className="text-2xl font-bold">Team Scores</h1>
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            <label htmlFor="round-select" className="text-sm font-medium">Round:</label>
+            <select 
+              id="round-select"
+              value={round}
+              onChange={(e) => setRound(Number(e.target.value))}
+              className="p-2 border rounded w-24 text-lg"
+            >
+              {[...Array(29)].map((_, i) => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.entries(USER_NAMES).map(([userId, userName]) => {
           const userTeam = teams[userId] || {};
-          
-          // Get bench players
           const benchPlayers = Object.entries(userTeam)
             .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
             .map(([_, data]) => playerStats[userId]?.[data.player_name])
             .filter(Boolean);
 
-          // Calculate main team score with potential bench replacements
           const mainTeamPositions = POSITION_TYPES.filter(pos => 
             !pos.includes('Bench') && !pos.includes('Reserve'));
           
@@ -165,117 +168,133 @@ export default function TeamSelection() {
             return total + (bestPlayer?.scoring?.total || 0);
           }, 0);
 
-          // Add Dead Certs score (currently 0)
           const deadCertsScore = 0;
           const finalTotalScore = totalScore + deadCertsScore;
 
           return (
-            <div key={userId} className="bg-white shadow-sm rounded-lg p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  {userName}
+            <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold">{userName}</h2>
                   {finalTotalScore === highestScore && <Star className="text-yellow-500" size={20} />}
                   {finalTotalScore === lowestScore && <GiCrab className="text-red-500" size={20} />}
-                </h2>
-                <div className="text-lg font-semibold">Total: {finalTotalScore}</div>
-              </div>
-              
-              {/* Main Team */}
-              <div className="space-y-4 mb-6">
-                <h3 className="text-lg font-semibold border-b pb-2">Main Team</h3>
-                <div className="grid grid-cols-12 gap-2 font-semibold border-b pb-2">
-                  <div className="col-span-2">Position</div>
-                  <div className="col-span-3">Player</div>
-                  <div className="col-span-5">Calculation</div>
-                  <div className="col-span-2 text-right">Score</div>
                 </div>
-                {mainTeamPositions.map((positionType) => {
-                  const position = Object.entries(userTeam).find(([pos]) => pos === positionType)?.[0];
-                  if (!position) return null;
-                  
-                  const data = userTeam[position];
-                  const mainPlayerStats = playerStats[userId]?.[data.player_name];
-                  const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
-                  
-                  return (
-                    <div key={position} className="grid grid-cols-12 gap-2 border-b pb-2">
-                      <div className="col-span-2 font-medium">{position}</div>
-                      <div className="col-span-3">
-                        {bestPlayer !== mainPlayerStats ? (
-                          <span className="text-green-600">Bench: {bestPlayer.player_name}</span>
-                        ) : (
-                          data.player_name
-                        )}
-                      </div>
-                      <div className="col-span-5 text-sm text-gray-600">
-                        {bestPlayer?.scoring?.breakdown.map((line, i) => (
-                          <div key={i}>{line}</div>
-                        ))}
-                      </div>
-                      <div className="col-span-2 text-right font-semibold">
-                        {bestPlayer?.scoring?.total || 0}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Dead Certs */}
-              <div className="space-y-4 mb-6">
-                <h3 className="text-lg font-semibold border-b pb-2">Dead Certs</h3>
-                <div className="text-right font-semibold">
-                  Score: {deadCertsScore}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{finalTotalScore}</span>
+                  <button 
+                    onClick={() => {
+                      const element = document.getElementById(`scores-${userId}`);
+                      if (element) {
+                        element.classList.toggle('hidden');
+                      }
+                    }}
+                    className="text-gray-500 hover:text-gray-700 sm:hidden"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
                 </div>
               </div>
 
-              {/* Bench/Reserves */}
-              <div className="space-y-4 bg-gray-50 p-4 rounded">
-                <h3 className="text-lg font-semibold border-b pb-2">Bench/Reserves</h3>
-                {Object.entries(userTeam)
-                  .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
-                  .map(([position, data]) => {
-                    const benchStats = playerStats[userId]?.[data.player_name];
-                    const backupPosition = data.backup_position;
+              <div id={`scores-${userId}`} className="space-y-4">
+                {/* Main Team */}
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold border-b pb-2">Main Team</h3>
+                  <div className="hidden sm:grid grid-cols-12 gap-2 font-semibold text-sm pb-2">
+                    <div className="col-span-2">Position</div>
+                    <div className="col-span-3">Player</div>
+                    <div className="col-span-5">Details</div>
+                    <div className="col-span-2 text-right">Score</div>
+                  </div>
+                  {mainTeamPositions.map((positionType) => {
+                    const position = Object.entries(userTeam).find(([pos]) => pos === positionType)?.[0];
+                    if (!position) return null;
                     
-                    // Find if this bench player is being used in the main team
-                    const replacedPosition = mainTeamPositions.find(pos => {
-                      const posData = userTeam[pos];
-                      const posStats = playerStats[userId]?.[posData?.player_name];
-                      const bestPlayer = getBestPlayerForPosition(posStats, benchPlayers, pos);
-                      return bestPlayer?.player_name === data.player_name;
-                    });
-
-                    // If bench player is being used, get the original player's stats
-                    const isBeingUsed = !!replacedPosition;
-                    const originalPlayerData = isBeingUsed ? userTeam[replacedPosition] : null;
-                    const displayStats = isBeingUsed ? 
-                      playerStats[userId]?.[originalPlayerData?.player_name] : 
-                      benchStats;
+                    const data = userTeam[position];
+                    const mainPlayerStats = playerStats[userId]?.[data.player_name];
+                    const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
                     
                     return (
-                      <div key={position} className="grid grid-cols-12 gap-2 border-b pb-2">
-                        <div className="col-span-2 font-medium">
-                          {position}
-                          {backupPosition && ` (${backupPosition})`}
-                        </div>
-                        <div className="col-span-3">
-                          {isBeingUsed ? (
-                            <span className="text-red-600">{originalPlayerData?.player_name}</span>
+                      <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm">
+                        <div className="font-medium col-span-2 mb-1 sm:mb-0">{position}</div>
+                        <div className="col-span-3 mb-1 sm:mb-0">
+                          {bestPlayer !== mainPlayerStats ? (
+                            <span className="text-green-600">Bench: {bestPlayer.player_name}</span>
                           ) : (
                             data.player_name
                           )}
                         </div>
-                        <div className="col-span-5 text-sm text-gray-600">
-                          {displayStats?.scoring?.breakdown.map((line, i) => (
+                        <div className="col-span-5 text-gray-600 text-xs sm:text-sm mb-1 sm:mb-0">
+                          {bestPlayer?.scoring?.breakdown.map((line, i) => (
                             <div key={i}>{line}</div>
                           ))}
                         </div>
                         <div className="col-span-2 text-right font-semibold">
-                          {displayStats?.scoring?.total || 0}
+                          {bestPlayer?.scoring?.total || 0}
                         </div>
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Dead Certs */}
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold border-b pb-2">Dead Certs</h3>
+                  <div className="text-right font-semibold">
+                    Score: {deadCertsScore}
+                  </div>
+                </div>
+
+                {/* Bench/Reserves */}
+                <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
+                  <h3 className="text-lg font-semibold border-b pb-2">Bench/Reserves</h3>
+                  {Object.entries(userTeam)
+                    .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
+                    .map(([position, data]) => {
+                      const benchStats = playerStats[userId]?.[data.player_name];
+                      const backupPosition = data.backup_position;
+                      
+                      const replacedPosition = mainTeamPositions.find(pos => {
+                        const posData = userTeam[pos];
+                        const posStats = playerStats[userId]?.[posData?.player_name];
+                        const bestPlayer = getBestPlayerForPosition(posStats, benchPlayers, pos);
+                        return bestPlayer?.player_name === data.player_name;
+                      });
+
+                      const isBeingUsed = !!replacedPosition;
+                      const originalPlayerData = isBeingUsed ? userTeam[replacedPosition] : null;
+                      const displayStats = isBeingUsed ? 
+                        playerStats[userId]?.[originalPlayerData?.player_name] : 
+                        benchStats;
+                      
+                      return (
+                        <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm">
+                          <div className="font-medium col-span-2 mb-1 sm:mb-0">
+                            {position}
+                            {backupPosition && (
+                              <div className="text-xs text-gray-600">{backupPosition}</div>
+                            )}
+                          </div>
+                          <div className="col-span-3 mb-1 sm:mb-0">
+                            {isBeingUsed ? (
+                              <span className="text-red-600">{originalPlayerData?.player_name}</span>
+                            ) : (
+                              data.player_name
+                            )}
+                          </div>
+                          <div className="col-span-5 text-gray-600 text-xs sm:text-sm mb-1 sm:mb-0">
+                            {displayStats?.scoring?.breakdown.map((line, i) => (
+                              <div key={i}>{line}</div>
+                            ))}
+                          </div>
+                          <div className="col-span-2 text-right font-semibold">
+                            {displayStats?.scoring?.total || 0}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
             </div>
           );

@@ -103,21 +103,21 @@ export default function Squads() {
   const displaySquads = isEditing ? editedSquads : squads;
 
   return (
-    <div className="p-6 w-full mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-6 w-full mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">DuzzaTip Squads {CURRENT_YEAR}</h1>
-        <div className="space-x-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           {isEditing ? (
             <>
               <button 
                 onClick={handleSave}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-green-600 text-white rounded hover:bg-green-700 text-lg sm:text-base"
               >
                 Save Changes
               </button>
               <button 
                 onClick={handleCancel}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-lg sm:text-base"
               >
                 Cancel
               </button>
@@ -125,7 +125,7 @@ export default function Squads() {
           ) : (
             <button 
               onClick={() => setIsEditing(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-lg sm:text-base"
               disabled={loadingPlayers}
             >
               Edit Squads
@@ -134,24 +134,41 @@ export default function Squads() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {Object.entries(displaySquads).map(([userId, user]) => (
-          <div key={userId} className="bg-white rounded-lg shadow-md p-4 grid grid-rows-[auto_1fr]">
-            <h2 className="text-xl font-bold mb-4">{USER_NAMES[userId] || `User ${userId}`}</h2>
-            <div className="grid grid-rows-[repeat(auto-fill,minmax(40px,1fr))] gap-2">
+          <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg sm:text-xl font-bold">{USER_NAMES[userId] || `User ${userId}`}</h2>
+              <button 
+                onClick={() => {
+                  const element = document.getElementById(`squad-${userId}`);
+                  if (element) {
+                    element.classList.toggle('hidden');
+                  }
+                }}
+                className="text-gray-500 hover:text-gray-700 sm:hidden"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id={`squad-${userId}`} className="space-y-2">
               {user.players.map((player, index) => (
                 <div 
                   key={index}
-                  className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                  className="flex items-center"
                 >
                   {isEditing ? (
                     loadingPlayers ? (
-                      <div className="w-full p-1 text-sm text-gray-500">Loading players...</div>
+                      <div className="w-full p-2 text-sm text-gray-500 border border-gray-200 rounded bg-white">
+                        Loading players...
+                      </div>
                     ) : (
                       <select
                         value={player.name || ''}
                         onChange={(e) => handlePlayerChange(userId, index, e.target.value)}
-                        className="w-full p-1 text-sm border rounded"
+                        className="w-full p-2 text-sm border rounded bg-white"
                       >
                         <option value="">Select Player</option>
                         {Object.values(players)
@@ -165,7 +182,14 @@ export default function Squads() {
                       </select>
                     )
                   ) : (
-                    <span className="text-sm">{player.name} ({player.team})</span>
+                    <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
+                      <span className="text-gray-900">
+                        {player.name} 
+                        <span className="text-gray-600">
+                          ({player.team})
+                        </span>
+                      </span>
+                    </div>
                   )}
                 </div>
               ))}

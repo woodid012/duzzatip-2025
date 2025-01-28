@@ -76,11 +76,6 @@ export default function TeamSelection() {
 
   const handleSave = async () => {
     try {
-      console.log('Saving:', {
-        year: CURRENT_YEAR,
-        round: round,
-        team_selection: editedTeams
-      });
       const response = await fetch('/api/team-selection', {
         method: 'POST',
         headers: {
@@ -113,6 +108,11 @@ export default function TeamSelection() {
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
+      <style jsx>{`
+        select option[value=""] {
+          color: #DC2626;
+        }
+      `}</style>
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold">Team Selection</h1>
@@ -209,18 +209,20 @@ export default function TeamSelection() {
                             >
                               <option value="">Backup Position</option>
                               {BACKUP_POSITIONS.map(pos => (
-                                <option key={pos} value={pos}>{pos}</option>
+                                <option key={pos} value={pos}>
+                                  {pos}
+                                </option>
                               ))}
                             </select>
                           )}
                         </>
                       ) : (
-                        <div className="w-full p-2 text-sm bg-gray-50 rounded">
+                        <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
                           {playerData ? (
                             <div className="flex justify-between items-center">
-                              <span>{playerData.player_name}</span>
+                              <span className="text-gray-900">{playerData.player_name}</span>
                               {position === 'Bench' && playerData.backup_position && (
-                                <span className="text-gray-500 text-xs">
+                                <span className="text-gray-600 text-xs">
                                   {playerData.backup_position}
                                 </span>
                               )}
