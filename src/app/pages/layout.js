@@ -39,7 +39,7 @@ export default function PagesLayout({ children }) {
     <div className="min-h-screen bg-gray-50">
       {/* Top Banner */}
       <div className="bg-white shadow">
-        <div className="w-full p-6">
+        <div className="w-full p-4 md:p-6">
           <div className="flex items-center px-4">
             <div className="flex-shrink-0">
               <Logo width={176} height={176} className="rounded-lg" />
@@ -48,30 +48,32 @@ export default function PagesLayout({ children }) {
         </div>
       </div>
 
-      {/* Main Content with Sidebar */}
+      {/* Main Content with Responsive Navigation */}
       <div className="w-full">
-        <div className="flex gap-6 p-6">
-          {/* Sidebar Navigation */}
-          <div className="w-48 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow p-4">
-              {navigationItems.map((item) => (
-                <Link 
-                  key={item.id}
-                  href={item.path}
-                  className={`block px-4 py-2 mb-2 rounded-md transition-colors text-left ${
-                    pathname === item.path
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              ))}
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6">
+          {/* Navigation - Top on mobile, Sidebar on desktop */}
+          <div className="md:w-48 md:flex-shrink-0">
+            <div className="bg-white rounded-lg shadow p-2 md:p-4">
+              <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible">
+                {navigationItems.map((item) => (
+                  <Link 
+                    key={item.id}
+                    href={item.path}
+                    className={`flex-shrink-0 md:flex-shrink block px-4 py-2 rounded-md transition-colors text-left whitespace-nowrap ${
+                      pathname === item.path
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 bg-white rounded-lg shadow p-6">
+          <div className="flex-1 bg-white rounded-lg shadow p-4 md:p-6">
             {children}
           </div>
         </div>
