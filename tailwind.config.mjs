@@ -11,6 +11,9 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      textColor: {
+        DEFAULT: '#000000', // This sets the default text color to black
+      },
     },
   },
   plugins: [],
