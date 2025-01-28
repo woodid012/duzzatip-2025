@@ -146,7 +146,7 @@ export default function Squads() {
                     element.classList.toggle('hidden');
                   }
                 }}
-                className="text-gray-500 hover:text-gray-700 sm:hidden"
+                className="text-black hover:text-black sm:hidden"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -161,7 +161,7 @@ export default function Squads() {
                 >
                   {isEditing ? (
                     loadingPlayers ? (
-                      <div className="w-full p-2 text-sm text-gray-500 border border-gray-200 rounded bg-white">
+                      <div className="w-full p-2 text-sm text-black border border-gray-200 rounded bg-white">
                         Loading players...
                       </div>
                     ) : (
@@ -183,9 +183,9 @@ export default function Squads() {
                     )
                   ) : (
                     <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
-                      <span className="text-gray-900">
+                      <span className="text-black">
                         {player.name} 
-                        <span className="text-gray-600">
+                        <span className="text-black">
                           ({player.team})
                         </span>
                       </span>

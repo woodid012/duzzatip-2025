@@ -141,7 +141,7 @@ export default function TeamSelection() {
               </button>
               <button 
                 onClick={handleCancel}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-black-600 text-white rounded hover:bg-black-700 text-lg sm:text-base"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-lg sm:text-base"
               >
                 Cancel
               </button>
@@ -169,7 +169,7 @@ export default function TeamSelection() {
                     element.classList.toggle('hidden');
                   }
                 }}
-                className="text-black-500 hover:text-black-700 sm:hidden"
+                className="text-gray-500 hover:text-gray-700 sm:hidden"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -183,7 +183,7 @@ export default function TeamSelection() {
                 
                 return (
                   <div key={position} className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-black-600">{position}</label>
+                    <label className="text-sm font-medium text-gray-600">{position}</label>
                     <div className="flex flex-col sm:flex-row gap-2">
                       {isEditing ? (
                         <>
@@ -217,12 +217,12 @@ export default function TeamSelection() {
                           )}
                         </>
                       ) : (
-                        <div className="w-full p-2 text-sm border border-black-200 rounded bg-white">
+                        <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
                           {playerData ? (
                             <div className="flex justify-between items-center">
-                              <span className="text-black-900">{playerData.player_name}</span>
+                              <span className="text-gray-900">{playerData.player_name}</span>
                               {position === 'Bench' && playerData.backup_position && (
-                                <span className="text-black-600 text-xs">
+                                <span className="text-gray-600 text-xs">
                                   {playerData.backup_position}
                                 </span>
                               )}
