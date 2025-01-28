@@ -5,17 +5,19 @@ export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const round = parseInt(searchParams.get('round'));
-        const playerName = searchParams.get('player_name');
+        const playerNames = searchParams.get('players'); // Now expects a comma-separated list
 
-        if (round === null || round === undefined || !playerName) {
-            return Response.json({ error: 'Round and player_name are required' }, { status: 400 });
+        if (round === null || round === undefined || !playerNames) {
+            return Response.json({ error: 'Round and players are required' }, { status: 400 });
         }
+
+        const playerNamesList = playerNames.split(',').map(name => name.trim());
 
         const { db } = await connectToDatabase();
         
         const playerStats = await db.collection('2024_game_results')
-            .findOne({ 
-                player_name: playerName,
+            .find({ 
+                player_name: { $in: playerNamesList },
                 round: round,
                 year: CURRENT_YEAR
             }, {
@@ -32,12 +34,24 @@ export async function GET(request) {
                     disposals: 1,
                     _id: 0
                 }
-            });
+            }).toArray();
 
-        if (!playerStats) {
-            return Response.json({ 
-                player: playerName,
-                team: '-',
+        // Create a map of found players
+        const playerStatsMap = playerStats.reduce((acc, stats) => {
+            const disposals = stats.kicks + stats.handballs;
+            acc[stats.player_name] = {
+                ...stats,
+                player_name: stats.player_name,  // Ensure player_name is included
+                disposals
+            };
+            return acc;
+        }, {});
+
+        // Ensure all requested players have stats (even if not found)
+        const result = playerNamesList.reduce((acc, playerName) => {
+            acc[playerName] = playerStatsMap[playerName] || {
+                player_name: playerName,
+                team_name: '-',
                 kicks: 0,
                 handballs: 0,
                 goals: 0,
@@ -46,16 +60,11 @@ export async function GET(request) {
                 tackles: 0,
                 hitouts: 0,
                 disposals: 0
-            });
-        }
+            };
+            return acc;
+        }, {});
 
-        // Calculate disposals from kicks + handballs
-        const disposals = playerStats.kicks + playerStats.handballs;
-        
-        return Response.json({
-            ...playerStats,
-            disposals
-        });
+        return Response.json(result);
 
     } catch (error) {
         console.error('API Error:', error);

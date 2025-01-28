@@ -55,24 +55,33 @@ export default function TeamSelection() {
         if (!teamsRes.ok) throw new Error('Failed to fetch teams');
         const teamsData = await teamsRes.json();
         setTeams(teamsData);
-
+    
         const allStats = {};
         for (const [userId, team] of Object.entries(teamsData)) {
+          // Collect all player names for this team
+          const playerNames = Object.values(team)
+            .map(data => data.player_name)
+            .filter(Boolean); // Remove any undefined/null values
+    
+          // Make a single API call for all players in the team
+          const res = await fetch(`/api/player-stats?round=${round}&players=${encodeURIComponent(playerNames.join(','))}`);
+          if (!res.ok) throw new Error('Failed to fetch player stats');
+          const statsData = await res.json();
+    
+          // Process the stats for each player
           const playerStats = {};
           for (const [position, data] of Object.entries(team)) {
-            const res = await fetch(`/api/player-stats?round=${round}&player_name=${encodeURIComponent(data.player_name)}`);
-            if (res.ok) {
-              const stats = await res.json();
-              const positionType = position.toUpperCase().replace(/\s+/g, '_');
-              
-              const scoring = calculateScore(positionType, stats, data.backup_position);
-              playerStats[data.player_name] = {
-                ...stats,
-                scoring,
-                backup_position: data.backup_position,
-                original_position: position
-              };
-            }
+            const playerName = data.player_name;
+            const stats = statsData[playerName];
+            const positionType = position.toUpperCase().replace(/\s+/g, '_');
+            
+            const scoring = calculateScore(positionType, stats, data.backup_position);
+            playerStats[playerName] = {
+              ...stats,
+              scoring,
+              backup_position: data.backup_position,
+              original_position: position
+            };
           }
           allStats[userId] = playerStats;
         }
