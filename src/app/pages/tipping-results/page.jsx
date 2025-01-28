@@ -1,0 +1,168 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+
+const TippingResultsGrid = () => {
+  const [selectedRound, setSelectedRound] = useState('0');
+  const [fixtures, setFixtures] = useState([]);
+  const [allUserTips, setAllUserTips] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadAllResults = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Load fixtures first
+        const fixturesResponse = await fetch(`/api/tipping-data`);
+        if (!fixturesResponse.ok) throw new Error('Failed to load fixtures');
+        const fixtureData = await fixturesResponse.json();
+        
+        const roundFixtures = fixtureData.filter(f => f.RoundNumber.toString() === selectedRound)
+          .sort((a, b) => a.MatchNumber - b.MatchNumber);
+        setFixtures(roundFixtures);
+
+        // Load tips for all users
+        const userTipsPromises = Object.keys(USER_NAMES).map(userId => 
+          fetch(`/api/tipping-results?round=${selectedRound}&userId=${userId}`)
+            .then(res => res.json())
+        );
+
+        const allResults = await Promise.all(userTipsPromises);
+        const tipsMap = {};
+        allResults.forEach((result, index) => {
+          const userId = Object.keys(USER_NAMES)[index];
+          tipsMap[userId] = {
+            matches: result.completedMatches,
+            correctTips: result.correctTips,
+            deadCertScore: result.deadCertScore,
+            totalScore: result.totalScore
+          };
+        });
+
+        setAllUserTips(tipsMap);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAllResults();
+  }, [selectedRound]);
+
+  const displayRound = (round) => {
+    return round === '0' ? 'Opening Round' : `Round ${round}`;
+  };
+
+  const getWinningTeam = (fixture) => {
+    if (fixture.HomeTeamScore === null || fixture.AwayTeamScore === null) return null;
+    if (fixture.HomeTeamScore > fixture.AwayTeamScore) return fixture.HomeTeam;
+    if (fixture.AwayTeamScore > fixture.HomeTeamScore) return fixture.AwayTeam;
+    return 'Draw';
+  };
+
+  if (loading) return <div className="p-8 text-center">Loading results...</div>;
+  if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Round Summary - {displayRound(selectedRound)}</h1>
+        <select 
+          value={selectedRound}
+          onChange={(e) => setSelectedRound(e.target.value)}
+          className="border rounded p-2"
+        >
+          {Array.from({ length: 25 }, (_, i) => (
+            <option key={i} value={i.toString()}>
+              {displayRound(i.toString())}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border">
+          <thead>
+            <tr>
+              <th className="py-2 px-4 border sticky left-0 bg-gray-100 z-10" rowSpan={3}>Team</th>
+              {fixtures.map(fixture => (
+                <th key={fixture.MatchNumber} className="py-1 px-2 border bg-gray-100 text-center">
+                  Game {fixture.MatchNumber}
+                </th>
+              ))}
+              <th className="py-2 px-4 border" rowSpan={3}>Tips</th>
+              <th className="py-2 px-4 border" rowSpan={3}>Dead Cert</th>
+              <th className="py-2 px-4 border" rowSpan={3}>Total</th>
+            </tr>
+            <tr className="bg-gray-50">
+              {fixtures.map(fixture => (
+                <td key={`h-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap">
+                  H - {fixture.HomeTeam} ({fixture.HomeTeamScore ?? '-'})
+                </td>
+              ))}
+            </tr>
+            <tr className="bg-gray-50">
+              {fixtures.map(fixture => (
+                <td key={`a-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap">
+                  A - {fixture.AwayTeam} ({fixture.AwayTeamScore ?? '-'})
+                  <div className="text-xs font-medium">
+                    {fixture.HomeTeamScore !== null ? `W - ${getWinningTeam(fixture)}` : ''}
+                  </div>
+                </td>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(USER_NAMES).map(([userId, userName]) => {
+              const userResults = allUserTips[userId];
+              return (
+                <tr key={userId} className="hover:bg-gray-50">
+                  <td className="py-2 px-4 border sticky left-0 bg-white z-10 font-medium">
+                    {userName}
+                  </td>
+                  {fixtures.map(fixture => {
+                    const matchTip = userResults?.matches?.find(m => m.matchNumber === fixture.MatchNumber);
+                    const isCorrect = matchTip?.correct;
+                    const isDeadCert = matchTip?.deadCert;
+                    
+                    return (
+                      <td key={fixture.MatchNumber} className="py-2 px-4 border text-center">
+                        <div 
+                          className={`
+                            ${isCorrect ? 'text-green-600' : 'text-red-600'}
+                            ${!matchTip?.tip ? 'text-gray-400' : ''}
+                            font-medium
+                          `}
+                        >
+                          {matchTip?.tip || '-'}
+                          {isDeadCert && (
+                            <span className="ml-1 text-sm">
+                              ({isCorrect ? '+6' : '-12'})
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="py-2 px-4 border text-center font-medium">
+                    {userResults?.correctTips || 0}
+                  </td>
+                  <td className="py-2 px-4 border text-center font-medium">
+                    {userResults?.deadCertScore || 0}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export default TippingResultsGrid;

@@ -10,6 +10,7 @@ export default function TeamSelection() {
   const [round, setRound] = useState(0);
   const [teams, setTeams] = useState({});
   const [playerStats, setPlayerStats] = useState({});
+  const [deadCertScores, setDeadCertScores] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -51,11 +52,25 @@ export default function TeamSelection() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch teams and player stats
         const teamsRes = await fetch(`/api/team-selection?round=${round}`);
         if (!teamsRes.ok) throw new Error('Failed to fetch teams');
         const teamsData = await teamsRes.json();
         setTeams(teamsData);
     
+        // Fetch dead cert scores for all users
+        const deadCertPromises = Object.keys(USER_NAMES).map(userId => 
+          fetch(`/api/tipping-results?round=${round}&userId=${userId}`)
+            .then(res => res.json())
+        );
+        const deadCertResults = await Promise.all(deadCertPromises);
+        const deadCertMap = {};
+        deadCertResults.forEach((result, index) => {
+          const userId = Object.keys(USER_NAMES)[index];
+          deadCertMap[userId] = result.deadCertScore || 0;
+        });
+        setDeadCertScores(deadCertMap);
+
         const allStats = {};
         for (const [userId, team] of Object.entries(teamsData)) {
           // Collect all player names for this team
@@ -120,7 +135,8 @@ export default function TeamSelection() {
       return total + (bestPlayer?.scoring?.total || 0);
     }, 0);
 
-    return { userId, totalScore: totalScore + 0 }; // Adding deadCertsScore (0)
+    const deadCertsScore = deadCertScores[userId] || 0;
+    return { userId, totalScore: totalScore + deadCertsScore };
   });
 
   const highestScore = Math.max(...allFinalScores.map(s => s.totalScore));
@@ -168,7 +184,7 @@ export default function TeamSelection() {
             return total + (bestPlayer?.scoring?.total || 0);
           }, 0);
 
-          const deadCertsScore = 0;
+          const deadCertsScore = deadCertScores[userId] || 0;
           const finalTotalScore = totalScore + deadCertsScore;
 
           return (
@@ -182,8 +198,13 @@ export default function TeamSelection() {
                     <GiCrab className="text-red-500" size={20} />}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">Total Score: {finalTotalScore}</span>
+                                  {/* Final Total */}
+                <div className="text-right font-bold text-lg border-t pt-2">
+                  Final Total: {finalTotalScore}
+                </div>
                   <button 
+
+                  
                     onClick={() => {
                       const element = document.getElementById(`scores-${userId}`);
                       if (element) {
@@ -247,9 +268,8 @@ export default function TeamSelection() {
 
                 {/* Dead Certs */}
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold border-b pb-2">Dead Certs</h3>
-                  <div className="text-right font-semibold">
-                    Deadcerts: {deadCertsScore}
+                 <div className="text-right font-semibold">
+                    Dead Cert Bonus: {deadCertsScore}
                   </div>
                 </div>
 

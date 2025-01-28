@@ -7,21 +7,32 @@ const TippingPage = () => {
   const [fixtures, setFixtures] = useState([]);
   const [selectedRound, setSelectedRound] = useState('0');
   const [selectedTeam, setSelectedTeam] = useState('');
-  const [tips, setTips] = useState({});  // { matchId: { team: teamName, deadCert: boolean } }
+  const [tips, setTips] = useState({});
+  const [editedTips, setEditedTips] = useState({});
   const [loading, setLoading] = useState(true);
-  const [savedMessage, setSavedMessage] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   useEffect(() => {
-    const loadFixtures = async () => {
+    const loadData = async () => {
       try {
-        const response = await fetch('/api/tipping-data');
-        if (!response.ok) {
-          throw new Error(`Failed to load fixtures: ${response.status}`);
-        }
-        const jsonData = await response.json();
+        const url = selectedTeam 
+          ? `/api/tipping-data?round=${selectedRound}&userId=${selectedTeam}`
+          : '/api/tipping-data';
         
-        // Process the data and convert dates to Melbourne time
-        const processedData = jsonData.map(fixture => ({
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to load data: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Handle both the direct fixtures array and the combined data structure
+        const fixtureData = Array.isArray(data) ? data : data.fixtures;
+        const tipsData = Array.isArray(data) ? {} : data.tips || {};
+        
+        // Process fixtures and convert dates to Melbourne time
+        const processedFixtures = fixtureData.map(fixture => ({
           ...fixture,
           DateUtc: new Date(fixture.DateUtc).toLocaleString('en-AU', {
             timeZone: 'Australia/Melbourne',
@@ -39,39 +50,57 @@ const TippingPage = () => {
           isComplete: fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null
         }));
 
-        setFixtures(processedData);
+        const roundFixtures = processedFixtures.filter(
+          fixture => fixture['Round Number'] === selectedRound
+        );
+
+        // If no tips exist for matches, default to home team
+        const defaultedTips = {};
+        if (selectedTeam) {
+          roundFixtures.forEach(fixture => {
+            if (!tipsData[fixture.MatchNumber]) {
+              defaultedTips[fixture.MatchNumber] = {
+                team: fixture.HomeTeam,
+                deadCert: false
+              };
+            }
+          });
+        }
+
+        const combinedTips = {
+          ...defaultedTips,
+          ...tipsData
+        };
+
+        setFixtures(roundFixtures);
+        setTips(combinedTips);
+        setEditedTips(combinedTips);
         setLoading(false);
       } catch (error) {
-        console.error('Error loading fixtures:', error);
+        console.error('Error loading data:', error);
         setLoading(false);
       }
     };
 
-    loadFixtures();
-
-    // Load saved tips from localStorage
-    const savedTips = localStorage.getItem('aflTips');
-    if (savedTips) {
-      setTips(JSON.parse(savedTips));
-    }
-  }, []);
-
-  const filteredFixtures = fixtures.filter(fixture => 
-    fixture['Round Number'] === selectedRound
-  );
+    loadData();
+  }, [selectedRound, selectedTeam]);
 
   const handleTipSelect = (matchNumber, team) => {
-    setTips(prev => ({
+    if (!isEditing) return;
+    
+    setEditedTips(prev => ({
       ...prev,
       [matchNumber]: {
-        team,
-        deadCert: prev[matchNumber]?.deadCert || false
+        ...prev[matchNumber],
+        team
       }
     }));
   };
 
   const handleDeadCertToggle = (matchNumber) => {
-    setTips(prev => ({
+    if (!isEditing) return;
+
+    setEditedTips(prev => ({
       ...prev,
       [matchNumber]: {
         ...prev[matchNumber],
@@ -80,16 +109,36 @@ const TippingPage = () => {
     }));
   };
 
-  const handleSave = () => {
-    const timestamp = new Date().toLocaleString();
-    const tipsWithTimestamp = {
-      tips,
-      timestamp,
-      round: selectedRound
-    };
-    localStorage.setItem('aflTips', JSON.stringify(tipsWithTimestamp));
-    setSavedMessage(`Tips saved at ${timestamp}`);
-    setTimeout(() => setSavedMessage(''), 3000);
+  const handleSave = async () => {
+    try {
+      const response = await fetch('/api/tipping-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          round: selectedRound,
+          userId: selectedTeam,
+          tips: editedTips
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to save');
+      
+      setTips(editedTips);
+      setIsEditing(false);
+      setSaveMessage('Tips saved successfully');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } catch (error) {
+      console.error('Error saving:', error);
+      setSaveMessage('Failed to save tips');
+      setTimeout(() => setSaveMessage(''), 3000);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditedTips(tips);
+    setIsEditing(false);
   };
 
   const displayRound = (round) => {
@@ -116,20 +165,43 @@ const TippingPage = () => {
     );
   }
 
+  const displayTips = isEditing ? editedTips : tips;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">AFL {CURRENT_YEAR} Tips</h1>
         <div className="flex items-center gap-4">
-          {savedMessage && (
-            <span className="text-green-600">{savedMessage}</span>
+          {saveMessage && (
+            <span className={`${saveMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+              {saveMessage}
+            </span>
           )}
-          <button 
-            onClick={handleSave}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Save Tips
-          </button>
+          {selectedTeam && (
+            isEditing ? (
+              <>
+                <button 
+                  onClick={handleSave}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                >
+                  Save Changes
+                </button>
+                <button 
+                  onClick={handleCancel}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Edit Tips
+              </button>
+            )
+          )}
         </div>
       </div>
       
@@ -180,22 +252,23 @@ const TippingPage = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredFixtures.map((fixture) => {
-              const tipResult = checkTipResult(fixture, tips[fixture['Match Number']]?.team);
+            {fixtures.map((fixture) => {
+              const tipResult = checkTipResult(fixture, displayTips[fixture.MatchNumber]?.team);
               
               return (
-                <tr key={fixture['Match Number']} className="hover:bg-gray-50">
+                <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
                   <td className="py-2 px-4 border">{fixture.DateUtc}</td>
                   <td className="py-2 px-4 border">
                     <button
-                      onClick={() => handleTipSelect(fixture['Match Number'], fixture['Home Team'])}
+                      onClick={() => handleTipSelect(fixture.MatchNumber, fixture.HomeTeam)}
+                      disabled={!isEditing}
                       className={`px-3 py-1 rounded ${
-                        tips[fixture['Match Number']]?.team === fixture['Home Team']
+                        displayTips[fixture.MatchNumber]?.team === fixture.HomeTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200'
-                      }`}
+                      } ${!isEditing ? 'cursor-default' : ''}`}
                     >
-                      {fixture['Home Team']}
+                      {fixture.HomeTeam}
                     </button>
                   </td>
                   <td className="py-2 px-4 border text-center">
@@ -203,30 +276,31 @@ const TippingPage = () => {
                   </td>
                   <td className="py-2 px-4 border">
                     <button
-                      onClick={() => handleTipSelect(fixture['Match Number'], fixture['Away Team'])}
+                      onClick={() => handleTipSelect(fixture.MatchNumber, fixture.AwayTeam)}
+                      disabled={!isEditing}
                       className={`px-3 py-1 rounded ${
-                        tips[fixture['Match Number']]?.team === fixture['Away Team']
+                        displayTips[fixture.MatchNumber]?.team === fixture.AwayTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200'
-                      }`}
+                      } ${!isEditing ? 'cursor-default' : ''}`}
                     >
-                      {fixture['Away Team']}
+                      {fixture.AwayTeam}
                     </button>
                   </td>
                   <td className="py-2 px-4 border text-center">
-                    {tips[fixture['Match Number']]?.team || '-'}
+                    {displayTips[fixture.MatchNumber]?.team || '-'}
                   </td>
                   <td className="py-2 px-4 border text-center">
                     <button
-                      onClick={() => handleDeadCertToggle(fixture['Match Number'])}
-                      disabled={!tips[fixture['Match Number']]?.team}
+                      onClick={() => handleDeadCertToggle(fixture.MatchNumber)}
+                      disabled={!isEditing || !displayTips[fixture.MatchNumber]?.team}
                       className={`px-3 py-1 rounded ${
-                        tips[fixture['Match Number']]?.deadCert
+                        displayTips[fixture.MatchNumber]?.deadCert
                           ? 'bg-yellow-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200'
-                      } ${!tips[fixture['Match Number']]?.team ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${(!isEditing || !displayTips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      {tips[fixture['Match Number']]?.deadCert ? 'Yes' : 'No'}
+                      {displayTips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
                     </button>
                   </td>
                   <td className="py-2 px-4 border text-center">

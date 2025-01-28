@@ -32,6 +32,8 @@ export default function PagesLayout({ children }) {
   const navigationItems = [
     { name: 'Round Results', path: '/pages/results', id: 'results' },
     { name: 'Team Selection', path: '/pages/team-selection', id: 'team-selection' },
+    { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
+    { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
   ];
 
