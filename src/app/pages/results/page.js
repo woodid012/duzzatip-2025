@@ -268,7 +268,7 @@ export default function TeamSelection() {
 
                 {/* Dead Certs */}
                 <div className="space-y-2">
-                 <div className="text-right font-semibold">
+                  <div className="text-right font-semibold">
                     Dead Cert Bonus: {deadCertsScore}
                   </div>
                 </div>

@@ -1,6 +1,8 @@
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
+import path from 'path';
+import fs from 'fs/promises';
 
 export async function GET(request) {
   try {
@@ -12,12 +14,10 @@ export async function GET(request) {
       throw new Error('Round or userId is required');
     }
 
-    // Fetch fixtures
-    const fixturesResponse = await fetch(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`);
-    if (!fixturesResponse.ok) {
-      throw new Error(`Failed to fetch fixtures: ${fixturesResponse.status}`);
-    }
-    const fixtures = await fixturesResponse.json();
+    // Read local JSON file
+    const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
+    const fixturesData = await fs.readFile(fixturesPath, 'utf8');
+    const fixtures = JSON.parse(fixturesData);
 
     // Filter completed matches for the round
     const completedMatches = fixtures.filter(match => 
@@ -26,7 +26,19 @@ export async function GET(request) {
       match.AwayTeamScore !== null
     );
 
-    // Get tips from database
+    // Return fixtures first
+    const fixturesResponse = {
+      round,
+      matches: completedMatches.map(match => ({
+        matchNumber: match.MatchNumber,
+        homeTeam: match.HomeTeam,
+        awayTeam: match.AwayTeam,
+        homeScore: match.HomeTeamScore,
+        awayScore: match.AwayTeamScore,
+      }))
+    };
+
+    // Then get tips from database
     const { db } = await connectToDatabase();
     const tips = await db.collection(`${CURRENT_YEAR}_tips`)
       .find({ 
@@ -54,15 +66,15 @@ export async function GET(request) {
       if (isCorrect) {
         correctTips++;
         if (tip.DeadCert) {
-          deadCertScore += 6; // +6 for correct dead cert
+          deadCertScore += 6;
         }
       } else if (tip.DeadCert) {
-        deadCertScore -= 12; // -12 for incorrect dead cert
+        deadCertScore -= 12;
       }
     });
 
     return NextResponse.json({
-      round,
+      ...fixturesResponse,
       userId,
       totalMatches: completedMatches.length,
       correctTips,

@@ -12,9 +12,13 @@ export default {
         foreground: "var(--foreground)",
       },
       textColor: {
-        DEFAULT: '#000000', // This sets the default text color to black
+        DEFAULT: '#000000',
+        primary: '#000000',
+        secondary: '#4B5563',
       },
     },
   },
+  plugins: [],
+  darkMode: 'media',
   plugins: [],
 };
