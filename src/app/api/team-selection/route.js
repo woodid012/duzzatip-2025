@@ -11,34 +11,42 @@ export async function GET(request) {
         }
 
         const { db } = await connectToDatabase();
+        
+        // Use aggregation pipeline for better performance
         const teamSelection = await db.collection(`${CURRENT_YEAR}_team_selection`)
-            .find({ 
-                Round: parseInt(round),
-                Active: 1 
-            }, {
-                projection: {
-                    User: 1,
-                    Position: 1,
-                    Player_Name: 1,
-                    Backup_Position: 1,
-                    _id: 0
+            .aggregate([
+                { 
+                    $match: { 
+                        Round: parseInt(round),
+                        Active: 1 
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$User',
+                        positions: {
+                            $push: {
+                                position: '$Position',
+                                player_name: '$Player_Name',
+                                backup_position: '$Backup_Position'
+                            }
+                        }
+                    }
                 }
-            })
-            .toArray();
+            ]).toArray();
         
         const teams = {};
-        teamSelection.forEach(selection => {
-            if (!teams[selection.User]) {
-                teams[selection.User] = {};
-            }
-            
-            teams[selection.User][selection.Position] = {
-                player_name: selection.Player_Name,
-                position: selection.Position,
-                ...(selection.Position === 'Bench' && selection.Backup_Position 
-                    ? { backup_position: selection.Backup_Position } 
-                    : {})
-            };
+        teamSelection.forEach(user => {
+            teams[user._id] = {};
+            user.positions.forEach(pos => {
+                teams[user._id][pos.position] = {
+                    player_name: pos.player_name,
+                    position: pos.position,
+                    ...(pos.position === 'Bench' && pos.backup_position 
+                        ? { backup_position: pos.backup_position } 
+                        : {})
+                };
+            });
         });
 
         return Response.json(teams);
@@ -55,26 +63,49 @@ export async function POST(request) {
         const { db } = await connectToDatabase();
         const collection = db.collection(`${CURRENT_YEAR}_team_selection`);
 
-        await collection.deleteMany({ Round: parseInt(round) });
+        // Create bulk operations
+        const bulkOps = [];
 
-        const documents = Object.entries(team_selection).flatMap(([userId, positions]) => 
-            Object.entries(positions)
-                .filter(([_, data]) => data && data.player_name)
-                .map(([position, data]) => ({
-                    User: parseInt(userId),
-                    Round: parseInt(round),
-                    Position: position,
-                    Player_Name: data.player_name,
-                    ...(position === 'Bench' && data.backup_position 
-                        ? { Backup_Position: data.backup_position } 
-                        : {}),
-                    Active: 1
-                }))
-        );
+        // First, mark all existing records for this round as inactive
+        bulkOps.push({
+            updateMany: {
+                filter: { Round: parseInt(round) },
+                update: { $set: { Active: 0 } }
+            }
+        });
 
-        if (documents.length > 0) {
-            await collection.insertMany(documents, { ordered: false });
+        // Then, insert or update new records
+        Object.entries(team_selection).forEach(([userId, positions]) => {
+            Object.entries(positions).forEach(([position, data]) => {
+                if (data && data.player_name) {
+                    bulkOps.push({
+                        updateOne: {
+                            filter: {
+                                User: parseInt(userId),
+                                Round: parseInt(round),
+                                Position: position
+                            },
+                            update: {
+                                $set: {
+                                    Player_Name: data.player_name,
+                                    ...(position === 'Bench' && data.backup_position 
+                                        ? { Backup_Position: data.backup_position } 
+                                        : {}),
+                                    Active: 1
+                                }
+                            },
+                            upsert: true
+                        }
+                    });
+                }
+            });
+        });
+
+        // Execute all operations in a single batch
+        if (bulkOps.length > 0) {
+            await collection.bulkWrite(bulkOps, { ordered: false });
         }
+
         return Response.json({ success: true });
     } catch (error) {
         console.error('Database Error:', error);

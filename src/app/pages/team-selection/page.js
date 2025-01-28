@@ -112,32 +112,36 @@ export default function TeamSelection() {
   const displayTeams = isEditing ? editedTeams : teams;
 
   return (
-    <div className="p-6 w-full mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">Team Selection Round {round}</h1>
-          <select 
-            value={round}
-            onChange={(e) => setRound(Number(e.target.value))}
-            className="p-2 border rounded"
-          >
-            {[...Array(29)].map((_, i) => (
-              <option key={i} value={i}>Round {i}</option>
-            ))}
-          </select>
+    <div className="p-4 sm:p-6 w-full mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <h1 className="text-2xl font-bold">Team Selection</h1>
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            <label htmlFor="round-select" className="text-sm font-medium">Round:</label>
+            <select 
+              id="round-select"
+              value={round}
+              onChange={(e) => setRound(Number(e.target.value))}
+              className="p-2 border rounded w-24 text-lg"
+            >
+              {[...Array(29)].map((_, i) => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="space-x-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           {isEditing ? (
             <>
               <button 
                 onClick={handleSave}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-green-600 text-white rounded hover:bg-green-700 text-lg sm:text-base"
               >
                 Save Changes
               </button>
               <button 
                 onClick={handleCancel}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-lg sm:text-base"
               >
                 Cancel
               </button>
@@ -145,7 +149,7 @@ export default function TeamSelection() {
           ) : (
             <button 
               onClick={() => setIsEditing(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-lg sm:text-base"
             >
               Edit Teams
             </button>
@@ -153,25 +157,40 @@ export default function TeamSelection() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {Object.entries(USER_NAMES).map(([userId, userName]) => (
-          <div key={userId} className="bg-white rounded-lg shadow-md p-4">
-            <h2 className="text-xl font-bold mb-4">{userName}</h2>
-            <div className="space-y-2">
+          <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg sm:text-xl font-bold">{userName}</h2>
+              <button 
+                onClick={() => {
+                  const element = document.getElementById(`team-${userId}`);
+                  if (element) {
+                    element.classList.toggle('hidden');
+                  }
+                }}
+                className="text-gray-500 hover:text-gray-700 sm:hidden"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+            <div id={`team-${userId}`} className="space-y-2">
               {POSITION_TYPES.map((position) => {
                 const playerData = displayTeams[userId]?.[position];
                 const userSquad = squads[userId]?.players || [];
                 
                 return (
                   <div key={position} className="flex flex-col gap-1">
-                    <label className="text-sm font-medium">{position}</label>
-                    <div className="flex gap-2">
+                    <label className="text-sm font-medium text-gray-600">{position}</label>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       {isEditing ? (
                         <>
                           <select
                             value={playerData?.player_name || ''}
                             onChange={(e) => handlePlayerChange(userId, position, e.target.value)}
-                            className="w-full p-1 text-sm border rounded"
+                            className="w-full p-2 text-sm border rounded bg-white"
                           >
                             <option value="">Select Player</option>
                             {userSquad
@@ -186,7 +205,7 @@ export default function TeamSelection() {
                             <select
                               value={playerData?.backup_position || ''}
                               onChange={(e) => handleBackupPositionChange(userId, e.target.value)}
-                              className="w-1/3 p-1 text-sm border rounded"
+                              className="w-full sm:w-1/3 p-2 text-sm border rounded bg-white"
                             >
                               <option value="">Backup Position</option>
                               {BACKUP_POSITIONS.map(pos => (
@@ -196,13 +215,16 @@ export default function TeamSelection() {
                           )}
                         </>
                       ) : (
-                        <div className="w-full p-1 text-sm">
+                        <div className="w-full p-2 text-sm bg-gray-50 rounded">
                           {playerData ? (
-                            <>
-                              {playerData.player_name}
-                              {position === 'Bench' && playerData.backup_position && 
-                                ` (${playerData.backup_position})`}
-                            </>
+                            <div className="flex justify-between items-center">
+                              <span>{playerData.player_name}</span>
+                              {position === 'Bench' && playerData.backup_position && (
+                                <span className="text-gray-500 text-xs">
+                                  {playerData.backup_position}
+                                </span>
+                              )}
+                            </div>
                           ) : '-'}
                         </div>
                       )}
