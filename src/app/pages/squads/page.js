@@ -8,34 +8,51 @@ export default function Squads() {
   const [editedSquads, setEditedSquads] = useState({});
   const [players, setPlayers] = useState({});
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loadingSquads, setLoadingSquads] = useState(true);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [error, setError] = useState(null);
 
+  // First, fetch squads
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchSquads = async () => {
       try {
-        const [squadsRes, playersRes] = await Promise.all([
-          fetch('/api/squads'),
-          fetch('/api/players')
-        ]);
-
-        if (!squadsRes.ok || !playersRes.ok) throw new Error('Failed to fetch');
+        const squadsRes = await fetch('/api/squads');
+        if (!squadsRes.ok) throw new Error('Failed to fetch squads');
         
         const squadsData = await squadsRes.json();
-        const playersData = await playersRes.json();
-        
         setSquads(squadsData);
         setEditedSquads(squadsData);
-        setPlayers(playersData);
       } catch (err) {
         setError(err.message);
       } finally {
-        setLoading(false);
+        setLoadingSquads(false);
       }
     };
 
-    fetchData();
+    fetchSquads();
   }, []);
+
+  // Then, fetch players after squads are loaded
+  useEffect(() => {
+    if (!loadingSquads && !error) {
+      const fetchPlayers = async () => {
+        setLoadingPlayers(true);
+        try {
+          const playersRes = await fetch('/api/players');
+          if (!playersRes.ok) throw new Error('Failed to fetch players');
+          
+          const playersData = await playersRes.json();
+          setPlayers(playersData);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoadingPlayers(false);
+        }
+      };
+
+      fetchPlayers();
+    }
+  }, [loadingSquads, error]);
 
   const handlePlayerChange = (userId, playerIndex, newPlayerName) => {
     setEditedSquads(prev => {
@@ -80,7 +97,7 @@ export default function Squads() {
     setIsEditing(false);
   };
 
-  if (loading) return <div className="p-4">Loading squads...</div>;
+  if (loadingSquads) return <div className="p-4">Loading squads...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
   const displaySquads = isEditing ? editedSquads : squads;
@@ -109,6 +126,7 @@ export default function Squads() {
             <button 
               onClick={() => setIsEditing(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              disabled={loadingPlayers}
             >
               Edit Squads
             </button>
@@ -127,21 +145,25 @@ export default function Squads() {
                   className="flex justify-between items-center p-2 bg-gray-50 rounded"
                 >
                   {isEditing ? (
-                    <select
-                      value={player.name || ''}
-                      onChange={(e) => handlePlayerChange(userId, index, e.target.value)}
-                      className="w-full p-1 text-sm border rounded"
-                    >
-                      <option value="">Select Player</option>
-                      {Object.values(players)
-                        .flat()
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map(p => (
-                          <option key={p.name} value={p.name}>
-                            {p.name} ({p.teamName})
-                          </option>
-                        ))}
-                    </select>
+                    loadingPlayers ? (
+                      <div className="w-full p-1 text-sm text-gray-500">Loading players...</div>
+                    ) : (
+                      <select
+                        value={player.name || ''}
+                        onChange={(e) => handlePlayerChange(userId, index, e.target.value)}
+                        className="w-full p-1 text-sm border rounded"
+                      >
+                        <option value="">Select Player</option>
+                        {Object.values(players)
+                          .flat()
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map(p => (
+                            <option key={p.name} value={p.name}>
+                              {p.name} ({p.teamName})
+                            </option>
+                          ))}
+                      </select>
+                    )
                   ) : (
                     <span className="text-sm">{player.name} ({player.team})</span>
                   )}
