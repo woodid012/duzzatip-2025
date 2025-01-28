@@ -154,7 +154,7 @@ const TippingPage = () => {
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border">
           <thead>
-            <tr className="bg-gray-100">
+            <tr className="bg-black-100">
               <th className="py-2 px-4 border">Home Team</th>
               <th className="py-2 px-4 border">Away Team</th>
               <th className="py-2 px-4 border">Your Tip</th>
@@ -163,14 +163,14 @@ const TippingPage = () => {
           </thead>
           <tbody>
             {filteredFixtures.map((fixture) => (
-              <tr key={fixture['Match Number']} className="hover:bg-gray-50">
+              <tr key={fixture['Match Number']} className="hover:bg-black-50">
                 <td className="py-2 px-4 border">
                   <button
                     onClick={() => handleTipSelect(fixture['Match Number'], fixture['Home Team'])}
                     className={`px-3 py-1 rounded ${
                       tips[fixture['Match Number']]?.team === fixture['Home Team']
                         ? 'bg-green-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
+                        : 'bg-black-100 hover:bg-black-200'
                     }`}
                   >
                     {fixture['Home Team']}
@@ -182,7 +182,7 @@ const TippingPage = () => {
                     className={`px-3 py-1 rounded ${
                       tips[fixture['Match Number']]?.team === fixture['Away Team']
                         ? 'bg-green-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
+                        : 'bg-black-100 hover:bg-black-200'
                     }`}
                   >
                     {fixture['Away Team']}
@@ -198,7 +198,7 @@ const TippingPage = () => {
                     className={`px-3 py-1 rounded ${
                       tips[fixture['Match Number']]?.deadCert
                         ? 'bg-yellow-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
+                        : 'bg-black-100 hover:bg-black-200'
                     } ${!tips[fixture['Match Number']]?.team ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {tips[fixture['Match Number']]?.deadCert ? 'Yes' : 'No'}

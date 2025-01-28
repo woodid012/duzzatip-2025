@@ -188,7 +188,7 @@ export default function TeamSelection() {
                         element.classList.toggle('hidden');
                       }
                     }}
-                    className="text-gray-500 hover:text-gray-700 sm:hidden"
+                    className="text-black-500 hover:text-black-700 sm:hidden"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -225,7 +225,7 @@ export default function TeamSelection() {
                             data.player_name
                           )}
                         </div>
-                        <div className="col-span-5 text-gray-600 text-xs sm:text-sm mb-1 sm:mb-0">
+                        <div className="col-span-5 text-black-600 text-xs sm:text-sm mb-1 sm:mb-0">
                           {bestPlayer?.scoring?.breakdown.map((line, i) => (
                             <div key={i}>{line}</div>
                           ))}
@@ -247,7 +247,7 @@ export default function TeamSelection() {
                 </div>
 
                 {/* Bench/Reserves */}
-                <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
+                <div className="space-y-2 bg-black-50 p-2 sm:p-4 rounded">
                   <h3 className="text-lg font-semibold border-b pb-2">Bench/Reserves</h3>
                   {Object.entries(userTeam)
                     .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
@@ -273,7 +273,7 @@ export default function TeamSelection() {
                           <div className="font-medium col-span-2 mb-1 sm:mb-0">
                             {position}
                             {backupPosition && (
-                              <div className="text-xs text-gray-600">{backupPosition}</div>
+                              <div className="text-xs text-black-600">{backupPosition}</div>
                             )}
                           </div>
                           <div className="col-span-3 mb-1 sm:mb-0">
@@ -283,7 +283,7 @@ export default function TeamSelection() {
                               data.player_name
                             )}
                           </div>
-                          <div className="col-span-5 text-gray-600 text-xs sm:text-sm mb-1 sm:mb-0">
+                          <div className="col-span-5 text-black-600 text-xs sm:text-sm mb-1 sm:mb-0">
                             {displayStats?.scoring?.breakdown.map((line, i) => (
                               <div key={i}>{line}</div>
                             ))}
