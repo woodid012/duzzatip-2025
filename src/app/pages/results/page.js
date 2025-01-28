@@ -147,7 +147,7 @@ export default function TeamSelection() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {Object.entries(USER_NAMES).map(([userId, userName]) => {
           const userTeam = teams[userId] || {};
           const benchPlayers = Object.entries(userTeam)
@@ -176,11 +176,13 @@ export default function TeamSelection() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg sm:text-xl font-bold">{userName}</h2>
-                  {finalTotalScore === highestScore && <Star className="text-yellow-500" size={20} />}
-                  {finalTotalScore === lowestScore && <GiCrab className="text-red-500" size={20} />}
+                  {allFinalScores.find(s => s.userId === userId)?.totalScore === highestScore && 
+                    <Star className="text-yellow-500" size={20} />}
+                  {allFinalScores.find(s => s.userId === userId)?.totalScore === lowestScore && 
+                    <GiCrab className="text-red-500" size={20} />}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">{finalTotalScore}</span>
+                  <span className="font-semibold">Total Score: {finalTotalScore}</span>
                   <button 
                     onClick={() => {
                       const element = document.getElementById(`scores-${userId}`);
@@ -188,7 +190,7 @@ export default function TeamSelection() {
                         element.classList.toggle('hidden');
                       }
                     }}
-                    className="text-gray-500 hover:text-gray-700 sm:hidden"
+                    className="text-gray-500 hover:text-black sm:hidden"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -225,10 +227,10 @@ export default function TeamSelection() {
                             data.player_name
                           )}
                         </div>
-                        <div className="col-span-5 text-gray-600 text-xs sm:text-sm mb-1 sm:mb-0">
-                          {bestPlayer?.scoring?.breakdown.map((line, i) => (
-                            <div key={i}>{line}</div>
-                          ))}
+                        <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
+                          {bestPlayer?.scoring?.breakdown && (
+                            <div>{bestPlayer.scoring.breakdown}</div>
+                          )}
                         </div>
                         <div className="col-span-2 text-right font-semibold">
                           {bestPlayer?.scoring?.total || 0}
@@ -237,12 +239,17 @@ export default function TeamSelection() {
                     );
                   })}
                 </div>
+                
+                {/* Team Subtotal */}
+                <div className="text-right font-semibold mt-2">
+                  Team Score: {totalScore}
+                </div>
 
                 {/* Dead Certs */}
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold border-b pb-2">Dead Certs</h3>
                   <div className="text-right font-semibold">
-                    Score: {deadCertsScore}
+                    Deadcerts: {deadCertsScore}
                   </div>
                 </div>
 
@@ -273,7 +280,7 @@ export default function TeamSelection() {
                           <div className="font-medium col-span-2 mb-1 sm:mb-0">
                             {position}
                             {backupPosition && (
-                              <div className="text-xs text-gray-600">{backupPosition}</div>
+                              <div className="text-xs text-black">{backupPosition}</div>
                             )}
                           </div>
                           <div className="col-span-3 mb-1 sm:mb-0">
@@ -283,10 +290,10 @@ export default function TeamSelection() {
                               data.player_name
                             )}
                           </div>
-                          <div className="col-span-5 text-gray-600 text-xs sm:text-sm mb-1 sm:mb-0">
-                            {displayStats?.scoring?.breakdown.map((line, i) => (
-                              <div key={i}>{line}</div>
-                            ))}
+                          <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
+                            {displayStats?.scoring?.breakdown && (
+                              <div>{displayStats.scoring.breakdown}</div>
+                            )}
                           </div>
                           <div className="col-span-2 text-right font-semibold">
                             {displayStats?.scoring?.total || 0}

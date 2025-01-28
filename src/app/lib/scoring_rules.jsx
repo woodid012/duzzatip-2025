@@ -3,10 +3,7 @@ export const POSITIONS = {
     name: 'Full Forward',
     calculation: (stats) => ({
       total: stats.goals * 9 + stats.behinds,
-      breakdown: [
-        stats.goals && `${stats.goals}G × 9`,
-        stats.behinds && `${stats.behinds}B × 1`
-      ].filter(Boolean)
+      breakdown: [stats.goals && `${stats.goals}G × 9`, stats.behinds && `${stats.behinds}B × 1`].filter(Boolean).join(' + ')
     })
   },
 
@@ -18,10 +15,7 @@ export const POSITIONS = {
       const extraDisposals = Math.max(0, disposals - 30);
       return {
         total: baseDisposals + (extraDisposals * 3),
-        breakdown: [
-          baseDisposals && `First ${baseDisposals}D × 1`,
-          extraDisposals && `Next ${extraDisposals}D × 3`
-        ].filter(Boolean)
+        breakdown: [baseDisposals && `First ${baseDisposals}D × 1`, extraDisposals && `Next ${extraDisposals}D × 3`].filter(Boolean).join(' + ')
       };
     }
   },
@@ -30,10 +24,7 @@ export const POSITIONS = {
     name: 'Offensive',
     calculation: (stats) => ({
       total: stats.goals * 7 + stats.kicks,
-      breakdown: [
-        stats.goals && `${stats.goals}G × 7`,
-        stats.kicks && `${stats.kicks}K × 1`
-      ].filter(Boolean)
+      breakdown: [stats.goals && `${stats.goals}G × 7`, stats.kicks && `${stats.kicks}K × 1`].filter(Boolean).join(' + ')
     })
   },
 
@@ -41,10 +32,7 @@ export const POSITIONS = {
     name: 'Tall Forward',
     calculation: (stats) => ({
       total: stats.goals * 6 + stats.marks * 2,
-      breakdown: [
-        stats.goals && `${stats.goals}G × 6`,
-        stats.marks && `${stats.marks}M × 2`
-      ].filter(Boolean)
+      breakdown: [stats.goals && `${stats.goals}G × 6`, stats.marks && `${stats.marks}M × 2`].filter(Boolean).join(' + ')
     })
   },
 
@@ -52,10 +40,7 @@ export const POSITIONS = {
     name: 'Tackler',
     calculation: (stats) => ({
       total: stats.tackles * 4 + stats.handballs,
-      breakdown: [
-        stats.tackles && `${stats.tackles}T × 4`,
-        stats.handballs && `${stats.handballs}H × 1`
-      ].filter(Boolean)
+      breakdown: [stats.tackles && `${stats.tackles}T × 4`, stats.handballs && `${stats.handballs}H × 1`].filter(Boolean).join(' + ')
     })
   },
 
@@ -66,21 +51,14 @@ export const POSITIONS = {
       if (totalHitoutsMarks <= 18) {
         return {
           total: totalHitoutsMarks,
-          breakdown: [
-            stats.hitouts && `${stats.hitouts}HO × 1`,
-            stats.marks && `${stats.marks}M × 1`
-          ].filter(Boolean)
+          breakdown: [stats.hitouts && `${stats.hitouts}HO × 1`, stats.marks && `${stats.marks}M × 1`].filter(Boolean).join(' + ')
         };
       }
       const regularMarks = Math.max(0, 18 - stats.hitouts);
       const bonusMarks = stats.marks - regularMarks;
       return {
         total: stats.hitouts + regularMarks + (bonusMarks * 3),
-        breakdown: [
-          stats.hitouts && `${stats.hitouts}HO × 1`,
-          regularMarks && `${regularMarks}M × 1`,
-          bonusMarks && `${bonusMarks}M × 3 (bonus)`
-        ].filter(Boolean)
+        breakdown: [stats.hitouts && `${stats.hitouts}HO × 1`, regularMarks && `${regularMarks}M × 1`, bonusMarks && `${bonusMarks}M × 3 (bonus)`].filter(Boolean).join(' + ')
       };
     }
   }
