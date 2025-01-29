@@ -233,6 +233,7 @@ const TippingPage = () => {
               <th className="py-2 px-4 border text-black">Date</th>
               <th className="py-2 px-4 border text-black">Home Team</th>
               <th className="py-2 px-4 border text-black">Away Team</th>
+              <th className="py-2 px-4 border text-black">Your Tip</th>
               <th className="py-2 px-4 border text-black">Dead Cert</th>
             </tr>
           </thead>
@@ -266,6 +267,9 @@ const TippingPage = () => {
                     >
                       {fixture.AwayTeam}
                     </button>
+                  </td>
+                  <td className="py-2 px-4 border text-center text-black">
+                    {displayTips[fixture.MatchNumber]?.team || '-'}
                   </td>
                   <td className="py-2 px-4 border text-center">
                     <button
