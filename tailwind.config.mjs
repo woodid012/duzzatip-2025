@@ -14,11 +14,10 @@ export default {
       textColor: {
         DEFAULT: '#000000',
         primary: '#000000',
-        secondary: '#4B5563',
+        secondary: '#000000', // Changed from #4B5563 to black
       },
     },
   },
   plugins: [],
   darkMode: 'media',
-  plugins: [],
 };
