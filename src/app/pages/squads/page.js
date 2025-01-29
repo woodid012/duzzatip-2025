@@ -105,7 +105,7 @@ export default function Squads() {
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold">DuzzaTip Squads {CURRENT_YEAR}</h1>
+        <h1 className="text-2xl font-bold text-black">DuzzaTip Squads {CURRENT_YEAR}</h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           {isEditing ? (
             <>
@@ -138,7 +138,7 @@ export default function Squads() {
         {Object.entries(displaySquads).map(([userId, user]) => (
           <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg sm:text-xl font-bold">{USER_NAMES[userId] || `User ${userId}`}</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId] || `User ${userId}`}</h2>
               <button 
                 onClick={() => {
                   const element = document.getElementById(`squad-${userId}`);
@@ -168,7 +168,7 @@ export default function Squads() {
                       <select
                         value={player.name || ''}
                         onChange={(e) => handlePlayerChange(userId, index, e.target.value)}
-                        className="w-full p-2 text-sm border rounded bg-white"
+                        className="w-full p-2 text-sm border rounded bg-white text-black"
                       >
                         <option value="">Select Player</option>
                         {Object.values(players)
