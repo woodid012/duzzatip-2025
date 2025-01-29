@@ -146,14 +146,14 @@ export default function TeamSelection() {
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <h1 className="text-2xl font-bold">Team Scores</h1>
+          <h1 className="text-2xl font-bold text-black">Team Scores</h1>
           <div className="w-full sm:w-auto flex items-center gap-2">
-            <label htmlFor="round-select" className="text-sm font-medium">Round:</label>
+            <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
             <select 
               id="round-select"
               value={round}
               onChange={(e) => setRound(Number(e.target.value))}
-              className="p-2 border rounded w-24 text-lg"
+              className="p-2 border rounded w-24 text-lg text-black"
             >
               {[...Array(29)].map((_, i) => (
                 <option key={i} value={i}>{i}</option>
@@ -191,20 +191,18 @@ export default function TeamSelection() {
             <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg sm:text-xl font-bold">{userName}</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-black">{userName}</h2>
                   {allFinalScores.find(s => s.userId === userId)?.totalScore === highestScore && 
                     <Star className="text-yellow-500" size={20} />}
                   {allFinalScores.find(s => s.userId === userId)?.totalScore === lowestScore && 
                     <GiCrab className="text-red-500" size={20} />}
                 </div>
                 <div className="flex items-center gap-2">
-                                  {/* Final Total */}
-                <div className="text-right font-bold text-lg border-t pt-2">
-                  Final Total: {finalTotalScore}
-                </div>
+                  {/* Final Total */}
+                  <div className="text-right font-bold text-lg border-t pt-2 text-black">
+                    Final Total: {finalTotalScore}
+                  </div>
                   <button 
-
-                  
                     onClick={() => {
                       const element = document.getElementById(`scores-${userId}`);
                       if (element) {
@@ -223,8 +221,8 @@ export default function TeamSelection() {
               <div id={`scores-${userId}`} className="space-y-4">
                 {/* Main Team */}
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold border-b pb-2">Main Team</h3>
-                  <div className="hidden sm:grid grid-cols-12 gap-2 font-semibold text-sm pb-2">
+                  <h3 className="text-lg font-semibold border-b pb-2 text-black">Main Team</h3>
+                  <div className="hidden sm:grid grid-cols-12 gap-2 font-semibold text-sm pb-2 text-black">
                     <div className="col-span-2">Position</div>
                     <div className="col-span-3">Player</div>
                     <div className="col-span-5">Details</div>
@@ -239,7 +237,7 @@ export default function TeamSelection() {
                     const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
                     
                     return (
-                      <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm">
+                      <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
                         <div className="font-medium col-span-2 mb-1 sm:mb-0">{position}</div>
                         <div className="col-span-3 mb-1 sm:mb-0">
                           {bestPlayer !== mainPlayerStats ? (
@@ -262,20 +260,20 @@ export default function TeamSelection() {
                 </div>
                 
                 {/* Team Subtotal */}
-                <div className="text-right font-semibold mt-2">
+                <div className="text-right font-semibold mt-2 text-black">
                   Team Score: {totalScore}
                 </div>
 
                 {/* Dead Certs */}
                 <div className="space-y-2">
-                  <div className="text-right font-semibold">
+                  <div className="text-right font-semibold text-black">
                     Dead Cert Bonus: {deadCertsScore}
                   </div>
                 </div>
 
                 {/* Bench/Reserves */}
                 <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
-                  <h3 className="text-lg font-semibold border-b pb-2">Bench/Reserves</h3>
+                  <h3 className="text-lg font-semibold border-b pb-2 text-black">Bench/Reserves</h3>
                   {Object.entries(userTeam)
                     .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
                     .map(([position, data]) => {
@@ -296,7 +294,7 @@ export default function TeamSelection() {
                         benchStats;
                       
                       return (
-                        <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm">
+                        <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
                           <div className="font-medium col-span-2 mb-1 sm:mb-0">
                             {position}
                             {backupPosition && (
