@@ -71,14 +71,14 @@ const TippingResultsGrid = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Round Summary - {displayRound(selectedRound)}</h1>
+        <h1 className="text-3xl font-bold text-black">Round Summary - {displayRound(selectedRound)}</h1>
         <select 
           value={selectedRound}
           onChange={(e) => setSelectedRound(e.target.value)}
-          className="border rounded p-2"
+          className="border rounded p-2 text-black"
         >
           {Array.from({ length: 25 }, (_, i) => (
-            <option key={i} value={i.toString()}>
+            <option key={i} value={i.toString()} className="text-black">
               {displayRound(i.toString())}
             </option>
           ))}
@@ -89,28 +89,28 @@ const TippingResultsGrid = () => {
         <table className="min-w-full bg-white border">
           <thead>
             <tr>
-              <th className="py-2 px-4 border sticky left-0 bg-gray-100 z-10" rowSpan={3}>Team</th>
+              <th className="py-2 px-4 border sticky left-0 bg-gray-100 z-10 text-black" rowSpan={3}>Team</th>
               {fixtures.map(fixture => (
-                <th key={fixture.MatchNumber} className="py-1 px-2 border bg-gray-100 text-center">
+                <th key={fixture.MatchNumber} className="py-1 px-2 border bg-gray-100 text-center text-black">
                   Game {fixture.MatchNumber}
                 </th>
               ))}
-              <th className="py-2 px-4 border" rowSpan={3}>Tips</th>
-              <th className="py-2 px-4 border" rowSpan={3}>Dead Cert</th>
-              <th className="py-2 px-4 border" rowSpan={3}>Total</th>
+              <th className="py-2 px-4 border text-black" rowSpan={3}>Tips</th>
+              <th className="py-2 px-4 border text-black" rowSpan={3}>Dead Cert</th>
+              <th className="py-2 px-4 border text-black" rowSpan={3}>Total</th>
             </tr>
             <tr className="bg-gray-50">
               {fixtures.map(fixture => (
-                <td key={`h-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap">
+                <td key={`h-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap text-black">
                   H - {fixture.HomeTeam} ({fixture.HomeTeamScore ?? '-'})
                 </td>
               ))}
             </tr>
             <tr className="bg-gray-50">
               {fixtures.map(fixture => (
-                <td key={`a-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap">
+                <td key={`a-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap text-black">
                   A - {fixture.AwayTeam} ({fixture.AwayTeamScore ?? '-'})
-                  <div className="text-xs font-medium">
+                  <div className="text-xs font-medium text-black">
                     {fixture.HomeTeamScore !== null ? `W - ${getWinningTeam(fixture)}` : ''}
                   </div>
                 </td>
@@ -122,7 +122,7 @@ const TippingResultsGrid = () => {
               const userResults = allUserTips[userId];
               return (
                 <tr key={userId} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border sticky left-0 bg-white z-10 font-medium">
+                  <td className="py-2 px-4 border sticky left-0 bg-white z-10 font-medium text-black">
                     {userName}
                   </td>
                   {fixtures.map(fixture => {
@@ -135,13 +135,13 @@ const TippingResultsGrid = () => {
                         <div 
                           className={`
                             ${isCorrect ? 'text-green-600' : 'text-red-600'}
-                            ${!matchTip?.tip ? 'text-gray-400' : ''}
+                            ${!matchTip?.tip ? 'text-black' : ''}
                             font-medium
                           `}
                         >
                           {matchTip?.tip || '-'}
                           {isDeadCert && (
-                            <span className="ml-1 text-sm">
+                            <span className="ml-1 text-sm text-black">
                               ({isCorrect ? '+6' : '-12'})
                             </span>
                           )}
@@ -149,10 +149,10 @@ const TippingResultsGrid = () => {
                       </td>
                     );
                   })}
-                  <td className="py-2 px-4 border text-center font-medium">
+                  <td className="py-2 px-4 border text-center font-medium text-black">
                     {userResults?.correctTips || 0}
                   </td>
-                  <td className="py-2 px-4 border text-center font-medium">
+                  <td className="py-2 px-4 border text-center font-medium text-black">
                     {userResults?.deadCertScore || 0}
                   </td>
                 </tr>

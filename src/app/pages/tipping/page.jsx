@@ -170,7 +170,7 @@ const TippingPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">AFL {CURRENT_YEAR} Tips</h1>
+        <h1 className="text-3xl font-bold text-black">AFL {CURRENT_YEAR} Tips</h1>
         <div className="flex items-center gap-4">
           {saveMessage && (
             <span className={`${saveMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
@@ -207,11 +207,11 @@ const TippingPage = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="flex flex-col">
-          <label className="mb-2 font-semibold">Select Round:</label>
+          <label className="mb-2 font-semibold text-black">Select Round:</label>
           <select 
             value={selectedRound}
             onChange={(e) => setSelectedRound(e.target.value)}
-            className="border rounded p-2"
+            className="border rounded p-2 text-black"
           >
             {Array.from({ length: 25 }, (_, i) => (
               <option key={i} value={i.toString()}>
@@ -222,11 +222,11 @@ const TippingPage = () => {
         </div>
 
         <div className="flex flex-col">
-          <label className="mb-2 font-semibold">Select Team:</label>
+          <label className="mb-2 font-semibold text-black">Select Team:</label>
           <select 
             value={selectedTeam}
             onChange={(e) => setSelectedTeam(e.target.value)}
-            className="border rounded p-2"
+            className="border rounded p-2 text-black"
           >
             <option value="">Select a team</option>
             {Object.entries(USER_NAMES).map(([id, name]) => (
@@ -242,22 +242,22 @@ const TippingPage = () => {
         <table className="min-w-full bg-white border">
           <thead>
             <tr className="bg-gray-100">
-              <th className="py-2 px-4 border">Date</th>
-              <th className="py-2 px-4 border">Home Team</th>
-              <th className="py-2 px-4 border">Score</th>
-              <th className="py-2 px-4 border">Away Team</th>
-              <th className="py-2 px-4 border">Your Tip</th>
-              <th className="py-2 px-4 border">Dead Cert</th>
-              <th className="py-2 px-4 border">Result</th>
+              <th className="py-2 px-4 border text-black">Date</th>
+              <th className="py-2 px-4 border text-black">Home Team</th>
+              <th className="py-2 px-4 border text-black">Score</th>
+              <th className="py-2 px-4 border text-black">Away Team</th>
+              <th className="py-2 px-4 border text-black">Your Tip</th>
+              <th className="py-2 px-4 border text-black">Dead Cert</th>
+              <th className="py-2 px-4 border text-black">Result</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="text-black">
             {fixtures.map((fixture) => {
               const tipResult = checkTipResult(fixture, displayTips[fixture.MatchNumber]?.team);
               
               return (
                 <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border">{fixture.DateUtc}</td>
+                  <td className="py-2 px-4 border text-black">{fixture.DateUtc}</td>
                   <td className="py-2 px-4 border">
                     <button
                       onClick={() => handleTipSelect(fixture.MatchNumber, fixture.HomeTeam)}
@@ -265,13 +265,13 @@ const TippingPage = () => {
                       className={`px-3 py-1 rounded ${
                         displayTips[fixture.MatchNumber]?.team === fixture.HomeTeam
                           ? 'bg-green-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200'
+                          : 'bg-gray-100 hover:bg-gray-200 text-black'
                       } ${!isEditing ? 'cursor-default' : ''}`}
                     >
                       {fixture.HomeTeam}
                     </button>
                   </td>
-                  <td className="py-2 px-4 border text-center">
+                  <td className="py-2 px-4 border text-center text-black">
                     {fixture.isComplete ? `${fixture.HomeTeamScore} - ${fixture.AwayTeamScore}` : '-'}
                   </td>
                   <td className="py-2 px-4 border">
@@ -281,13 +281,13 @@ const TippingPage = () => {
                       className={`px-3 py-1 rounded ${
                         displayTips[fixture.MatchNumber]?.team === fixture.AwayTeam
                           ? 'bg-green-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200'
+                          : 'bg-gray-100 hover:bg-gray-200 text-black'
                       } ${!isEditing ? 'cursor-default' : ''}`}
                     >
                       {fixture.AwayTeam}
                     </button>
                   </td>
-                  <td className="py-2 px-4 border text-center">
+                  <td className="py-2 px-4 border text-center text-black">
                     {displayTips[fixture.MatchNumber]?.team || '-'}
                   </td>
                   <td className="py-2 px-4 border text-center">
@@ -297,7 +297,7 @@ const TippingPage = () => {
                       className={`px-3 py-1 rounded ${
                         displayTips[fixture.MatchNumber]?.deadCert
                           ? 'bg-yellow-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200'
+                          : 'bg-gray-100 hover:bg-gray-200 text-black'
                       } ${(!isEditing || !displayTips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {displayTips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
