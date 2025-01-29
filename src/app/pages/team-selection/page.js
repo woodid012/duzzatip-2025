@@ -115,14 +115,14 @@ export default function TeamSelection() {
       `}</style>
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <h1 className="text-2xl font-bold">Team Selection</h1>
+          <h1 className="text-2xl font-bold text-black">Team Selection</h1>
           <div className="w-full sm:w-auto flex items-center gap-2">
-            <label htmlFor="round-select" className="text-sm font-medium">Round:</label>
+            <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
             <select 
               id="round-select"
               value={round}
               onChange={(e) => setRound(Number(e.target.value))}
-              className="p-2 border rounded w-24 text-lg"
+              className="p-2 border rounded w-24 text-lg text-black"
             >
               {[...Array(29)].map((_, i) => (
                 <option key={i} value={i}>{i}</option>
@@ -161,7 +161,7 @@ export default function TeamSelection() {
         {Object.entries(USER_NAMES).map(([userId, userName]) => (
           <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg sm:text-xl font-bold">{userName}</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-black">{userName}</h2>
               <button 
                 onClick={() => {
                   const element = document.getElementById(`team-${userId}`);
@@ -169,7 +169,7 @@ export default function TeamSelection() {
                     element.classList.toggle('hidden');
                   }
                 }}
-                className="text-gray-500 hover:text-gray-700 sm:hidden"
+                className="text-black hover:text-black sm:hidden"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -183,14 +183,14 @@ export default function TeamSelection() {
                 
                 return (
                   <div key={position} className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-gray-600">{position}</label>
+                    <label className="text-sm font-medium text-black">{position}</label>
                     <div className="flex flex-col sm:flex-row gap-2">
                       {isEditing ? (
                         <>
                           <select
                             value={playerData?.player_name || ''}
                             onChange={(e) => handlePlayerChange(userId, position, e.target.value)}
-                            className="w-full p-2 text-sm border rounded bg-white"
+                            className="w-full p-2 text-sm border rounded bg-white text-black"
                           >
                             <option value="">Select Player</option>
                             {userSquad
@@ -205,7 +205,7 @@ export default function TeamSelection() {
                             <select
                               value={playerData?.backup_position || ''}
                               onChange={(e) => handleBackupPositionChange(userId, e.target.value)}
-                              className="w-full sm:w-1/3 p-2 text-sm border rounded bg-white"
+                              className="w-full sm:w-1/3 p-2 text-sm border rounded bg-white text-black"
                             >
                               <option value="">Backup Position</option>
                               {BACKUP_POSITIONS.map(pos => (
@@ -220,9 +220,9 @@ export default function TeamSelection() {
                         <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
                           {playerData ? (
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-900">{playerData.player_name}</span>
+                              <span className="text-black">{playerData.player_name}</span>
                               {position === 'Bench' && playerData.backup_position && (
-                                <span className="text-gray-600 text-xs">
+                                <span className="text-black text-xs">
                                   {playerData.backup_position}
                                 </span>
                               )}
