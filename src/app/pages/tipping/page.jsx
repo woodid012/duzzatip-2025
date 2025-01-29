@@ -145,18 +145,6 @@ const TippingPage = () => {
     return round === '0' ? 'Opening Round' : `Round ${round}`;
   };
 
-  const checkTipResult = (fixture, tip) => {
-    if (!fixture.isComplete || !tip) return null;
-    
-    const winningTeam = fixture.HomeTeamScore > fixture.AwayTeamScore 
-      ? fixture.HomeTeam 
-      : fixture.AwayTeamScore > fixture.HomeTeamScore 
-        ? fixture.AwayTeam 
-        : 'Draw';
-    
-    return tip === winningTeam;
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -244,17 +232,12 @@ const TippingPage = () => {
             <tr className="bg-gray-100">
               <th className="py-2 px-4 border text-black">Date</th>
               <th className="py-2 px-4 border text-black">Home Team</th>
-              <th className="py-2 px-4 border text-black">Score</th>
               <th className="py-2 px-4 border text-black">Away Team</th>
-              <th className="py-2 px-4 border text-black">Your Tip</th>
               <th className="py-2 px-4 border text-black">Dead Cert</th>
-              <th className="py-2 px-4 border text-black">Result</th>
             </tr>
           </thead>
           <tbody className="text-black">
             {fixtures.map((fixture) => {
-              const tipResult = checkTipResult(fixture, displayTips[fixture.MatchNumber]?.team);
-              
               return (
                 <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
                   <td className="py-2 px-4 border text-black">{fixture.DateUtc}</td>
@@ -271,9 +254,6 @@ const TippingPage = () => {
                       {fixture.HomeTeam}
                     </button>
                   </td>
-                  <td className="py-2 px-4 border text-center text-black">
-                    {fixture.isComplete ? `${fixture.HomeTeamScore} - ${fixture.AwayTeamScore}` : '-'}
-                  </td>
                   <td className="py-2 px-4 border">
                     <button
                       onClick={() => handleTipSelect(fixture.MatchNumber, fixture.AwayTeam)}
@@ -287,9 +267,6 @@ const TippingPage = () => {
                       {fixture.AwayTeam}
                     </button>
                   </td>
-                  <td className="py-2 px-4 border text-center text-black">
-                    {displayTips[fixture.MatchNumber]?.team || '-'}
-                  </td>
                   <td className="py-2 px-4 border text-center">
                     <button
                       onClick={() => handleDeadCertToggle(fixture.MatchNumber)}
@@ -302,17 +279,6 @@ const TippingPage = () => {
                     >
                       {displayTips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
                     </button>
-                  </td>
-                  <td className="py-2 px-4 border text-center">
-                    {fixture.isComplete ? (
-                      tipResult === true ? (
-                        <span className="text-green-600">✓</span>
-                      ) : tipResult === false ? (
-                        <span className="text-red-600">✗</span>
-                      ) : (
-                        '-'
-                      )
-                    ) : '-'}
                   </td>
                 </tr>
               );
