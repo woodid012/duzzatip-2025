@@ -1,6 +1,6 @@
 // app/lib/constants.js
 
-export const CURRENT_YEAR = 2024;
+export const CURRENT_YEAR = 2025;
 
 export const POSITION_TYPES = [
   'Full Forward', 
