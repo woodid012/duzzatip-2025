@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 
+const SQUAD_SIZE = 18;
+
 export default function Squads() {
   const [squads, setSquads] = useState({});
   const [editedSquads, setEditedSquads] = useState({});
@@ -20,8 +22,19 @@ export default function Squads() {
         if (!squadsRes.ok) throw new Error('Failed to fetch squads');
         
         const squadsData = await squadsRes.json();
-        setSquads(squadsData);
-        setEditedSquads(squadsData);
+        // Ensure each squad has exactly 18 players
+        const paddedSquads = Object.entries(squadsData).reduce((acc, [userId, userData]) => {
+          acc[userId] = {
+            ...userData,
+            players: Array(SQUAD_SIZE).fill(null).map((_, i) => 
+              userData.players[i] || { name: '', team: '' }
+            )
+          };
+          return acc;
+        }, {});
+        
+        setSquads(paddedSquads);
+        setEditedSquads(paddedSquads);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -59,15 +72,12 @@ export default function Squads() {
       const newSquads = {...prev};
       const user = newSquads[userId];
       
-      if (user && user.players[playerIndex]) {
+      if (user) {
         const allPlayers = Object.values(players).flat();
         const newPlayerData = allPlayers.find(p => p.name === newPlayerName);
-        if (newPlayerData) {
-          user.players[playerIndex] = {
-            name: newPlayerData.name,
-            team: newPlayerData.teamName
-          };
-        }
+        user.players[playerIndex] = newPlayerData 
+          ? { name: newPlayerData.name, team: newPlayerData.teamName }
+          : { name: '', team: '' };
       }
       
       return newSquads;
@@ -184,10 +194,10 @@ export default function Squads() {
                   ) : (
                     <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
                       <span className="text-black">
-                        {player.name} 
-                        <span className="text-black">
-                          ({player.team})
-                        </span>
+                        {player.name 
+                          ? `${player.name} (${player.team})`
+                          : <span className="text-gray-400">Empty slot</span>
+                        }
                       </span>
                     </div>
                   )}
