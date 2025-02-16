@@ -10,6 +10,7 @@ export default function Squads() {
   const [editedSquads, setEditedSquads] = useState({});
   const [players, setPlayers] = useState({});
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const [loadingSquads, setLoadingSquads] = useState(true);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [error, setError] = useState(null);
@@ -68,6 +69,8 @@ export default function Squads() {
   }, [loadingSquads, error]);
 
   const handlePlayerChange = (userId, playerIndex, newPlayerName) => {
+    if (userId !== selectedUserId) return; // Only allow changes for selected user
+    
     setEditedSquads(prev => {
       const newSquads = {...prev};
       const user = newSquads[userId];
@@ -86,17 +89,26 @@ export default function Squads() {
 
   const handleSave = async () => {
     try {
+      // Only save the selected user's squad
+      const updatedSquad = {
+        [selectedUserId]: editedSquads[selectedUserId]
+      };
+      
       const response = await fetch('/api/squads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editedSquads)
+        body: JSON.stringify(updatedSquad)
       });
 
       if (!response.ok) throw new Error('Failed to save');
-      setSquads(editedSquads);
+      setSquads(prev => ({
+        ...prev,
+        [selectedUserId]: editedSquads[selectedUserId]
+      }));
       setIsEditing(false);
+      setSelectedUserId(null);
     } catch (err) {
       setError('Failed to save changes');
     }
@@ -105,6 +117,12 @@ export default function Squads() {
   const handleCancel = () => {
     setEditedSquads(squads);
     setIsEditing(false);
+    setSelectedUserId(null);
+  };
+
+  const handleEditStart = (userId) => {
+    setSelectedUserId(userId);
+    setIsEditing(true);
   };
 
   if (loadingSquads) return <div className="p-4">Loading squads...</div>;
@@ -133,13 +151,19 @@ export default function Squads() {
               </button>
             </>
           ) : (
-            <button 
-              onClick={() => setIsEditing(true)}
-              className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-lg sm:text-base"
+            <select
+              onChange={(e) => handleEditStart(e.target.value)}
+              value=""
+              className="w-full sm:w-auto px-4 py-3 sm:py-2 border rounded text-lg sm:text-base"
               disabled={loadingPlayers}
             >
-              Edit Squads
-            </button>
+              <option value="">Select User to Edit</option>
+              {Object.keys(squads).map(userId => (
+                <option key={userId} value={userId}>
+                  {USER_NAMES[userId] || `User ${userId}`}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       </div>
@@ -169,7 +193,7 @@ export default function Squads() {
                   key={index}
                   className="flex items-center"
                 >
-                  {isEditing ? (
+                  {isEditing && userId === selectedUserId ? (
                     loadingPlayers ? (
                       <div className="w-full p-2 text-sm text-black border border-gray-200 rounded bg-white">
                         Loading players...
