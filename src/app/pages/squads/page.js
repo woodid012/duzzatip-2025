@@ -121,6 +121,21 @@ export default function Squads() {
   };
 
   const handleEditStart = (userId) => {
+    // If the user doesn't have a squad yet, initialize an empty one
+    if (!squads[userId]) {
+      setSquads(prev => ({
+        ...prev,
+        [userId]: {
+          players: Array(SQUAD_SIZE).fill(null).map(() => ({ name: '', team: '' }))
+        }
+      }));
+      setEditedSquads(prev => ({
+        ...prev,
+        [userId]: {
+          players: Array(SQUAD_SIZE).fill(null).map(() => ({ name: '', team: '' }))
+        }
+      }));
+    }
     setSelectedUserId(userId);
     setIsEditing(true);
   };
@@ -158,7 +173,7 @@ export default function Squads() {
               disabled={loadingPlayers}
             >
               <option value="">Select User to Edit</option>
-              {Object.keys(squads).map(userId => (
+              {['1', '2', '3', '4', '5', '6', '7', '8'].map(userId => (
                 <option key={userId} value={userId}>
                   {USER_NAMES[userId] || `User ${userId}`}
                 </option>
@@ -169,7 +184,9 @@ export default function Squads() {
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {Object.entries(displaySquads).map(([userId, user]) => (
+        {['1', '2', '3', '4', '5', '6', '7', '8'].map((userId) => {
+          const user = displaySquads[userId] || { players: Array(SQUAD_SIZE).fill(null).map(() => ({ name: '', team: '' })) };
+          return (
           <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId] || `User ${userId}`}</h2>
@@ -229,7 +246,8 @@ export default function Squads() {
               ))}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
