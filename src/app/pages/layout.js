@@ -1,10 +1,11 @@
 'use client'
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import logo from '@/app/assets/logo.png';
+import { CURRENT_YEAR, LATEST_ROUND } from '@/app/lib/constants';
 
 const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }) => {
   return (
@@ -22,7 +23,53 @@ const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }
 export default function PagesLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [lockoutTime, setLockoutTime] = useState(null);
   
+  useEffect(() => {
+    const fetchFixtures = async () => {
+      try {
+        const response = await fetch(`/api/tipping-data`);
+        if (!response.ok) {
+          throw new Error(`Failed to load data: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const fixtures = Array.isArray(data) ? data : data.fixtures;
+        
+        // Process fixtures and convert dates to Melbourne time
+        const processedFixtures = fixtures.map(fixture => ({
+          ...fixture,
+          DateUtc: new Date(fixture.DateUtc).toLocaleString('en-AU', {
+            timeZone: 'Australia/Melbourne',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+          })
+        }));
+
+        // Get fixtures for the current round
+        const currentRoundFixtures = processedFixtures.filter(
+          fixture => fixture.RoundNumber.toString() === LATEST_ROUND.toString()
+        );
+
+        // Sort by date and get earliest
+        if (currentRoundFixtures.length > 0) {
+          const sortedFixtures = currentRoundFixtures.sort((a, b) => 
+            new Date(a.DateUtc) - new Date(b.DateUtc)
+          );
+          setLockoutTime(sortedFixtures[0].DateUtc);
+        }
+      } catch (error) {
+        console.error('Error loading fixtures:', error);
+      }
+    };
+
+    fetchFixtures();
+  }, []);
+
   React.useEffect(() => {
     if (pathname === '/') {
       router.push('/pages/results');
@@ -42,9 +89,29 @@ export default function PagesLayout({ children }) {
       {/* Top Banner */}
       <div className="bg-white shadow">
         <div className="w-full p-4 md:p-6">
-          <div className="flex items-center px-4">
-            <div className="flex-shrink-0">
-              <Logo width={176} height={176} className="rounded-lg" />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center px-4">
+              <div className="flex-shrink-0">
+                <Logo width={176} height={176} className="rounded-lg" />
+              </div>
+            </div>
+            
+            {/* Competition Info Bar */}
+            <div className="flex flex-wrap gap-4 px-4 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Season:</span>
+                <span>{CURRENT_YEAR}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Current Round:</span>
+                <span>{LATEST_ROUND === 0 ? 'Opening Round' : LATEST_ROUND}</span>
+              </div>
+              {lockoutTime && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Round Lockout (EST):</span>
+                  <span>{lockoutTime}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
