@@ -89,8 +89,9 @@ export default function Squads() {
 
   const handleSave = async () => {
     try {
-      // Only save the selected user's squad
-      const updatedSquad = {
+      // Merge the edited squad with existing squads
+      const updatedSquads = {
+        ...squads,
         [selectedUserId]: editedSquads[selectedUserId]
       };
       
@@ -99,7 +100,7 @@ export default function Squads() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedSquad)
+        body: JSON.stringify(updatedSquads)
       });
 
       if (!response.ok) throw new Error('Failed to save');
