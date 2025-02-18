@@ -5,7 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import logo from '@/app/assets/logo.png';
-import { CURRENT_YEAR, LATEST_ROUND } from '@/app/lib/constants';
+import { CURRENT_YEAR } from '@/app/lib/constants';
+import { processFixtures, calculateRoundInfo } from '@/app/lib/timeCalculations';
 
 const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }) => {
   return (
@@ -23,7 +24,12 @@ const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }
 export default function PagesLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [lockoutTime, setLockoutTime] = useState(null);
+  const [roundInfo, setRoundInfo] = useState({
+    currentRound: 0,
+    currentRoundDisplay: 'Opening Round',
+    lockoutTime: null,
+    isError: false
+  });
   
   useEffect(() => {
     const fetchFixtures = async () => {
@@ -36,34 +42,14 @@ export default function PagesLayout({ children }) {
         const data = await response.json();
         const fixtures = Array.isArray(data) ? data : data.fixtures;
         
-        // Process fixtures and convert dates to Melbourne time
-        const processedFixtures = fixtures.map(fixture => ({
-          ...fixture,
-          DateUtc: new Date(fixture.DateUtc).toLocaleString('en-AU', {
-            timeZone: 'Australia/Melbourne',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true
-          })
-        }));
-
-        // Get fixtures for the current round
-        const currentRoundFixtures = processedFixtures.filter(
-          fixture => fixture.RoundNumber.toString() === LATEST_ROUND.toString()
-        );
-
-        // Sort by date and get earliest
-        if (currentRoundFixtures.length > 0) {
-          const sortedFixtures = currentRoundFixtures.sort((a, b) => 
-            new Date(a.DateUtc) - new Date(b.DateUtc)
-          );
-          setLockoutTime(sortedFixtures[0].DateUtc);
-        }
+        // Process fixtures and calculate round info
+        const processedFixtures = processFixtures(fixtures);
+        const roundInfo = calculateRoundInfo(processedFixtures);
+        
+        setRoundInfo(roundInfo);
       } catch (error) {
         console.error('Error loading fixtures:', error);
+        setRoundInfo(prev => ({ ...prev, isError: true }));
       }
     };
 
@@ -104,12 +90,12 @@ export default function PagesLayout({ children }) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">Current Round:</span>
-                <span>{LATEST_ROUND === 0 ? 'Opening Round' : LATEST_ROUND}</span>
+                <span>{roundInfo.currentRoundDisplay}</span>
               </div>
-              {lockoutTime && (
+              {roundInfo.lockoutTime && (
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">Round Lockout (EST):</span>
-                  <span>{lockoutTime}</span>
+                  <span>{roundInfo.lockoutTime}</span>
                 </div>
               )}
             </div>
@@ -117,10 +103,9 @@ export default function PagesLayout({ children }) {
         </div>
       </div>
 
-      {/* Main Content with Responsive Navigation */}
+      {/* Rest of the layout remains the same */}
       <div className="w-full">
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6">
-          {/* Navigation - Top on mobile, Sidebar on desktop */}
           <div className="md:w-48 md:flex-shrink-0">
             <div className="bg-white rounded-lg shadow p-2 md:p-4">
               <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible">
@@ -141,7 +126,6 @@ export default function PagesLayout({ children }) {
             </div>
           </div>
 
-          {/* Main Content Area */}
           <div className="flex-1 bg-white rounded-lg shadow p-4 md:p-6">
             {children}
           </div>
