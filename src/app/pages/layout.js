@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import logo from '@/app/assets/logo.png';
 import { CURRENT_YEAR } from '@/app/lib/constants';
-import { processFixtures, calculateRoundInfo } from '@/app/lib/timeCalculations';
+import { processFixtures, calculateRoundInfo, getRoundInfo } from '@/app/lib/timeCalculations';
 
 const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }) => {
   return (
@@ -44,7 +44,12 @@ export default function PagesLayout({ children }) {
         
         // Process fixtures and calculate round info
         const processedFixtures = processFixtures(fixtures);
-        const roundInfo = calculateRoundInfo(processedFixtures);
+        
+        // First get the current round
+        const currentRoundInfo = calculateRoundInfo(processedFixtures);
+        
+        // Then get the specific round info for that round
+        const roundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
         
         setRoundInfo(roundInfo);
       } catch (error) {
@@ -94,8 +99,17 @@ export default function PagesLayout({ children }) {
               </div>
               {roundInfo.lockoutTime && (
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">Round Lockout (EST):</span>
+                  <span className="font-semibold">Round Lockout:</span>
                   <span>{roundInfo.lockoutTime}</span>
+                  {roundInfo.isLocked && (
+                    <span className="text-red-600">(Locked)</span>
+                  )}
+                </div>
+              )}
+              {roundInfo.roundEndTime && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Round Ends:</span>
+                  <span>{roundInfo.roundEndTime}</span>
                 </div>
               )}
             </div>
@@ -103,9 +117,10 @@ export default function PagesLayout({ children }) {
         </div>
       </div>
 
-      {/* Rest of the layout remains the same */}
+      {/* Main Content Area */}
       <div className="w-full">
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6">
+          {/* Navigation Sidebar */}
           <div className="md:w-48 md:flex-shrink-0">
             <div className="bg-white rounded-lg shadow p-2 md:p-4">
               <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible">
@@ -126,6 +141,7 @@ export default function PagesLayout({ children }) {
             </div>
           </div>
 
+          {/* Main Content */}
           <div className="flex-1 bg-white rounded-lg shadow p-4 md:p-6">
             {children}
           </div>

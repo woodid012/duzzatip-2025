@@ -7,6 +7,7 @@ const TippingResultsGrid = () => {
   const [selectedRound, setSelectedRound] = useState('0');
   const [fixtures, setFixtures] = useState([]);
   const [allUserTips, setAllUserTips] = useState({});
+  const [yearTotals, setYearTotals] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -27,23 +28,32 @@ const TippingResultsGrid = () => {
 
         // Load tips for all users
         const userTipsPromises = Object.keys(USER_NAMES).map(userId => 
-          fetch(`/api/tipping-results?round=${selectedRound}&userId=${userId}`)
-            .then(res => res.json())
+          Promise.all([
+            fetch(`/api/tipping-results?round=${selectedRound}&userId=${userId}`).then(res => res.json()),
+            fetch(`/api/tipping-results?year=${CURRENT_YEAR}&userId=${userId}`).then(res => res.json())
+          ])
         );
 
         const allResults = await Promise.all(userTipsPromises);
         const tipsMap = {};
-        allResults.forEach((result, index) => {
+        const yearTotalsMap = {};
+        
+        allResults.forEach(([roundResult, yearResult], index) => {
           const userId = Object.keys(USER_NAMES)[index];
           tipsMap[userId] = {
-            matches: result.completedMatches,
-            correctTips: result.correctTips,
-            deadCertScore: result.deadCertScore,
-            totalScore: result.totalScore
+            matches: roundResult.completedMatches,
+            correctTips: roundResult.correctTips,
+            deadCertScore: roundResult.deadCertScore,
+            totalScore: roundResult.totalScore
+          };
+          yearTotalsMap[userId] = {
+            correctTips: yearResult.correctTips,
+            deadCertScore: yearResult.deadCertScore
           };
         });
 
         setAllUserTips(tipsMap);
+        setYearTotals(yearTotalsMap);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -90,14 +100,15 @@ const TippingResultsGrid = () => {
           <thead>
             <tr>
               <th className="py-2 px-4 border sticky left-0 bg-gray-100 z-10 text-black" rowSpan={3}>Team</th>
+              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Year Tips</th>
+              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Year Dead Certs</th>
+              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Round Tips</th>
+              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Round Dead Certs</th>
               {fixtures.map(fixture => (
                 <th key={fixture.MatchNumber} className="py-1 px-2 border bg-gray-100 text-center text-black">
                   Game {fixture.MatchNumber}
                 </th>
               ))}
-              <th className="py-2 px-4 border text-black" rowSpan={3}>Tips</th>
-              <th className="py-2 px-4 border text-black" rowSpan={3}>Dead Cert</th>
-              <th className="py-2 px-4 border text-black" rowSpan={3}>Total</th>
             </tr>
             <tr className="bg-gray-50">
               {fixtures.map(fixture => (
@@ -125,6 +136,18 @@ const TippingResultsGrid = () => {
                   <td className="py-2 px-4 border sticky left-0 bg-white z-10 font-medium text-black">
                     {userName}
                   </td>
+                  <td className="py-2 px-4 border text-center font-medium text-black">
+                    {yearTotals[userId]?.correctTips || 0}
+                  </td>
+                  <td className="py-2 px-4 border text-center font-medium text-black">
+                    {yearTotals[userId]?.deadCertScore || 0}
+                  </td>
+                  <td className="py-2 px-4 border text-center font-medium text-black">
+                    {userResults?.correctTips || 0}
+                  </td>
+                  <td className="py-2 px-4 border text-center font-medium text-black">
+                    {userResults?.deadCertScore || 0}
+                  </td>
                   {fixtures.map(fixture => {
                     const matchTip = userResults?.matches?.find(m => m.matchNumber === fixture.MatchNumber);
                     const isCorrect = matchTip?.correct;
@@ -149,12 +172,6 @@ const TippingResultsGrid = () => {
                       </td>
                     );
                   })}
-                  <td className="py-2 px-4 border text-center font-medium text-black">
-                    {userResults?.correctTips || 0}
-                  </td>
-                  <td className="py-2 px-4 border text-center font-medium text-black">
-                    {userResults?.deadCertScore || 0}
-                  </td>
                 </tr>
               );
             })}

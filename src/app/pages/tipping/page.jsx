@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+import { processFixtures, getRoundInfo, USE_TEST_DATE, TEST_DATE } from '@/app/lib/timeCalculations';
 
 const TippingPage = () => {
   const [fixtures, setFixtures] = useState([]);
@@ -12,6 +13,12 @@ const TippingPage = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [roundInfo, setRoundInfo] = useState({
+    currentRound: 0,
+    currentRoundDisplay: 'Opening Round',
+    lockoutTime: null,
+    isLocked: false
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -31,27 +38,16 @@ const TippingPage = () => {
         const fixtureData = Array.isArray(data) ? data : data.fixtures;
         const tipsData = Array.isArray(data) ? {} : data.tips || {};
         
-        // Process fixtures and convert dates to Melbourne time
-        const processedFixtures = fixtureData.map(fixture => ({
-          ...fixture,
-          DateUtc: new Date(fixture.DateUtc).toLocaleString('en-AU', {
-            timeZone: 'Australia/Melbourne',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true
-          }),
-          'Match Number': fixture.MatchNumber,
-          'Round Number': fixture.RoundNumber.toString(),
-          'Home Team': fixture.HomeTeam,
-          'Away Team': fixture.AwayTeam,
-          isComplete: fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null
-        }));
+        // Process fixtures with our timeCalculations utility
+        const processedFixtures = processFixtures(fixtureData);
+        
+        // Get round info for locking
+        const roundInfo = getRoundInfo(processedFixtures, parseInt(selectedRound));
+        setRoundInfo(roundInfo);
 
+        // Filter fixtures for selected round
         const roundFixtures = processedFixtures.filter(
-          fixture => fixture['Round Number'] === selectedRound
+          fixture => fixture.RoundNumber.toString() === selectedRound
         );
 
         // If no tips exist for matches, default to home team
@@ -86,7 +82,7 @@ const TippingPage = () => {
   }, [selectedRound, selectedTeam]);
 
   const handleTipSelect = (matchNumber, team) => {
-    if (!isEditing) return;
+    if (!isEditing || roundInfo.isLocked) return;
     
     setEditedTips(prev => ({
       ...prev,
@@ -98,7 +94,7 @@ const TippingPage = () => {
   };
 
   const handleDeadCertToggle = (matchNumber) => {
-    if (!isEditing) return;
+    if (!isEditing || roundInfo.isLocked) return;
 
     setEditedTips(prev => ({
       ...prev,
@@ -110,6 +106,8 @@ const TippingPage = () => {
   };
 
   const handleSave = async () => {
+    if (roundInfo.isLocked) return;
+    
     try {
       const response = await fetch('/api/tipping-data', {
         method: 'POST',
@@ -158,7 +156,18 @@ const TippingPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-black">AFL {CURRENT_YEAR} Tips</h1>
+        <div className="flex flex-col">
+          <h1 className="text-3xl font-bold text-black">AFL {CURRENT_YEAR} Tips</h1>
+          {roundInfo.lockoutTime && (
+            <div className="text-sm mt-2">
+              <span className="text-gray-600">Lockout:</span>
+              <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
+              {roundInfo.isLocked && (
+                <span className="text-red-600 ml-1">(Locked)</span>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-4">
           {saveMessage && (
             <span className={`${saveMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
@@ -184,9 +193,14 @@ const TippingPage = () => {
             ) : (
               <button 
                 onClick={() => setIsEditing(true)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                disabled={roundInfo.isLocked}
+                className={`px-4 py-2 rounded ${
+                  roundInfo.isLocked 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white`}
               >
-                Edit Tips
+                {roundInfo.isLocked ? 'Locked' : 'Edit Tips'}
               </button>
             )
           )}
@@ -241,16 +255,16 @@ const TippingPage = () => {
             {fixtures.map((fixture) => {
               return (
                 <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border text-black">{fixture.DateUtc}</td>
+                  <td className="py-2 px-4 border text-black">{fixture.DateMelb}</td>
                   <td className="py-2 px-4 border">
                     <button
                       onClick={() => handleTipSelect(fixture.MatchNumber, fixture.HomeTeam)}
-                      disabled={!isEditing}
+                      disabled={!isEditing || roundInfo.isLocked}
                       className={`px-3 py-1 rounded ${
                         displayTips[fixture.MatchNumber]?.team === fixture.HomeTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${!isEditing ? 'cursor-default' : ''}`}
+                      } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       {fixture.HomeTeam}
                     </button>
@@ -258,12 +272,12 @@ const TippingPage = () => {
                   <td className="py-2 px-4 border">
                     <button
                       onClick={() => handleTipSelect(fixture.MatchNumber, fixture.AwayTeam)}
-                      disabled={!isEditing}
+                      disabled={!isEditing || roundInfo.isLocked}
                       className={`px-3 py-1 rounded ${
                         displayTips[fixture.MatchNumber]?.team === fixture.AwayTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${!isEditing ? 'cursor-default' : ''}`}
+                      } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       {fixture.AwayTeam}
                     </button>
@@ -274,12 +288,12 @@ const TippingPage = () => {
                   <td className="py-2 px-4 border text-center">
                     <button
                       onClick={() => handleDeadCertToggle(fixture.MatchNumber)}
-                      disabled={!isEditing || !displayTips[fixture.MatchNumber]?.team}
+                      disabled={!isEditing || roundInfo.isLocked || !displayTips[fixture.MatchNumber]?.team}
                       className={`px-3 py-1 rounded ${
                         displayTips[fixture.MatchNumber]?.deadCert
                           ? 'bg-yellow-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || !displayTips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${(!isEditing || roundInfo.isLocked || !displayTips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {displayTips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
                     </button>

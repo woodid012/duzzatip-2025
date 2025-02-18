@@ -3,8 +3,8 @@
 import { LATEST_ROUND } from './constants';
 
 // Test configuration
-const TEST_DATE = new Date('2025-04-01');
-const USE_TEST_DATE = true;  // Set to false to use real date
+const TEST_DATE = new Date('2025-05-06T19:00:00');
+const USE_TEST_DATE = false;  // Set to false to use real date
 
 /**
  * Converts a UTC date to Melbourne time
