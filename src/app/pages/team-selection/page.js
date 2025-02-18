@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CURRENT_YEAR, USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
+import { processFixtures, calculateRoundInfo, parseMelbourneTime, USE_TEST_DATE, TEST_DATE, getRoundInfo } from '@/app/lib/timeCalculations';
 
 export default function TeamSelection() {
+  const didInitialLoad = useRef(false);
   const [teams, setTeams] = useState({});
   const [editedTeams, setEditedTeams] = useState({});
   const [squads, setSquads] = useState({});
@@ -11,19 +13,47 @@ export default function TeamSelection() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [roundInfo, setRoundInfo] = useState({
+    currentRound: 0,
+    currentRoundDisplay: 'Opening Round',
+    lockoutTime: null,
+    isLocked: false
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [teamsRes, squadsRes] = await Promise.all([
+        const [teamsRes, squadsRes, fixturesRes] = await Promise.all([
           fetch(`/api/team-selection?round=${round}&year=${CURRENT_YEAR}`),
-          fetch('/api/squads')
+          fetch('/api/squads'),
+          fetch('/api/tipping-data')
         ]);
 
-        if (!teamsRes.ok || !squadsRes.ok) throw new Error('Failed to fetch');
+        if (!teamsRes.ok || !squadsRes.ok || !fixturesRes.ok) 
+          throw new Error('Failed to fetch');
         
-        const teamsData = await teamsRes.json();
-        const squadsData = await squadsRes.json();
+        const [teamsData, squadsData, fixturesData] = await Promise.all([
+          teamsRes.json(),
+          squadsRes.json(),
+          fixturesRes.json()
+        ]);
+        
+        const fixtures = Array.isArray(fixturesData) ? fixturesData : fixturesData.fixtures;
+        const processedFixtures = processFixtures(fixtures);
+        
+        // Get basic round info for current round setting
+        const currentRoundInfo = calculateRoundInfo(processedFixtures);
+        
+        // Only set to current round on initial mount
+        if (round === 0 && !didInitialLoad.current) {
+          setRound(currentRoundInfo.currentRound);
+          didInitialLoad.current = true;
+        }
+        
+        // Get the specific round info based on selected round
+        const roundInfo = getRoundInfo(processedFixtures, round);
+        
+        setRoundInfo(roundInfo);
         
         setTeams(teamsData);
         setEditedTeams(teamsData);
@@ -39,6 +69,8 @@ export default function TeamSelection() {
   }, [round]);
 
   const handlePlayerChange = (userId, position, newPlayerName) => {
+    if (roundInfo.isLocked) return;
+    
     setEditedTeams(prev => {
       const newTeams = {...prev};
       if (!newTeams[userId]) newTeams[userId] = {};
@@ -60,6 +92,8 @@ export default function TeamSelection() {
   };
 
   const handleBackupPositionChange = (userId, newPosition) => {
+    if (roundInfo.isLocked) return;
+    
     setEditedTeams(prev => {
       const newTeams = {...prev};
       if (!newTeams[userId]) newTeams[userId] = {};
@@ -75,6 +109,8 @@ export default function TeamSelection() {
   };
 
   const handleSave = async () => {
+    if (roundInfo.isLocked) return;
+    
     try {
       const response = await fetch('/api/team-selection', {
         method: 'POST',
@@ -116,7 +152,7 @@ export default function TeamSelection() {
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold text-black">Team Selection</h1>
-          <div className="w-full sm:w-auto flex items-center gap-2">
+          <div className="w-full sm:w-auto flex flex-wrap items-center gap-2">
             <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
             <select 
               id="round-select"
@@ -128,6 +164,23 @@ export default function TeamSelection() {
                 <option key={i} value={i}>{i}</option>
               ))}
             </select>
+            <div className="flex flex-col text-sm gap-1">
+              {roundInfo.lockoutTime && (
+                <div>
+                  <span className="text-gray-600">Lockout:</span>
+                  <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
+                  {roundInfo.isLocked && (
+                    <span className="text-red-600 ml-1">(Locked)</span>
+                  )}
+                </div>
+              )}
+              {roundInfo.roundEndTime && (
+                <div>
+                  <span className="text-gray-600">Round Ends:</span>
+                  <span className="font-medium text-black ml-1">{roundInfo.roundEndTime}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -149,9 +202,14 @@ export default function TeamSelection() {
           ) : (
             <button 
               onClick={() => setIsEditing(true)}
-              className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-lg sm:text-base"
+              disabled={roundInfo.isLocked}
+              className={`w-full sm:w-auto px-4 py-3 sm:py-2 ${
+                roundInfo.isLocked 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+              } text-white rounded text-lg sm:text-base`}
             >
-              Edit Teams
+              {roundInfo.isLocked ? 'Locked' : 'Edit Teams'}
             </button>
           )}
         </div>
@@ -191,6 +249,7 @@ export default function TeamSelection() {
                             value={playerData?.player_name || ''}
                             onChange={(e) => handlePlayerChange(userId, position, e.target.value)}
                             className="w-full p-2 text-sm border rounded bg-white text-black"
+                            disabled={roundInfo.isLocked}
                           >
                             <option value="">Select Player</option>
                             {userSquad
@@ -206,6 +265,7 @@ export default function TeamSelection() {
                               value={playerData?.backup_position || ''}
                               onChange={(e) => handleBackupPositionChange(userId, e.target.value)}
                               className="w-full sm:w-1/3 p-2 text-sm border rounded bg-white text-black"
+                              disabled={roundInfo.isLocked}
                             >
                               <option value="">Backup Position</option>
                               {BACKUP_POSITIONS.map(pos => (
