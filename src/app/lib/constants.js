@@ -98,12 +98,12 @@ export const BACKUP_POSITIONS = [
 
 export const USER_NAMES = {
   1: "Scrennys Soldiers",
-  2: "Scotts Tots",
-  3: "ROBbed",
+  2: "Garvs Garden Gnomes",
+  3: "Miguel's Marauders",
   4: "Le Mallards",
-  5: "Clarries Cookers",
+  5: "Rands Ruffians",
   6: "Balls Deep Briz",
-  7: "Strings Souvlakis",
+  7: "Honour String",
   8: "Cutsys Cucks"
 };
 

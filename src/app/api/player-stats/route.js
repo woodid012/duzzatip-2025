@@ -1,6 +1,7 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 
+
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -14,12 +15,12 @@ export async function GET(request) {
         const playerNamesList = playerNames.split(',').map(name => name.trim());
 
         const { db } = await connectToDatabase();
-        
+        // CHAGNE TO CURRENY YEAR
         const playerStats = await db.collection('2024_game_results')
             .find({ 
                 player_name: { $in: playerNamesList },
                 round: round,
-                year: CURRENT_YEAR
+                year: 2024 // CURRENT_YEAR
             }, {
                 projection: {
                     player_name: 1,
