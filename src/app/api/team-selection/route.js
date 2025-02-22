@@ -63,45 +63,57 @@ export async function POST(request) {
         const { db } = await connectToDatabase();
         const collection = db.collection(`${CURRENT_YEAR}_team_selection`);
 
-        // Create bulk operations
+        // Create bulk operations array
         const bulkOps = [];
 
-        // First, mark all existing records for this round as inactive
-        bulkOps.push({
-            updateMany: {
-                filter: { Round: parseInt(round) },
-                update: { $set: { Active: 0 } }
+        // For each user that has changes
+        Object.entries(team_selection).forEach(([userId, positions]) => {
+            // First, mark the specific positions being updated as inactive
+            const positionsToUpdate = Object.keys(positions);
+            if (positionsToUpdate.length > 0) {
+                bulkOps.push({
+                    updateMany: {
+                        filter: { 
+                            Round: parseInt(round),
+                            User: parseInt(userId),
+                            Position: { $in: positionsToUpdate }
+                        },
+                        update: { $set: { Active: 0 } }
+                    }
+                });
+
+                // Then add the new position records
+                Object.entries(positions).forEach(([position, data]) => {
+                    if (data && data.player_name) {
+                        bulkOps.push({
+                            updateOne: {
+                                filter: {
+                                    User: parseInt(userId),
+                                    Round: parseInt(round),
+                                    Position: position
+                                },
+                                update: {
+                                    $set: {
+                                        Player_Name: data.player_name,
+                                        Position: position,
+                                        Round: parseInt(round),
+                                        User: parseInt(userId),
+                                        ...(position === 'Bench' && data.backup_position 
+                                            ? { Backup_Position: data.backup_position } 
+                                            : {}),
+                                        Active: 1,
+                                        Last_Updated: new Date()
+                                    }
+                                },
+                                upsert: true
+                            }
+                        });
+                    }
+                });
             }
         });
 
-        // Then, insert or update new records
-        Object.entries(team_selection).forEach(([userId, positions]) => {
-            Object.entries(positions).forEach(([position, data]) => {
-                if (data && data.player_name) {
-                    bulkOps.push({
-                        updateOne: {
-                            filter: {
-                                User: parseInt(userId),
-                                Round: parseInt(round),
-                                Position: position
-                            },
-                            update: {
-                                $set: {
-                                    Player_Name: data.player_name,
-                                    ...(position === 'Bench' && data.backup_position 
-                                        ? { Backup_Position: data.backup_position } 
-                                        : {}),
-                                    Active: 1
-                                }
-                            },
-                            upsert: true
-                        }
-                    });
-                }
-            });
-        });
-
-        // Execute all operations in a single batch
+        // Execute all operations in a single batch if there are any
         if (bulkOps.length > 0) {
             await collection.bulkWrite(bulkOps, { ordered: false });
         }

@@ -8,6 +8,7 @@ export default function TeamSelection() {
   const didInitialLoad = useRef(false);
   const [teams, setTeams] = useState({});
   const [editedTeams, setEditedTeams] = useState({});
+  const [changedPositions, setChangedPositions] = useState({});
   const [squads, setSquads] = useState({});
   const [round, setRound] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -41,20 +42,16 @@ export default function TeamSelection() {
         const fixtures = Array.isArray(fixturesData) ? fixturesData : fixturesData.fixtures;
         const processedFixtures = processFixtures(fixtures);
         
-        // Get basic round info for current round setting
         const currentRoundInfo = calculateRoundInfo(processedFixtures);
         
-        // Only set to current round on initial mount
         if (round === 0 && !didInitialLoad.current) {
           setRound(currentRoundInfo.currentRound);
           didInitialLoad.current = true;
         }
         
-        // Get the specific round info based on selected round
         const roundInfo = getRoundInfo(processedFixtures, round);
         
         setRoundInfo(roundInfo);
-        
         setTeams(teamsData);
         setEditedTeams(teamsData);
         setSquads(squadsData);
@@ -89,6 +86,14 @@ export default function TeamSelection() {
       
       return newTeams;
     });
+
+    setChangedPositions(prev => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        [position]: true
+      }
+    }));
   };
 
   const handleBackupPositionChange = (userId, newPosition) => {
@@ -106,11 +111,29 @@ export default function TeamSelection() {
       
       return newTeams;
     });
+
+    setChangedPositions(prev => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        'Bench': true
+      }
+    }));
   };
 
   const handleSave = async () => {
     if (roundInfo.isLocked) return;
     
+    const changedTeamSelection = {};
+    Object.entries(changedPositions).forEach(([userId, positions]) => {
+      if (Object.keys(positions).length > 0) {
+        changedTeamSelection[userId] = {};
+        Object.keys(positions).forEach(position => {
+          changedTeamSelection[userId][position] = editedTeams[userId][position];
+        });
+      }
+    });
+
     try {
       const response = await fetch('/api/team-selection', {
         method: 'POST',
@@ -120,13 +143,14 @@ export default function TeamSelection() {
         body: JSON.stringify({
           year: CURRENT_YEAR,
           round: parseInt(round),
-          team_selection: editedTeams
+          team_selection: changedTeamSelection
         })
       });
 
       if (!response.ok) throw new Error('Failed to save');
       setTeams(editedTeams);
       setIsEditing(false);
+      setChangedPositions({});
     } catch (err) {
       setError('Failed to save changes');
     }
@@ -135,6 +159,7 @@ export default function TeamSelection() {
   const handleCancel = () => {
     setEditedTeams(teams);
     setIsEditing(false);
+    setChangedPositions({});
   };
 
   if (loading) return <div className="p-4">Loading teams...</div>;

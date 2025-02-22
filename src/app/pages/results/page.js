@@ -1,34 +1,34 @@
-'use client'
+'use client';
 
 import { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 import { GiCrab } from 'react-icons/gi';
 import { CURRENT_YEAR, USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import { POSITIONS } from '@/app/lib/scoring_rules';
+import { processFixtures, calculateRoundInfo } from '@/app/lib/timeCalculations';
 
 export default function TeamSelection() {
-  const [round, setRound] = useState(0);
+  const [round, setRound] = useState(null); // Initialize as null until calculated
   const [teams, setTeams] = useState({});
   const [playerStats, setPlayerStats] = useState({});
   const [deadCertScores, setDeadCertScores] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Calculate score based on position and stats
   const calculateScore = (position, stats, backupPosition = null) => {
     if (!stats) return { total: 0, breakdown: [] };
     
-    // If it's a bench position, use the backup position for scoring
     if ((position === 'BENCH' || position.startsWith('RESERVE')) && backupPosition) {
       const backupPositionType = backupPosition.toUpperCase().replace(/\s+/g, '_');
       return POSITIONS[backupPositionType]?.calculation(stats) || { total: 0, breakdown: [] };
     }
 
-    // For regular positions, use the position's scoring rules
     const formattedPosition = position.replace(/\s+/g, '_');
     return POSITIONS[formattedPosition]?.calculation(stats) || { total: 0, breakdown: [] };
   };
 
-  // Function to check if bench player should replace main team player
+  // Determine best player for a position (main team vs bench)
   const getBestPlayerForPosition = (mainPlayer, benchPlayers, position) => {
     if (!mainPlayer || !benchPlayers) return mainPlayer;
 
@@ -49,19 +49,46 @@ export default function TeamSelection() {
     return bestPlayer;
   };
 
+  // Fetch initial round and fixtures on mount
   useEffect(() => {
+    const initializeRound = async () => {
+      try {
+        // Fetch AFL fixtures
+        const response = await fetch(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`);
+        if (!response.ok) throw new Error('Failed to fetch fixtures');
+        const rawFixtures = await response.json();
+
+        // Process fixtures with Melbourne time
+        const processedFixtures = processFixtures(rawFixtures);
+
+        // Calculate current round based on today's date
+        const roundInfo = calculateRoundInfo(processedFixtures);
+        setRound(roundInfo.currentRound);
+      } catch (err) {
+        console.error('Error initializing round:', err);
+        setRound(0); // Fallback to Round 0 if there's an error
+      }
+    };
+
+    initializeRound();
+  }, []);
+
+  // Fetch team data, stats, and dead cert scores when round changes
+  useEffect(() => {
+    if (round === null) return; // Wait until round is initialized
+
     const fetchData = async () => {
       try {
-        // Fetch teams and player stats
+        setLoading(true);
+        // Fetch teams
         const teamsRes = await fetch(`/api/team-selection?round=${round}`);
         if (!teamsRes.ok) throw new Error('Failed to fetch teams');
         const teamsData = await teamsRes.json();
         setTeams(teamsData);
-    
+
         // Fetch dead cert scores for all users
-        const deadCertPromises = Object.keys(USER_NAMES).map(userId => 
-          fetch(`/api/tipping-results?round=${round}&userId=${userId}`)
-            .then(res => res.json())
+        const deadCertPromises = Object.keys(USER_NAMES).map(userId =>
+          fetch(`/api/tipping-results?round=${round}&userId=${userId}`).then(res => res.json())
         );
         const deadCertResults = await Promise.all(deadCertPromises);
         const deadCertMap = {};
@@ -71,31 +98,28 @@ export default function TeamSelection() {
         });
         setDeadCertScores(deadCertMap);
 
+        // Fetch player stats
         const allStats = {};
         for (const [userId, team] of Object.entries(teamsData)) {
-          // Collect all player names for this team
           const playerNames = Object.values(team)
             .map(data => data.player_name)
-            .filter(Boolean); // Remove any undefined/null values
-    
-          // Make a single API call for all players in the team
+            .filter(Boolean);
+
           const res = await fetch(`/api/player-stats?round=${round}&players=${encodeURIComponent(playerNames.join(','))}`);
           if (!res.ok) throw new Error('Failed to fetch player stats');
           const statsData = await res.json();
-    
-          // Process the stats for each player
+
           const playerStats = {};
           for (const [position, data] of Object.entries(team)) {
             const playerName = data.player_name;
             const stats = statsData[playerName];
             const positionType = position.toUpperCase().replace(/\s+/g, '_');
-            
             const scoring = calculateScore(positionType, stats, data.backup_position);
             playerStats[playerName] = {
               ...stats,
               scoring,
               backup_position: data.backup_position,
-              original_position: position
+              original_position: position,
             };
           }
           allStats[userId] = playerStats;
@@ -114,7 +138,7 @@ export default function TeamSelection() {
   if (loading) return <div className="p-4">Loading stats...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
-  // Calculate all final scores to determine highest and lowest
+  // Calculate final scores for highest/lowest determination
   const allFinalScores = Object.entries(teams).map(([userId, team]) => {
     const userTeam = teams[userId] || {};
     const benchPlayers = Object.entries(userTeam)
@@ -124,14 +148,14 @@ export default function TeamSelection() {
 
     const mainTeamPositions = POSITION_TYPES.filter(pos => 
       !pos.includes('Bench') && !pos.includes('Reserve'));
-    
+
     const totalScore = mainTeamPositions.reduce((total, position) => {
       const playerData = Object.entries(userTeam).find(([pos]) => pos === position)?.[1];
       if (!playerData) return total;
-      
+
       const mainPlayerStats = playerStats[userId]?.[playerData.player_name];
       const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
-      
+
       return total + (bestPlayer?.scoring?.total || 0);
     }, 0);
 
@@ -149,20 +173,21 @@ export default function TeamSelection() {
           <h1 className="text-2xl font-bold text-black">Team Scores</h1>
           <div className="w-full sm:w-auto flex items-center gap-2">
             <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
-            <select 
+            <select
               id="round-select"
-              value={round}
+              value={round ?? ''}
               onChange={(e) => setRound(Number(e.target.value))}
               className="p-2 border rounded w-24 text-lg text-black"
             >
-              {[...Array(29)].map((_, i) => (
-                <option key={i} value={i}>{i}</option>
+              <option value={0}>Opening Round</option>
+              {[...Array(28)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>{i + 1}</option>
               ))}
             </select>
           </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {Object.entries(USER_NAMES).map(([userId, userName]) => {
           const userTeam = teams[userId] || {};
@@ -173,14 +198,14 @@ export default function TeamSelection() {
 
           const mainTeamPositions = POSITION_TYPES.filter(pos => 
             !pos.includes('Bench') && !pos.includes('Reserve'));
-          
+
           const totalScore = mainTeamPositions.reduce((total, position) => {
             const playerData = Object.entries(userTeam).find(([pos]) => pos === position)?.[1];
             if (!playerData) return total;
-            
-            const mainPlayerStats = playerStats[userId]?.[playerData.player_name];
+
+            const mainPlayerStats = playerStats[userId]?.[data.player_name];
             const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
-            
+
             return total + (bestPlayer?.scoring?.total || 0);
           }, 0);
 
@@ -198,16 +223,13 @@ export default function TeamSelection() {
                     <GiCrab className="text-red-500" size={20} />}
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Final Total */}
                   <div className="text-right font-bold text-lg border-t pt-2 text-black">
                     Final Total: {finalTotalScore}
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       const element = document.getElementById(`scores-${userId}`);
-                      if (element) {
-                        element.classList.toggle('hidden');
-                      }
+                      if (element) element.classList.toggle('hidden');
                     }}
                     className="text-gray-500 hover:text-black sm:hidden"
                   >
@@ -219,7 +241,6 @@ export default function TeamSelection() {
               </div>
 
               <div id={`scores-${userId}`} className="space-y-4">
-                {/* Main Team */}
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold border-b pb-2 text-black">Main Team</h3>
                   <div className="hidden sm:grid grid-cols-12 gap-2 font-semibold text-sm pb-2 text-black">
@@ -231,11 +252,11 @@ export default function TeamSelection() {
                   {mainTeamPositions.map((positionType) => {
                     const position = Object.entries(userTeam).find(([pos]) => pos === positionType)?.[0];
                     if (!position) return null;
-                    
+
                     const data = userTeam[position];
                     const mainPlayerStats = playerStats[userId]?.[data.player_name];
                     const bestPlayer = getBestPlayerForPosition(mainPlayerStats, benchPlayers, position);
-                    
+
                     return (
                       <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
                         <div className="font-medium col-span-2 mb-1 sm:mb-0">{position}</div>
@@ -258,20 +279,17 @@ export default function TeamSelection() {
                     );
                   })}
                 </div>
-                
-                {/* Team Subtotal */}
+
                 <div className="text-right font-semibold mt-2 text-black">
                   Team Score: {totalScore}
                 </div>
 
-                {/* Dead Certs */}
                 <div className="space-y-2">
                   <div className="text-right font-semibold text-black">
                     Dead Cert Bonus: {deadCertsScore}
                   </div>
                 </div>
 
-                {/* Bench/Reserves */}
                 <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
                   <h3 className="text-lg font-semibold border-b pb-2 text-black">Bench/Reserves</h3>
                   {Object.entries(userTeam)
@@ -279,7 +297,7 @@ export default function TeamSelection() {
                     .map(([position, data]) => {
                       const benchStats = playerStats[userId]?.[data.player_name];
                       const backupPosition = data.backup_position;
-                      
+
                       const replacedPosition = mainTeamPositions.find(pos => {
                         const posData = userTeam[pos];
                         const posStats = playerStats[userId]?.[posData?.player_name];
@@ -289,10 +307,10 @@ export default function TeamSelection() {
 
                       const isBeingUsed = !!replacedPosition;
                       const originalPlayerData = isBeingUsed ? userTeam[replacedPosition] : null;
-                      const displayStats = isBeingUsed ? 
-                        playerStats[userId]?.[originalPlayerData?.player_name] : 
-                        benchStats;
-                      
+                      const displayStats = isBeingUsed
+                        ? playerStats[userId]?.[originalPlayerData?.player_name]
+                        : benchStats;
+
                       return (
                         <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
                           <div className="font-medium col-span-2 mb-1 sm:mb-0">
