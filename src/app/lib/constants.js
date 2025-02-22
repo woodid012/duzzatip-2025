@@ -97,14 +97,14 @@ export const BACKUP_POSITIONS = [
 ];
 
 export const USER_NAMES = {
-  1: "Scrennys Soldiers",
+  1: "flailing feathers",
   2: "Garvs Garden Gnomes",
   3: "Miguel's Marauders",
   4: "Le Mallards",
   5: "Rands Ruffians",
   6: "Balls Deep Briz",
   7: "Honour String",
-  8: "Cutsys Cucks"
+  8: "pinga jinga jim"
 };
 
 export { LATEST_ROUND, IS_ROUND_ACTIVE, ROUND_LOCKOUT_TIME };
