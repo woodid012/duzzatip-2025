@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAppContext } from '@/app/context/AppContext';
 import logo from '@/app/assets/logo.png';
 import { CURRENT_YEAR } from '@/app/lib/constants';
-import { processFixtures, calculateRoundInfo, getRoundInfo } from '@/app/lib/timeCalculations';
 
 const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }) => {
   return (
@@ -24,45 +24,11 @@ const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }
 export default function PagesLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [roundInfo, setRoundInfo] = useState({
-    currentRound: 0,
-    currentRoundDisplay: 'Opening Round',
-    lockoutTime: null,
-    isError: false
-  });
-  
+  const { roundInfo } = useAppContext();
+
+  // Redirect to results page if at root
   useEffect(() => {
-    const fetchFixtures = async () => {
-      try {
-        const response = await fetch(`/api/tipping-data`);
-        if (!response.ok) {
-          throw new Error(`Failed to load data: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        const fixtures = Array.isArray(data) ? data : data.fixtures;
-        
-        // Process fixtures and calculate round info
-        const processedFixtures = processFixtures(fixtures);
-        
-        // First get the current round
-        const currentRoundInfo = calculateRoundInfo(processedFixtures);
-        
-        // Then get the specific round info for that round
-        const roundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
-        
-        setRoundInfo(roundInfo);
-      } catch (error) {
-        console.error('Error loading fixtures:', error);
-        setRoundInfo(prev => ({ ...prev, isError: true }));
-      }
-    };
-
-    fetchFixtures();
-  }, []);
-
-  React.useEffect(() => {
-    if (pathname === '/') {
+    if (pathname === '/pages' || pathname === '/pages/') {
       router.push('/pages/results');
     }
   }, [pathname, router]);
@@ -81,9 +47,14 @@ export default function PagesLayout({ children }) {
       <div className="bg-white shadow">
         <div className="w-full p-4 md:p-6">
           <div className="flex flex-col gap-2">
-            <div className="flex items-center px-4">
+            <div className="flex items-center justify-between px-4">
               <div className="flex-shrink-0">
                 <Logo width={176} height={176} className="rounded-lg" />
+              </div>
+              
+              {/* Auth placeholder for future implementation */}
+              <div className="hidden">
+                {/* Authentication UI will go here */}
               </div>
             </div>
             

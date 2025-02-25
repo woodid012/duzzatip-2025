@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Geist, Geist_Mono } from "next/font/google";
 import { connectToDatabase } from './lib/mongodb';
+import { AppProvider } from './context/AppContext';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,7 +34,9 @@ export default function RootLayout({ children }) {
         <Suspense fallback={null}>
           <InitDB />
         </Suspense>
-        {children}
+        <AppProvider>
+          {children}
+        </AppProvider>
       </body>
     </html>
   );

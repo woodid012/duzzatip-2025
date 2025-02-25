@@ -3,12 +3,12 @@
 export const CURRENT_YEAR = new Date().getFullYear();
 
 // Initial values
-let LATEST_ROUND = 0;
-let IS_ROUND_ACTIVE = false;
-let ROUND_LOCKOUT_TIME = null;
+export const LATEST_ROUND = 1;
+export const IS_ROUND_ACTIVE = false;
+export const ROUND_LOCKOUT_TIME = null;
 
 // Function to check if a round is active
-const getRoundStatus = (fixtures, roundNumber) => {
+export const getRoundStatus = (fixtures, roundNumber) => {
   if (!fixtures || !fixtures.length) return false;
   
   const roundFixtures = fixtures.filter(f => f.RoundNumber.toString() === roundNumber.toString());
@@ -22,8 +22,8 @@ const getRoundStatus = (fixtures, roundNumber) => {
 };
 
 // Function to get the latest round
-const getLatestRound = (fixtures) => {
-  if (!fixtures || !fixtures.length) return 0;
+export const getLatestRound = (fixtures) => {
+  if (!fixtures || !fixtures.length) return 1; // Default to round 1
   
   const now = new Date();
   const futureFixtures = fixtures.filter(f => new Date(f.DateUtc) > now);
@@ -36,7 +36,7 @@ const getLatestRound = (fixtures) => {
 };
 
 // Function to get round lockout time (earliest game in Melbourne time)
-const getRoundLockoutTime = (fixtures, roundNumber) => {
+export const getRoundLockoutTime = (fixtures, roundNumber) => {
   if (!fixtures || !fixtures.length) return null;
   
   // Filter for the active round
@@ -63,18 +63,6 @@ const getRoundLockoutTime = (fixtures, roundNumber) => {
   )[0].DateUtc;
 };
 
-// Initialize the values
-fetch(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`)
-  .then(response => response.json())
-  .then(fixtures => {
-    LATEST_ROUND = getLatestRound(fixtures);
-    IS_ROUND_ACTIVE = getRoundStatus(fixtures, LATEST_ROUND);
-    ROUND_LOCKOUT_TIME = getRoundLockoutTime(fixtures, LATEST_ROUND);
-  })
-  .catch(error => {
-    console.error('Error fetching fixtures for constants:', error);
-  });
-
 export const POSITION_TYPES = [
   'Full Forward', 
   'Tall Forward', 
@@ -97,14 +85,12 @@ export const BACKUP_POSITIONS = [
 ];
 
 export const USER_NAMES = {
-  1: "Scrennys Soldiers",
+  1: "flailing feathers",
   2: "Garvs Garden Gnomes",
   3: "Miguel's Marauders",
   4: "Le Mallards",
   5: "Rands Ruffians",
   6: "Balls Deep Briz",
   7: "Honour String",
-  8: "Cutsys Cucks"
+  8: "pinga jinga jim"
 };
-
-export { LATEST_ROUND, IS_ROUND_ACTIVE, ROUND_LOCKOUT_TIME };
