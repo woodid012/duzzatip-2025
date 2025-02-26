@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import { POSITIONS } from '@/app/lib/scoring_rules';
+import { getFixturesForRound } from '@/app/lib/fixture_constants';
 
 export default function useResults() {
   const { currentRound, changeRound } = useAppContext();

@@ -32,7 +32,10 @@ export default function Home() {
 
   const navigationItems = [
     { name: 'Round Results', path: '/pages/results', id: 'results' },
-    { name: 'Team Selection', path: '/pages/team-selection', id: 'team-selection' },
+    { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
+    { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
+    { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
+    { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
   ];
 
