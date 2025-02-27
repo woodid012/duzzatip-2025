@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
+import { useUserContext } from '../layout';
 import useTipping from '@/app/hooks/useTipping';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
@@ -8,9 +10,12 @@ export default function TippingPage() {
   // Get data from our app context
   const { currentRound, roundInfo, changeRound } = useAppContext();
   
+  // Get selected user context
+  const { selectedUserId } = useUserContext();
+  
   // Get tipping functionality from our hook
   const {
-    selectedUserId,
+    selectedUserId: hookSelectedUserId,
     tips,
     roundFixtures,
     isEditing,
@@ -23,17 +28,19 @@ export default function TippingPage() {
     cancelEditing,
     startEditing,
     changeUser
-  } = useTipping();
+  } = useTipping(selectedUserId); // Pass selected user from context
+
+  // Sync the selected user from context to the hook
+  useEffect(() => {
+    if (selectedUserId) {
+      changeUser(selectedUserId);
+    }
+  }, [selectedUserId, changeUser]);
 
   // Handle round change
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     changeRound(newRound);
-  };
-
-  // Handle user change
-  const handleUserChange = (e) => {
-    changeUser(e.target.value);
   };
 
   const displayRound = (round) => {
@@ -48,11 +55,27 @@ export default function TippingPage() {
     );
   }
 
+  // If no user is selected and not admin, show a message
+  if (!selectedUserId && !hookSelectedUserId) {
+    return (
+      <div className="text-center p-10">
+        <h2 className="text-2xl font-bold mb-4">Please Select a Player</h2>
+        <p className="text-gray-600">
+          Use the dropdown in the top right to select which player's tips you want to view or edit.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <div className="flex flex-col">
-          <h1 className="text-3xl font-bold text-black">AFL {CURRENT_YEAR} Tips</h1>
+          <h1 className="text-3xl font-bold text-black">
+            {selectedUserId && selectedUserId !== 'admin' 
+              ? `${USER_NAMES[selectedUserId]}'s Tips` 
+              : `AFL ${CURRENT_YEAR} Tips`}
+          </h1>
           {roundInfo.lockoutTime && (
             <div className="text-sm mt-2">
               <span className="text-gray-600">Lockout:</span>
@@ -74,7 +97,7 @@ export default function TippingPage() {
               {error}
             </span>
           )}
-          {selectedUserId && (
+          {(selectedUserId || hookSelectedUserId) && (
             isEditing ? (
               <>
                 <button 
@@ -123,21 +146,23 @@ export default function TippingPage() {
           </select>
         </div>
 
-        <div className="flex flex-col">
-          <label className="mb-2 font-semibold text-black">Select Team:</label>
-          <select 
-            value={selectedUserId}
-            onChange={handleUserChange}
-            className="border rounded p-2 text-black"
-          >
-            <option value="">Select a team</option>
-            {Object.entries(USER_NAMES).map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {selectedUserId === 'admin' && (
+          <div className="flex flex-col">
+            <label className="mb-2 font-semibold text-black">Select Team:</label>
+            <select 
+              value={hookSelectedUserId}
+              onChange={(e) => changeUser(e.target.value)}
+              className="border rounded p-2 text-black"
+            >
+              <option value="">Select a team</option>
+              {Object.entries(USER_NAMES).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">

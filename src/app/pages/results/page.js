@@ -103,14 +103,25 @@ export default function ResultsPage() {
                 <div key={position.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
                   <div className="font-medium col-span-2 mb-1 sm:mb-0">{position.position}</div>
                   <div className="col-span-3 mb-1 sm:mb-0">
-                    {position.isBenchPlayer ? (
-                      <span className="text-green-600">Bench: {position.playerName}</span>
+                    {position.noStats ? (
+                      <span className="text-red-600">{position.playerName} (DNP)</span>
+                    ) : position.isBenchPlayer ? (
+                      <span className="text-green-600">
+                        {position.replacementType}: {position.playerName}
+                      </span>
                     ) : (
                       position.playerName || 'Not Selected'
                     )}
                   </div>
                   <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
-                    {position.breakdown}
+                    {position.isBenchPlayer ? (
+                      <div className="flex flex-col">
+                        <span className="text-green-600">Auto-substitution from {position.replacementType}</span>
+                        <span>{position.breakdown}</span>
+                      </div>
+                    ) : (
+                      position.breakdown
+                    )}
                   </div>
                   <div className="col-span-2 text-right font-semibold">
                     {position.score}
@@ -138,19 +149,33 @@ export default function ResultsPage() {
                 <div key={bench.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
                   <div className="font-medium col-span-2 mb-1 sm:mb-0">
                     {bench.position}
+                    {bench.position === 'Reserve A' && (
+                      <div className="text-xs text-gray-500">Full Forward, Tall Forward, Ruck</div>
+                    )}
+                    {bench.position === 'Reserve B' && (
+                      <div className="text-xs text-gray-500">Offensive, Mid, Tackler</div>
+                    )}
                     {bench.backupPosition && (
-                      <div className="text-xs text-black">{bench.backupPosition}</div>
+                      <div className="text-xs text-gray-500">{bench.backupPosition}</div>
                     )}
                   </div>
                   <div className="col-span-3 mb-1 sm:mb-0">
-                    {bench.isBeingUsed ? (
-                      <span className="text-red-600">{bench.replacingPlayerName}</span>
+                    {!bench.didPlay ? (
+                      <span className="text-red-600">{bench.playerName} (DNP)</span>
+                    ) : bench.isBeingUsed ? (
+                      <span className="text-green-600">{bench.playerName}</span>
                     ) : (
                       bench.playerName
                     )}
                   </div>
                   <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
-                    {bench.breakdown}
+                    {bench.isBeingUsed ? (
+                      <span className="text-green-600">
+                        Replacing: {bench.replacingPlayerName} ({bench.replacingPosition})
+                      </span>
+                    ) : (
+                      bench.breakdown
+                    )}
                   </div>
                   <div className="col-span-2 text-right font-semibold">
                     {bench.score}
@@ -272,6 +297,23 @@ export default function ResultsPage() {
           // When no fixtures, display all team cards in default order
           Object.entries(USER_NAMES).map(([userId, userName]) => renderTeamCard(userId))
         )}
+      </div>
+      
+      {/* Info about Reserves - Moved to bottom of page */}
+      <div className="mt-10 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 className="text-lg font-semibold mb-2 text-blue-800">Reserve Rules</h3>
+        <ul className="list-disc pl-5 text-blue-700 text-sm space-y-1">
+          <li><strong>Reserve A</strong> is used as backup for: Full Forward, Tall Forward, and Ruck</li>
+          <li><strong>Reserve B</strong> is used as backup for: Offensive, Midfielder, and Tackler</li>
+          <li>If a player didn't play (DNP), their position will be filled by the appropriate reserve</li>
+          <li>Each reserve player can only be used once (in case multiple players didn't play)</li>
+          <li>Reserves are assigned to maximize total team score based on priority order:</li>
+          <ol className="list-decimal pl-5 pt-1">
+            <li>Specific backup position match (highest priority)</li>
+            <li>Position type match (Reserve A for FF/TF/Ruck, Reserve B for others)</li>
+            <li>Scoring potential (reserves are assigned to generate maximum points)</li>
+          </ol>
+        </ul>
       </div>
     </div>
   );

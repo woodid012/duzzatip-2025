@@ -2,12 +2,16 @@
 
 import { useState } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
+import { useUserContext } from '../layout';
 import useTeamSelection from '@/app/hooks/useTeamSelection';
 import { USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 
 export default function TeamSelectionPage() {
   // Get data from our app context
   const { currentRound, roundInfo, changeRound } = useAppContext();
+  
+  // Get selected user context
+  const { selectedUserId } = useUserContext();
   
   // Get team selection functionality from our hook
   const {
@@ -49,26 +53,31 @@ export default function TeamSelectionPage() {
               id="round-select"
               value={currentRound}
               onChange={handleRoundChange}
-              className="p-2 border rounded w-24 text-lg text-black"
+              className="p-2 border rounded w-24 text-base text-black"
             >
               {[...Array(29)].map((_, i) => (
-                <option key={i} value={i}>{i}</option>
+                <option key={i} value={i}>
+                  {i === 0 ? 'Opening' : i}
+                </option>
               ))}
             </select>
-            <div className="flex flex-col text-sm gap-1">
+            <div className="flex items-center gap-2 text-sm">
               {roundInfo.lockoutTime && (
-                <div>
+                <div className="flex gap-1 items-center">
                   <span className="text-gray-600">Lockout:</span>
-                  <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
+                  <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
                   {roundInfo.isLocked && (
-                    <span className="text-red-600 ml-1">(Locked)</span>
+                    <span className="text-red-600">(Locked)</span>
                   )}
                 </div>
               )}
+              {roundInfo.lockoutTime && roundInfo.roundEndTime && (
+                <span className="text-gray-400 mx-1">|</span>
+              )}
               {roundInfo.roundEndTime && (
-                <div>
+                <div className="flex gap-1 items-center">
                   <span className="text-gray-600">Round Ends:</span>
-                  <span className="font-medium text-black ml-1">{roundInfo.roundEndTime}</span>
+                  <span className="font-medium text-black">{roundInfo.roundEndTime}</span>
                 </div>
               )}
             </div>
@@ -93,34 +102,63 @@ export default function TeamSelectionPage() {
           ) : (
             <button 
               onClick={startEditing}
-              disabled={roundInfo.isLocked}
+              disabled={roundInfo.isLocked && selectedUserId !== 'admin'} // Only disable if locked AND not admin
               className={`w-full sm:w-auto px-4 py-3 sm:py-2 ${
-                roundInfo.isLocked 
+                roundInfo.isLocked && selectedUserId !== 'admin'
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-blue-600 hover:bg-blue-700'
               } text-white rounded text-lg sm:text-base`}
             >
-              {roundInfo.isLocked ? 'Locked' : 'Edit Teams'}
+              {roundInfo.isLocked && selectedUserId !== 'admin' ? 'Locked' : 'Edit Teams'}
             </button>
           )}
         </div>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {Object.entries(USER_NAMES).map(([userId, userName]) => (
+        {/* Check if we have a selected user, otherwise show all teams */}
+        {selectedUserId && selectedUserId !== 'admin' ? (
+          // Show only the selected user's team
           <TeamCard 
-            key={userId}
-            userId={userId}
-            userName={userName}
-            team={teams[userId] || {}}
-            squad={squads[userId]?.players || []}
+            key={selectedUserId}
+            userId={selectedUserId}
+            userName={USER_NAMES[selectedUserId]}
+            team={teams[selectedUserId] || {}}
+            squad={squads[selectedUserId]?.players || []}
             isEditing={isEditing}
-            isLocked={roundInfo.isLocked}
+            isLocked={roundInfo.isLocked && selectedUserId !== 'admin'} // Only locked if not admin
             onPlayerChange={handlePlayerChange}
             onBackupPositionChange={handleBackupPositionChange}
-            onCopyFromPrevious={() => currentRound > 1 && copyFromPreviousRound(userId)}
+            onCopyFromPrevious={() => currentRound > 1 && copyFromPreviousRound(selectedUserId)}
           />
-        ))}
+        ) : (
+          // Show all teams (for admin or when no user is selected)
+          Object.entries(USER_NAMES).map(([userId, userName]) => (
+            <TeamCard 
+              key={userId}
+              userId={userId}
+              userName={userName}
+              team={teams[userId] || {}}
+              squad={squads[userId]?.players || []}
+              isEditing={isEditing}
+              isLocked={roundInfo.isLocked && selectedUserId !== 'admin'} // Only locked if not admin
+              onPlayerChange={handlePlayerChange}
+              onBackupPositionChange={handleBackupPositionChange}
+              onCopyFromPrevious={() => currentRound > 1 && copyFromPreviousRound(userId)}
+            />
+          ))
+        )}
+      </div>
+      
+      {/* Reserve Rules Info - Moved below the teams */}
+      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <h3 className="text-lg font-semibold mb-2 text-blue-800">Reserve System</h3>
+        <ul className="list-disc pl-5 text-blue-700 text-sm space-y-1">
+          <li><strong>Reserve A</strong> automatically covers: Full Forward, Tall Forward, and Ruck positions if a player doesn't play</li>
+          <li><strong>Reserve B</strong> automatically covers: Offensive, Midfielder, and Tackler positions if a player doesn't play</li>
+          <li>Each reserve can only be used once if multiple players don't play</li>
+          <li>Bench players with specific backup positions take priority over reserves</li>
+        </ul>
       </div>
     </div>
   );
@@ -140,6 +178,13 @@ function TeamCard({
 }) {
   // State for toggling visibility on mobile
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Get display name for each position
+  const getPositionDisplay = (position) => {
+    if (position === 'Reserve A') return 'Reserve A - FF/TF/Ruck';
+    if (position === 'Reserve B') return 'Reserve B - Off/Mid/Tackler';
+    return position;
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
@@ -170,10 +215,11 @@ function TeamCard({
         <div className="space-y-2">
           {POSITION_TYPES.map((position) => {
             const playerData = team[position];
+            const displayPosition = getPositionDisplay(position);
             
             return (
               <div key={position} className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-black">{position}</label>
+                <label className="text-sm font-medium text-black">{displayPosition}</label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   {isEditing ? (
                     <>
