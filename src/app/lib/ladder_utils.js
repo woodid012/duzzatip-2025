@@ -31,6 +31,10 @@ export function calculateLadder(allTeamScores, currentRound) {
       .map(([userId, score]) => ({ userId, score }))
       .sort((a, b) => b.score - a.score);
     
+    // Calculate average score for Round 0 (used for points against)
+    const totalScores = round0Scores.reduce((sum, team) => sum + team.score, 0);
+    const averageScore = Math.round(totalScores / round0Scores.length);
+    
     // Top 4 teams get a win
     round0Scores.slice(0, 4).forEach(team => {
       const ladderEntry = ladder.find(entry => entry.userId === team.userId);
@@ -38,6 +42,7 @@ export function calculateLadder(allTeamScores, currentRound) {
         ladderEntry.played += 1;
         ladderEntry.wins += 1;
         ladderEntry.pointsFor += team.score;
+        ladderEntry.pointsAgainst += averageScore; // Use average score as points against
         ladderEntry.points += 4; // Win = 4 points
       }
     });
@@ -49,6 +54,7 @@ export function calculateLadder(allTeamScores, currentRound) {
         ladderEntry.played += 1;
         ladderEntry.losses += 1;
         ladderEntry.pointsFor += team.score;
+        ladderEntry.pointsAgainst += averageScore; // Use average score as points against
       }
     });
   }

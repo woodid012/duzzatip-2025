@@ -13,7 +13,8 @@ export default function LadderPage() {
     changeRound, 
     isFinalRound, 
     getFinalRoundName,
-    currentRound 
+    currentRound,
+    allTeamScores
   } = useLadder();
 
   // Handle round change
@@ -35,19 +36,21 @@ export default function LadderPage() {
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-black">Season Ladder</h1>
-        <div className="w-full sm:w-auto flex items-center gap-2">
-          <label htmlFor="round-select" className="text-sm font-medium text-black">Up to Round:</label>
-          <select 
-            id="round-select"
-            value={currentRound}
-            onChange={handleRoundChange}
-            className="p-2 border rounded w-24 text-lg text-black"
-          >
-            {[...Array(25)].map((_, i) => (
-              <option key={i} value={i}>{i === 0 ? 'Opening' : i}</option>
-            ))}
-          </select>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <h1 className="text-2xl font-bold text-black">Season Ladder</h1>
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
+            <select 
+              id="round-select"
+              value={currentRound}
+              onChange={handleRoundChange}
+              className="p-2 border rounded w-24 text-base text-black"
+            >
+              {[...Array(25)].map((_, i) => (
+                <option key={i} value={i}>{i === 0 ? 'Opening' : i}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

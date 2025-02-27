@@ -8,11 +8,15 @@ import useResults from '@/app/hooks/useResults';
 import { USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { isFinalRound, getFinalRoundName } from '@/app/lib/ladder_utils';
+import { useUserContext } from '../layout';
 import Link from 'next/link';
 
 export default function ResultsPage() {
   // Get data from our app context
   const { currentRound, changeRound } = useAppContext();
+  
+  // Get the selected user from context
+  const { selectedUserId } = useUserContext();
   
   // Get results functionality from our hook
   const {
@@ -26,13 +30,36 @@ export default function ResultsPage() {
   // State for toggling visibility on mobile
   const [expandedTeams, setExpandedTeams] = useState({});
   const [fixtures, setFixtures] = useState([]);
+  const [orderedFixtures, setOrderedFixtures] = useState([]);
 
   // Get fixtures for the current round
   useEffect(() => {
     // Get fixtures for the current round
     const roundFixtures = getFixturesForRound(currentRound);
     setFixtures(roundFixtures || []);
-  }, [currentRound]);
+    
+    // Reorganize fixtures to prioritize the selected user's match
+    if (selectedUserId && roundFixtures && roundFixtures.length > 0) {
+      // First check if the user is participating in this round
+      const userFixture = roundFixtures.find(fixture => 
+        fixture.home == selectedUserId || fixture.away == selectedUserId
+      );
+      
+      if (userFixture) {
+        // Create a new array with the user's fixture first
+        const reorderedFixtures = [
+          userFixture,
+          ...roundFixtures.filter(fixture => fixture !== userFixture)
+        ];
+        setOrderedFixtures(reorderedFixtures);
+      } else {
+        setOrderedFixtures(roundFixtures);
+      }
+    } else {
+      // If no user selected, use the original order
+      setOrderedFixtures(roundFixtures);
+    }
+  }, [currentRound, selectedUserId]);
 
   // Toggle team expansion
   const toggleTeamExpansion = (userId) => {
@@ -72,6 +99,8 @@ export default function ResultsPage() {
               <Star className="text-yellow-500" size={20} />}
             {teamScores.finalScore === lowestScore && lowestScore > 0 && 
               <GiCrab className="text-red-500" size={20} />}
+            {userId === selectedUserId && 
+              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">Selected</span>}
           </div>
           <div className="flex items-center gap-2">
             <div className="text-right font-bold text-lg border-t pt-2 text-black">
@@ -194,8 +223,11 @@ export default function ResultsPage() {
 
   // Calculate all team scores for determining highest and lowest
   const allTeamScores = calculateAllTeamScores();
-  const highestScore = Math.max(...allTeamScores.map(s => s.totalScore), 0);
-  const lowestScore = Math.min(...allTeamScores.map(s => s.totalScore), 0);
+  
+  // Filter out any zero or undefined scores when determining highest/lowest
+  const nonZeroScores = allTeamScores.filter(s => s.totalScore > 0);
+  const highestScore = nonZeroScores.length > 0 ? Math.max(...nonZeroScores.map(s => s.totalScore)) : 0;
+  const lowestScore = nonZeroScores.length > 0 ? Math.min(...nonZeroScores.map(s => s.totalScore)) : 0;
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
@@ -208,7 +240,7 @@ export default function ResultsPage() {
               id="round-select"
               value={currentRound}
               onChange={handleRoundChange}
-              className="p-2 border rounded w-24 text-lg text-black"
+              className="p-2 border rounded w-24 text-sm text-black"
             >
               {[...Array(25)].map((_, i) => (
                 <option key={i} value={i}>
@@ -227,23 +259,95 @@ export default function ResultsPage() {
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-4">{displayRoundName(currentRound)}</h2>
         
-        {fixtures && fixtures.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {fixtures.map((fixture, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md p-3">
-                <div className="text-center text-sm text-gray-500 mb-2">
-                  {currentRound === 0 ? 'Opening Round' : 
-                   isFinalRound(currentRound) ? fixture.name || `Final ${index + 1}` : 
-                   `Game ${index + 1}`}
-                </div>
-                {currentRound === 0 ? (
-                  <div className="text-center">
-                    <p className="text-sm">Top 4 teams earn a win</p>
+        {currentRound === 0 ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold text-blue-800 mb-2">Opening Round Rules</h3>
+            <p className="text-blue-700">The top 4 scoring teams will be awarded a Win for the Opening Round.</p>
+            
+                            {/* Display all teams with their scores for Opening Round */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+              {Object.entries(USER_NAMES).map(([userId, userName]) => {
+                // Get the team score, treat null, undefined, NaN as 0
+                const score = allTeamScores.find(s => s.userId === userId)?.totalScore || 0;
+                
+                // Only teams with scores > 0 should be considered for rankings
+                const validScores = allTeamScores
+                  .filter(s => (s.totalScore || 0) > 0)
+                  .sort((a, b) => b.totalScore - a.totalScore);
+                
+                // Get rank of this team (only if they have a score > 0)
+                const rank = score > 0 
+                  ? validScores.findIndex(s => s.userId === userId) + 1 
+                  : '-';
+                  
+                const isTopFour = rank !== '-' && rank <= 4;
+                
+                return (
+                  <div key={userId} className={`${
+                    isTopFour ? 'bg-green-50 border-green-200' : 'bg-white'
+                  } rounded-lg shadow-md p-3`}>
+                    <div className="text-center font-medium">
+                      {userName}
+                      {userId == selectedUserId && (
+                        <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-center text-2xl font-bold my-2">
+                      {score}
+                    </div>
+                    <div className="text-center text-sm">
+                      {score > 0 ? (
+                        isTopFour ? (
+                          <span className="text-green-600 font-semibold">
+                            Rank: {rank} - Win
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">
+                            Rank: {rank}
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-red-600">
+                          No team submitted
+                        </span>
+                      )}
+                    </div>
                   </div>
-                ) : (
+                );
+              })}
+            </div>
+          </div>
+        ) : orderedFixtures && orderedFixtures.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {orderedFixtures.map((fixture, index) => {
+              // Highlight the selected user's match
+              const isSelectedUserMatch = selectedUserId && 
+                (fixture.home == selectedUserId || fixture.away == selectedUserId);
+              
+              return (
+                <div 
+                  key={fixture.home + '-' + fixture.away} 
+                  className={`${
+                    isSelectedUserMatch 
+                      ? 'bg-blue-50 border-blue-200' 
+                      : 'bg-white'
+                  } rounded-lg shadow-md p-3 order-${index}`}
+                >
+                  <div className="text-center text-sm text-gray-500 mb-2">
+                    {isFinalRound(currentRound) ? fixture.name || `Final ${index + 1}` : `Game ${index + 1}`}
+                    {isSelectedUserMatch && (
+                      <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                        Your Match
+                      </span>
+                    )}
+                  </div>
                   <div className="flex justify-between items-center">
                     <div className="text-center flex-1">
-                      <div className="font-medium">{USER_NAMES[fixture.home] || fixture.home}</div>
+                      <div className={`font-medium ${fixture.home == selectedUserId ? 'text-blue-600 font-bold' : ''}`}>
+                        {USER_NAMES[fixture.home] || fixture.home}
+                      </div>
                       {allTeamScores.find(s => s.userId === String(fixture.home)) && (
                         <div className="text-2xl font-bold">
                           {allTeamScores.find(s => s.userId === String(fixture.home))?.totalScore || '-'}
@@ -252,7 +356,9 @@ export default function ResultsPage() {
                     </div>
                     <div className="text-center text-gray-500 px-2">vs</div>
                     <div className="text-center flex-1">
-                      <div className="font-medium">{USER_NAMES[fixture.away] || fixture.away}</div>
+                      <div className={`font-medium ${fixture.away == selectedUserId ? 'text-blue-600 font-bold' : ''}`}>
+                        {USER_NAMES[fixture.away] || fixture.away}
+                      </div>
                       {allTeamScores.find(s => s.userId === String(fixture.away)) && (
                         <div className="text-2xl font-bold">
                           {allTeamScores.find(s => s.userId === String(fixture.away))?.totalScore || '-'}
@@ -260,9 +366,9 @@ export default function ResultsPage() {
                       )}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
@@ -272,27 +378,46 @@ export default function ResultsPage() {
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {fixtures && fixtures.length > 0 ? (
-          // When fixtures exist, display team cards in matchup order
-          fixtures.map((fixture) => {
-            const homeUserId = fixture.home?.toString();
-            const awayUserId = fixture.away?.toString();
-            
-            // Skip if not numeric IDs (e.g., 'TBD' placeholders in finals)
-            if (!homeUserId || !awayUserId || isNaN(Number(homeUserId)) || isNaN(Number(awayUserId))) {
-              return null;
-            }
-            
-            return (
-              <React.Fragment key={`matchup-${homeUserId}-${awayUserId}`}>
-                {/* Home Team Card */}
-                {renderTeamCard(homeUserId)}
+        {currentRound === 0 || (orderedFixtures && orderedFixtures.length > 0) ? (
+          currentRound === 0 ? (
+            // For Opening Round, display all team cards sorted by score
+            [...Object.entries(USER_NAMES)]
+              .map(([userId]) => userId)
+              .sort((a, b) => {
+                // First prioritize the selected user
+                if (a === selectedUserId) return -1;
+                if (b === selectedUserId) return 1;
                 
-                {/* Away Team Card */}
-                {renderTeamCard(awayUserId)}
-              </React.Fragment>
-            );
-          })
+                // Then sort by score
+                const scoreA = allTeamScores.find(s => s.userId === a)?.totalScore || 0;
+                const scoreB = allTeamScores.find(s => s.userId === b)?.totalScore || 0;
+                return scoreB - scoreA; // Sort descending
+              })
+              .map(userId => renderTeamCard(userId))
+          ) : (
+            // For regular rounds, display team cards in matchup order
+            orderedFixtures.flatMap((fixture) => {
+              const homeUserId = fixture.home?.toString();
+              const awayUserId = fixture.away?.toString();
+              
+              // Skip if not numeric IDs (e.g., 'TBD' placeholders in finals)
+              if (!homeUserId || !awayUserId || isNaN(Number(homeUserId)) || isNaN(Number(awayUserId))) {
+                return [];
+              }
+              
+              // If this is the selected user's fixture, prioritize their team card first
+              if (selectedUserId && (homeUserId === selectedUserId || awayUserId === selectedUserId)) {
+                if (homeUserId === selectedUserId) {
+                  return [renderTeamCard(homeUserId), renderTeamCard(awayUserId)];
+                } else {
+                  return [renderTeamCard(awayUserId), renderTeamCard(homeUserId)];
+                }
+              }
+              
+              // Otherwise return both cards in normal order
+              return [renderTeamCard(homeUserId), renderTeamCard(awayUserId)];
+            })
+          )
         ) : (
           // When no fixtures, display all team cards in default order
           Object.entries(USER_NAMES).map(([userId, userName]) => renderTeamCard(userId))

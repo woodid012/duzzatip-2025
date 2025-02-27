@@ -37,6 +37,18 @@ export default function TeamSelectionPage() {
   if (loading) return <div className="p-4">Loading teams...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
+  // If no user is selected and not admin, show a message
+  if (!selectedUserId) {
+    return (
+      <div className="text-center p-10">
+        <h2 className="text-2xl font-bold mb-4">Please Select a Player</h2>
+        <p className="text-gray-600">
+          Use the dropdown in the top right to select which player's team you want to view or edit.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <style jsx>{`
