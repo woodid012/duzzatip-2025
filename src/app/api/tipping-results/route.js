@@ -16,7 +16,15 @@ export async function GET(request) {
 
     // Read local JSON file
     const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-    const fixturesData = await fs.readFile(fixturesPath, 'utf8');
+    let fixturesData;
+    
+    try {
+      fixturesData = await fs.readFile(fixturesPath, 'utf8');
+    } catch (error) {
+      console.error('Failed to read fixtures file:', error);
+      throw new Error('Failed to read fixtures file');
+    }
+    
     const fixtures = JSON.parse(fixturesData);
 
     // Filter completed matches for the round

@@ -1,0 +1,11 @@
+{
+  "name": "afl-data-scripts",
+  "version": "1.0.0",
+  "description": "Scripts to update AFL data for the DuzzaTip app",
+  "scripts": {
+    "download-fixtures": "node download-fixtures.js"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.9"
+  }
+}

@@ -49,49 +49,24 @@ export default function useLadder() {
   // Fetch scores for a specific round
   const fetchRoundScores = async (round) => {
     try {
-      // Special case for round 0 (opening-round)
-      if (round === 0) {
-        // In a real app, this would be an API call to get the opening-round scores
-        // For now, we'll simulate some data
-        return Object.fromEntries(
-          Object.keys(USER_NAMES).map(userId => [
-            userId,
-            Math.floor(Math.random() * 100) + 50 // Random score between 50-149
-          ])
-        );
-      }
-      
-      const fixtures = getFixturesForRound(round);
-      if (!fixtures || fixtures.length === 0) return null;
-      
+      // For all rounds, use the round-results API
       const scores = {};
       
-      // For each fixture, get the user scores
-      for (const fixture of fixtures) {
-        const homeId = fixture.home.toString();
-        const awayId = fixture.away.toString();
-        
-        // Skip fixtures with placeholder teams (finals)
-        if (typeof fixture.home !== 'number' || typeof fixture.away !== 'number') {
-          continue;
-        }
-
-        // Get scores from the round-results API
-        const homeRes = await fetch(`/api/round-results?round=${round}&userId=${homeId}`);
-        const awayRes = await fetch(`/api/round-results?round=${round}&userId=${awayId}`);
-        
-        if (homeRes.ok) {
-          const homeData = await homeRes.json();
-          scores[homeId] = homeData.total || 0;
-        }
-        
-        if (awayRes.ok) {
-          const awayData = await awayRes.json();
-          scores[awayId] = awayData.total || 0;
+      // Fetch scores for each user (1-8)
+      for (const userId of Object.keys(USER_NAMES)) {
+        try {
+          const res = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+          if (res.ok) {
+            const data = await res.json();
+            scores[userId] = data.total || 0;
+          }
+        } catch (userError) {
+          console.warn(`Could not fetch scores for user ${userId}, round ${round}:`, userError);
+          // Continue with other users even if one fails
         }
       }
       
-      return scores;
+      return Object.keys(scores).length > 0 ? scores : null;
     } catch (err) {
       console.error(`Error fetching round ${round} scores:`, err);
       return null;
@@ -131,6 +106,7 @@ export default function useLadder() {
     // Actions
     getFinalsFixtures,
     changeRound,
+    fetchRoundScores,
     
     // Helper functions
     isFinalRound,

@@ -1,15 +1,37 @@
+import { promises as fs } from 'fs';
+import { join } from 'path';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
 
 export async function GET(request) {
   try {
-    // Get fixtures from external API
-    const response = await fetch(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch fixtures: ${response.status}`);
+    // Get fixtures from local JSON file
+    const fixturesPath = join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
+    
+    let fixtures;
+    try {
+      const fixturesData = await fs.readFile(fixturesPath, 'utf8');
+      fixtures = JSON.parse(fixturesData);
+    } catch (fileError) {
+      console.warn('Static fixtures file not found, fetching from API');
+      
+      // Fallback to API if file doesn't exist
+      const response = await fetch(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch fixtures: ${response.status}`);
+      }
+      fixtures = await response.json();
+      
+      // Try to save for next time
+      try {
+        await fs.mkdir(join(process.cwd(), 'public'), { recursive: true });
+        await fs.writeFile(fixturesPath, JSON.stringify(fixtures, null, 2));
+        console.log('Fixtures saved to static file');
+      } catch (saveError) {
+        console.warn('Failed to save fixtures to static file:', saveError);
+      }
     }
-    const fixtures = await response.json();
 
     // Get round from query params
     const { searchParams } = new URL(request.url);
@@ -26,8 +48,8 @@ export async function GET(request) {
           Active: 1 
         }).toArray();
 
-      // Return both fixtures and tips
-      return NextResponse.json({
+      // Build response
+      const response = {
         fixtures,
         tips: tips.reduce((acc, tip) => ({
           ...acc,
@@ -36,7 +58,9 @@ export async function GET(request) {
             deadCert: tip.DeadCert
           }
         }), {})
-      });
+      };
+
+      return NextResponse.json(response);
     }
 
     // If no round/userId, just return fixtures
