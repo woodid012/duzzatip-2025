@@ -48,6 +48,19 @@ export async function GET(request) {
           Active: 1 
         }).toArray();
 
+      // Get last updated time
+      const lastUpdate = await db.collection(`${CURRENT_YEAR}_tips`)
+        .find({ 
+          Round: parseInt(round),
+          User: parseInt(userId),
+          Active: 1 
+        })
+        .sort({ LastUpdated: -1 })
+        .limit(1)
+        .toArray();
+        
+      const lastUpdated = lastUpdate.length > 0 ? lastUpdate[0].LastUpdated : null;
+
       // Build response
       const response = {
         fixtures,
@@ -57,7 +70,8 @@ export async function GET(request) {
             team: tip.Team,
             deadCert: tip.DeadCert
           }
-        }), {})
+        }), {}),
+        lastUpdated
       };
 
       return NextResponse.json(response);
@@ -76,7 +90,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { round, userId, tips } = await request.json();
+    const { round, userId, tips, lastUpdated } = await request.json();
     const { db } = await connectToDatabase();
     const collection = db.collection(`${CURRENT_YEAR}_tips`);
 
@@ -109,7 +123,7 @@ export async function POST(request) {
                 Team: tipData.team,
                 DeadCert: tipData.deadCert || false,
                 Active: 1,
-                LastUpdated: new Date()
+                LastUpdated: lastUpdated ? new Date(lastUpdated) : new Date()
               }
             },
             upsert: true

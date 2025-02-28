@@ -124,7 +124,7 @@ export default function useTeamSelection() {
     return () => {
       isMounted = false;
     };
-  }, [currentRound, fetchSquads, fetchTeamSelections, retryCount]);
+  }, [currentRound, fetchSquads, fetchTeamSelections, retryCount, squads.length]);
 
   // Reset retry count when round changes
   useEffect(() => {
@@ -255,6 +255,7 @@ export default function useTeamSelection() {
     if (currentRound <= 1 || roundInfo?.isLocked) return;
     
     try {
+      setErrorLocal(null);
       const prevRoundRes = await fetch(`/api/team-selection?round=${currentRound - 1}`);
       
       if (!prevRoundRes.ok) {
@@ -268,33 +269,40 @@ export default function useTeamSelection() {
         return;
       }
 
-      setEditedTeams(prev => {
-        const newTeamSelection = { ...prev };
-        newTeamSelection[userId] = Object.entries(prevRoundData[userId]).reduce((acc, [position, data]) => {
-          acc[position] = {
-            ...data,
-            last_updated: new Date().toISOString()
-          };
-          return acc;
-        }, {});
-        return newTeamSelection;
+      // Deep clone the previous round data
+      const newChanges = {};
+      newChanges[userId] = {};
+      
+      Object.keys(prevRoundData[userId]).forEach(position => {
+        newChanges[userId][position] = true;
       });
 
-      setChangedPositions(prev => {
-        const newChanges = { ...prev };
-        if (!newChanges[userId]) newChanges[userId] = {};
-        
-        Object.keys(prevRoundData[userId]).forEach(position => {
-          newChanges[userId][position] = true;
-        });
-        
-        return newChanges;
+      // Create new team selection with updated timestamps
+      const newTeamSelection = { ...editedTeams };
+      newTeamSelection[userId] = {};
+      
+      Object.entries(prevRoundData[userId]).forEach(([position, data]) => {
+        // Make sure to create a new object with updated timestamp
+        newTeamSelection[userId][position] = {
+          ...data,
+          last_updated: new Date().toISOString()
+        };
       });
+      
+      // Update state
+      setEditedTeams(newTeamSelection);
+      setChangedPositions(prev => ({
+        ...prev,
+        ...newChanges
+      }));
+      
+      console.log("Copied team selection from previous round:", newTeamSelection[userId]);
+      
     } catch (err) {
       console.error('Error copying from previous round:', err);
       setErrorLocal('Failed to copy from previous round');
     }
-  }, [currentRound, roundInfo]);
+  }, [currentRound, roundInfo, editedTeams]);
 
   // Clear error message
   const clearError = useCallback(() => {

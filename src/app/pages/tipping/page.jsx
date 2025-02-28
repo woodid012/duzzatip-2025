@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTipping from '@/app/hooks/useTipping';
@@ -13,6 +13,23 @@ export default function TippingPage() {
   // Get selected user context
   const { selectedUserId } = useUserContext();
   
+  // For tracking button clicks
+  const editClickedRef = useRef(false);
+  
+  // Format date for display
+  const formatDate = (date) => {
+    if (!date) return 'Never';
+    
+    return date.toLocaleString('en-AU', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
+    });
+  };
+  
   // Get tipping functionality from our hook
   const {
     selectedUserId: hookSelectedUserId,
@@ -22,6 +39,8 @@ export default function TippingPage() {
     loading,
     error,
     successMessage,
+    dataLoaded,
+    lastEditedTime,
     handleTipSelect,
     handleDeadCertToggle,
     saveTips,
@@ -30,12 +49,13 @@ export default function TippingPage() {
     changeUser
   } = useTipping(selectedUserId); // Pass selected user from context
 
-  // Sync the selected user from context to the hook
+  // Sync the selected user from context to the hook when it changes
   useEffect(() => {
-    if (selectedUserId) {
+    if (selectedUserId && selectedUserId !== hookSelectedUserId) {
+      console.log(`Syncing selected user from context: ${selectedUserId}`);
       changeUser(selectedUserId);
     }
-  }, [selectedUserId, changeUser]);
+  }, [selectedUserId, hookSelectedUserId, changeUser]);
 
   // Handle round change
   const handleRoundChange = (e) => {
@@ -43,11 +63,35 @@ export default function TippingPage() {
     changeRound(newRound);
   };
 
+  // Handle edit button click with debounce
+  const handleEditClick = () => {
+    // Prevent multiple rapid clicks
+    if (editClickedRef.current) return;
+    
+    // Set flag to prevent additional clicks
+    editClickedRef.current = true;
+    
+    console.log("Edit button clicked");
+    startEditing();
+    
+    // Reset flag after a short delay
+    setTimeout(() => {
+      editClickedRef.current = false;
+    }, 300);
+  };
+
   const displayRound = (round) => {
     return round === 0 ? 'Opening Round' : `Round ${round}`;
   };
 
-  if (loading) {
+  // Prevent form submission
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    console.log("Form submission prevented");
+    return false;
+  };
+
+  if (loading && !dataLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl">Loading fixtures...</div>
@@ -67,6 +111,15 @@ export default function TippingPage() {
     );
   }
 
+  // Debug information for render
+  console.log("Rendering TippingPage component with state:", {
+    currentRound,
+    selectedUserId,
+    hookSelectedUserId,
+    isEditing,
+    isLocked: roundInfo.isLocked
+  });
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -83,6 +136,14 @@ export default function TippingPage() {
               {roundInfo.isLocked && (
                 <span className="text-red-600 ml-1">(Locked)</span>
               )}
+            </div>
+          )}
+          {lastEditedTime && (
+            <div className="text-sm mt-1">
+              <span className="text-gray-600">Last Submitted:</span>
+              <span className="font-medium ml-1 text-gray-800">
+                {formatDate(lastEditedTime)}
+              </span>
             </div>
           )}
         </div>
@@ -102,12 +163,14 @@ export default function TippingPage() {
               <>
                 <button 
                   onClick={saveTips}
+                  type="button"
                   className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
                 >
                   Save Changes
                 </button>
                 <button 
                   onClick={cancelEditing}
+                  type="button"
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
                 >
                   Cancel
@@ -115,7 +178,8 @@ export default function TippingPage() {
               </>
             ) : (
               <button 
-                onClick={startEditing}
+                onClick={handleEditClick}
+                type="button"
                 disabled={roundInfo.isLocked}
                 className={`px-4 py-2 rounded ${
                   roundInfo.isLocked 
@@ -166,66 +230,80 @@ export default function TippingPage() {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="py-2 px-4 border text-black">Date</th>
-              <th className="py-2 px-4 border text-black">Home Team</th>
-              <th className="py-2 px-4 border text-black">Away Team</th>
-              <th className="py-2 px-4 border text-black">Your Tip</th>
-              <th className="py-2 px-4 border text-black">Dead Cert</th>
-            </tr>
-          </thead>
-          <tbody className="text-black">
-            {roundFixtures.map((fixture) => (
-              <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
-                <td className="py-2 px-4 border text-black">{fixture.DateMelb}</td>
-                <td className="py-2 px-4 border">
-                  <button
-                    onClick={() => handleTipSelect(fixture.MatchNumber, fixture.HomeTeam)}
-                    disabled={!isEditing || roundInfo.isLocked}
-                    className={`px-3 py-1 rounded ${
-                      tips[fixture.MatchNumber]?.team === fixture.HomeTeam
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200 text-black'
-                    } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
-                  >
-                    {fixture.HomeTeam}
-                  </button>
-                </td>
-                <td className="py-2 px-4 border">
-                  <button
-                    onClick={() => handleTipSelect(fixture.MatchNumber, fixture.AwayTeam)}
-                    disabled={!isEditing || roundInfo.isLocked}
-                    className={`px-3 py-1 rounded ${
-                      tips[fixture.MatchNumber]?.team === fixture.AwayTeam
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200 text-black'
-                    } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
-                  >
-                    {fixture.AwayTeam}
-                  </button>
-                </td>
-                <td className="py-2 px-4 border text-center text-black">
-                  {tips[fixture.MatchNumber]?.team || '-'}
-                </td>
-                <td className="py-2 px-4 border text-center">
-                  <button
-                    onClick={() => handleDeadCertToggle(fixture.MatchNumber)}
-                    disabled={!isEditing || roundInfo.isLocked || !tips[fixture.MatchNumber]?.team}
-                    className={`px-3 py-1 rounded ${
-                      tips[fixture.MatchNumber]?.deadCert
-                        ? 'bg-yellow-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200 text-black'
-                    } ${(!isEditing || roundInfo.isLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
-                  </button>
-                </td>
+        <form onSubmit={handleFormSubmit}>
+          <table className="min-w-full bg-white border">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="py-2 px-4 border text-black">Date</th>
+                <th className="py-2 px-4 border text-black">Home Team</th>
+                <th className="py-2 px-4 border text-black">Away Team</th>
+                <th className="py-2 px-4 border text-black">Your Tip</th>
+                <th className="py-2 px-4 border text-black">Dead Cert</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="text-black">
+              {roundFixtures.map((fixture) => (
+                <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
+                  <td className="py-2 px-4 border text-black">{fixture.DateMelb}</td>
+                  <td className="py-2 px-4 border">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
+                      }}
+                      type="button"
+                      disabled={!isEditing || roundInfo.isLocked}
+                      className={`px-3 py-1 rounded ${
+                        tips[fixture.MatchNumber]?.team === fixture.HomeTeam
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-black'
+                      } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      {fixture.HomeTeam}
+                    </button>
+                  </td>
+                  <td className="py-2 px-4 border">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
+                      }}
+                      type="button"
+                      disabled={!isEditing || roundInfo.isLocked}
+                      className={`px-3 py-1 rounded ${
+                        tips[fixture.MatchNumber]?.team === fixture.AwayTeam
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-black'
+                      } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      {fixture.AwayTeam}
+                    </button>
+                  </td>
+                  <td className="py-2 px-4 border text-center text-black">
+                    {tips[fixture.MatchNumber]?.team || '-'}
+                  </td>
+                  <td className="py-2 px-4 border text-center">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDeadCertToggle(fixture.MatchNumber);
+                      }}
+                      type="button"
+                      disabled={!isEditing || roundInfo.isLocked || !tips[fixture.MatchNumber]?.team}
+                      className={`px-3 py-1 rounded ${
+                        tips[fixture.MatchNumber]?.deadCert
+                          ? 'bg-yellow-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-black'
+                      } ${(!isEditing || roundInfo.isLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </form>
       </div>
     </div>
   );

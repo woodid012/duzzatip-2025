@@ -86,17 +86,49 @@ export default function PagesLayout({ children }) {
         <div className="bg-white shadow">
           <div className="w-full p-4 md:p-6">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between px-4">
-                <div className="flex-shrink-0">
-                  <Logo width={176} height={176} className="rounded-lg" />
+              <div className="flex-shrink-0 px-4">
+                <Logo width={176} height={176} className="rounded-lg" />
+              </div>
+              
+              {/* Competition Info Bar */}
+              <div className="flex flex-wrap justify-between items-center px-4 text-sm text-gray-600">
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Season:</span>
+                    <span>{CURRENT_YEAR}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Current Round:</span>
+                    <span>{roundInfo.currentRoundDisplay}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {roundInfo.lockoutTime && (
+                      <div className="flex gap-1 items-center">
+                        <span className="text-gray-600">Lockout:</span>
+                        <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
+                        {roundInfo.isLocked && (
+                          <span className="text-red-600">(Locked)</span>
+                        )}
+                      </div>
+                    )}
+                    {roundInfo.lockoutTime && roundInfo.roundEndTime && (
+                      <span className="text-gray-400 mx-1">|</span>
+                    )}
+                    {roundInfo.roundEndTime && (
+                      <div className="flex gap-1 items-center">
+                        <span className="text-gray-600">Round Ends:</span>
+                        <span className="font-medium text-black">{roundInfo.roundEndTime}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 {/* User Selection Dropdown */}
-                <div className="flex items-center">
+                <div className="flex items-center mt-2 sm:mt-0">
                   <select
                     value={selectedUserId}
                     onChange={handleUserChange}
-                    className="p-2 border rounded text-base text-black bg-white w-40"
+                    className="p-2 border rounded text-base text-black bg-white w-48"
                   >
                     <option value="">Select Player</option>
                     {Object.entries(USER_NAMES).map(([id, name]) => (
@@ -106,38 +138,6 @@ export default function PagesLayout({ children }) {
                     ))}
                     <option value="admin">Admin</option>
                   </select>
-                </div>
-              </div>
-              
-              {/* Competition Info Bar */}
-              <div className="flex flex-wrap gap-4 px-4 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Season:</span>
-                  <span>{CURRENT_YEAR}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Current Round:</span>
-                  <span>{roundInfo.currentRoundDisplay}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  {roundInfo.lockoutTime && (
-                    <div className="flex gap-1 items-center">
-                      <span className="text-gray-600">Lockout:</span>
-                      <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
-                      {roundInfo.isLocked && (
-                        <span className="text-red-600">(Locked)</span>
-                      )}
-                    </div>
-                  )}
-                  {roundInfo.lockoutTime && roundInfo.roundEndTime && (
-                    <span className="text-gray-400 mx-1">|</span>
-                  )}
-                  {roundInfo.roundEndTime && (
-                    <div className="flex gap-1 items-center">
-                      <span className="text-gray-600">Round Ends:</span>
-                      <span className="font-medium text-black">{roundInfo.roundEndTime}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

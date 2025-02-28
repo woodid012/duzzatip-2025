@@ -56,16 +56,45 @@ export default function TeamSelectionPage() {
           color: #DC2626;
         }
       `}</style>
-      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <h1 className="text-2xl font-bold text-black">Team Selection</h1>
-          <div className="w-full sm:w-auto flex flex-wrap items-center gap-2">
-            <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-bold text-black">
+            {selectedUserId && selectedUserId !== 'admin' 
+              ? `${USER_NAMES[selectedUserId]}'s Team` 
+              : 'Team Selection'}
+          </h1>
+          <div className="flex flex-col gap-1 mt-1">
+            {roundInfo.lockoutTime && (
+              <div className="text-sm">
+                <span className="text-gray-600">Lockout:</span>
+                <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
+                {roundInfo.isLocked && (
+                  <span className="text-red-600 ml-1">(Locked)</span>
+                )}
+              </div>
+            )}
+            {Object.values(teams[selectedUserId] || {}).some(entry => entry.last_updated) && (
+              <div className="text-sm">
+                <span className="text-gray-600">Last Submitted:</span>
+                <span className="font-medium text-black ml-1">
+                  {new Date(Math.max(...Object.values(teams[selectedUserId] || {})
+                    .filter(entry => entry.last_updated)
+                    .map(entry => new Date(entry.last_updated))
+                  )).toLocaleString()}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex items-center">
+            <label htmlFor="round-select" className="text-sm font-medium text-black mr-2">Round:</label>
             <select 
               id="round-select"
               value={currentRound}
               onChange={handleRoundChange}
-              className="p-2 border rounded w-24 text-base text-black"
+              className="p-2 border rounded w-24 text-sm text-black"
             >
               {[...Array(29)].map((_, i) => (
                 <option key={i} value={i}>
@@ -73,57 +102,38 @@ export default function TeamSelectionPage() {
                 </option>
               ))}
             </select>
-            <div className="flex items-center gap-2 text-sm">
-              {roundInfo.lockoutTime && (
-                <div className="flex gap-1 items-center">
-                  <span className="text-gray-600">Lockout:</span>
-                  <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
-                  {roundInfo.isLocked && (
-                    <span className="text-red-600">(Locked)</span>
-                  )}
-                </div>
-              )}
-              {roundInfo.lockoutTime && roundInfo.roundEndTime && (
-                <span className="text-gray-400 mx-1">|</span>
-              )}
-              {roundInfo.roundEndTime && (
-                <div className="flex gap-1 items-center">
-                  <span className="text-gray-600">Round Ends:</span>
-                  <span className="font-medium text-black">{roundInfo.roundEndTime}</span>
-                </div>
-              )}
-            </div>
           </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          {isEditing ? (
-            <>
+          
+          <div className="flex flex-col sm:flex-row gap-2">
+            {isEditing ? (
+              <>
+                <button 
+                  onClick={saveTeamSelections}
+                  className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  Save Changes
+                </button>
+                <button 
+                  onClick={cancelEditing}
+                  className="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
               <button 
-                onClick={saveTeamSelections}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-green-600 text-white rounded hover:bg-green-700 text-lg sm:text-base"
+                onClick={startEditing}
+                disabled={roundInfo.isLocked && selectedUserId !== 'admin'} // Only disable if locked AND not admin
+                className={`w-full sm:w-auto px-4 py-2 rounded text-white ${
+                  roundInfo.isLocked && selectedUserId !== 'admin'
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
               >
-                Save Changes
+                {roundInfo.isLocked && selectedUserId !== 'admin' ? 'Locked' : 'Edit Teams'}
               </button>
-              <button 
-                onClick={cancelEditing}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-lg sm:text-base"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button 
-              onClick={startEditing}
-              disabled={roundInfo.isLocked && selectedUserId !== 'admin'} // Only disable if locked AND not admin
-              className={`w-full sm:w-auto px-4 py-3 sm:py-2 ${
-                roundInfo.isLocked && selectedUserId !== 'admin'
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700'
-              } text-white rounded text-lg sm:text-base`}
-            >
-              {roundInfo.isLocked && selectedUserId !== 'admin' ? 'Locked' : 'Edit Teams'}
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </div>
       
