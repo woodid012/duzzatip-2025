@@ -1,0 +1,31 @@
+name: Update AFL Fixtures
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'  # Run every 12 hours
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: cd src/app/scripts && npm install
+        
+      - name: Update fixtures
+        run: cd src/app/scripts && node download-fixtures.js
+        
+      - name: Commit changes
+        run: |
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add public/afl-*.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update AFL fixtures"
+          git push
