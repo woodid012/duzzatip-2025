@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
+
 import { Star } from 'lucide-react';
 import { GiCrab } from 'react-icons/gi';
 import { useAppContext } from '@/app/context/AppContext';
@@ -235,8 +236,97 @@ export default function ResultsPage() {
     );
   };
 
+  // Convert Melbourne time (EST) to Perth time (AWST)
+  const convertToAWST = (estTimeString) => {
+    if (!estTimeString) return '';
+    
+    // Parse the EST time string - this assumes format like "31 March 2025 at 7:30 pm"
+    try {
+      const parts = estTimeString.match(/(\d+)\s+(\w+)\s+(\d{4})\s+at\s+(\d+):(\d+)\s+(am|pm)/i);
+      if (!parts) return estTimeString;
+      
+      const [_, day, month, year, hour, minute, period] = parts;
+      
+      // Convert to 24-hour format
+      let hours24 = parseInt(hour);
+      if (period.toLowerCase() === 'pm' && hours24 !== 12) {
+        hours24 += 12;
+      } else if (period.toLowerCase() === 'am' && hours24 === 12) {
+        hours24 = 0;
+      }
+      
+      // Create date object
+      const date = new Date(
+        parseInt(year),
+        getMonthNumber(month),
+        parseInt(day),
+        hours24,
+        parseInt(minute)
+      );
+      
+      // Subtract 2 hours for AWST (EST is +10, AWST is +8)
+      const awstDate = new Date(date.getTime() - (2 * 60 * 60 * 1000));
+      
+      // Format to AWST time string
+      const formattedHour = awstDate.getHours() % 12 || 12;
+      const isPM = awstDate.getHours() >= 12;
+      const formattedMinute = awstDate.getMinutes().toString().padStart(2, '0');
+      
+      // Handle date change (if we cross midnight going back 2 hours)
+      const formattedDay = awstDate.getDate();
+      const formattedMonth = getMonthName(awstDate.getMonth());
+      const formattedYear = awstDate.getFullYear();
+      
+      const formattedTime = `${formattedDay} ${formattedMonth.charAt(0).toUpperCase() + formattedMonth.slice(1)} ${formattedYear} at ${formattedHour}:${formattedMinute} ${isPM ? 'pm' : 'am'}`;
+      
+      return formattedTime;
+    } catch (error) {
+      console.error("Error converting time:", error);
+      return estTimeString;
+    }
+  };
+  
+  // Helper function to convert month name to month number (0-11)
+  const getMonthNumber = (monthName) => {
+    const months = {
+      'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
+      'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11
+    };
+    return months[monthName.toLowerCase()];
+  };
+  
+  // Get month name from month number
+  const getMonthName = (monthNumber) => {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[monthNumber];
+  };
+
   // Welcome screen UI
   const renderWelcomeScreen = () => {
+    // Get the setSelectedUserId function from context for the player dropdown
+    const { setSelectedUserId } = useUserContext();
+    
+    // Format the lockout time safely
+    const formattedLockoutTime = roundInfo.lockoutTime 
+      ? `${roundInfo.lockoutTime}`
+      : 'Not yet determined';
+    
+    // Handle player selection change  
+    const handlePlayerChange = (e) => {
+      const newUserId = e.target.value;
+      if (typeof window !== 'undefined') {
+        // Store in localStorage
+        localStorage.setItem('selectedUserId', newUserId);
+      }
+      // Update context
+      if (setSelectedUserId) {
+        setSelectedUserId(newUserId);
+      }
+    };
+      
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl w-full space-y-8 text-center">
@@ -250,12 +340,33 @@ export default function ResultsPage() {
             <div className="text-blue-700 mb-6">
               <p className="mb-2">The competition will begin with the Opening Round.</p>
               <p className="text-xl font-semibold mt-4">
-                Lockout Time: {roundInfo.lockoutTime || 'Not yet determined'}
+                Lockout Time: {formattedLockoutTime}
               </p>
               <p className="mt-2">Make sure to submit your team before the lockout!</p>
             </div>
             
-            <div className="mt-8 mb-2 flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="mt-8 mb-6 flex justify-center">
+              <div className="w-full max-w-xs">
+                <label htmlFor="player-select" className="block text-sm font-medium text-blue-800 mb-2">
+                  Select Your Player:
+                </label>
+                <select
+                  id="player-select"
+                  value={selectedUserId}
+                  onChange={handlePlayerChange}
+                  className="w-full p-3 border border-blue-300 rounded-md text-base text-black bg-white"
+                >
+                  <option value="">Select Player</option>
+                  {Object.entries(USER_NAMES).map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/pages/team-selection" className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-lg font-medium">
                 Enter Your Team
               </Link>
