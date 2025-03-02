@@ -1,10 +1,8 @@
 name: Update AFL Fixtures
-
 on:
   schedule:
-    - cron: '0 */12 * * *'  # Run every 12 hours
+    - cron: '0 */12 * * *'  # Run every 12 hours (fixed syntax)
   workflow_dispatch:  # Allow manual trigger
-
 jobs:
   update-fixtures:
     runs-on: ubuntu-latest
@@ -28,4 +26,9 @@ jobs:
           git config --local user.name "GitHub Actions"
           git add public/afl-*.json
           git diff --quiet && git diff --staged --quiet || git commit -m "Update AFL fixtures"
-          git push
+      
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
