@@ -4,7 +4,7 @@
  * This script:
  * 1. Reads fixtures from the public/afl-2025.json file
  * 2. Checks which games have been completed but not yet processed
- * 3. Scrapes game stats from dfsaustralia.com 
+ * 3. Scrapes game stats from AFL data source 
  * 4. Formats the data and uploads to MongoDB
  * 5. Records processed games to avoid duplicate processing
  */
@@ -17,23 +17,31 @@ const cheerio = require('cheerio');
 const { MongoClient } = require('mongodb');
 
 // MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+const MONGODB_URI = process.env.MONGODB_URI;
 const CURRENT_YEAR = new Date().getFullYear();
-const MONGODB_COLLECTION = `${CURRENT_YEAR}_test`;
+const DB_NAME = 'afl_database';
+const GAME_RESULTS_COLLECTION = `${CURRENT_YEAR}_game_results`;
 const PROCESSED_GAMES_FILE = path.join(__dirname, 'processed-games.json');
 
 // Get the specific game ID if provided through command line arguments
 const specificGameId = process.argv[2] || null;
+
+// Team name mapping (for consistency between different data sources)
+const TEAM_NAME_MAP = {
+  'Brisbane Lions': 'Brisbane',
+  'Gold Coast Suns': 'Gold Coast',
+  'West Coast Eagles': 'West Coast',
+  'GWS Giants': 'Greater Western Sydney',
+  'Sydney Swans': 'Sydney',
+  // Add more mappings as needed
+};
 
 /**
  * Connect to MongoDB
  */
 async function connectToMongoDB() {
   try {
-    const client = new MongoClient(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    const client = new MongoClient(MONGODB_URI);
     await client.connect();
     console.log('Connected to MongoDB successfully');
     return client;
@@ -96,8 +104,20 @@ async function getFixturesToProcess(fixtures, processedGames) {
   
   // If specific game ID is provided, just process that one
   if (specificGameId) {
-    console.log(`Processing specific game ID: ${specificGameId}`);
-    return [{ gameId: parseInt(specificGameId) }];
+    const fixture = fixtures.find(f => f.MatchNumber === parseInt(specificGameId));
+    if (fixture) {
+      console.log(`Processing specific match: ${fixture.HomeTeam} vs ${fixture.AwayTeam}`);
+      return [{
+        matchNumber: fixture.MatchNumber,
+        round: fixture.RoundNumber,
+        homeTeam: standardizeTeamName(fixture.HomeTeam),
+        awayTeam: standardizeTeamName(fixture.AwayTeam),
+        date: fixture.DateUtc
+      }];
+    } else {
+      console.error(`Match ID ${specificGameId} not found in fixtures`);
+      return [];
+    }
   }
 
   // Filter out fixtures that:
@@ -114,89 +134,38 @@ async function getFixturesToProcess(fixtures, processedGames) {
 
   console.log(`Found ${fixturesToProcess.length} fixtures to process`);
   return fixturesToProcess.map(fixture => ({
-    gameId: 6964 + fixture.MatchNumber, // Assuming game IDs start at 6965 for game 1
     matchNumber: fixture.MatchNumber,
     round: fixture.RoundNumber,
-    homeTeam: fixture.HomeTeam,
-    awayTeam: fixture.AwayTeam
+    homeTeam: standardizeTeamName(fixture.HomeTeam),
+    awayTeam: standardizeTeamName(fixture.AwayTeam),
+    date: fixture.DateUtc
   }));
 }
 
 /**
- * Scrape game stats from dfsaustralia.com
+ * Standardize team names for consistency
  */
-async function scrapeGameStats(gameId) {
+function standardizeTeamName(teamName) {
+  return TEAM_NAME_MAP[teamName] || teamName;
+}
+
+// Import the separate stats parser module
+const statsParser = require('./afl-stats-parser');
+
+/**
+ * Scrape game stats from AFL data source
+ */
+async function scrapeGameStats(fixture) {
   try {
-    console.log(`Scraping stats for game ID: ${gameId}`);
-    const url = `https://dfsaustralia.com/afl-game-stats/?gameId=${gameId}`;
-    const response = await axios.get(url);
-    const $ = cheerio.load(response.data);
+    console.log(`Scraping stats for match: ${fixture.homeTeam} vs ${fixture.awayTeam}`);
     
-    // Get game information
-    const gameInfoText = $('.afl-stats-header h4').text().trim();
-    // Parse out team names, e.g. "Gold Coast vs West Coast"
-    const teamMatch = gameInfoText.match(/(.+)\s+vs\s+(.+)/);
-    const homeTeam = teamMatch ? teamMatch[1].trim() : '';
-    const awayTeam = teamMatch ? teamMatch[2].trim() : '';
+    // Use the dedicated parser to get match stats
+    // Last parameter true = use demo data (change to false when connecting to real data source)
+    const matchStats = await statsParser.getMatchStats(fixture, true);
     
-    // Extract match date if available
-    let matchDate = new Date();
-    const dateText = $('.afl-stats-header p').text().trim();
-    if (dateText) {
-      // Try to parse the date
-      try {
-        // Format is typically like "Mar 31, 2025"
-        matchDate = new Date(dateText);
-      } catch (e) {
-        console.warn('Could not parse date:', dateText);
-      }
-    }
-    
-    const playerStats = [];
-    
-    // Extract player stats from the table
-    $('.afl-stats-table tbody tr').each((i, row) => {
-      const $cells = $(row).find('td');
-      
-      // Skip if not enough cells (some rows might be headers or empty)
-      if ($cells.length < 10) return;
-      
-      // Extract the team name and player name
-      const playerName = $($cells[0]).text().trim();
-      // Determine team based on row background color or other indicators
-      // This is a simplification; you might need to adjust based on actual page structure
-      const teamName = $($cells[1]).text().trim() || homeTeam; // Default to home team if not specified
-      
-      // Extract individual stats
-      const stats = {
-        player_name: playerName,
-        team_name: teamName,
-        opp: teamName === homeTeam ? awayTeam : homeTeam,
-        kicks: parseInt($($cells[2]).text().trim()) || 0,
-        handballs: parseInt($($cells[3]).text().trim()) || 0,
-        disposals: parseInt($($cells[4]).text().trim()) || 0,
-        marks: parseInt($($cells[5]).text().trim()) || 0,
-        tackles: parseInt($($cells[6]).text().trim()) || 0,
-        hitouts: parseInt($($cells[7]).text().trim()) || 0,
-        goals: parseInt($($cells[8]).text().trim()) || 0,
-        behinds: parseInt($($cells[9]).text().trim()) || 0,
-        centreBounceAttendances: parseInt($($cells[10]).text().trim()) || 0,
-        kickIns: parseInt($($cells[11]).text().trim()) || 0,
-        kickInsPlayon: parseInt($($cells[12]).text().trim()) || 0,
-        timeOnGroundPercentage: parseInt($($cells[13]).text().trim()) || 0,
-        dreamTeamPoints: parseInt($($cells[14]).text().trim()) || 0,
-        SC: parseInt($($cells[15]).text().trim()) || 0,
-        round: parseInt($('.afl-stats-header h3').text().replace('Round', '').trim()) || 0,
-        year: CURRENT_YEAR,
-        game_id: gameId
-      };
-      
-      playerStats.push(stats);
-    });
-    
-    return playerStats;
+    return matchStats;
   } catch (error) {
-    console.error(`Failed to scrape stats for game ID ${gameId}:`, error);
+    console.error(`Failed to scrape stats for match ${fixture.matchNumber}:`, error);
     return [];
   }
 }
@@ -204,29 +173,34 @@ async function scrapeGameStats(gameId) {
 /**
  * Upload stats to MongoDB
  */
-async function uploadStatsToMongoDB(client, stats, gameInfo) {
+async function uploadStatsToMongoDB(client, stats, fixture) {
   try {
     if (!stats || stats.length === 0) {
       console.log('No stats to upload');
       return false;
     }
     
-    const db = client.db('afl_database');
-    const collection = db.collection(MONGODB_COLLECTION);
+    const db = client.db(DB_NAME);
+    const collection = db.collection(GAME_RESULTS_COLLECTION);
 
-    // First, check if stats for this game already exist
-    const existingStats = await collection.findOne({ game_id: gameInfo.gameId });
+    // First, check if stats for this match already exist
+    const existingStats = await collection.findOne({ 
+      round: fixture.round,
+      match_number: fixture.matchNumber
+    });
+    
     if (existingStats) {
-      console.log(`Stats for game ID ${gameInfo.gameId} already exist in MongoDB`);
+      console.log(`Stats for match ${fixture.matchNumber} already exist in MongoDB`);
       return false;
     }
 
-    // Ensure all stats have round and year info
+    // Ensure all stats have round info
     const enrichedStats = stats.map(stat => ({
       ...stat,
-      round: gameInfo.round || stat.round,
-      year: CURRENT_YEAR,
-      game_id: gameInfo.gameId
+      round: fixture.round,
+      match_number: fixture.matchNumber,
+      match_date: new Date(fixture.date),
+      year: CURRENT_YEAR
     }));
 
     // Insert all stats as individual documents
@@ -244,6 +218,7 @@ async function uploadStatsToMongoDB(client, stats, gameInfo) {
  */
 async function main() {
   let mongoClient;
+  let processedAny = false;
   
   try {
     // Connect to MongoDB
@@ -263,10 +238,10 @@ async function main() {
     
     // Process each fixture
     for (const fixture of fixturesToProcess) {
-      console.log(`Processing fixture: ${JSON.stringify(fixture)}`);
+      console.log(`Processing fixture: Round ${fixture.round}, Match ${fixture.matchNumber}`);
       
       // Scrape stats for the fixture
-      const stats = await scrapeGameStats(fixture.gameId);
+      const stats = await scrapeGameStats(fixture);
       
       if (stats.length > 0) {
         // Upload stats to MongoDB
@@ -277,13 +252,22 @@ async function main() {
           processedGames.push(fixture.matchNumber);
           await saveProcessedGames(processedGames);
           console.log(`Fixture ${fixture.matchNumber} processed successfully`);
+          processedAny = true;
         }
       } else {
         console.log(`No stats found for fixture ${fixture.matchNumber}`);
       }
     }
+    
+    // Flag for GitHub Actions to know if we made changes
+    if (processedAny) {
+      console.log('PROCESSED_FIXTURES=true');
+    } else {
+      console.log('PROCESSED_FIXTURES=false');
+    }
   } catch (error) {
     console.error('Error in main process:', error);
+    process.exit(1);
   } finally {
     // Close MongoDB connection
     if (mongoClient) {
@@ -294,4 +278,7 @@ async function main() {
 }
 
 // Run the main function
-main().catch(console.error);
+main().catch(error => {
+  console.error('Unhandled error:', error);
+  process.exit(1);
+});

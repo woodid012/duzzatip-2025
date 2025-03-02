@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0  # Fetch all history
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -27,8 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd src/app/scripts
-          npm install
-          npm install cheerio axios mongodb dotenv
+          npm ci || npm install
 
       - name: Create .env file
         run: |
@@ -36,14 +36,27 @@ jobs:
           echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" > .env
           
       - name: Run stats update script
+        id: update-script
         run: |
           cd src/app/scripts
-          node update-afl-stats.js ${{ github.event.inputs.game_id }}
+          # Run script with specific game_id if provided
+          if [ -n "${{ github.event.inputs.game_id }}" ]; then
+            node update-afl-stats.js ${{ github.event.inputs.game_id }}
+          else
+            node update-afl-stats.js
+          fi
+          # Set output variable based on script output
+          if grep -q "PROCESSED_FIXTURES=true" <<< "$(cat /tmp/script_output.txt)"; then
+            echo "CHANGES_MADE=true" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGES_MADE=false" >> $GITHUB_OUTPUT
+          fi
         
       - name: Commit changes if fixtures were updated
+        if: steps.update-script.outputs.CHANGES_MADE == 'true'
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
-          git add src/app/scripts/processed-games.json || true
-          git diff --quiet && git diff --staged --quiet || git commit -m "Update processed games record"
+          git add src/app/scripts/processed-games.json
+          git commit -m "Update processed games record [skip ci]"
           git push
