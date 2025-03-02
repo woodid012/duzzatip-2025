@@ -1,5 +1,6 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { POSITIONS } from '@/app/lib/scoring_rules';
+import { CURRENT_YEAR } from '@/app/lib/constants';
 
 export async function GET(request) {
     try {
@@ -13,7 +14,7 @@ export async function GET(request) {
 
         const { db } = await connectToDatabase();
 
-        const teamSelection = await db.collection('2024_team_selection')
+        const teamSelection = await db.collection(`${CURRENT_YEAR}_team_selection`)
             .find({ 
                 Round: round,
                 User: userId,
@@ -21,7 +22,7 @@ export async function GET(request) {
             })
             .toArray();
 
-        const playerStats = await db.collection('2024_game_results')
+        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
             .find({ round: round })
             .toArray();
 

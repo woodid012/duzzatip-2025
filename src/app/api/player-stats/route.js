@@ -15,12 +15,12 @@ export async function GET(request) {
         const playerNamesList = playerNames.split(',').map(name => name.trim());
 
         const { db } = await connectToDatabase();
-        // CHAGNE TO CURRENY YEAR
-        const playerStats = await db.collection('2024_game_results')
+        
+        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
             .find({ 
                 player_name: { $in: playerNamesList },
                 round: round,
-                year: 2024 // CURRENT_YEAR
+                year: CURRENT_YEAR 
             }, {
                 projection: {
                     player_name: 1,

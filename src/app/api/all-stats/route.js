@@ -1,4 +1,5 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
+import { CURRENT_YEAR } from '@/app/lib/constants';
 
 export async function GET(request) {
     try {
@@ -7,7 +8,7 @@ export async function GET(request) {
 
         const { db } = await connectToDatabase();
 
-        const stats = await db.collection('2024_game_results')
+        const stats = await db.collection(`${CURRENT_YEAR}_game_results`)
             .find({ round: round })
             .toArray();
 
