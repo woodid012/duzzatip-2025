@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTeamSelection from '@/app/hooks/useTeamSelection';
@@ -151,7 +151,7 @@ export default function TeamSelectionPage() {
             isLocked={roundInfo.isLocked && selectedUserId !== 'admin'} // Only locked if not admin
             onPlayerChange={handlePlayerChange}
             onBackupPositionChange={handleBackupPositionChange}
-            onCopyFromPrevious={() => currentRound > 1 && copyFromPreviousRound(selectedUserId)}
+            onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
           />
         ) : (
           // Show all teams (for admin or when no user is selected)
@@ -166,7 +166,7 @@ export default function TeamSelectionPage() {
               isLocked={roundInfo.isLocked && selectedUserId !== 'admin'} // Only locked if not admin
               onPlayerChange={handlePlayerChange}
               onBackupPositionChange={handleBackupPositionChange}
-              onCopyFromPrevious={() => currentRound > 1 && copyFromPreviousRound(userId)}
+              onCopyFromPrevious={() => copyFromPreviousRound(userId)}
             />
           ))
         )}
@@ -200,6 +200,7 @@ function TeamCard({
 }) {
   // State for toggling visibility on mobile
   const [isExpanded, setIsExpanded] = useState(true);
+  const [key, setKey] = useState(0); // Add a key to force re-render
 
   // Get display name for each position
   const getPositionDisplay = (position) => {
@@ -208,14 +209,26 @@ function TeamCard({
     return position;
   };
 
+  // Force re-render when team changes
+  useEffect(() => {
+    console.log(`TeamCard for ${userId} received updated team data:`, team);
+    setKey(prevKey => prevKey + 1); // Increment key to force re-render
+  }, [team, userId]);
+
+  // Copy from previous with UI feedback
+  const handleCopyFromPrevious = () => {
+    console.log(`Copying previous round for user ${userId}`);
+    onCopyFromPrevious();
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4" key={`team-${userId}-${key}`}>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg sm:text-xl font-bold text-black">{userName}</h2>
         <div className="flex items-center gap-2">
           {isEditing && (
             <button
-              onClick={onCopyFromPrevious}
+              onClick={handleCopyFromPrevious}
               className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
               disabled={isLocked}
             >
@@ -240,7 +253,7 @@ function TeamCard({
             const displayPosition = getPositionDisplay(position);
             
             return (
-              <div key={position} className="flex flex-col gap-1">
+              <div key={`${position}-${playerData?.player_name || 'empty'}-${key}`} className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-black">{displayPosition}</label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   {isEditing ? (

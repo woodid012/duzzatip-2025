@@ -42,17 +42,33 @@ export default function useTeamSelection() {
       // Add a small delay for API stability
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const response = await fetch(`/api/team-selection?round=${round}`);
+      // Ensure the round is a valid number
+      const formattedRound = parseInt(round, 10);
+      if (isNaN(formattedRound)) {
+        console.error(`Invalid round number: ${round}`);
+        return {};
+      }
+      
+      console.log(`Fetching team selections for round: ${formattedRound}`);
+      
+      // Clear error before making request
+      setErrorLocal(null);
+      
+      const response = await fetch(`/api/team-selection?round=${formattedRound}`);
       
       if (!response.ok) {
-        console.warn('Team selection fetch response not OK:', response.status);
+        console.warn(`Team selection fetch response not OK: ${response.status}`);
         return {};
       }
       
       const data = await response.json();
-      return data;
+      console.log(`Team selection data for round ${formattedRound}:`, data);
+      
+      // Return empty object as fallback if no data
+      return data || {};
     } catch (err) {
-      console.error('Error fetching team selections:', err);
+      console.error(`Error fetching team selections for round ${round}:`, err);
+      setErrorLocal(`Error loading team data: ${err.message}`);
       // Return empty object as fallback
       return {};
     }
@@ -74,6 +90,8 @@ export default function useTeamSelection() {
         setLoadingLocal(true);
         setErrorLocal(null);
         
+        console.log(`Loading team selection data for round ${currentRound}`);
+        
         // Load team selections
         const teamsData = await fetchTeamSelections(currentRound);
         
@@ -81,17 +99,14 @@ export default function useTeamSelection() {
         if (!isMounted) return;
         
         if (teamsData && Object.keys(teamsData).length > 0) {
+          console.log(`Loaded team data for round ${currentRound}`);
           setTeams(teamsData);
           setEditedTeams(teamsData);
         } else {
           // Set empty defaults if no data returned
+          console.log(`No team data found for round ${currentRound}, setting empty defaults`);
           setTeams({});
           setEditedTeams({});
-          
-          // We retrieved empty data, but no error - this is normal for new rounds
-          if (retryCount === 0) {
-            console.log('No team selection data for round', currentRound);
-          }
         }
         
         // Load squads if we don't have them yet
@@ -107,7 +122,7 @@ export default function useTeamSelection() {
         console.error('Error loading team selection data:', err);
         
         if (isMounted) {
-          setErrorLocal('Failed to load team data');
+          setErrorLocal(`Failed to load team data: ${err.message}`);
           setLoadingLocal(false);
           
           // Retry after a delay
@@ -133,20 +148,25 @@ export default function useTeamSelection() {
 
   // Handle player selection change
   const handlePlayerChange = useCallback((userId, position, newPlayerName) => {
-    if (roundInfo?.isLocked) return;
+    console.log(`Updating player for ${userId}, position ${position} to ${newPlayerName}`);
+    
+    if (roundInfo?.isLocked && userId !== 'admin') {
+      console.log("Round is locked, ignoring player change");
+      return;
+    }
     
     setEditedTeams(prev => {
-      const newTeams = {...prev};
+      const newTeams = JSON.parse(JSON.stringify(prev)); // Deep clone
       if (!newTeams[userId]) newTeams[userId] = {};
       
-      const userSquad = squads[userId]?.players || [];
-      const playerData = userSquad.find(p => p.name === newPlayerName);
-
-      if (playerData) {
+      // If position doesn't exist or player is changing, update it
+      if (!newTeams[userId][position] || newTeams[userId][position].player_name !== newPlayerName) {
         newTeams[userId][position] = {
-          player_name: playerData.name,
+          player_name: newPlayerName,
           position: position,
-          team: playerData.team,
+          ...(newTeams[userId][position]?.backup_position 
+            ? { backup_position: newTeams[userId][position].backup_position } 
+            : {}),
           last_updated: new Date().toISOString()
         };
       }
@@ -154,44 +174,135 @@ export default function useTeamSelection() {
       return newTeams;
     });
 
-    setChangedPositions(prev => ({
-      ...prev,
-      [userId]: {
-        ...(prev[userId] || {}),
-        [position]: true
+    setChangedPositions(prev => {
+      const newChangedPositions = { ...prev };
+      if (!newChangedPositions[userId]) {
+        newChangedPositions[userId] = {};
       }
-    }));
-  }, [roundInfo, squads]);
+      newChangedPositions[userId][position] = true;
+      return newChangedPositions;
+    });
+    
+    // Ensure we're in editing mode
+    if (!isEditing) {
+      setIsEditing(true);
+    }
+  }, [roundInfo, isEditing]);
 
   // Handle backup position change for bench players
   const handleBackupPositionChange = useCallback((userId, position, newPosition) => {
-    if (roundInfo?.isLocked) return;
+    console.log(`Updating backup position for ${userId}, position ${position} to ${newPosition}`);
+    
+    if (roundInfo?.isLocked && userId !== 'admin') {
+      console.log("Round is locked, ignoring backup position change");
+      return;
+    }
     
     setEditedTeams(prev => {
-      const newTeams = {...prev};
+      const newTeams = JSON.parse(JSON.stringify(prev)); // Deep clone
       if (!newTeams[userId]) newTeams[userId] = {};
-      if (!newTeams[userId][position]) return newTeams;
+      if (!newTeams[userId][position]) {
+        console.log(`Position ${position} doesn't exist yet for user ${userId}`);
+        return newTeams;
+      }
 
       newTeams[userId][position] = {
         ...newTeams[userId][position],
-        backup_position: newPosition
+        backup_position: newPosition,
+        last_updated: new Date().toISOString()
       };
       
       return newTeams;
     });
 
-    setChangedPositions(prev => ({
-      ...prev,
-      [userId]: {
-        ...(prev[userId] || {}),
-        [position]: true
+    setChangedPositions(prev => {
+      const newChangedPositions = { ...prev };
+      if (!newChangedPositions[userId]) {
+        newChangedPositions[userId] = {};
       }
-    }));
-  }, [roundInfo]);
+      newChangedPositions[userId][position] = true;
+      return newChangedPositions;
+    });
+    
+    // Ensure we're in editing mode
+    if (!isEditing) {
+      setIsEditing(true);
+    }
+  }, [roundInfo, isEditing]);
+
+  // Copy from previous round
+  const copyFromPreviousRound = useCallback(async (userId) => {
+    // For round 1, we need to copy from round 0 (Opening Round)
+    // For all other rounds, copy from currentRound - 1
+    const previousRound = currentRound <= 1 ? 0 : currentRound - 1;
+    
+    try {
+      console.log(`Attempting to copy from round ${previousRound} to round ${currentRound} for user ${userId}`);
+      setLoadingLocal(true);
+      setErrorLocal(null);
+      
+      // Fetch the previous round data - use round 0 for Opening Round
+      const prevRoundRes = await fetch(`/api/team-selection?round=${previousRound}`);
+      
+      if (!prevRoundRes.ok) {
+        throw new Error(`Failed to fetch round ${previousRound} data`);
+      }
+
+      const prevRoundData = await prevRoundRes.json();
+      console.log(`Previous round (${previousRound}) data:`, prevRoundData);
+      
+      if (!prevRoundData[userId]) {
+        setErrorLocal(`No team found for round ${previousRound}`);
+        setLoadingLocal(false);
+        return;
+      }
+
+      // Create new EditedTeams object with previous round data
+      const newEditedTeams = { ...editedTeams };
+      
+      if (!newEditedTeams[userId]) {
+        newEditedTeams[userId] = {};
+      }
+      
+      // Copy all positions from the previous round
+      Object.entries(prevRoundData[userId]).forEach(([position, data]) => {
+        newEditedTeams[userId][position] = {
+          player_name: data.player_name,
+          position: position,
+          ...(data.backup_position && { backup_position: data.backup_position }),
+          last_updated: new Date().toISOString()
+        };
+      });
+      
+      // Mark all positions as changed
+      const newChangedPositions = { ...changedPositions };
+      if (!newChangedPositions[userId]) {
+        newChangedPositions[userId] = {};
+      }
+      
+      Object.keys(prevRoundData[userId]).forEach(position => {
+        newChangedPositions[userId][position] = true;
+      });
+      
+      // Important: Update state in the right order
+      console.log("Setting new edited teams state:", newEditedTeams[userId]);
+      setEditedTeams(newEditedTeams);
+      setChangedPositions(newChangedPositions);
+      
+      // Force isEditing to true to update UI
+      setIsEditing(true);
+      
+    } catch (err) {
+      console.error(`Error copying from round ${previousRound}:`, err);
+      setErrorLocal(`Failed to copy team: ${err.message}`);
+    } finally {
+      setLoadingLocal(false);
+    }
+  }, [currentRound, roundInfo, editedTeams, changedPositions]);
 
   // Save team selections
   const saveTeamSelections = useCallback(async () => {
-    if (roundInfo?.isLocked) return false;
+    if (roundInfo?.isLocked && !selectedUserId !== 'admin') return false;
     
     const changedTeamSelection = {};
     Object.entries(changedPositions).forEach(([userId, positions]) => {
@@ -211,6 +322,8 @@ export default function useTeamSelection() {
     }
 
     try {
+      console.log('Saving team selections:', changedTeamSelection);
+      
       const response = await fetch('/api/team-selection', {
         method: 'POST',
         headers: {
@@ -245,64 +358,10 @@ export default function useTeamSelection() {
 
   // Start editing
   const startEditing = useCallback(() => {
-    if (!roundInfo?.isLocked) {
+    if (!roundInfo?.isLocked || selectedUserId === 'admin') {
       setIsEditing(true);
     }
   }, [roundInfo]);
-
-  // Copy from previous round
-  const copyFromPreviousRound = useCallback(async (userId) => {
-    if (currentRound <= 1 || roundInfo?.isLocked) return;
-    
-    try {
-      setErrorLocal(null);
-      const prevRoundRes = await fetch(`/api/team-selection?round=${currentRound - 1}`);
-      
-      if (!prevRoundRes.ok) {
-        throw new Error('Failed to fetch previous round data');
-      }
-
-      const prevRoundData = await prevRoundRes.json();
-      
-      if (!prevRoundData[userId]) {
-        setErrorLocal('No data found for previous round');
-        return;
-      }
-
-      // Deep clone the previous round data
-      const newChanges = {};
-      newChanges[userId] = {};
-      
-      Object.keys(prevRoundData[userId]).forEach(position => {
-        newChanges[userId][position] = true;
-      });
-
-      // Create new team selection with updated timestamps
-      const newTeamSelection = { ...editedTeams };
-      newTeamSelection[userId] = {};
-      
-      Object.entries(prevRoundData[userId]).forEach(([position, data]) => {
-        // Make sure to create a new object with updated timestamp
-        newTeamSelection[userId][position] = {
-          ...data,
-          last_updated: new Date().toISOString()
-        };
-      });
-      
-      // Update state
-      setEditedTeams(newTeamSelection);
-      setChangedPositions(prev => ({
-        ...prev,
-        ...newChanges
-      }));
-      
-      console.log("Copied team selection from previous round:", newTeamSelection[userId]);
-      
-    } catch (err) {
-      console.error('Error copying from previous round:', err);
-      setErrorLocal('Failed to copy from previous round');
-    }
-  }, [currentRound, roundInfo, editedTeams]);
 
   // Clear error message
   const clearError = useCallback(() => {
