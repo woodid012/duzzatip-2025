@@ -5,7 +5,7 @@ import { Star } from 'lucide-react';
 import { GiCrab } from 'react-icons/gi';
 import { useAppContext } from '@/app/context/AppContext';
 import useResults from '@/app/hooks/useResults';
-import { USER_NAMES } from '@/app/lib/constants';
+import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { isFinalRound, getFinalRoundName } from '@/app/lib/ladder_utils';
 import { useUserContext } from '../layout';
@@ -13,7 +13,7 @@ import Link from 'next/link';
 
 export default function ResultsPage() {
   // Get data from our app context
-  const { currentRound, changeRound } = useAppContext();
+  const { currentRound, roundInfo, changeRound } = useAppContext();
   
   // Get the selected user from context
   const { selectedUserId } = useUserContext();
@@ -31,6 +31,23 @@ export default function ResultsPage() {
   const [expandedTeams, setExpandedTeams] = useState({});
   const [fixtures, setFixtures] = useState([]);
   const [orderedFixtures, setOrderedFixtures] = useState([]);
+  const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
+
+  // Check if we should display the welcome screen (Round 0) or auto-switch to Round 1
+  useEffect(() => {
+    // Check if we're on round 0 and if round 0 is still active
+    if (currentRound === 0) {
+      const isRound0Active = !roundInfo.isLocked;
+      setShouldShowWelcome(isRound0Active);
+      
+      // If round 0 is locked, auto-switch to round 1
+      if (!isRound0Active) {
+        changeRound(1);
+      }
+    } else {
+      setShouldShowWelcome(false);
+    }
+  }, [currentRound, roundInfo, changeRound]);
 
   // Get fixtures for the current round
   useEffect(() => {
@@ -218,8 +235,56 @@ export default function ResultsPage() {
     );
   };
 
+  // Welcome screen UI
+  const renderWelcomeScreen = () => {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl w-full space-y-8 text-center">
+          <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight">
+            Welcome to DuzzaTip {CURRENT_YEAR}
+          </h1>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-8">
+            <h2 className="text-2xl font-bold text-blue-800 mb-4">Opening Round Information</h2>
+            
+            <div className="text-blue-700 mb-6">
+              <p className="mb-2">The competition will begin with the Opening Round.</p>
+              <p className="text-xl font-semibold mt-4">
+                Lockout Time: {roundInfo.lockoutTime || 'Not yet determined'}
+              </p>
+              <p className="mt-2">Make sure to submit your team before the lockout!</p>
+            </div>
+            
+            <div className="mt-8 mb-2 flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/pages/team-selection" className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-lg font-medium">
+                Enter Your Team
+              </Link>
+              
+              <Link href="/pages/tipping" className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 text-lg font-medium">
+                Enter Your Tips
+              </Link>
+            </div>
+          </div>
+          
+          <div className="mt-10 prose prose-lg max-w-none">
+            <h3 className="text-xl font-semibold text-gray-800">How It Works</h3>
+            <p className="text-gray-600">
+              In the Opening Round, the top 4 scoring teams will be awarded a Win to start off the season.
+              Results will be displayed here once all teams have been submitted and the round is locked.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className="p-4">Loading stats...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
+
+  // If we should show the welcome screen (Round 0 and not locked yet)
+  if (shouldShowWelcome) {
+    return renderWelcomeScreen();
+  }
 
   // Calculate all team scores for determining highest and lowest
   const allTeamScores = calculateAllTeamScores();
@@ -264,7 +329,7 @@ export default function ResultsPage() {
             <h3 className="text-lg font-semibold text-blue-800 mb-2">Opening Round Rules</h3>
             <p className="text-blue-700">The top 4 scoring teams will be awarded a Win for the Opening Round.</p>
             
-                            {/* Display all teams with their scores for Opening Round */}
+            {/* Display all teams with their scores for Opening Round */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
               {Object.entries(USER_NAMES).map(([userId, userName]) => {
                 // Get the team score, treat null, undefined, NaN as 0
