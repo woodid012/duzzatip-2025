@@ -28,7 +28,14 @@ jobs:
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
-          git pull origin main --rebase  # Pull latest changes and rebase
-          git add public/afl-*.json
-          git diff --quiet && git diff --staged --quiet || git commit -m "Update AFL fixtures"
-          git push
+          # Add all changes first
+          git add .
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update AFL fixtures"
+            # Pull with rebase (after committing)
+            git pull --rebase origin main
+            git push
+          fi
