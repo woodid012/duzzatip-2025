@@ -1,16 +1,5 @@
 [
   {
-    "MatchNumber": 1,
-    "RoundNumber": 0,
-    "DateUtc": "2025-03-06 08:50:00Z",
-    "Location": "Gabba",
-    "HomeTeam": "Brisbane Lions",
-    "AwayTeam": "Geelong Cats",
-    "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
-  },
-  {
     "MatchNumber": 2,
     "RoundNumber": 0,
     "DateUtc": "2025-03-07 08:40:00Z",
@@ -22,23 +11,34 @@
     "AwayTeamScore": null
   },
   {
-    "MatchNumber": 3,
-    "RoundNumber": 0,
-    "DateUtc": "2025-03-08 06:15:00Z",
-    "Location": "People First Stadium",
-    "HomeTeam": "Gold Coast SUNS",
-    "AwayTeam": "Essendon",
-    "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
-  },
-  {
     "MatchNumber": 4,
     "RoundNumber": 0,
     "DateUtc": "2025-03-09 04:20:00Z",
     "Location": "ENGIE Stadium",
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "Collingwood",
+    "Group": null,
+    "HomeTeamScore": null,
+    "AwayTeamScore": null
+  },
+  {
+    "MatchNumber": 1,
+    "RoundNumber": 0,
+    "DateUtc": "2025-03-29 08:35:00Z",
+    "Location": "Gabba",
+    "HomeTeam": "Brisbane Lions",
+    "AwayTeam": "Geelong Cats",
+    "Group": null,
+    "HomeTeamScore": null,
+    "AwayTeamScore": null
+  },
+  {
+    "MatchNumber": 3,
+    "RoundNumber": 0,
+    "DateUtc": "2025-08-22 14:00:00Z",
+    "Location": "People First Stadium",
+    "HomeTeam": "Gold Coast SUNS",
+    "AwayTeam": "Essendon",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
