@@ -7,8 +7,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 76,
+    "AwayTeamScore": 96
   },
   {
     "MatchNumber": 4,
