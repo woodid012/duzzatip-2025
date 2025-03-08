@@ -24,41 +24,7 @@ export function calculateLadder(allTeamScores, currentRound) {
     points: 0
   }));
 
-  // Process round 0 (pre-season) separately if scores exist
-  if (allTeamScores[0]) {
-    // Get top 4 teams from round 0
-    const round0Scores = Object.entries(allTeamScores[0])
-      .map(([userId, score]) => ({ userId, score }))
-      .sort((a, b) => b.score - a.score);
-    
-    // Calculate average score for Round 0 (used for points against)
-    const totalScores = round0Scores.reduce((sum, team) => sum + team.score, 0);
-    const averageScore = Math.round(totalScores / round0Scores.length);
-    
-    // Top 4 teams get a win
-    round0Scores.slice(0, 4).forEach(team => {
-      const ladderEntry = ladder.find(entry => entry.userId === team.userId);
-      if (ladderEntry) {
-        ladderEntry.played += 1;
-        ladderEntry.wins += 1;
-        ladderEntry.pointsFor += team.score;
-        ladderEntry.pointsAgainst += averageScore; // Use average score as points against
-        ladderEntry.points += 4; // Win = 4 points
-      }
-    });
-    
-    // Bottom 4 teams get a loss
-    round0Scores.slice(4).forEach(team => {
-      const ladderEntry = ladder.find(entry => entry.userId === team.userId);
-      if (ladderEntry) {
-        ladderEntry.played += 1;
-        ladderEntry.losses += 1;
-        ladderEntry.pointsFor += team.score;
-        ladderEntry.pointsAgainst += averageScore; // Use average score as points against
-      }
-    });
-  }
-
+  // Skip round 0 (opening round) for ladder calculations
   // Process regular season rounds (1-21)
   for (let round = 1; round <= Math.min(currentRound, 21); round++) {
     if (!allTeamScores[round]) continue;

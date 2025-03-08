@@ -26,7 +26,7 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   // Global state variables
   const [fixtures, setFixtures] = useState([]);
-  const [currentRound, setCurrentRound] = useState(0);
+  const [currentRound, setCurrentRound] = useState(0); // Default to Round 0
   const [roundInfo, setRoundInfo] = useState({
     currentRound: 0,
     currentRoundDisplay: 'Opening Round',
@@ -65,13 +65,45 @@ export function AppProvider({ children }) {
         const processedFixtures = processFixtures(fixturesData);
         setFixtures(processedFixtures);
         
-        // Calculate current round info
-        const currentRoundInfo = calculateRoundInfo(processedFixtures);
-        setCurrentRound(currentRoundInfo.currentRound);
+        // Get detailed round info for round 0 and round 1
+        const round0Info = getRoundInfo(processedFixtures, 0);
+        const round1Info = getRoundInfo(processedFixtures, 1);
         
-        // Get detailed round info for the current round
-        const roundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
-        setRoundInfo(roundInfo);
+        // Check if we're past round 0 lockout but before round 1 lockout
+        const now = new Date();
+        const round0LockoutDate = round0Info.lockoutDate ? new Date(round0Info.lockoutDate) : null;
+        const round1LockoutDate = round1Info.lockoutDate ? new Date(round1Info.lockoutDate) : null;
+        
+        const isRound0Locked = round0LockoutDate && now >= round0LockoutDate;
+        const isBeforeRound1Lockout = round1LockoutDate && now < round1LockoutDate;
+        
+        // Set current round based on lockout dates
+        if (!isRound0Locked) {
+          // Before round 0 lockout, show round 0
+          setCurrentRound(0);
+          setRoundInfo({
+            ...round0Info,
+            nextRoundLockout: round1Info.lockoutTime,
+            nextRoundLockoutDate: round1Info.lockoutDate
+          });
+        } else if (isBeforeRound1Lockout) {
+          // After round 0 lockout but before round 1 lockout
+          // For team selection and tipping, show round 1
+          // For results, we'll handle this in the results component to show round 0
+          setCurrentRound(1);
+          setRoundInfo({
+            ...round1Info,
+            showResultsForRound0: true, // Flag for the results page
+            prevRoundInfo: round0Info // Keep round 0 info for reference
+          });
+        } else {
+          // After round 1 lockout, show the current round from calculation
+          const currentRoundInfo = calculateRoundInfo(processedFixtures);
+          setCurrentRound(currentRoundInfo.currentRound);
+          
+          const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
+          setRoundInfo(detailedRoundInfo);
+        }
         
         setLoading(prev => ({ ...prev, fixtures: false }));
       } catch (err) {
@@ -80,10 +112,10 @@ export function AppProvider({ children }) {
         setLoading(prev => ({ ...prev, fixtures: false }));
         
         // Set default values in case of error
-        setCurrentRound(1);
+        setCurrentRound(0);
         setRoundInfo({
-          currentRound: 1,
-          currentRoundDisplay: 'Round 1',
+          currentRound: 0,
+          currentRoundDisplay: 'Opening Round',
           lockoutTime: null,
           isLocked: false,
           roundEndTime: null,
@@ -123,7 +155,15 @@ export function AppProvider({ children }) {
     try {
       setLoading(prev => ({ ...prev, teamSelections: true }));
       
-      const response = await fetch(`/api/team-selection?round=${round}`);
+      // If round 0 is locked but round 1 isn't, always show round 1 for team selection
+      let targetRound = round;
+      
+      // If round 0 is specified but locked, use round 1 instead
+      if (round === 0 && roundInfo.isLocked) {
+        targetRound = 1;
+      }
+      
+      const response = await fetch(`/api/team-selection?round=${targetRound}`);
       if (!response.ok) {
         throw new Error('Failed to fetch team selections');
       }
@@ -155,7 +195,20 @@ export function AppProvider({ children }) {
       };
     }
     
-    return getRoundInfo(fixtures, roundNumber);
+    // Get round info for requested round
+    const info = getRoundInfo(fixtures, roundNumber);
+    
+    // For round 0, add round 1 info
+    if (roundNumber === 0) {
+      const round1Info = getRoundInfo(fixtures, 1);
+      return {
+        ...info,
+        nextRoundLockout: round1Info.lockoutTime,
+        nextRoundLockoutDate: round1Info.lockoutDate
+      };
+    }
+    
+    return info;
   };
 
   // Update current round and fetch data for that round

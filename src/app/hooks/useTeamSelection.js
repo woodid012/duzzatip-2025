@@ -74,6 +74,19 @@ export default function useTeamSelection() {
     }
   }, []);
 
+  // Determine the appropriate round to load
+  const getAppropriateRound = useCallback(() => {
+    // If current round is locked, we should load/display the next round
+    if (roundInfo.isLocked) {
+      const nextRound = currentRound + 1;
+      console.log(`Current round ${currentRound} is locked. Loading next round ${nextRound} team selection.`);
+      return nextRound;
+    }
+    
+    // Otherwise, just use the current round
+    return currentRound;
+  }, [currentRound, roundInfo.isLocked]);
+
   // Load data when round changes
   useEffect(() => {
     let isMounted = true;
@@ -90,21 +103,23 @@ export default function useTeamSelection() {
         setLoadingLocal(true);
         setErrorLocal(null);
         
-        console.log(`Loading team selection data for round ${currentRound}`);
+        // Determine which round to load (current or next)
+        const targetRound = getAppropriateRound();
+        console.log(`Loading team selection data for round ${targetRound}`);
         
         // Load team selections
-        const teamsData = await fetchTeamSelections(currentRound);
+        const teamsData = await fetchTeamSelections(targetRound);
         
         // Only update state if component is still mounted
         if (!isMounted) return;
         
         if (teamsData && Object.keys(teamsData).length > 0) {
-          console.log(`Loaded team data for round ${currentRound}`);
+          console.log(`Loaded team data for round ${targetRound}`);
           setTeams(teamsData);
           setEditedTeams(teamsData);
         } else {
           // Set empty defaults if no data returned
-          console.log(`No team data found for round ${currentRound}, setting empty defaults`);
+          console.log(`No team data found for round ${targetRound}, setting empty defaults`);
           setTeams({});
           setEditedTeams({});
         }
@@ -139,7 +154,7 @@ export default function useTeamSelection() {
     return () => {
       isMounted = false;
     };
-  }, [currentRound, fetchSquads, fetchTeamSelections, retryCount, squads.length]);
+  }, [currentRound, fetchSquads, fetchTeamSelections, retryCount, squads.length, getAppropriateRound]);
 
   // Reset retry count when round changes
   useEffect(() => {
@@ -304,6 +319,9 @@ export default function useTeamSelection() {
   const saveTeamSelections = useCallback(async () => {
     if (roundInfo?.isLocked && !selectedUserId !== 'admin') return false;
     
+    // Determine which round to save to (current or next)
+    const targetRound = getAppropriateRound();
+    
     const changedTeamSelection = {};
     Object.entries(changedPositions).forEach(([userId, positions]) => {
       if (Object.keys(positions).length > 0) {
@@ -322,7 +340,7 @@ export default function useTeamSelection() {
     }
 
     try {
-      console.log('Saving team selections:', changedTeamSelection);
+      console.log(`Saving team selections for round ${targetRound}:`, changedTeamSelection);
       
       const response = await fetch('/api/team-selection', {
         method: 'POST',
@@ -331,7 +349,7 @@ export default function useTeamSelection() {
         },
         body: JSON.stringify({
           year: CURRENT_YEAR,
-          round: parseInt(currentRound),
+          round: parseInt(targetRound),
           team_selection: changedTeamSelection
         })
       });
@@ -347,7 +365,7 @@ export default function useTeamSelection() {
       setErrorLocal('Failed to save changes');
       return false;
     }
-  }, [roundInfo, changedPositions, editedTeams, currentRound]);
+  }, [roundInfo, changedPositions, editedTeams, getAppropriateRound]);
 
   // Cancel editing and revert changes
   const cancelEditing = useCallback(() => {
