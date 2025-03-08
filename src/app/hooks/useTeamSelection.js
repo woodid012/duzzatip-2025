@@ -74,17 +74,13 @@ export default function useTeamSelection() {
     }
   }, []);
 
-  // Determine the appropriate round to load
+  // Determine the appropriate round to load - MODIFIED FUNCTION WITH FIX
   const getAppropriateRound = useCallback(() => {
-    // If current round is locked, we should load/display the next round
-    if (roundInfo.isLocked) {
-      const nextRound = currentRound + 1;
-      console.log(`Current round ${currentRound} is locked. Loading next round ${nextRound} team selection.`);
-      return nextRound;
-    }
-    
-    // Otherwise, just use the current round
+    // Special case: if we're viewing the results page, always show the selected round
+
     return currentRound;
+
+    
   }, [currentRound, roundInfo.isLocked]);
 
   // Load data when round changes
@@ -317,7 +313,7 @@ export default function useTeamSelection() {
 
   // Save team selections
   const saveTeamSelections = useCallback(async () => {
-    if (roundInfo?.isLocked && !selectedUserId !== 'admin') return false;
+    if (roundInfo?.isLocked && selectedUserId !== 'admin') return false;
     
     // Determine which round to save to (current or next)
     const targetRound = getAppropriateRound();

@@ -28,6 +28,24 @@ export default function TeamSelectionPage() {
     copyFromPreviousRound
   } = useTeamSelection();
 
+  // Track what round data we're displaying (might be different from currentRound)
+  const [displayRound, setDisplayRound] = useState(currentRound);
+
+  // Update display round when current round changes or when roundInfo updates
+  useEffect(() => {
+    // If the round is locked, we're likely viewing the next round for editing
+    // But we want to clearly indicate which round we're actually displaying
+    
+    if (roundInfo.isLocked) {
+      // For team selection page, we load the next round for editing
+      // but we want to show we're viewing the next round
+      setDisplayRound(currentRound + 1);
+    } else {
+      // Otherwise, just display the current round
+      setDisplayRound(currentRound);
+    }
+  }, [currentRound, roundInfo.isLocked]);
+
   // Handle round change
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
@@ -49,6 +67,12 @@ export default function TeamSelectionPage() {
     );
   }
 
+  // Format the round name nicely
+  const formatRoundName = (round) => {
+    if (round === 0) return "Opening Round";
+    return `Round ${round}`;
+  };
+
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <style jsx>{`
@@ -63,7 +87,26 @@ export default function TeamSelectionPage() {
               ? `${USER_NAMES[selectedUserId]}'s Team` 
               : 'Team Selection'}
           </h1>
+          
+          {/* Show a clear indication of which round data we're displaying */}
           <div className="flex flex-col gap-1 mt-1">
+            <div className="text-sm font-medium">
+              {roundInfo.isLocked ? (
+                <>
+                  <span className="text-red-600">
+                    {formatRoundName(currentRound)} is locked 
+                  </span>
+                  <span className="text-gray-600 ml-1">
+                    - Editing {formatRoundName(displayRound)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-green-600">
+                  {formatRoundName(currentRound)} is open
+                </span>
+              )}
+            </div>
+            
             {roundInfo.lockoutTime && (
               <div className="text-sm">
                 <span className="text-gray-600">Lockout:</span>
@@ -136,6 +179,23 @@ export default function TeamSelectionPage() {
           </div>
         </div>
       </div>
+      
+      {/* Display notice for locked rounds */}
+      {roundInfo.isLocked && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <h3 className="text-md font-semibold text-blue-800">Round Status</h3>
+          </div>
+          <p className="mt-2 text-blue-700">
+            {formatRoundName(currentRound)} is locked. {selectedUserId === 'admin' ? 
+              `You can edit team selections for ${formatRoundName(displayRound)} because you're an admin.` : 
+              `You're now viewing team selections for ${formatRoundName(displayRound)}.`}
+          </p>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {/* Check if we have a selected user, otherwise show all teams */}
