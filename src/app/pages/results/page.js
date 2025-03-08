@@ -37,6 +37,14 @@ export default function ResultsPage() {
   // New state for the displayed round (might be different from the actual current round)
   const [displayedRound, setDisplayedRound] = useState(0);
 
+  // Check if the round is complete based on roundEndTime
+  const isRoundComplete = () => {
+    if (!roundInfo.roundEndTime) return false;
+    const now = new Date();
+    const roundEnd = new Date(roundInfo.roundEndTime);
+    return now > roundEnd;
+  };
+
   // Set initial displayed round to 0 when page loads, regardless of the context's current round
   // We want to keep showing round 0 results until round 1 lockout passes
   useEffect(() => {
@@ -126,10 +134,6 @@ export default function ResultsPage() {
     const teamScores = getTeamScores(userId);
     const isExpanded = expandedTeams[userId] !== false; // Default to expanded
     
-    // Check if round results are available yet
-    const isRoundActive = roundInfo.currentRound === displayedRound && !roundInfo.isLocked;
-    const isWaitingForResults = displayedRound === 0 || isRoundActive;
-    
     return (
       <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
         <div className="flex items-center justify-between mb-3">
@@ -144,10 +148,7 @@ export default function ResultsPage() {
           </div>
           <div className="flex items-center gap-2">
             <div className="text-right font-bold text-lg border-t pt-2 text-black">
-              {isWaitingForResults ? 
-                "Waiting for results" : 
-                `Final Total: ${teamScores.finalScore}`
-              }
+              Final Total: {teamScores.finalScore}
             </div>
             <button 
               onClick={() => toggleTeamExpansion(userId)}
@@ -162,144 +163,106 @@ export default function ResultsPage() {
 
         {isExpanded && (
           <div className="space-y-4">
-            {isWaitingForResults ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-50 rounded text-center text-gray-600">
-                  Scores will be available after the round is completed
+            <>
+              {/* Main Team */}
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold border-b pb-2 text-black">Main Team</h3>
+                <div className="hidden sm:grid grid-cols-12 gap-2 font-semibold text-sm pb-2 text-black">
+                  <div className="col-span-2">Position</div>
+                  <div className="col-span-3">Player</div>
+                  <div className="col-span-5">Details</div>
+                  <div className="col-span-2 text-right">Score</div>
                 </div>
-                
-                {/* Show the team positions without stats */}
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold border-b pb-2 text-black">Team Selection</h3>
-                  {Object.entries(teams[userId] || {}).map(([position, playerData]) => (
-                    <div key={position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
-                      <div className="font-medium col-span-3 mb-1 sm:mb-0">{position}</div>
-                      <div className="col-span-9 mb-1 sm:mb-0">
-                        {playerData?.player_name || 'No player selected'}
-                        {position === 'Bench' && playerData?.backup_position && (
-                          <span className="ml-2 text-gray-500">
-                            (Backup for: {playerData.backup_position})
-                          </span>
-                        )}
-                        {position === 'Reserve A' && (
-                          <span className="ml-2 text-gray-500">
-                            (Backup for: Full Forward, Tall Forward, Ruck)
-                          </span>
-                        )}
-                        {position === 'Reserve B' && (
-                          <span className="ml-2 text-gray-500">
-                            (Backup for: Offensive, Midfielder, Tackler)
-                          </span>
-                        )}
-                      </div>
+                {teamScores.positionScores.map((position) => (
+                  <div key={position.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
+                    <div className="font-medium col-span-2 mb-1 sm:mb-0">{position.position}</div>
+                    <div className="col-span-3 mb-1 sm:mb-0">
+                      {isRoundComplete() && position.noStats ? (
+                        <span className="text-red-600">{position.playerName} (DNP)</span>
+                      ) : isRoundComplete() && position.isBenchPlayer ? (
+                        <span className="text-green-600">
+                          {position.replacementType}: {position.playerName}
+                        </span>
+                      ) : (
+                        position.playerName || 'Not Selected'
+                      )}
                     </div>
-                  ))}
+                    <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
+                      {isRoundComplete() && position.isBenchPlayer ? (
+                        <div className="flex flex-col">
+                          <span className="text-green-600">Auto-substitution from {position.replacementType}</span>
+                          <span>{position.breakdown}</span>
+                        </div>
+                      ) : (
+                        position.breakdown
+                      )}
+                    </div>
+                    <div className="col-span-2 text-right font-semibold">
+                      {position.score}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Team Subtotal */}
+              <div className="text-right font-semibold mt-2 text-black">
+                Team Score: {teamScores.totalScore}
+              </div>
+
+              {/* Dead Certs */}
+              <div className="space-y-2">
+                <div className="text-right font-semibold text-black">
+                  Dead Cert Bonus: {teamScores.deadCertScore}
                 </div>
               </div>
-            ) : (
-              <>
-                {/* Main Team */}
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold border-b pb-2 text-black">Main Team</h3>
-                  <div className="hidden sm:grid grid-cols-12 gap-2 font-semibold text-sm pb-2 text-black">
-                    <div className="col-span-2">Position</div>
-                    <div className="col-span-3">Player</div>
-                    <div className="col-span-5">Details</div>
-                    <div className="col-span-2 text-right">Score</div>
-                  </div>
-                  {teamScores.positionScores.map((position) => (
-                    <div key={position.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
-                      <div className="font-medium col-span-2 mb-1 sm:mb-0">{position.position}</div>
-                      <div className="col-span-3 mb-1 sm:mb-0">
-                        {position.noStats ? (
-                          <span className="text-red-600">{position.playerName} (DNP)</span>
-                        ) : position.isBenchPlayer ? (
-                          <span className="text-green-600">
-                            {position.replacementType}: {position.playerName}
-                          </span>
-                        ) : (
-                          position.playerName || 'Not Selected'
-                        )}
-                      </div>
-                      <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
-                        {position.isBenchPlayer ? (
-                          <div className="flex flex-col">
-                            <span className="text-green-600">Auto-substitution from {position.replacementType}</span>
-                            <span>{position.breakdown}</span>
-                          </div>
-                        ) : (
-                          position.breakdown
-                        )}
-                      </div>
-                      <div className="col-span-2 text-right font-semibold">
-                        {position.score}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Team Subtotal */}
-                <div className="text-right font-semibold mt-2 text-black">
-                  Team Score: {teamScores.totalScore}
-                </div>
 
-                {/* Dead Certs */}
-                <div className="space-y-2">
-                  <div className="text-right font-semibold text-black">
-                    Dead Cert Bonus: {teamScores.deadCertScore}
-                  </div>
-                </div>
-
-                {/* Bench/Reserves */}
-                <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
-                  <h3 className="text-lg font-semibold border-b pb-2 text-black">Bench/Reserves</h3>
-                  {teamScores.benchScores.map((bench) => (
-                    <div key={bench.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
-                      <div className="font-medium col-span-2 mb-1 sm:mb-0">
-                        {bench.position}
-                        {bench.position === 'Reserve A' && (
-                          <div className="text-xs text-gray-500">Full Forward, Tall Forward, Ruck</div>
-                        )}
-                        {bench.position === 'Reserve B' && (
-                          <div className="text-xs text-gray-500">Offensive, Mid, Tackler</div>
-                        )}
-                        {bench.backupPosition && (
-                          <div className="text-xs text-gray-500">{bench.backupPosition}</div>
-                        )}
-                      </div>
-                      <div className="col-span-3 mb-1 sm:mb-0">
-                        {!bench.didPlay ? (
-                          <span className="text-red-600">{bench.playerName} (DNP)</span>
-                        ) : bench.isBeingUsed ? (
-                          <span className="text-green-600">{bench.playerName}</span>
-                        ) : (
-                          bench.playerName
-                        )}
-                      </div>
-                      <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
-                        {bench.isBeingUsed ? (
-                          <span className="text-green-600">
-                            Replacing: {bench.replacingPlayerName} ({bench.replacingPosition})
-                          </span>
-                        ) : (
-                          bench.breakdown
-                        )}
-                      </div>
-                      <div className="col-span-2 text-right font-semibold">
-                        {bench.score}
-                      </div>
+              {/* Bench/Reserves */}
+              <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
+                <h3 className="text-lg font-semibold border-b pb-2 text-black">Bench/Reserves</h3>
+                {teamScores.benchScores.map((bench) => (
+                  <div key={bench.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
+                    <div className="font-medium col-span-2 mb-1 sm:mb-0">
+                      {bench.position}
+                      {bench.position === 'Reserve A' && (
+                        <div className="text-xs text-gray-500">Full Forward, Tall Forward, Ruck</div>
+                      )}
+                      {bench.position === 'Reserve B' && (
+                        <div className="text-xs text-gray-500">Offensive, Mid, Tackler</div>
+                      )}
+                      {bench.backupPosition && (
+                        <div className="text-xs text-gray-500">{bench.backupPosition}</div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
+                    <div className="col-span-3 mb-1 sm:mb-0">
+                      {isRoundComplete() && !bench.didPlay ? (
+                        <span className="text-red-600">{bench.playerName} (DNP)</span>
+                      ) : isRoundComplete() && bench.isBeingUsed ? (
+                        <span className="text-green-600">{bench.playerName}</span>
+                      ) : (
+                        bench.playerName
+                      )}
+                    </div>
+                    <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
+                      {isRoundComplete() && bench.isBeingUsed ? (
+                        <span className="text-green-600">
+                          Replacing: {bench.replacingPlayerName} ({bench.replacingPosition})
+                        </span>
+                      ) : (
+                        bench.breakdown
+                      )}
+                    </div>
+                    <div className="col-span-2 text-right font-semibold">
+                      {bench.score}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           </div>
         )}
       </div>
     );
   };
-
-  // Removed AWST time conversion as requested
 
   // Welcome screen UI
   const renderWelcomeScreen = () => {
@@ -427,7 +390,7 @@ export default function ResultsPage() {
         {displayedRound === 0 ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="text-lg font-semibold text-blue-800 mb-2">Opening Round Information</h3>
-            <p className="text-blue-700">Team scores for the Opening Round will be displayed here once available.</p>
+            <p className="text-blue-700 mb-4">Current team scores for the Opening Round:</p>
             
             {/* Display all teams with their scores for Opening Round */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
@@ -469,7 +432,7 @@ export default function ResultsPage() {
                         </span>
                       ) : (
                         <span className="text-gray-600">
-                          Waiting for results
+                          Score: 0
                         </span>
                       )}
                     </div>
