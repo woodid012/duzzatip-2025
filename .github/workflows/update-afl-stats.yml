@@ -4,11 +4,6 @@ on:
     # Run every hour during AFL game days (typically Thursday-Sunday)
     - cron: '10 * * * 4,5,6,0'  # Every hour at 10 minutes past, on Thursday(4), Friday(5), Saturday(6), Sunday(0)
   workflow_dispatch:  # Allow manual trigger for testing
-    inputs:
-      game_id:
-        description: 'Specific game ID to update (leave empty to check all scheduled games)'
-        required: false
-        default: ''
 
 jobs:
   update-stats:
@@ -39,12 +34,7 @@ jobs:
         id: update-script
         run: |
           cd src/app/scripts
-          # Run script with specific game_id if provided
-          if [ -n "${{ github.event.inputs.game_id }}" ]; then
-            node update-afl-stats.js ${{ github.event.inputs.game_id }}
-          else
-            node update-afl-stats.js
-          fi
+          node update-afl-stats.js
           # Set output variable based on script output
           if grep -q "PROCESSED_FIXTURES=true" <<< "$(cat /tmp/script_output.txt)"; then
             echo "CHANGES_MADE=true" >> $GITHUB_OUTPUT

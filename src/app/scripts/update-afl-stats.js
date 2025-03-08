@@ -291,9 +291,6 @@ async function main() {
   let client;
   let processedFixtures = false;
   
-  // Check if a specific game ID was provided as an argument
-  const specificGameId = process.argv[2] ? parseInt(process.argv[2], 10) : null;
-  
   try {
     console.log('Starting AFL stats update...');
     
@@ -303,24 +300,13 @@ async function main() {
     // Get the list of games we've already processed
     const processedGames = await loadProcessedGames();
     
-    // Find games that need updating
-    let gamesToUpdate = [];
-    
-    if (specificGameId) {
-      // If a specific game ID was provided, only update that game
-      const specificGame = fixtures.find(game => game.MatchNumber === specificGameId);
-      if (specificGame && !processedGames.includes(specificGameId)) {
-        gamesToUpdate = [specificGame];
-      } else {
-        console.log(`Game ${specificGameId} is already processed or not found`);
-      }
-    } else {
-      // Find all games that have finished recently and need stats updated
-      gamesToUpdate = await findGamesToUpdate(fixtures, processedGames);
-    }
+    // Find all games that have finished recently and need stats updated
+    const gamesToUpdate = await findGamesToUpdate(fixtures, processedGames);
     
     if (gamesToUpdate.length === 0) {
       console.log('No games to update at this time');
+      // Create a temporary output file for GitHub Actions to read
+      await fs.writeFile('/tmp/script_output.txt', 'PROCESSED_FIXTURES=false');
       return;
     }
     
