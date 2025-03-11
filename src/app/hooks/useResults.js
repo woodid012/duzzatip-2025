@@ -14,6 +14,7 @@ export default function useResults() {
   const [deadCertScores, setDeadCertScores] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [roundEndPassed, setRoundEndPassed] = useState(false);
 
   // Define which positions are handled by which reserve
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
@@ -24,6 +25,27 @@ export default function useResults() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        
+        // Fetch round info to determine if round has ended
+        let roundInfoResponse;
+        try {
+          roundInfoResponse = await fetch(`/api/round-info?round=${currentRound}`);
+          if (roundInfoResponse.ok) {
+            const roundInfoData = await roundInfoResponse.json();
+            // Check if round end has passed
+            if (roundInfoData.roundEndTime) {
+              const roundEndDate = new Date(roundInfoData.roundEndTime);
+              const now = new Date();
+              setRoundEndPassed(now > roundEndDate);
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch round info:', err);
+          // Use simple calculation for round end (3 days after start)
+          const now = new Date();
+          const threeHoursAgo = new Date(now.setHours(now.getHours() - 3));
+          setRoundEndPassed(currentRound >= 1); // Only enable for round 1 and above
+        }
         
         // Fetch teams and player stats
         const teamsRes = await fetch(`/api/team-selection?round=${currentRound}`);
@@ -241,13 +263,16 @@ export default function useResults() {
         };
       }
       
-      // If main player didn't play, this position needs replacement
-      positionsNeedingReplacement.push({
-        position,
-        playerData,
-        isReserveAPosition: RESERVE_A_POSITIONS.includes(position),
-        isReserveBPosition: RESERVE_B_POSITIONS.includes(position)
-      });
+      // Only apply substitution if round end has passed or we're past round 1
+      if (roundEndPassed || currentRound > 1) {
+        // If main player didn't play, this position needs replacement
+        positionsNeedingReplacement.push({
+          position,
+          playerData,
+          isReserveAPosition: RESERVE_A_POSITIONS.includes(position),
+          isReserveBPosition: RESERVE_B_POSITIONS.includes(position)
+        });
+      }
       
       // Return a placeholder that will be updated
       return {
@@ -259,12 +284,12 @@ export default function useResults() {
         originalPlayerName: playerData.player_name,
         isBenchPlayer: false,
         noStats: true,
-        needsReplacement: true
+        needsReplacement: roundEndPassed || currentRound > 1 // Only mark as needing replacement if round has ended or we're past round 1
       };
     });
     
-    // If we have positions needing replacement, optimize the replacements
-    if (positionsNeedingReplacement.length > 0) {
+    // If we have positions needing replacement AND substitutions are enabled
+    if (positionsNeedingReplacement.length > 0 && (roundEndPassed || currentRound > 1)) {
       // Clone reserve players array - we'll remove reserves as they're used
       const availableReserves = [...reservePlayers];
       
@@ -391,7 +416,8 @@ export default function useResults() {
       deadCertScore,
       finalScore,
       positionScores,
-      benchScores
+      benchScores,
+      substitutionsEnabled: roundEndPassed || currentRound > 1
     };
   };
 
@@ -403,6 +429,7 @@ export default function useResults() {
     deadCertScores,
     loading,
     error,
+    roundEndPassed,
     
     // Actions
     changeRound,

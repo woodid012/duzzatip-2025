@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useState, useContext, useEffect } from 'react';
-import { CURRENT_YEAR } from '@/app/lib/constants';
+import { CURRENT_YEAR, OPENING_ROUND_END_TIME } from '@/app/lib/constants';
 import { processFixtures, calculateRoundInfo, getRoundInfo } from '@/app/lib/timeCalculations';
 
 // In AppContext.js, add a simple caching mechanism
@@ -65,44 +65,46 @@ export function AppProvider({ children }) {
         const processedFixtures = processFixtures(fixturesData);
         setFixtures(processedFixtures);
         
-        // Get detailed round info for round 0 and round 1
-        const round0Info = getRoundInfo(processedFixtures, 0);
-        const round1Info = getRoundInfo(processedFixtures, 1);
-        
-        // Check if we're past round 0 lockout but before round 1 lockout
+        // Current date
         const now = new Date();
-        const round0LockoutDate = round0Info.lockoutDate ? new Date(round0Info.lockoutDate) : null;
-        const round1LockoutDate = round1Info.lockoutDate ? new Date(round1Info.lockoutDate) : null;
         
-        const isRound0Locked = round0LockoutDate && now >= round0LockoutDate;
-        const isBeforeRound1Lockout = round1LockoutDate && now < round1LockoutDate;
-        
-        // Set current round based on lockout dates
-        if (!isRound0Locked) {
-          // Before round 0 lockout, show round 0
+        // Check if we're still in Opening Round period
+        if (now < OPENING_ROUND_END_TIME) {
+          const round0Info = getRoundInfo(processedFixtures, 0);
           setCurrentRound(0);
           setRoundInfo({
             ...round0Info,
-            nextRoundLockout: round1Info.lockoutTime,
-            nextRoundLockoutDate: round1Info.lockoutDate
+            currentRound: 0,
+            currentRoundDisplay: 'Opening Round',
+            lockoutTime: round0Info.lockoutTime,
+            isLocked: round0Info.isLocked,
+            roundEndTime: round0Info.roundEndTime
           });
-        } else if (isBeforeRound1Lockout) {
-          // After round 0 lockout but before round 1 lockout
-          // For team selection and tipping, show round 1
-          // For results, we'll handle this in the results component to show round 0
-          setCurrentRound(1);
-          setRoundInfo({
-            ...round1Info,
-            showResultsForRound0: true, // Flag for the results page
-            prevRoundInfo: round0Info // Keep round 0 info for reference
-          });
-        } else {
-          // After round 1 lockout, show the current round from calculation
-          const currentRoundInfo = calculateRoundInfo(processedFixtures);
-          setCurrentRound(currentRoundInfo.currentRound);
+        } 
+        // Check if we're after Opening Round but before Round 1 lockout
+        else {
+          const round1Info = getRoundInfo(processedFixtures, 1);
+          const round1LockoutDate = round1Info.lockoutDate ? new Date(round1Info.lockoutDate) : null;
           
-          const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
-          setRoundInfo(detailedRoundInfo);
+          // If we're before Round 1 lockout
+          if (round1LockoutDate && now < round1LockoutDate) {
+            // For results page, we still want to show Opening Round
+            // For team selection and tipping, we want to show Round 1
+            setCurrentRound(1);
+            setRoundInfo({
+              ...round1Info,
+              showResultsForRound0: true, // Flag for the results page
+              prevRoundInfo: getRoundInfo(processedFixtures, 0) // Keep round 0 info for reference
+            });
+          } else {
+            // After round 1 lockout, use normal round calculation logic
+            const currentRoundInfo = calculateRoundInfo(processedFixtures);
+            setCurrentRound(currentRoundInfo.currentRound);
+            
+            // Get detailed round info for the current round
+            const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
+            setRoundInfo(detailedRoundInfo);
+          }
         }
         
         setLoading(prev => ({ ...prev, fixtures: false }));
@@ -133,6 +135,7 @@ export function AppProvider({ children }) {
       setLoading(prev => ({ ...prev, squads: true }));
       
       const response = await fetch('/api/squads');
+      
       if (!response.ok) {
         throw new Error('Failed to fetch squads');
       }
