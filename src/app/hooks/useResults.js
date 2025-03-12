@@ -16,6 +16,7 @@ export default function useResults() {
   const [error, setError] = useState(null);
   const [roundEndPassed, setRoundEndPassed] = useState(false);
   const [debugInfo, setDebugInfo] = useState(null);
+  const [playerTeamMap, setPlayerTeamMap] = useState({});
 
   // Define which positions are handled by which reserve
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
@@ -26,6 +27,24 @@ export default function useResults() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        
+        // Fetch squads to get player team information
+        const squadsRes = await fetch('/api/squads');
+        if (squadsRes.ok) {
+          const squadsData = await squadsRes.json();
+          
+          // Create a map of player name to team
+          const teamMap = {};
+          Object.values(squadsData).forEach(userData => {
+            userData.players.forEach(player => {
+              if (player.name) {
+                teamMap[player.name] = player.team;
+              }
+            });
+          });
+          
+          setPlayerTeamMap(teamMap);
+        }
         
         // Fetch round info to determine if round has ended
         let roundInfoResponse;
@@ -107,6 +126,7 @@ export default function useResults() {
             
             playerStats[playerName] = {
               ...stats,
+              team: playerTeamMap[playerName] || (stats ? stats.team_name : ''),
               scoring,
               backup_position: data.backup_position,
               original_position: position,

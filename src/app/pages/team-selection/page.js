@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTeamSelection from '@/app/hooks/useTeamSelection';
@@ -30,6 +30,8 @@ export default function TeamSelectionPage() {
 
   // Track what round data we're displaying (might be different from currentRound)
   const [displayRound, setDisplayRound] = useState(currentRound);
+  // State for duplicate warnings
+  const [duplicateWarnings, setDuplicateWarnings] = useState([]);
 
   // Update display round when current round changes or when roundInfo updates
   useEffect(() => {
@@ -46,10 +48,98 @@ export default function TeamSelectionPage() {
     }
   }, [currentRound, roundInfo.isLocked]);
 
+  // Check for duplicate players in the team selections
+  useEffect(() => {
+    if (teams && Object.keys(teams).length > 0) {
+      // Only check duplicates for the selected user
+      if (selectedUserId && teams[selectedUserId]) {
+        const userTeam = teams[selectedUserId];
+        const playerCounts = {};
+        const duplicates = [];
+
+        // Count occurrences of each player
+        Object.entries(userTeam).forEach(([position, data]) => {
+          const playerName = data.player_name;
+          if (!playerName) return;
+          
+          if (!playerCounts[playerName]) {
+            playerCounts[playerName] = {
+              count: 0,
+              positions: []
+            };
+          }
+          
+          playerCounts[playerName].count++;
+          playerCounts[playerName].positions.push(position);
+        });
+
+        // Find players that appear more than once
+        Object.entries(playerCounts).forEach(([playerName, info]) => {
+          if (info.count > 1) {
+            duplicates.push({
+              playerName,
+              positions: info.positions
+            });
+          }
+        });
+
+        setDuplicateWarnings(duplicates);
+      } else {
+        // For admin view, check all teams
+        const allDuplicates = [];
+        
+        Object.entries(teams).forEach(([userId, userTeam]) => {
+          const playerCounts = {};
+          
+          // Count occurrences of each player
+          Object.entries(userTeam).forEach(([position, data]) => {
+            const playerName = data.player_name;
+            if (!playerName) return;
+            
+            if (!playerCounts[playerName]) {
+              playerCounts[playerName] = {
+                count: 0,
+                positions: []
+              };
+            }
+            
+            playerCounts[playerName].count++;
+            playerCounts[playerName].positions.push(position);
+          });
+
+          // Find players that appear more than once
+          Object.entries(playerCounts).forEach(([playerName, info]) => {
+            if (info.count > 1) {
+              allDuplicates.push({
+                userId,
+                userName: USER_NAMES[userId],
+                playerName,
+                positions: info.positions
+              });
+            }
+          });
+        });
+
+        setDuplicateWarnings(allDuplicates);
+      }
+    }
+  }, [teams, selectedUserId]);
+
   // Handle round change
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     changeRound(newRound);
+  };
+
+  // Handle save with confirmation for duplicates
+  const handleSaveWithWarning = async () => {
+    if (duplicateWarnings.length > 0) {
+      if (confirm(`Warning: You have ${duplicateWarnings.length} duplicate player selections. Do you want to save anyway?`)) {
+        await saveTeamSelections();
+      }
+    } else {
+      await saveTeamSelections();
+    }
   };
 
   if (loading) return <div className="p-4">Loading teams...</div>;
@@ -151,7 +241,7 @@ export default function TeamSelectionPage() {
             {isEditing ? (
               <>
                 <button 
-                  onClick={saveTeamSelections}
+                  onClick={handleSaveWithWarning}
                   className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
                 >
                   Save Changes
@@ -179,6 +269,40 @@ export default function TeamSelectionPage() {
           </div>
         </div>
       </div>
+      
+      {/* Display warning for duplicate players */}
+      {duplicateWarnings.length > 0 && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <h3 className="text-md font-semibold text-yellow-800">Warning: Duplicate Player Selections</h3>
+          </div>
+          
+          <div className="text-yellow-700">
+            <p className="mb-2">The following players are selected in multiple positions:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              {selectedUserId && selectedUserId !== 'admin' ? (
+                // Display duplicates for selected user
+                duplicateWarnings.map((warning, idx) => (
+                  <li key={idx}>
+                    <strong>{warning.playerName}</strong> is selected in: {warning.positions.join(', ')}
+                  </li>
+                ))
+              ) : (
+                // Display duplicates for all users (admin view)
+                duplicateWarnings.map((warning, idx) => (
+                  <li key={idx}>
+                    <strong>{warning.userName}</strong>: {warning.playerName} is selected in: {warning.positions.join(', ')}
+                  </li>
+                ))
+              )}
+            </ul>
+            <p className="mt-3 font-medium">These duplicates will still be saved, but may affect scoring.</p>
+          </div>
+        </div>
+      )}
       
       {/* Display notice for locked rounds */}
       {roundInfo.isLocked && (
@@ -212,6 +336,7 @@ export default function TeamSelectionPage() {
             onPlayerChange={handlePlayerChange}
             onBackupPositionChange={handleBackupPositionChange}
             onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
+            duplicateWarnings={duplicateWarnings}
           />
         ) : (
           // Show all teams (for admin or when no user is selected)
@@ -227,6 +352,7 @@ export default function TeamSelectionPage() {
               onPlayerChange={handlePlayerChange}
               onBackupPositionChange={handleBackupPositionChange}
               onCopyFromPrevious={() => copyFromPreviousRound(userId)}
+              duplicateWarnings={duplicateWarnings}
             />
           ))
         )}
@@ -256,7 +382,8 @@ function TeamCard({
   isLocked,
   onPlayerChange, 
   onBackupPositionChange,
-  onCopyFromPrevious
+  onCopyFromPrevious,
+  duplicateWarnings
 }) {
   // State for toggling visibility on mobile
   const [isExpanded, setIsExpanded] = useState(true);
@@ -279,6 +406,24 @@ function TeamCard({
   const handleCopyFromPrevious = () => {
     console.log(`Copying previous round for user ${userId}`);
     onCopyFromPrevious();
+  };
+
+  // Check if a player is duplicated in this team
+  const isDuplicatePlayer = (playerName, position) => {
+    if (!playerName || !duplicateWarnings || duplicateWarnings.length === 0) return false;
+    
+    // For a single user view
+    if (Array.isArray(duplicateWarnings) && duplicateWarnings[0] && !duplicateWarnings[0].userId) {
+      const duplicate = duplicateWarnings.find(d => d.playerName === playerName);
+      return duplicate && duplicate.positions.includes(position);
+    }
+    
+    // For admin view
+    return duplicateWarnings.some(d => 
+      d.userId === userId && 
+      d.playerName === playerName && 
+      d.positions.includes(position)
+    );
   };
 
   return (
@@ -311,6 +456,8 @@ function TeamCard({
           {POSITION_TYPES.map((position) => {
             const playerData = team[position];
             const displayPosition = getPositionDisplay(position);
+            const isDuplicate = playerData?.player_name ? 
+              isDuplicatePlayer(playerData.player_name, position) : false;
             
             return (
               <div key={`${position}-${playerData?.player_name || 'empty'}-${key}`} className="flex flex-col gap-1">
@@ -321,7 +468,9 @@ function TeamCard({
                       <select
                         value={playerData?.player_name || ''}
                         onChange={(e) => onPlayerChange(userId, position, e.target.value)}
-                        className="w-full p-2 text-sm border rounded bg-white text-black"
+                        className={`w-full p-2 text-sm border rounded bg-white text-black ${
+                          isDuplicate ? 'border-red-500 bg-red-50' : ''
+                        }`}
                         disabled={isLocked}
                       >
                         <option value="">Select Player</option>
@@ -350,10 +499,15 @@ function TeamCard({
                       )}
                     </>
                   ) : (
-                    <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
+                    <div className={`w-full p-2 text-sm border rounded bg-white ${
+                      isDuplicate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                    }`}>
                       {playerData ? (
                         <div className="flex justify-between items-center">
-                          <span className="text-black">{playerData.player_name}</span>
+                          <span className={`${isDuplicate ? 'text-red-600 font-semibold' : 'text-black'}`}>
+                            {playerData.player_name}
+                            {isDuplicate && " (Duplicate)"}
+                          </span>
                           {position === 'Bench' && playerData.backup_position && (
                             <span className="text-black text-xs">
                               {playerData.backup_position}

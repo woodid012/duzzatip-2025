@@ -138,19 +138,19 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
           <div className="col-span-3 mb-1 sm:mb-0">
             {isRoundComplete && position.noStats ? (
               <span className="text-red-600">
-                {position.playerName} ({position.player?.team_name ? getTeamAbbreviation(position.player.team_name) : ''}) (DNP)
+                {position.playerName} ({position.player?.team ? getTeamAbbreviation(position.player.team) : ''}) (DNP)
               </span>
             ) : isRoundComplete && position.isBenchPlayer ? (
               <span className="text-green-600">
-                {position.playerName} ({position.player?.team_name ? getTeamAbbreviation(position.player.team_name) : ''})
+                {position.playerName} ({position.player?.team ? getTeamAbbreviation(position.player.team) : ''})
                 <div className="text-xs">From: {position.replacementType}</div>
               </span>
             ) : (
               <>
                 {position.playerName || 'Not Selected'} 
-                {position.player?.team_name && (
+                {position.player?.team && (
                   <span className="text-gray-500 ml-1">
-                    ({getTeamAbbreviation(position.player.team_name)})
+                    ({getTeamAbbreviation(position.player.team)})
                   </span>
                 )}
               </>
@@ -199,18 +199,18 @@ function BenchSection({ benchScores, isRoundComplete }) {
           <div className="col-span-3 mb-1 sm:mb-0">
             {isRoundComplete && !bench.didPlay ? (
               <span className="text-red-600">
-                {bench.playerName} ({bench.player?.team_name ? getTeamAbbreviation(bench.player.team_name) : ''}) (DNP)
+                {bench.playerName} ({bench.player?.team ? getTeamAbbreviation(bench.player.team) : ''}) (DNP)
               </span>
             ) : isRoundComplete && bench.isBeingUsed ? (
               <span className="text-green-600">
-                {bench.playerName} ({bench.player?.team_name ? getTeamAbbreviation(bench.player.team_name) : ''})
+                {bench.playerName} ({bench.player?.team ? getTeamAbbreviation(bench.player.team) : ''})
               </span>
             ) : (
               <>
                 {bench.playerName} 
-                {bench.player?.team_name && (
+                {bench.player?.team && (
                   <span className="text-gray-500 ml-1">
-                    ({getTeamAbbreviation(bench.player.team_name)})
+                    ({getTeamAbbreviation(bench.player.team)})
                   </span>
                 )}
               </>
