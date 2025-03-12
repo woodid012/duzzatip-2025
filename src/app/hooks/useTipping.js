@@ -5,7 +5,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function useTipping(initialUserId = '') {
-  const { currentRound, roundInfo, fixtures } = useAppContext();
+  const { currentRound, roundInfo, fixtures, changeRound } = useAppContext();
   
   // Use refs to maintain state between renders
   const isInitializedRef = useRef(false);
@@ -26,15 +26,50 @@ export default function useTipping(initialUserId = '') {
   // Track if data has been loaded
   const [dataLoaded, setDataLoaded] = useState(false);
 
+  // Determine the appropriate round to load
+  const getAppropriateRound = () => {
+    // If we're viewing round 0 and it's locked, we should show round 1 instead
+    if (currentRound === 0 && roundInfo.isLocked) {
+      console.log('Round 0 is locked, showing Round 1 for tipping');
+      return 1;
+    }
+    
+    // If any round is locked, we want to show the next round for tipping
+    if (roundInfo.isLocked) {
+      console.log(`Round ${currentRound} is locked, showing Round ${currentRound + 1} for tipping`);
+      return currentRound + 1;
+    }
+    
+    // Otherwise, just display the current round
+    return currentRound;
+  };
+
+  // Determine if we should advance to the next round
+  useEffect(() => {
+    // If we're viewing round 0 and it's locked, we should show round 1 instead
+    if (currentRound === 0 && roundInfo.isLocked) {
+      console.log('Round 0 is locked, changing to Round 1 for tipping');
+      changeRound(1);
+    } else if (roundInfo.isLocked && roundInfo.nextRoundLockoutTime) {
+      // If any round is locked and there's a next round available, show it
+      console.log(`Round ${currentRound} is locked, advancing to next round`);
+      changeRound(currentRound + 1);
+    }
+  }, [currentRound, roundInfo.isLocked, roundInfo.nextRoundLockoutTime, changeRound]);
+
   // Load fixtures for the current round
   useEffect(() => {
     if (fixtures.length > 0) {
+      // Use the appropriate round
+      const targetRound = getAppropriateRound();
+      
       const filtered = fixtures.filter(
-        fixture => fixture.RoundNumber.toString() === currentRound.toString()
+        fixture => fixture.RoundNumber.toString() === targetRound.toString()
       );
       setRoundFixtures(filtered);
+      console.log(`Loaded ${filtered.length} fixtures for round ${targetRound}`);
     }
-  }, [fixtures, currentRound]);
+  }, [fixtures, currentRound, roundInfo.isLocked]);
 
   // Load tips data when user or round changes
   useEffect(() => {
@@ -52,9 +87,12 @@ export default function useTipping(initialUserId = '') {
     const loadTips = async () => {
       try {
         setLoadingLocal(true);
-        console.log(`Loading tips for user ${selectedUserId}, round ${currentRound}`);
+        // Use the appropriate round
+        const targetRound = getAppropriateRound();
         
-        const url = `/api/tipping-data?round=${currentRound}&userId=${selectedUserId}`;
+        console.log(`Loading tips for user ${selectedUserId}, round ${targetRound}`);
+        
+        const url = `/api/tipping-data?round=${targetRound}&userId=${selectedUserId}`;
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -111,7 +149,7 @@ export default function useTipping(initialUserId = '') {
         setIsEditing(false);
       }
     };
-  }, [currentRound, selectedUserId, roundFixtures]);
+  }, [currentRound, selectedUserId, roundFixtures, roundInfo.isLocked]);
 
   // Handle team tip selection
   const handleTipSelect = (matchNumber, team) => {
@@ -162,13 +200,16 @@ export default function useTipping(initialUserId = '') {
     try {
       setErrorLocal(null);
       
+      // Use the appropriate round
+      const targetRound = getAppropriateRound();
+      
       const response = await fetch('/api/tipping-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          round: currentRound,
+          round: targetRound,
           userId: selectedUserId,
           tips: editedTips,
           lastUpdated: new Date().toISOString()
@@ -218,7 +259,7 @@ export default function useTipping(initialUserId = '') {
   // Change selected user
   const changeUser = (userId) => {
     console.log(`Changing user from ${selectedUserId} to ${userId}`);
-          if (userId !== selectedUserId) {
+    if (userId !== selectedUserId) {
       setSelectedUserId(userId);
       setIsEditing(false);
       setDataLoaded(false);

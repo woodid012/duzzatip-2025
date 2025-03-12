@@ -5,6 +5,7 @@ import { LATEST_ROUND, OPENING_ROUND_END_TIME } from './constants';
 // Test configuration
 const TEST_DATE = new Date('2025-05-06T19:00:00');
 const USE_TEST_DATE = false;  // Set to false to use real date
+const DAYS_BEFORE_ADVANCE = 2; // Number of days before first fixture to advance to next round
 
 /**
  * Converts a UTC date to Melbourne time
@@ -128,9 +129,44 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
     );
 
     // Calculate current round
-    const currentRound = nextFixture 
+    let currentRound = nextFixture 
       ? Math.max(0, nextFixture.RoundNumber - 1)  // Ensure we don't go below 0
       : sortedFixtures[sortedFixtures.length - 1].RoundNumber;
+
+    // Special case: if we're in the gap between Opening Round end and Round 1 start
+    if (currentRound === 0 && now >= OPENING_ROUND_END_TIME) {
+      const round1Fixtures = fixtures.filter(fixture => fixture.RoundNumber === 1);
+      if (round1Fixtures.length > 0) {
+        const firstRound1Game = round1Fixtures.sort((a, b) => a.DateUtc - b.DateUtc)[0];
+        // If we're before the first Round 1 game, but after Opening Round ended
+        if (now < firstRound1Game.DateUtc) {
+          currentRound = 1; // Show Round 1 for team selection/tipping
+        }
+      }
+    }
+
+
+    // If current round has fixtures and next round also has fixtures
+    if (currentRoundFixtures.length > 0 && nextRoundFixtures.length > 0) {
+      // Sort to get last game of current round
+      const lastGameOfCurrentRound = currentRoundFixtures.sort((a, b) => b.DateUtc - a.DateUtc)[0];
+      
+      // Sort to get first game of next round
+      const firstGameOfNextRound = nextRoundFixtures.sort((a, b) => a.DateUtc - b.DateUtc)[0];
+      
+      // Calculate date to advance to next round (2 days before first fixture)
+      const advanceDate = new Date(firstGameOfNextRound.DateUtc);
+      advanceDate.setDate(advanceDate.getDate() - DAYS_BEFORE_ADVANCE);
+      
+      // If current time is after last game of current round + 3 hours 
+      // AND current time is within DAYS_BEFORE_ADVANCE days of next round's first fixture
+      if (now > new Date(lastGameOfCurrentRound.DateUtc.getTime() + 3 * 60 * 60 * 1000) && 
+          now >= advanceDate) {
+        // Advance to next round early
+        currentRound = currentRound + 1;
+        console.log(`Advancing to Round ${currentRound} early (${DAYS_BEFORE_ADVANCE} days before first fixture)`);
+      }
+    }
 
     // Get next round's fixtures for lockout
     const nextRoundFixtures = fixtures.filter(
@@ -215,11 +251,16 @@ export function getRoundInfo(fixtures, roundNumber) {
         lockoutTime: convertToMelbourneTime(OPENING_ROUND_END_TIME),
         lockoutDate: OPENING_ROUND_END_TIME,
         roundEndTime: convertToMelbourneTime(OPENING_ROUND_END_TIME),
+        roundEndDate: OPENING_ROUND_END_TIME,
         round1LockoutTime,
         round1LockoutDate,
         isError: false,
         isLocked,
-        isRound1Started: now >= (round1LockoutDate || Infinity)
+        isRound1Started: now >= (round1LockoutDate || Infinity),
+        nextRoundLockoutTime: round1LockoutTime,
+        nextRoundLockoutDate: round1LockoutDate,
+        shouldAdvanceToNextRound: isLocked && round1LockoutDate && 
+          now >= new Date(round1LockoutDate.getTime() - (DAYS_BEFORE_ADVANCE * 24 * 60 * 60 * 1000))
       };
     }
     
@@ -240,10 +281,12 @@ export function getRoundInfo(fixtures, roundNumber) {
       
     // Calculate round end time (3 hours after last game)
     let roundEndTime = null;
+    let roundEndDate = null;
     if (lastGameOfRound) {
       const endDate = new Date(lastGameOfRound.DateUtc);
       endDate.setHours(endDate.getHours() + 3);
       roundEndTime = convertToMelbourneTime(endDate);
+      roundEndDate = endDate;
     }
     
     // Check if we should be locked
@@ -271,18 +314,50 @@ export function getRoundInfo(fixtures, roundNumber) {
       nextRoundLockoutDate = firstGameOfNextRound?.DateUtc || null;
     }
     
+    // Check if we should advance to next round early (2 days before first fixture)
+    const shouldAdvanceEarly = () => {
+      if (!nextRoundLockoutDate) return false;
+      
+      // Check if current round has ended
+      const isRoundEnded = roundEndDate ? now >= roundEndDate : false;
+      
+      // Calculate date to advance (DAYS_BEFORE_ADVANCE days before next round starts)
+      const advanceDate = new Date(nextRoundLockoutDate);
+      advanceDate.setDate(advanceDate.getDate() - DAYS_BEFORE_ADVANCE);
+      
+      // Check if current time is past the advance date AND round has ended
+      return isRoundEnded && now >= advanceDate;
+    };
+    
+    // Create a full nextRoundInfo object
+    const nextRoundInfo = nextRoundFixtures.length > 0 ? {
+      round: roundNumber + 1,
+      lockoutTime: nextRoundLockoutTime,
+      lockoutDate: nextRoundLockoutDate,
+      isNextRoundStarted: nextRoundLockoutDate ? now >= nextRoundLockoutDate : false
+    } : null;
+    
+    // Determine if we should advance to next round
+    const shouldAdvance = shouldAdvanceEarly();
+    
     return {
       currentRound: roundNumber,
       currentRoundDisplay: roundNumber === 0 ? 'Opening Round' : roundNumber,
       lockoutTime,
       lockoutDate,
       roundEndTime,
+      roundEndDate,
       nextRoundLockoutTime, 
       nextRoundLockoutDate,
+      nextRoundInfo,
       isError: false,
       isLocked,
       // Add a flag whether next round has started yet
-      isNextRoundStarted: nextRoundLockoutDate ? now >= nextRoundLockoutDate : false
+      isNextRoundStarted: nextRoundLockoutDate ? now >= nextRoundLockoutDate : false,
+      // Add a flag whether current round has ended
+      isRoundEnded: roundEndDate ? now >= roundEndDate : false,
+      // Add a flag to indicate if we should advance to next round early
+      shouldAdvanceToNextRound: shouldAdvance
     };
   } catch (error) {
     console.error('Error getting round info:', error);

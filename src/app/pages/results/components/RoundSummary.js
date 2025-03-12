@@ -78,7 +78,7 @@ function OpeningRoundSummary({ allTeamScores, selectedUserId }) {
             } rounded-lg shadow-md p-3`}>
               <div className="text-center font-medium">
                 {userName}
-                {userId == selectedUserId && (
+                {userId === selectedUserId && (
                   <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
                     Selected
                   </span>
@@ -113,7 +113,13 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
       {fixtures.map((fixture, index) => {
         // Highlight the selected user's match
         const isSelectedUserMatch = selectedUserId && 
-          (fixture.home == selectedUserId || fixture.away == selectedUserId);
+          (String(fixture.home) === String(selectedUserId) || String(fixture.away) === String(selectedUserId));
+        
+        // Get home score - ensure consistent type comparison by converting both to strings
+        const homeScore = allTeamScores.find(s => String(s.userId) === String(fixture.home))?.totalScore;
+        
+        // Get away score - ensure consistent type comparison by converting both to strings
+        const awayScore = allTeamScores.find(s => String(s.userId) === String(fixture.away))?.totalScore;
         
         return (
           <div 
@@ -134,25 +140,21 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
             </div>
             <div className="flex justify-between items-center">
               <div className="text-center flex-1">
-                <div className={`font-medium ${fixture.home == selectedUserId ? 'text-blue-600 font-bold' : ''}`}>
+                <div className={`font-medium ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.home] || fixture.home}
                 </div>
-                {allTeamScores.find(s => s.userId === String(fixture.home)) && (
-                  <div className="text-2xl font-bold">
-                    {allTeamScores.find(s => s.userId === String(fixture.home))?.totalScore || '-'}
-                  </div>
-                )}
+                <div className="text-2xl font-bold">
+                  {homeScore !== undefined ? homeScore : '-'}
+                </div>
               </div>
               <div className="text-center text-gray-500 px-2">vs</div>
               <div className="text-center flex-1">
-                <div className={`font-medium ${fixture.away == selectedUserId ? 'text-blue-600 font-bold' : ''}`}>
+                <div className={`font-medium ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.away] || fixture.away}
                 </div>
-                {allTeamScores.find(s => s.userId === String(fixture.away)) && (
-                  <div className="text-2xl font-bold">
-                    {allTeamScores.find(s => s.userId === String(fixture.away))?.totalScore || '-'}
-                  </div>
-                )}
+                <div className="text-2xl font-bold">
+                  {awayScore !== undefined ? awayScore : '-'}
+                </div>
               </div>
             </div>
           </div>

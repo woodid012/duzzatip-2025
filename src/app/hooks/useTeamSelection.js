@@ -74,13 +74,22 @@ export default function useTeamSelection() {
     }
   }, []);
 
-  // Determine the appropriate round to load - MODIFIED FUNCTION WITH FIX
+  // Determine the appropriate round to load
   const getAppropriateRound = useCallback(() => {
-    // Special case: if we're viewing the results page, always show the selected round
-
-    return currentRound;
-
+    // If we're viewing round 0 and it's locked, we should show round 1 instead
+    if (currentRound === 0 && roundInfo.isLocked) {
+      console.log('Round 0 is locked, showing Round 1 for team selection');
+      return 1;
+    }
     
+    // If any round is locked, we want to show the next round for team selection
+    if (roundInfo.isLocked) {
+      console.log(`Round ${currentRound} is locked, showing Round ${currentRound + 1} for team selection`);
+      return currentRound + 1;
+    }
+    
+    // Otherwise, just display the current round
+    return currentRound;
   }, [currentRound, roundInfo.isLocked]);
 
   // Load data when round changes

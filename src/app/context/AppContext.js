@@ -88,12 +88,12 @@ export function AppProvider({ children }) {
           
           // If we're before Round 1 lockout
           if (round1LockoutDate && now < round1LockoutDate) {
-            // For results page, we still want to show Opening Round
             // For team selection and tipping, we want to show Round 1
             setCurrentRound(1);
             setRoundInfo({
               ...round1Info,
-              showResultsForRound0: true, // Flag for the results page
+              showResultsForRound0: true, // Flag for the results page to still show round 0
+              isRound0Locked: true,       // Flag to indicate round 0 is locked
               prevRoundInfo: getRoundInfo(processedFixtures, 0) // Keep round 0 info for reference
             });
           } else {
@@ -103,7 +103,14 @@ export function AppProvider({ children }) {
             
             // Get detailed round info for the current round
             const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
-            setRoundInfo(detailedRoundInfo);
+            
+            // Add next round info
+            const nextRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound + 1);
+            
+            setRoundInfo({
+              ...detailedRoundInfo,
+              nextRoundInfo // Include next round info
+            });
           }
         }
         
@@ -128,6 +135,31 @@ export function AppProvider({ children }) {
 
     fetchFixtures();
   }, []);
+
+  // Check for early round advancement periodically
+  useEffect(() => {
+    // Only run this if we have fixtures loaded
+    if (fixtures.length === 0) return;
+
+    // Check if we should advance immediately
+    if (roundInfo.shouldAdvanceToNextRound) {
+      advanceToAppropriateRound();
+    }
+    
+    // Set up an interval to check for round advancement
+    const checkInterval = setInterval(() => {
+      // Get fresh round info
+      const currentRoundInfo = getSpecificRoundInfo(currentRound);
+      
+      // Check if we should advance
+      if (currentRoundInfo.shouldAdvanceToNextRound) {
+        advanceToAppropriateRound();
+      }
+    }, 60 * 60 * 1000); // Check every hour
+    
+    // Clean up interval on unmount
+    return () => clearInterval(checkInterval);
+  }, [fixtures, currentRound, roundInfo]); // Re-run when fixtures, currentRound, or roundInfo changes
 
   // Load squad data
   const fetchSquads = async () => {
@@ -222,6 +254,40 @@ export function AppProvider({ children }) {
     setCurrentRound(roundNumber);
   };
 
+  // Automatically advance to the appropriate round
+  const advanceToAppropriateRound = () => {
+    const now = new Date();
+    
+    // If current round info says we should advance to next round early
+    if (roundInfo.shouldAdvanceToNextRound) {
+      console.log(`Advancing to Round ${currentRound + 1} early (2 days before first fixture)`);
+      changeRound(currentRound + 1);
+      return;
+    }
+    
+    // If current round is locked and there's a next round available
+    if (roundInfo.isLocked && roundInfo.nextRoundInfo) {
+      changeRound(currentRound + 1);
+      return;
+    }
+    
+    // If in special case where Round 0 is locked but Round 1 isn't
+    if (currentRound === 0 && roundInfo.isLocked) {
+      changeRound(1);
+      return;
+    }
+    
+    // Otherwise calculate the appropriate round
+    if (fixtures && fixtures.length > 0) {
+      const calculatedInfo = calculateRoundInfo(fixtures);
+      
+      // Only change if the calculated round is different
+      if (calculatedInfo.currentRound !== currentRound) {
+        changeRound(calculatedInfo.currentRound);
+      }
+    }
+  };
+
   // Create context value
   const contextValue = {
     // State
@@ -235,6 +301,7 @@ export function AppProvider({ children }) {
     
     // Actions
     changeRound,
+    advanceToAppropriateRound,
     fetchSquads,
     fetchTeamSelections,
     getSpecificRoundInfo
