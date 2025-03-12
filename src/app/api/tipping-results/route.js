@@ -55,29 +55,62 @@ export async function GET(request) {
         Active: 1 
       }).toArray();
 
+    // Get all matches for this round (including those without scores yet)
+    const allRoundMatches = fixtures.filter(match => 
+      match.RoundNumber.toString() === round
+    );
+
     // Calculate results
     let correctTips = 0;
     let deadCertScore = 0;
+    let completedMatchesWithTips = [];
 
-    completedMatches.forEach(match => {
+    // Go through all matches for this round
+    allRoundMatches.forEach(match => {
+      // Look for an existing tip
       const tip = tips.find(t => t.MatchNumber === match.MatchNumber);
-      if (!tip) return;
-
-      const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
-        ? match.HomeTeam 
-        : match.AwayTeamScore > match.HomeTeamScore 
-          ? match.AwayTeam 
-          : 'Draw';
-
-      const isCorrect = tip.Team === winningTeam;
-
-      if (isCorrect) {
-        correctTips++;
-        if (tip.DeadCert) {
-          deadCertScore += 6;
+      
+      // Determine if match is completed
+      const isCompleted = match.HomeTeamScore !== null && match.AwayTeamScore !== null;
+      
+      if (isCompleted) {
+        // Get winning team
+        const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
+          ? match.HomeTeam 
+          : match.AwayTeamScore > match.HomeTeamScore 
+            ? match.AwayTeam 
+            : 'Draw';
+        
+        // If tip exists, use it
+        let tipTeam = tip ? tip.Team : match.HomeTeam; // Default to home team
+        let isDefault = !tip;
+        let isDeadCert = tip ? tip.DeadCert : false;
+        
+        // Determine if tip was correct
+        const isCorrect = tipTeam === winningTeam;
+        
+        // Update scores
+        if (isCorrect) {
+          correctTips++;
+          if (isDeadCert) {
+            deadCertScore += 6;
+          }
+        } else if (isDeadCert) {
+          deadCertScore -= 12;
         }
-      } else if (tip.DeadCert) {
-        deadCertScore -= 12;
+        
+        // Add to completed matches
+        completedMatchesWithTips.push({
+          matchNumber: match.MatchNumber,
+          homeTeam: match.HomeTeam,
+          awayTeam: match.AwayTeam,
+          homeScore: match.HomeTeamScore,
+          awayScore: match.AwayTeamScore,
+          tip: tipTeam,
+          deadCert: isDeadCert,
+          correct: isCorrect,
+          isDefault: isDefault
+        });
       }
     });
 
@@ -88,17 +121,7 @@ export async function GET(request) {
       correctTips,
       deadCertScore,
       totalScore: correctTips + deadCertScore,
-      completedMatches: completedMatches.map(match => ({
-        matchNumber: match.MatchNumber,
-        homeTeam: match.HomeTeam,
-        awayTeam: match.AwayTeam,
-        homeScore: match.HomeTeamScore,
-        awayScore: match.AwayTeamScore,
-        tip: tips.find(t => t.MatchNumber === match.MatchNumber)?.Team || null,
-        deadCert: tips.find(t => t.MatchNumber === match.MatchNumber)?.DeadCert || false,
-        correct: tips.find(t => t.MatchNumber === match.MatchNumber)?.Team === 
-          (match.HomeTeamScore > match.AwayTeamScore ? match.HomeTeam : match.AwayTeam)
-      }))
+      completedMatches: completedMatchesWithTips
     });
 
   } catch (error) {

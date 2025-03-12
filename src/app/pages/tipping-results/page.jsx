@@ -40,12 +40,27 @@ const TippingResultsGrid = () => {
         
         allResults.forEach(([roundResult, yearResult], index) => {
           const userId = Object.keys(USER_NAMES)[index];
+          
+          // Process the matches and add default home team selections if needed
+          const processedMatches = roundResult.completedMatches.map(match => {
+            // If there's no tip, use the home team as default
+            if (!match.tip) {
+              return {
+                ...match,
+                tip: match.homeTeam,
+                isDefault: true
+              };
+            }
+            return match;
+          });
+          
           tipsMap[userId] = {
-            matches: roundResult.completedMatches,
+            matches: processedMatches,
             correctTips: roundResult.correctTips,
             deadCertScore: roundResult.deadCertScore,
             totalScore: roundResult.totalScore
           };
+          
           yearTotalsMap[userId] = {
             correctTips: yearResult.correctTips,
             deadCertScore: yearResult.deadCertScore
@@ -152,6 +167,7 @@ const TippingResultsGrid = () => {
                     const matchTip = userResults?.matches?.find(m => m.matchNumber === fixture.MatchNumber);
                     const isCorrect = matchTip?.correct;
                     const isDeadCert = matchTip?.deadCert;
+                    const isDefault = matchTip?.isDefault;
                     
                     return (
                       <td key={fixture.MatchNumber} className="py-2 px-4 border text-center">
@@ -159,10 +175,11 @@ const TippingResultsGrid = () => {
                           className={`
                             ${isCorrect ? 'text-green-600' : 'text-red-600'}
                             ${!matchTip?.tip ? 'text-black' : ''}
-                            font-medium
+                            ${isDefault ? 'italic text-gray-500' : 'font-medium'}
                           `}
                         >
                           {matchTip?.tip || '-'}
+                          {isDefault && <span className="ml-1">(Default)</span>}
                           {isDeadCert && (
                             <span className="ml-1 text-sm text-black">
                               ({isCorrect ? '+6' : '-12'})

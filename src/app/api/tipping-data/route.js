@@ -61,16 +61,33 @@ export async function GET(request) {
         
       const lastUpdated = lastUpdate.length > 0 ? lastUpdate[0].LastUpdated : null;
 
+      // Get fixtures for this round
+      const roundFixtures = fixtures.filter(f => f.RoundNumber.toString() === round);
+      
+      // Build tips object including default Home Team selections for missing tips
+      const tipsWithDefaults = {};
+      roundFixtures.forEach(fixture => {
+        const existingTip = tips.find(t => t.MatchNumber === fixture.MatchNumber);
+        
+        if (existingTip) {
+          tipsWithDefaults[fixture.MatchNumber] = {
+            team: existingTip.Team,
+            deadCert: existingTip.DeadCert
+          };
+        } else {
+          // Default to home team if no tip exists
+          tipsWithDefaults[fixture.MatchNumber] = {
+            team: fixture.HomeTeam,
+            deadCert: false,
+            isDefault: true
+          };
+        }
+      });
+
       // Build response
       const response = {
         fixtures,
-        tips: tips.reduce((acc, tip) => ({
-          ...acc,
-          [tip.MatchNumber]: {
-            team: tip.Team,
-            deadCert: tip.DeadCert
-          }
-        }), {}),
+        tips: tipsWithDefaults,
         lastUpdated
       };
 
@@ -123,7 +140,8 @@ export async function POST(request) {
                 Team: tipData.team,
                 DeadCert: tipData.deadCert || false,
                 Active: 1,
-                LastUpdated: lastUpdated ? new Date(lastUpdated) : new Date()
+                LastUpdated: lastUpdated ? new Date(lastUpdated) : new Date(),
+                IsDefault: tipData.isDefault || false
               }
             },
             upsert: true
