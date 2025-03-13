@@ -18,6 +18,9 @@ export default function ResultsPage() {
   // Get the selected user from context
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
+  // State for the round displayed on the page
+  const [displayedRound, setDisplayedRound] = useState(currentRound);
+  
   // Get results functionality from our hook
   const {
     teams,
@@ -33,8 +36,10 @@ export default function ResultsPage() {
   const [orderedFixtures, setOrderedFixtures] = useState([]);
   const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
   
-  // New state for the displayed round (might be different from the actual current round)
-  const [displayedRound, setDisplayedRound] = useState(0);
+  // Set displayed round whenever currentRound changes
+  useEffect(() => {
+    setDisplayedRound(currentRound);
+  }, [currentRound]);
 
   // Check if the round is complete based on roundEndTime
   const isRoundComplete = () => {
@@ -50,21 +55,6 @@ export default function ResultsPage() {
     const roundEnd = new Date(roundInfo.roundEndTime);
     return now > roundEnd;
   };
-
-  // Set displayed round based on various conditions
-  useEffect(() => {
-    // If roundInfo indicates we should show Opening Round results
-    if (roundInfo.showResultsForRound0) {
-      setDisplayedRound(0);
-      // Load round 0 data
-      if (currentRound !== 0) {
-        changeRound(0);
-      }
-    } else {
-      // Otherwise, sync with context's current round
-      setDisplayedRound(currentRound);
-    }
-  }, [roundInfo, currentRound, changeRound]);
 
   // Check if we should display the welcome screen
   useEffect(() => {
@@ -111,7 +101,7 @@ export default function ResultsPage() {
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     setDisplayedRound(newRound);
-    changeRound(newRound);
+    changeRound(newRound); // Update the global context so data is loaded
   };
 
   // Display round name
@@ -144,9 +134,13 @@ export default function ResultsPage() {
   const allTeamScores = calculateAllTeamScores();
   
   // Filter out any zero or undefined scores when determining highest/lowest
-  const nonZeroScores = allTeamScores.filter(s => s.totalScore > 0);
-  const highestScore = nonZeroScores.length > 0 ? Math.max(...nonZeroScores.map(s => s.totalScore)) : 0;
-  const lowestScore = nonZeroScores.length > 0 ? Math.min(...nonZeroScores.map(s => s.totalScore)) : 0;
+  const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
+  const highestScore = validScores.length > 0 
+    ? Math.max(...validScores.map(s => s?.totalScore || 0)) 
+    : 0;
+  const lowestScore = validScores.length > 0 
+    ? Math.min(...validScores.map(s => s?.totalScore || 0)) 
+    : 0;
 
   const hasSubstitutions = roundEndPassed || currentRound > 1;
 
@@ -154,16 +148,15 @@ export default function ResultsPage() {
   const getTeamCardsOrder = () => {
     if (displayedRound === 0) {
       // For Opening Round, display all team cards sorted by score
-      return [...Object.entries(USER_NAMES)]
-        .map(([userId]) => userId)
+      return [...Object.keys(USER_NAMES)]
         .sort((a, b) => {
           // First prioritize the selected user
           if (a === selectedUserId) return -1;
           if (b === selectedUserId) return 1;
           
           // Then sort by score
-          const scoreA = allTeamScores.find(s => s.userId === a)?.totalScore || 0;
-          const scoreB = allTeamScores.find(s => s.userId === b)?.totalScore || 0;
+          const scoreA = allTeamScores.find(s => s?.userId === a)?.totalScore || 0;
+          const scoreB = allTeamScores.find(s => s?.userId === b)?.totalScore || 0;
           return scoreB - scoreA; // Sort descending
         });
     } else if (orderedFixtures && orderedFixtures.length > 0) {

@@ -9,12 +9,13 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const round = searchParams.get('round');
     const userId = searchParams.get('userId');
+    const year = searchParams.get('year');
 
-    if (!round && !userId) {
-      throw new Error('Round or userId is required');
+    if (!userId) {
+      throw new Error('UserId is required');
     }
 
-    // Read local JSON file
+    // Read local JSON file with fixtures
     const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
     let fixturesData;
     
@@ -26,6 +27,56 @@ export async function GET(request) {
     }
     
     const fixtures = JSON.parse(fixturesData);
+    const { db } = await connectToDatabase();
+
+    // If year parameter is provided, calculate totals for all rounds in the year
+    if (year) {
+      // Find all rounds that have completed matches
+      const completedRounds = findCompletedRounds(fixtures);
+      
+      // Initialize variables to accumulate totals
+      let totalCorrectTips = 0;
+      let totalDeadCertScore = 0;
+      
+      // Process each completed round
+      for (const roundNumber of completedRounds) {
+        // Get tips for this round
+        const tips = await db.collection(`${CURRENT_YEAR}_tips`)
+          .find({ 
+            Round: parseInt(roundNumber),
+            User: parseInt(userId),
+            Active: 1 
+          }).toArray();
+        
+        // Get round fixtures
+        const roundFixtures = fixtures.filter(match => 
+          match.RoundNumber.toString() === roundNumber.toString() &&
+          match.HomeTeamScore !== null &&
+          match.AwayTeamScore !== null
+        );
+        
+        // Calculate results for this round
+        const roundResults = calculateRoundResults(roundFixtures, tips);
+        
+        // Add to year totals
+        totalCorrectTips += roundResults.correctTips;
+        totalDeadCertScore += roundResults.deadCertScore;
+      }
+      
+      // Return year totals
+      return NextResponse.json({
+        userId,
+        year,
+        correctTips: totalCorrectTips,
+        deadCertScore: totalDeadCertScore,
+        totalScore: totalCorrectTips + totalDeadCertScore
+      });
+    }
+
+    // Regular round-specific processing
+    if (!round) {
+      throw new Error('Round is required when not requesting year totals');
+    }
 
     // Filter completed matches for the round
     const completedMatches = fixtures.filter(match => 
@@ -47,7 +98,6 @@ export async function GET(request) {
     };
 
     // Then get tips from database
-    const { db } = await connectToDatabase();
     const tips = await db.collection(`${CURRENT_YEAR}_tips`)
       .find({ 
         Round: parseInt(round),
@@ -61,67 +111,16 @@ export async function GET(request) {
     );
 
     // Calculate results
-    let correctTips = 0;
-    let deadCertScore = 0;
-    let completedMatchesWithTips = [];
-
-    // Go through all matches for this round
-    allRoundMatches.forEach(match => {
-      // Look for an existing tip
-      const tip = tips.find(t => t.MatchNumber === match.MatchNumber);
-      
-      // Determine if match is completed
-      const isCompleted = match.HomeTeamScore !== null && match.AwayTeamScore !== null;
-      
-      if (isCompleted) {
-        // Get winning team
-        const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
-          ? match.HomeTeam 
-          : match.AwayTeamScore > match.HomeTeamScore 
-            ? match.AwayTeam 
-            : 'Draw';
-        
-        // If tip exists, use it
-        let tipTeam = tip ? tip.Team : match.HomeTeam; // Default to home team
-        let isDefault = !tip;
-        let isDeadCert = tip ? tip.DeadCert : false;
-        
-        // Determine if tip was correct
-        const isCorrect = tipTeam === winningTeam;
-        
-        // Update scores
-        if (isCorrect) {
-          correctTips++;
-          if (isDeadCert) {
-            deadCertScore += 6;
-          }
-        } else if (isDeadCert) {
-          deadCertScore -= 12;
-        }
-        
-        // Add to completed matches
-        completedMatchesWithTips.push({
-          matchNumber: match.MatchNumber,
-          homeTeam: match.HomeTeam,
-          awayTeam: match.AwayTeam,
-          homeScore: match.HomeTeamScore,
-          awayScore: match.AwayTeamScore,
-          tip: tipTeam,
-          deadCert: isDeadCert,
-          correct: isCorrect,
-          isDefault: isDefault
-        });
-      }
-    });
-
+    const roundResults = calculateRoundResults(allRoundMatches, tips);
+    
     return NextResponse.json({
       ...fixturesResponse,
       userId,
       totalMatches: completedMatches.length,
-      correctTips,
-      deadCertScore,
-      totalScore: correctTips + deadCertScore,
-      completedMatches: completedMatchesWithTips
+      correctTips: roundResults.correctTips,
+      deadCertScore: roundResults.deadCertScore,
+      totalScore: roundResults.correctTips + roundResults.deadCertScore,
+      completedMatches: roundResults.completedMatchesWithTips
     });
 
   } catch (error) {
@@ -131,4 +130,79 @@ export async function GET(request) {
       { status: 500 }
     );
   }
+}
+
+// Helper function to find all rounds with completed matches
+function findCompletedRounds(fixtures) {
+  const completedRounds = new Set();
+  
+  fixtures.forEach(match => {
+    if (match.HomeTeamScore !== null && match.AwayTeamScore !== null) {
+      completedRounds.add(match.RoundNumber.toString());
+    }
+  });
+  
+  return Array.from(completedRounds).sort((a, b) => parseInt(a) - parseInt(b));
+}
+
+// Helper function to calculate round results
+function calculateRoundResults(matches, tips) {
+  let correctTips = 0;
+  let deadCertScore = 0;
+  let completedMatchesWithTips = [];
+
+  // Go through all matches
+  matches.forEach(match => {
+    // Look for an existing tip
+    const tip = tips.find(t => t.MatchNumber === match.MatchNumber);
+    
+    // Determine if match is completed
+    const isCompleted = match.HomeTeamScore !== null && match.AwayTeamScore !== null;
+    
+    if (isCompleted) {
+      // Get winning team
+      const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
+        ? match.HomeTeam 
+        : match.AwayTeamScore > match.HomeTeamScore 
+          ? match.AwayTeam 
+          : 'Draw';
+      
+      // If tip exists, use it
+      let tipTeam = tip ? tip.Team : match.HomeTeam; // Default to home team
+      let isDefault = !tip;
+      let isDeadCert = tip ? tip.DeadCert : false;
+      
+      // Determine if tip was correct
+      const isCorrect = tipTeam === winningTeam;
+      
+      // Update scores
+      if (isCorrect) {
+        correctTips++;
+        if (isDeadCert) {
+          deadCertScore += 6;
+        }
+      } else if (isDeadCert) {
+        deadCertScore -= 12;
+      }
+      
+      // Add to completed matches
+      completedMatchesWithTips.push({
+        matchNumber: match.MatchNumber,
+        homeTeam: match.HomeTeam,
+        awayTeam: match.AwayTeam,
+        homeScore: match.HomeTeamScore,
+        awayScore: match.AwayTeamScore,
+        tip: tipTeam,
+        deadCert: isDeadCert,
+        correct: isCorrect,
+        isDefault: isDefault
+      });
+    }
+  });
+
+  return {
+    correctTips,
+    deadCertScore,
+    completedMatchesWithTips
+  };
 }
