@@ -145,6 +145,15 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
       }
     }
 
+    // Get fixtures for current round
+    const currentRoundFixtures = fixtures.filter(
+      fixture => fixture.RoundNumber === currentRound
+    );
+    
+    // Get next round fixtures
+    const nextRoundFixtures = fixtures.filter(
+      fixture => fixture.RoundNumber === (currentRound + 1)
+    );
 
     // If current round has fixtures and next round also has fixtures
     if (currentRoundFixtures.length > 0 && nextRoundFixtures.length > 0) {
@@ -168,11 +177,6 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
       }
     }
 
-    // Get next round's fixtures for lockout
-    const nextRoundFixtures = fixtures.filter(
-      fixture => fixture.RoundNumber === (currentRound + 1)
-    );
-
     // Get lockout time (earliest game of next round)
     const lockoutTime = nextRoundFixtures.length 
       ? nextRoundFixtures.sort((a, b) => a.DateUtc - b.DateUtc)[0].DateMelb
@@ -180,9 +184,6 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
 
     // Calculate round end time (3 hours after the last game of current round starts)
     let roundEndTime = null;
-    const currentRoundFixtures = fixtures.filter(
-      fixture => fixture.RoundNumber === currentRound
-    );
     
     if (currentRoundFixtures.length) {
       const lastGame = currentRoundFixtures.sort((a, b) => b.DateUtc - a.DateUtc)[0];
@@ -209,7 +210,6 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
     };
   }
 }
-
 /**
  * Get round information for a specific round
  * @param {Array} fixtures - Array of processed fixture objects
