@@ -58,6 +58,7 @@ function OpeningRoundSummary({ allTeamScores, selectedUserId }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         {Object.entries(USER_NAMES).map(([userId, userName]) => {
           // Get the team score, treat null, undefined, NaN as 0
+          // Using the same score source as everywhere else
           const score = allTeamScores.find(s => s.userId === userId)?.totalScore || 0;
           
           // Only teams with scores > 0 should be considered for rankings
@@ -116,10 +117,11 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
           (String(fixture.home) === String(selectedUserId) || String(fixture.away) === String(selectedUserId));
         
         // Get home score - ensure consistent type comparison by converting both to strings
-        const homeScore = allTeamScores.find(s => String(s.userId) === String(fixture.home))?.totalScore;
+        // We're now using the same score source as the TeamScoreCard
+        const homeScore = allTeamScores.find(s => String(s.userId) === String(fixture.home))?.totalScore || 0;
         
         // Get away score - ensure consistent type comparison by converting both to strings
-        const awayScore = allTeamScores.find(s => String(s.userId) === String(fixture.away))?.totalScore;
+        const awayScore = allTeamScores.find(s => String(s.userId) === String(fixture.away))?.totalScore || 0;
         
         return (
           <div 
@@ -144,7 +146,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                   {USER_NAMES[fixture.home] || fixture.home}
                 </div>
                 <div className="text-2xl font-bold">
-                  {homeScore !== undefined ? homeScore : '-'}
+                  {homeScore}
                 </div>
               </div>
               <div className="text-center text-gray-500 px-2">vs</div>
@@ -153,7 +155,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                   {USER_NAMES[fixture.away] || fixture.away}
                 </div>
                 <div className="text-2xl font-bold">
-                  {awayScore !== undefined ? awayScore : '-'}
+                  {awayScore}
                 </div>
               </div>
             </div>

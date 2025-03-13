@@ -137,23 +137,24 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
           <div className="font-medium col-span-2 mb-1 sm:mb-0">{position.position}</div>
           <div className="col-span-3 mb-1 sm:mb-0">
             {isRoundComplete && position.noStats ? (
-              <span className="text-red-600">
-                {position.playerName} ({position.player?.team ? getTeamAbbreviation(position.player.team) : ''}) (DNP)
-              </span>
+              <div className="text-red-600">
+                <div className="truncate">{position.playerName}</div>
+                <div className="text-xs">({position.player?.team ? getTeamAbbreviation(position.player.team) : ''}) (DNP)</div>
+              </div>
             ) : isRoundComplete && position.isBenchPlayer ? (
-              <span className="text-green-600">
-                {position.playerName} ({position.player?.team ? getTeamAbbreviation(position.player.team) : ''})
-                <div className="text-xs">From: {position.replacementType}</div>
-              </span>
+              <div className="text-green-600">
+                <div className="truncate">{position.playerName}</div>
+                <div className="text-xs">({position.player?.team ? getTeamAbbreviation(position.player.team) : ''}) - {position.replacementType}</div>
+              </div>
             ) : (
-              <>
-                {position.playerName || 'Not Selected'} 
+              <div>
+                <div className="truncate">{position.playerName || 'Not Selected'}</div>
                 {position.player?.team && (
-                  <span className="text-gray-500 ml-1">
+                  <div className="text-xs text-gray-500">
                     ({getTeamAbbreviation(position.player.team)})
-                  </span>
+                  </div>
                 )}
-              </>
+              </div>
             )}
           </div>
           <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">
@@ -198,22 +199,24 @@ function BenchSection({ benchScores, isRoundComplete }) {
           </div>
           <div className="col-span-3 mb-1 sm:mb-0">
             {isRoundComplete && !bench.didPlay ? (
-              <span className="text-red-600">
-                {bench.playerName} ({bench.player?.team ? getTeamAbbreviation(bench.player.team) : ''}) (DNP)
-              </span>
+              <div className="text-red-600">
+                <div className="truncate">{bench.playerName}</div>
+                <div className="text-xs">({bench.player?.team ? getTeamAbbreviation(bench.player.team) : ''}) (DNP)</div>
+              </div>
             ) : isRoundComplete && bench.isBeingUsed ? (
-              <span className="text-green-600">
-                {bench.playerName} ({bench.player?.team ? getTeamAbbreviation(bench.player.team) : ''})
-              </span>
+              <div className="text-green-600">
+                <div className="truncate">{bench.playerName}</div>
+                <div className="text-xs">({bench.player?.team ? getTeamAbbreviation(bench.player.team) : ''})</div>
+              </div>
             ) : (
-              <>
-                {bench.playerName} 
+              <div>
+                <div className="truncate">{bench.playerName}</div>
                 {bench.player?.team && (
-                  <span className="text-gray-500 ml-1">
+                  <div className="text-xs text-gray-500">
                     ({getTeamAbbreviation(bench.player.team)})
-                  </span>
+                  </div>
                 )}
-              </>
+              </div>
             )}
           </div>
           <div className="col-span-5 text-black text-xs sm:text-sm mb-1 sm:mb-0">

@@ -130,8 +130,17 @@ export default function ResultsPage() {
     );
   }
 
-  // Calculate all team scores for determining highest and lowest
-  const allTeamScores = calculateAllTeamScores();
+  // Instead of using calculateAllTeamScores, let's calculate scores directly
+  // from getTeamScores to ensure consistency across the page
+  const allTeamScores = Object.keys(USER_NAMES).map(userId => {
+    const teamScore = getTeamScores(userId);
+    return {
+      userId,
+      totalScore: teamScore.finalScore || 0, // Use finalScore which includes dead cert scores
+      teamOnly: teamScore.totalScore || 0,
+      deadCert: teamScore.deadCertScore || 0
+    };
+  });
   
   // Filter out any zero or undefined scores when determining highest/lowest
   const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
