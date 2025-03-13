@@ -1,16 +1,10 @@
 // scripts/download-fixtures.js
-import { promises as fs } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import fetch from 'node-fetch';
+const fs = require('fs').promises;
+const path = require('path');
+const axios = require('axios');
 
 // Get current year or use custom year for development
 const CURRENT_YEAR = new Date().getFullYear();
-
-// Get the directory name in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 async function downloadFixtures() {
   try {
@@ -24,14 +18,14 @@ async function downloadFixtures() {
     // Ensure the directory exists
     await fs.mkdir(publicDir, { recursive: true });
     
-    // Fetch fixtures from API
-    const response = await fetch(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`);
+    // Fetch fixtures from API using axios
+    const response = await axios.get(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`);
     
-    if (!response.ok) {
+    if (response.status !== 200) {
       throw new Error(`Failed to fetch fixtures: ${response.status} ${response.statusText}`);
     }
     
-    const fixtures = await response.json();
+    const fixtures = response.data;
     
     // Save fixtures to public directory
     const fixturesPath = path.join(publicDir, `afl-${CURRENT_YEAR}.json`);
