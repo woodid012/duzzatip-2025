@@ -51,8 +51,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 82,
+    "AwayTeamScore": 69
   },
   {
     "MatchNumber": 6,
