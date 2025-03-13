@@ -110,17 +110,64 @@ export async function GET(request) {
       match.RoundNumber.toString() === round
     );
 
-    // Calculate results
-    const roundResults = calculateRoundResults(allRoundMatches, tips);
+    // Process all matches with tips, regardless of completion status
+    const allMatchesWithTips = [];
+    
+    // Go through all matches for this round
+    allRoundMatches.forEach(match => {
+      // Look for an existing tip
+      const tip = tips.find(t => t.MatchNumber === match.MatchNumber);
+      
+      // Determine if match is completed
+      const isCompleted = match.HomeTeamScore !== null && match.AwayTeamScore !== null;
+      
+      // Initial values
+      let isCorrect = false;
+      let tipTeam = tip ? tip.Team : match.HomeTeam; // Default to home team
+      let isDefault = !tip;
+      let isDeadCert = tip ? tip.DeadCert : false;
+      
+      // Only evaluate correctness if the match is completed
+      if (isCompleted) {
+        // Get winning team
+        const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
+          ? match.HomeTeam 
+          : match.AwayTeamScore > match.HomeTeamScore 
+            ? match.AwayTeam 
+            : 'Draw';
+            
+        // Determine if tip was correct
+        isCorrect = tipTeam === winningTeam;
+      }
+      
+      // Add match data with tip
+      allMatchesWithTips.push({
+        matchNumber: match.MatchNumber,
+        homeTeam: match.HomeTeam,
+        awayTeam: match.AwayTeam,
+        homeScore: match.HomeTeamScore,
+        awayScore: match.AwayTeamScore,
+        tip: tipTeam,
+        deadCert: isDeadCert,
+        correct: isCompleted ? isCorrect : null, // Only set if completed
+        isDefault: isDefault,
+        isCompleted: isCompleted // Add flag to indicate completion status
+      });
+    });
+    
+    // Calculate results (only count completed matches for scoring)
+    const { correctTips, deadCertScore } = calculateScores(
+      allMatchesWithTips.filter(m => m.isCompleted)
+    );
     
     return NextResponse.json({
       ...fixturesResponse,
       userId,
       totalMatches: completedMatches.length,
-      correctTips: roundResults.correctTips,
-      deadCertScore: roundResults.deadCertScore,
-      totalScore: roundResults.correctTips + roundResults.deadCertScore,
-      completedMatches: roundResults.completedMatchesWithTips
+      correctTips,
+      deadCertScore,
+      totalScore: correctTips + deadCertScore,
+      completedMatches: allMatchesWithTips
     });
 
   } catch (error) {
@@ -156,10 +203,8 @@ function calculateRoundResults(matches, tips) {
     // Look for an existing tip
     const tip = tips.find(t => t.MatchNumber === match.MatchNumber);
     
-    // Determine if match is completed
-    const isCompleted = match.HomeTeamScore !== null && match.AwayTeamScore !== null;
-    
-    if (isCompleted) {
+    // Only process completed matches
+    if (match.HomeTeamScore !== null && match.AwayTeamScore !== null) {
       // Get winning team
       const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
         ? match.HomeTeam 
@@ -205,4 +250,23 @@ function calculateRoundResults(matches, tips) {
     deadCertScore,
     completedMatchesWithTips
   };
+}
+
+// Helper function to calculate scores from completed matches
+function calculateScores(completedMatches) {
+  let correctTips = 0;
+  let deadCertScore = 0;
+  
+  completedMatches.forEach(match => {
+    if (match.correct) {
+      correctTips++;
+      if (match.deadCert) {
+        deadCertScore += 6;
+      }
+    } else if (match.deadCert) {
+      deadCertScore -= 12;
+    }
+  });
+  
+  return { correctTips, deadCertScore };
 }

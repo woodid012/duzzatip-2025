@@ -5,18 +5,42 @@ import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 import { useAppContext } from '@/app/context/AppContext';
 
 const TippingResultsGrid = () => {
-  const { currentRound } = useAppContext();
+  const { currentRound, roundInfo, getSpecificRoundInfo } = useAppContext();
   const [selectedRound, setSelectedRound] = useState(currentRound.toString());
   const [fixtures, setFixtures] = useState([]);
   const [allUserTips, setAllUserTips] = useState({});
   const [yearTotals, setYearTotals] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedRoundInfo, setSelectedRoundInfo] = useState(null);
+  const [isLockoutPassed, setIsLockoutPassed] = useState(false);
   
   // Update selectedRound when currentRound changes
   useEffect(() => {
     setSelectedRound(currentRound.toString());
   }, [currentRound]);
+  
+  // Get round info for the selected round
+  useEffect(() => {
+    if (getSpecificRoundInfo) {
+      const roundInfo = getSpecificRoundInfo(parseInt(selectedRound));
+      setSelectedRoundInfo(roundInfo);
+      
+      // Check if lockout has passed for this round
+      const now = new Date();
+      const lockoutDate = roundInfo?.lockoutDate;
+      
+      // Consider the lockout passed if:
+      // 1. There's no lockout date (safety check)
+      // 2. Current time is past the lockout
+      // 3. We're looking at an earlier round (historical data)
+      const hasLockoutPassed = !lockoutDate || 
+                              now > new Date(lockoutDate) || 
+                              parseInt(selectedRound) < currentRound;
+                              
+      setIsLockoutPassed(hasLockoutPassed);
+    }
+  }, [selectedRound, getSpecificRoundInfo, currentRound]);
 
   useEffect(() => {
     const loadAllResults = async () => {
@@ -162,6 +186,22 @@ const TippingResultsGrid = () => {
             ))}
           </select>
         </div>
+        
+        {/* Show lockout status */}
+        {selectedRoundInfo && (
+          <div className="mt-2 text-sm">
+            <span className="font-medium">Lockout: </span>
+            <span className={isLockoutPassed ? "text-green-600" : "text-red-600"}>
+              {selectedRoundInfo.lockoutTime || "Not set"} 
+              {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
+            </span>
+            {!isLockoutPassed && (
+              <span className="ml-2 text-gray-600">
+                • Tips will be visible after lockout
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -169,32 +209,43 @@ const TippingResultsGrid = () => {
           <thead>
             <tr>
               <th className="py-2 px-4 border sticky left-0 bg-gray-100 z-10 text-black" rowSpan={3}>Team</th>
-              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Year Tips</th>
-              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Year Dead Certs</th>
-              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Round Tips</th>
-              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Round Dead Certs</th>
-              {fixtures.map(fixture => (
-                <th key={fixture.MatchNumber} className="py-1 px-2 border bg-gray-100 text-center text-black">
-                  Game {fixture.MatchNumber}
-                </th>
-              ))}
+              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Total (Year) | (Round)</th>
+              {fixtures.map(fixture => {
+                const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+                
+                return (
+                  <th key={fixture.MatchNumber} className={`py-1 px-2 border text-center text-black ${isMatchCompleted ? 'bg-green-50' : 'bg-gray-100'}`}>
+                    Game {fixture.MatchNumber}
+                  </th>
+                );
+              })}
             </tr>
             <tr className="bg-gray-50">
-              {fixtures.map(fixture => (
-                <td key={`h-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap text-black">
-                  H - {getTeamAbbreviation(fixture.HomeTeam)} ({fixture.HomeTeamScore ?? '-'})
-                </td>
-              ))}
+              {fixtures.map(fixture => {
+                const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+                
+                return (
+                  <td key={`h-${fixture.MatchNumber}`} className={`py-1 px-2 border text-center whitespace-nowrap text-black ${isMatchCompleted ? 'bg-green-50' : ''}`}>
+                    H - {getTeamAbbreviation(fixture.HomeTeam)} ({fixture.HomeTeamScore ?? '-'})
+                  </td>
+                );
+              })}
             </tr>
             <tr className="bg-gray-50">
-              {fixtures.map(fixture => (
-                <td key={`a-${fixture.MatchNumber}`} className="py-1 px-2 border text-center whitespace-nowrap text-black">
-                  A - {getTeamAbbreviation(fixture.AwayTeam)} ({fixture.AwayTeamScore ?? '-'})
-                  <div className="text-xs font-medium text-black">
-                    {fixture.HomeTeamScore !== null ? `W - ${getTeamAbbreviation(getWinningTeam(fixture))}` : ''}
-                  </div>
-                </td>
-              ))}
+              {fixtures.map(fixture => {
+                const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+                
+                return (
+                  <td key={`a-${fixture.MatchNumber}`} className={`py-1 px-2 border text-center whitespace-nowrap text-black ${isMatchCompleted ? 'bg-green-50' : ''}`}>
+                    A - {getTeamAbbreviation(fixture.AwayTeam)} ({fixture.AwayTeamScore ?? '-'})
+                    <div className="text-xs font-medium">
+                      {isMatchCompleted && 
+                        <span className="text-green-600">W - {getTeamAbbreviation(getWinningTeam(fixture))}</span>
+                      }
+                    </div>
+                  </td>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -218,17 +269,26 @@ const TippingResultsGrid = () => {
                     <td className="py-2 px-4 border sticky left-0 bg-white z-10 font-medium text-black">
                       {userName}
                     </td>
-                    <td className="py-2 px-4 border text-center font-medium text-black">
-                      {yearTotals[userId]?.correctTips || 0}
-                    </td>
-                    <td className="py-2 px-4 border text-center font-medium text-black">
-                      {yearTotals[userId]?.deadCertScore || 0}
-                    </td>
-                    <td className="py-2 px-4 border text-center font-medium text-black">
-                      {userResults?.correctTips || 0}
-                    </td>
-                    <td className="py-2 px-4 border text-center font-medium text-black">
-                      {userResults?.deadCertScore || 0}
+                    <td className="py-2 px-4 border text-center font-medium">
+                      <div className="flex flex-col sm:flex-row justify-center items-center gap-1">
+                        <span className="text-black">
+                          {yearTotals[userId]?.correctTips || 0}
+                        </span>
+                        {yearTotals[userId]?.deadCertScore !== 0 && (
+                          <span className={yearTotals[userId]?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                            ({yearTotals[userId]?.deadCertScore > 0 ? "+" : ""}{yearTotals[userId]?.deadCertScore || 0})
+                          </span>
+                        )}
+                        <span className="text-gray-400 mx-1">|</span>
+                        <span className="text-gray-700">
+                          {userResults?.correctTips || 0}
+                        </span>
+                        {userResults?.deadCertScore !== 0 && (
+                          <span className={userResults?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                            ({userResults?.deadCertScore > 0 ? "+" : ""}{userResults?.deadCertScore || 0})
+                          </span>
+                        )}
+                      </div>
                     </td>
                     {fixtures.map(fixture => {
                       const matchTip = userResults?.matches?.find(m => m.matchNumber === fixture.MatchNumber);
@@ -236,21 +296,36 @@ const TippingResultsGrid = () => {
                       const isDeadCert = matchTip?.deadCert;
                       const isDefault = matchTip?.isDefault;
                       
+                      // Determine if the match has been completed
+                      const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+                      
                       return (
                         <td key={fixture.MatchNumber} className="py-2 px-4 border text-center">
                           <div 
                             className={`
-                              ${isCorrect ? 'text-green-600' : 'text-red-600'}
+                              ${isMatchCompleted ? (isCorrect ? 'text-green-600' : 'text-red-600') : 'text-black'}
                               ${!matchTip?.tip ? 'text-black' : ''}
                               ${isDefault ? 'italic text-gray-500' : 'font-medium'}
                             `}
                           >
-                            {matchTip?.tip ? getTeamAbbreviation(matchTip.tip) : '-'}
-                            {isDefault && <span className="ml-1">(Def)</span>}
-                            {isDeadCert && (
-                              <span className="ml-1 text-sm text-black">
-                                ({isCorrect ? '+6' : '-12'})
-                              </span>
+                            {/* Check if lockout has passed before showing tips */}
+                            {isLockoutPassed ? (
+                              <>
+                                {matchTip?.tip ? getTeamAbbreviation(matchTip.tip) : '-'}
+                                {isDefault && <span className="ml-1">(Def)</span>}
+                                {isDeadCert && (
+                                  <span className="ml-1 text-sm font-medium">
+                                    {isMatchCompleted ? 
+                                      <span className={isCorrect ? 'text-green-600' : 'text-red-600'}>
+                                        ({isCorrect ? '+6' : '-12'})
+                                      </span> : 
+                                      <span className="text-yellow-600">(DC)</span>
+                                    }
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-gray-500 italic">Locked</span>
                             )}
                           </div>
                         </td>

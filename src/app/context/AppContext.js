@@ -45,6 +45,7 @@ export function AppProvider({ children }) {
     teamSelections: false
   });
   const [error, setError] = useState(null);
+  const [userChangedRound, setUserChangedRound] = useState(false);
 
   // This effect loads global data like fixtures and round info
   useEffect(() => {
@@ -248,6 +249,11 @@ export function AppProvider({ children }) {
 
   // Update current round and fetch data for that round
   const changeRound = (roundNumber) => {
+    // If user manually changes the round, set the flag
+    if (roundNumber !== currentRound) {
+      setUserChangedRound(true);
+    }
+    
     // Update round information
     const newRoundInfo = getSpecificRoundInfo(roundNumber);
     setRoundInfo(newRoundInfo);
@@ -256,6 +262,11 @@ export function AppProvider({ children }) {
 
   // Automatically advance to the appropriate round
   const advanceToAppropriateRound = () => {
+    // Skip automatic advancement if user has manually changed the round
+    if (userChangedRound) {
+      return;
+    }
+    
     const now = new Date();
     
     // If current round info says we should advance to next round early
