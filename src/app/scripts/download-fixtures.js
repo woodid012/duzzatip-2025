@@ -1,10 +1,16 @@
 // scripts/download-fixtures.js
-const fs = require('fs').promises;
-const path = require('path');
-const fetch = require('node-fetch');
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fetch from 'node-fetch';
 
 // Get current year or use custom year for development
 const CURRENT_YEAR = new Date().getFullYear();
+
+// Get the directory name in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 async function downloadFixtures() {
   try {
