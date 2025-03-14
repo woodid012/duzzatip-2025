@@ -62,8 +62,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 111,
+    "AwayTeamScore": 85
   },
   {
     "MatchNumber": 7,
