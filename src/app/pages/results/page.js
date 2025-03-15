@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAppContext } from '@/app/context/AppContext';
 import useResults from '@/app/hooks/useResults';
@@ -19,7 +19,7 @@ export default function ResultsPage() {
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
   // State for the round displayed on the page
-  const [displayedRound, setDisplayedRound] = useState(currentRound);
+  const [displayedRound, setDisplayedRound] = useState(currentRound || 1);
   
   // Get results functionality from our hook
   const {
@@ -28,18 +28,32 @@ export default function ResultsPage() {
     error,
     roundEndPassed,
     calculateAllTeamScores,
-    getTeamScores
+    getTeamScores,
+    currentRound: hookRound
   } = useResults();
 
   // State for fixtures
   const [fixtures, setFixtures] = useState([]);
   const [orderedFixtures, setOrderedFixtures] = useState([]);
   const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
+  const [pageReady, setPageReady] = useState(false);
   
-  // Set displayed round whenever currentRound changes
+  // Set displayed round from hook's current round when it changes
   useEffect(() => {
-    setDisplayedRound(currentRound);
-  }, [currentRound]);
+    if (hookRound !== null && hookRound !== undefined) {
+      console.log(`Setting displayed round to hook round: ${hookRound}`);
+      setDisplayedRound(hookRound);
+    }
+  }, [hookRound]);
+  
+  // Ensure page ready status
+  useEffect(() => {
+    if (!loading && teams && Object.keys(teams).length > 0) {
+      setPageReady(true);
+    } else {
+      setPageReady(false);
+    }
+  }, [loading, teams]);
 
   // Check if the round is complete based on roundEndTime
   const isRoundComplete = () => {
@@ -58,6 +72,8 @@ export default function ResultsPage() {
 
   // Check if we should display the welcome screen
   useEffect(() => {
+    if (displayedRound === null) return;
+
     // Show welcome screen only if we're on round 0 and it's not locked yet
     if (displayedRound === 0) {
       const now = new Date();
@@ -68,8 +84,10 @@ export default function ResultsPage() {
     }
   }, [displayedRound]);
 
-  // Get fixtures for the displayed round
+  // Get fixtures for the displayed round - only when displayedRound changes
   useEffect(() => {
+    if (displayedRound === null) return;
+    
     // Get fixtures for the displayed round
     const roundFixtures = getFixturesForRound(displayedRound);
     setFixtures(roundFixtures || []);
@@ -100,8 +118,12 @@ export default function ResultsPage() {
   // Handle round change
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
-    setDisplayedRound(newRound);
-    changeRound(newRound); // Update the global context so data is loaded
+    if (newRound !== displayedRound) {
+      console.log(`Changing to round ${newRound}`);
+      setDisplayedRound(newRound);
+      setPageReady(false); // Reset page ready state
+      changeRound(newRound); // Update the global context so data is loaded
+    }
   };
 
   // Display round name
@@ -116,8 +138,31 @@ export default function ResultsPage() {
     return `Round ${round}`;
   };
 
-  if (loading) return <div className="p-4">Loading stats...</div>;
-  if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
+  // Show loading during initial phase
+  if (!pageReady) return (
+    <div className="p-8 text-center">
+      <div role="status" className="flex flex-col items-center">
+        <svg className="animate-spin h-8 w-8 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span className="text-lg font-medium">Loading {displayRoundName(displayedRound)} data...</span>
+      </div>
+    </div>
+  );
+  
+  if (error) return (
+    <div className="p-4 bg-red-50 border border-red-300 rounded-lg text-red-700">
+      <h3 className="font-bold text-lg mb-2">Error Loading Data</h3>
+      <p>{error}</p>
+      <button 
+        onClick={() => window.location.reload()}
+        className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+      >
+        Refresh Page
+      </button>
+    </div>
+  );
 
   // If we should show the welcome screen (Round 0 and not locked yet)
   if (shouldShowWelcome) {
@@ -130,8 +175,7 @@ export default function ResultsPage() {
     );
   }
 
-  // Instead of using calculateAllTeamScores, let's calculate scores directly
-  // from getTeamScores to ensure consistency across the page
+  // Calculate team scores once, outside the render logic
   const allTeamScores = Object.keys(USER_NAMES).map(userId => {
     const teamScore = getTeamScores(userId);
     return {
@@ -151,7 +195,7 @@ export default function ResultsPage() {
     ? Math.min(...validScores.map(s => s?.totalScore || 0)) 
     : 0;
 
-  const hasSubstitutions = roundEndPassed || currentRound > 1;
+  const hasSubstitutions = roundEndPassed;
 
   // Function to sort and arrange team cards
   const getTeamCardsOrder = () => {

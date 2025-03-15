@@ -1,13 +1,18 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import { POSITIONS } from '@/app/lib/scoring_rules';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 
 export default function useResults() {
-  const { currentRound, changeRound } = useAppContext();
+  // Get context info immediately
+  const appContext = useAppContext();
+  const { currentRound, changeRound, roundInfo, loading: contextLoading } = appContext;
+  
+  // Reference to track if we've already loaded data for this round
+  const loadedRoundRef = useRef(null);
   
   const [teams, setTeams] = useState({});
   const [playerStats, setPlayerStats] = useState({});
@@ -17,16 +22,35 @@ export default function useResults() {
   const [roundEndPassed, setRoundEndPassed] = useState(false);
   const [debugInfo, setDebugInfo] = useState(null);
   const [playerTeamMap, setPlayerTeamMap] = useState({});
+  const [displayRound, setDisplayRound] = useState(currentRound || 1); // Default to round 1
 
   // Define which positions are handled by which reserve
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
   const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
 
-  // Load data when round changes
+  // Set display round on first render with currentRound from AppContext
   useEffect(() => {
+    if (currentRound !== undefined && currentRound !== null) {
+      console.log(`Setting display round to context round: ${currentRound}`);
+      setDisplayRound(currentRound);
+    }
+  }, [currentRound]);
+
+  // Load data when display round changes
+  useEffect(() => {
+    if (displayRound === null) {
+      return;
+    }
+    
+    // Skip if we've already loaded this round's data
+    if (loadedRoundRef.current === displayRound) {
+      return;
+    }
+    
     const fetchData = async () => {
       try {
         setLoading(true);
+        console.log(`Fetching data for round: ${displayRound}`);
         
         // Fetch squads to get player team information
         const squadsRes = await fetch('/api/squads');
@@ -49,7 +73,7 @@ export default function useResults() {
         // Fetch round info to determine if round has ended
         let roundInfoResponse;
         try {
-          roundInfoResponse = await fetch(`/api/round-info?round=${currentRound}`);
+          roundInfoResponse = await fetch(`/api/round-info?round=${displayRound}`);
           if (roundInfoResponse.ok) {
             const roundInfoData = await roundInfoResponse.json();
             // Check if round end has passed
@@ -61,21 +85,19 @@ export default function useResults() {
           }
         } catch (err) {
           console.warn('Could not fetch round info:', err);
-          // Use simple calculation for round end (3 days after start)
-          const now = new Date();
-          const threeHoursAgo = new Date(now.setHours(now.getHours() - 3));
-          setRoundEndPassed(currentRound >= 1); // Only enable for round 1 and above
+          // Use simple calculation - default to false
+          setRoundEndPassed(false);
         }
         
-        // Fetch teams and player stats
-        const teamsRes = await fetch(`/api/team-selection?round=${currentRound}`);
+        // Fetch teams and player stats for the correct round
+        const teamsRes = await fetch(`/api/team-selection?round=${displayRound}`);
         if (!teamsRes.ok) throw new Error('Failed to fetch teams');
         const teamsData = await teamsRes.json();
         setTeams(teamsData);
     
         // Fetch dead cert scores for all users (1-8)
         const deadCertPromises = Array.from({ length: 8 }, (_, i) => i + 1).map(userId => 
-          fetch(`/api/tipping-results?round=${currentRound}&userId=${userId}`)
+          fetch(`/api/tipping-results?round=${displayRound}&userId=${userId}`)
             .then(res => res.json())
             .catch(() => ({ deadCertScore: 0 })) // Default value if fetch fails
         );
@@ -98,7 +120,7 @@ export default function useResults() {
           if (playerNames.length === 0) continue;
 
           // Make a single API call for all players in the team
-          const res = await fetch(`/api/player-stats?round=${currentRound}&players=${encodeURIComponent(playerNames.join(','))}`);
+          const res = await fetch(`/api/player-stats?round=${displayRound}&players=${encodeURIComponent(playerNames.join(','))}`);
           if (!res.ok) throw new Error('Failed to fetch player stats');
           const statsData = await res.json();
     
@@ -136,6 +158,9 @@ export default function useResults() {
           allStats[userId] = playerStats;
         }
         setPlayerStats(allStats);
+        
+        // Mark this round as loaded
+        loadedRoundRef.current = displayRound;
       } catch (err) {
         console.error('Error fetching results data:', err);
         setError(err.message);
@@ -146,10 +171,15 @@ export default function useResults() {
 
     fetchData();
     
-    // For development purpose - force enable substitutions for testing
-    // Comment this out in production
-    // setRoundEndPassed(true);
-  }, [currentRound]);
+  }, [displayRound]);
+
+  // Listen for round changes from app context and update accordingly
+  useEffect(() => {
+    if (currentRound !== null && currentRound !== displayRound) {
+      console.log(`Round changed in context to ${currentRound}, updating...`);
+      setDisplayRound(currentRound);
+    }
+  }, [currentRound, displayRound]);
 
   // Calculate score for a position
   const calculateScore = (position, stats, backupPosition = null) => {
@@ -249,9 +279,8 @@ export default function useResults() {
         });
       }
       
-      // Only add to replacement list if substitutions are enabled
-      // (round end has passed or we're past round 1)
-      if (roundEndPassed || currentRound > 1) {
+      // Only add to replacement list if substitutions are enabled (roundEndPassed)
+      if (roundEndPassed) {
         // If main player didn't play, this position needs replacement
         positionsNeedingReplacement.push({
           position,
@@ -271,12 +300,12 @@ export default function useResults() {
         originalPlayerName: playerData.player_name,
         isBenchPlayer: false,
         noStats: true,
-        needsReplacement: roundEndPassed || currentRound > 1 // Only mark as needing replacement if substitutions are enabled
+        needsReplacement: roundEndPassed // Only mark as needing replacement if substitutions are enabled
       };
     });
     
     // If we have positions needing replacement AND substitutions are enabled
-    if (positionsNeedingReplacement.length > 0 && (roundEndPassed || currentRound > 1)) {
+    if (positionsNeedingReplacement.length > 0 && roundEndPassed) {
       // Add debug info for bench players
       reservePlayers.forEach(player => {
         if (player && (player.original_position === 'Bench' || player.backup_position === 'Ruck')) {
@@ -471,30 +500,44 @@ export default function useResults() {
       finalScore,
       positionScores,
       benchScores,
-      substitutionsEnabled: roundEndPassed || currentRound > 1,
+      substitutionsEnabled: roundEndPassed, // SIMPLIFIED: Only use roundEndPassed flag
       debugInfo: debugData.length > 0 ? debugData : null  // Instead of setting state, return debug data
     };
-  }, [teams, playerStats, deadCertScores, roundEndPassed, currentRound]);
+  }, [teams, playerStats, deadCertScores, roundEndPassed]);
 
-  // Use a separate effect to handle debug info updates
+  // Use a separate effect to handle debug info updates - throttled to avoid continuous updates
+  const debugUpdateTimeoutRef = useRef(null);
   useEffect(() => {
-    // Update debug info when needed, but only after initial render
-    // This prevents infinite re-renders
-    if (!loading && playerStats && Object.keys(playerStats).length > 0) {
-      // You could call getTeamScores for a specific user here to debug
-      const firstUserId = Object.keys(teams)[0];
-      if (firstUserId) {
-        const teamScores = getTeamScores(firstUserId);
-        if (teamScores.debugInfo) {
-          setDebugInfo(teamScores.debugInfo);
-        }
-      }
+    // Clear any existing timeout to prevent stacking
+    if (debugUpdateTimeoutRef.current) {
+      clearTimeout(debugUpdateTimeoutRef.current);
     }
+    
+    // Only update debug info when data is stable and loaded, with a delay
+    if (!loading && playerStats && Object.keys(playerStats).length > 0) {
+      debugUpdateTimeoutRef.current = setTimeout(() => {
+        const firstUserId = Object.keys(teams)[0];
+        if (firstUserId) {
+          const teamScores = getTeamScores(firstUserId);
+          if (teamScores.debugInfo) {
+            setDebugInfo(teamScores.debugInfo);
+          }
+        }
+        debugUpdateTimeoutRef.current = null; // Clear reference after execution
+      }, 1000); // 1 second delay
+    }
+    
+    // Cleanup
+    return () => {
+      if (debugUpdateTimeoutRef.current) {
+        clearTimeout(debugUpdateTimeoutRef.current);
+      }
+    };
   }, [loading, playerStats, teams, getTeamScores]);
 
   return {
     // State
-    currentRound,
+    currentRound: displayRound, // Use the local display round instead of context's currentRound
     teams,
     playerStats,
     deadCertScores,
@@ -502,6 +545,7 @@ export default function useResults() {
     error,
     roundEndPassed,
     debugInfo,
+    roundInitialized: !loading && Object.keys(teams).length > 0, // Simplified: consider initialized when data is loaded
     
     // Actions
     changeRound,
