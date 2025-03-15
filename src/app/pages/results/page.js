@@ -13,13 +13,13 @@ import { TeamScoreCard, WelcomeScreen, RoundSummary } from './components';
 
 export default function ResultsPage() {
   // Get data from our app context
-  const { currentRound, roundInfo, changeRound } = useAppContext();
+  const { currentRound, roundInfo, loading: contextLoading } = useAppContext();
   
   // Get the selected user from context
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
-  // State for the round displayed on the page
-  const [displayedRound, setDisplayedRound] = useState(currentRound || 1);
+  // Important: Start with null to ensure proper initialization from context
+  const [displayedRound, setDisplayedRound] = useState(null);
   
   // Flag to track if we've already initialized the round
   const didInitializeRound = useRef(false);
@@ -32,7 +32,8 @@ export default function ResultsPage() {
     roundEndPassed,
     calculateAllTeamScores,
     getTeamScores,
-    currentRound: hookRound
+    currentRound: hookRound,
+    changeRound: hookChangeRound
   } = useResults();
 
   // State for fixtures
@@ -41,11 +42,25 @@ export default function ResultsPage() {
   const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
   const [pageReady, setPageReady] = useState(false);
   
-  // Set displayed round from hook's current round when it changes - ONLY ONCE
+  // Set displayed round from context current round on first render after it's loaded
   useEffect(() => {
-    // Only update from hookRound once during initial load
+    if (!didInitializeRound.current && currentRound !== null && currentRound !== undefined) {
+      console.log(`RESULTS PAGE: Initializing displayed round to global context current round: ${currentRound}`);
+      setDisplayedRound(currentRound);
+      
+      // Also update the hook's round
+      if (hookChangeRound) {
+        hookChangeRound(currentRound);
+      }
+      
+      didInitializeRound.current = true;
+    }
+  }, [currentRound, hookChangeRound]);
+  
+  // Secondary fallback - use hook's round if context failed
+  useEffect(() => {
     if (!didInitializeRound.current && hookRound !== null && hookRound !== undefined) {
-      console.log(`INITIAL LOAD: Setting displayed round to ${hookRound}`);
+      console.log(`RESULTS PAGE: Fallback - setting displayed round to hook's round: ${hookRound}`);
       setDisplayedRound(hookRound);
       didInitializeRound.current = true;
     }
@@ -69,12 +84,10 @@ export default function ResultsPage() {
     return now > roundEnd;
   };
 
-  // Check if we should display the welcome screen
+  // Check if we should display the welcome screen - removed as requested
   useEffect(() => {
-    if (displayedRound === null) return;
-
-    // Show welcome screen only if user specifically selects round 0
-    setShouldShowWelcome(displayedRound === 0);
+    // Always set this to false since we don't want the welcome screen anymore
+    setShouldShowWelcome(false);
   }, [displayedRound]);
 
   // Get fixtures for the displayed round - only when displayedRound changes
@@ -108,14 +121,19 @@ export default function ResultsPage() {
     }
   }, [displayedRound, selectedUserId]);
 
-  // Handle round change
+  // Handle round change - keep it local, don't update global context
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     if (newRound !== displayedRound) {
-      console.log(`Changing to round ${newRound}`);
+      console.log(`Changing to local round ${newRound} (global context remains unchanged)`);
       setDisplayedRound(newRound);
       setPageReady(false); // Reset page ready state
-      changeRound(newRound); // Update the global context so data is loaded
+      
+      // Important: Call changeRound from the useResults hook without updating global context
+      if (hookChangeRound) {
+        // This will update the hook's internal state without affecting global context
+        hookChangeRound(newRound);
+      }
     }
   };
 
@@ -132,14 +150,14 @@ export default function ResultsPage() {
   };
 
   // Show loading during initial phase
-  if (!pageReady) return (
+  if (displayedRound === null || !pageReady) return (
     <div className="p-8 text-center">
       <div role="status" className="flex flex-col items-center">
         <svg className="animate-spin h-8 w-8 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <span className="text-lg font-medium">Loading {displayRoundName(displayedRound)} data...</span>
+        <span className="text-lg font-medium">Loading {displayedRound !== null ? displayRoundName(displayedRound) : 'current round'} data...</span>
       </div>
     </div>
   );
@@ -157,8 +175,8 @@ export default function ResultsPage() {
     </div>
   );
 
-  // If we should show the welcome screen (Round 0 is explicitly selected)
-  if (shouldShowWelcome) {
+  // Remove this entirely - we don't need the welcome screen logic
+  if (false) { // changed to false to effectively remove this code path
     return (
       <WelcomeScreen 
         selectedUserId={selectedUserId} 
@@ -192,20 +210,7 @@ export default function ResultsPage() {
 
   // Function to sort and arrange team cards
   const getTeamCardsOrder = () => {
-    if (displayedRound === 0) {
-      // For Opening Round, display all team cards sorted by score
-      return [...Object.keys(USER_NAMES)]
-        .sort((a, b) => {
-          // First prioritize the selected user
-          if (a === selectedUserId) return -1;
-          if (b === selectedUserId) return 1;
-          
-          // Then sort by score
-          const scoreA = allTeamScores.find(s => s?.userId === a)?.totalScore || 0;
-          const scoreB = allTeamScores.find(s => s?.userId === b)?.totalScore || 0;
-          return scoreB - scoreA; // Sort descending
-        });
-    } else if (orderedFixtures && orderedFixtures.length > 0) {
+    if (orderedFixtures && orderedFixtures.length > 0) {
       // For regular rounds, generate team cards in matchup order
       return orderedFixtures.flatMap((fixture) => {
         const homeUserId = fixture.home?.toString();
@@ -229,11 +234,20 @@ export default function ResultsPage() {
         return [homeUserId, awayUserId];
       });
     } else {
-      // When no fixtures, display all team cards in default order
-      return Object.keys(USER_NAMES);
+      // When no fixtures, display all team cards in default order, prioritizing selected user
+      return [...Object.keys(USER_NAMES)].sort((a, b) => {
+        // First prioritize the selected user
+        if (a === selectedUserId) return -1;
+        if (b === selectedUserId) return 1;
+        
+        // Then sort by score
+        const scoreA = allTeamScores.find(s => s?.userId === a)?.totalScore || 0;
+        const scoreB = allTeamScores.find(s => s?.userId === b)?.totalScore || 0;
+        return scoreB - scoreA; // Sort descending
+      });
     }
   };
-
+  
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">

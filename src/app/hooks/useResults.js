@@ -9,11 +9,17 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 export default function useResults() {
   // Get context info immediately
   const appContext = useAppContext();
-  const { currentRound, changeRound, roundInfo, loading: contextLoading } = appContext;
+  const { currentRound, roundInfo, loading: contextLoading } = appContext;
   
   // Reference to track if we've already loaded data for this round
   const loadedRoundRef = useRef(null);
+  const initializedRef = useRef(false);
   
+  // State for the round displayed on the page - independent from global context
+  // Important: Start with null to ensure proper initialization from context
+  const [localRound, setLocalRound] = useState(null);
+  
+  // State for teams and player data
   const [teams, setTeams] = useState({});
   const [playerStats, setPlayerStats] = useState({});
   const [deadCertScores, setDeadCertScores] = useState({});
@@ -22,35 +28,35 @@ export default function useResults() {
   const [roundEndPassed, setRoundEndPassed] = useState(false);
   const [debugInfo, setDebugInfo] = useState(null);
   const [playerTeamMap, setPlayerTeamMap] = useState({});
-  const [displayRound, setDisplayRound] = useState(currentRound || 1); // Default to round 1
-
+  
   // Define which positions are handled by which reserve
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
   const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
-
-  // Set display round on first render with currentRound from AppContext
+  
+  // Critical fix: Initialize local round from context only once on first load
   useEffect(() => {
-    if (currentRound !== undefined && currentRound !== null) {
-      console.log(`Setting display round to context round: ${currentRound}`);
-      setDisplayRound(currentRound);
+    if (!initializedRef.current && currentRound !== null && currentRound !== undefined) {
+      console.log(`USERESULTS: Setting local round to global context round ${currentRound}`);
+      setLocalRound(currentRound);
+      initializedRef.current = true;
     }
   }, [currentRound]);
 
-  // Load data when display round changes
+  // Load data when local round changes
   useEffect(() => {
-    if (displayRound === null) {
+    if (localRound === null) {
       return;
     }
     
     // Skip if we've already loaded this round's data
-    if (loadedRoundRef.current === displayRound) {
+    if (loadedRoundRef.current === localRound) {
       return;
     }
     
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log(`Fetching data for round: ${displayRound}`);
+        console.log(`Fetching data for round: ${localRound}`);
         
         // Fetch squads to get player team information
         const squadsRes = await fetch('/api/squads');
@@ -73,7 +79,7 @@ export default function useResults() {
         // Fetch round info to determine if round has ended
         let roundInfoResponse;
         try {
-          roundInfoResponse = await fetch(`/api/round-info?round=${displayRound}`);
+          roundInfoResponse = await fetch(`/api/round-info?round=${localRound}`);
           if (roundInfoResponse.ok) {
             const roundInfoData = await roundInfoResponse.json();
             // Check if round end has passed
@@ -90,14 +96,14 @@ export default function useResults() {
         }
         
         // Fetch teams and player stats for the correct round
-        const teamsRes = await fetch(`/api/team-selection?round=${displayRound}`);
+        const teamsRes = await fetch(`/api/team-selection?round=${localRound}`);
         if (!teamsRes.ok) throw new Error('Failed to fetch teams');
         const teamsData = await teamsRes.json();
         setTeams(teamsData);
     
         // Fetch dead cert scores for all users (1-8)
         const deadCertPromises = Array.from({ length: 8 }, (_, i) => i + 1).map(userId => 
-          fetch(`/api/tipping-results?round=${displayRound}&userId=${userId}`)
+          fetch(`/api/tipping-results?round=${localRound}&userId=${userId}`)
             .then(res => res.json())
             .catch(() => ({ deadCertScore: 0 })) // Default value if fetch fails
         );
@@ -120,7 +126,7 @@ export default function useResults() {
           if (playerNames.length === 0) continue;
 
           // Make a single API call for all players in the team
-          const res = await fetch(`/api/player-stats?round=${displayRound}&players=${encodeURIComponent(playerNames.join(','))}`);
+          const res = await fetch(`/api/player-stats?round=${localRound}&players=${encodeURIComponent(playerNames.join(','))}`);
           if (!res.ok) throw new Error('Failed to fetch player stats');
           const statsData = await res.json();
     
@@ -164,7 +170,7 @@ export default function useResults() {
         setPlayerStats(allStats);
         
         // Mark this round as loaded
-        loadedRoundRef.current = displayRound;
+        loadedRoundRef.current = localRound;
       } catch (err) {
         console.error('Error fetching results data:', err);
         setError(err.message);
@@ -175,15 +181,16 @@ export default function useResults() {
 
     fetchData();
     
-  }, [displayRound]);
+  }, [localRound]);
 
-  // Listen for round changes from app context and update accordingly
-  useEffect(() => {
-    if (currentRound !== null && currentRound !== displayRound) {
-      console.log(`Round changed in context to ${currentRound}, updating...`);
-      setDisplayRound(currentRound);
+  // Create a local changeRound function that doesn't affect global context
+  const handleRoundChange = (roundNumber) => {
+    if (roundNumber !== localRound) {
+      console.log(`Changing local round to ${roundNumber} (not affecting global context)`);
+      setLocalRound(roundNumber);
+      loadedRoundRef.current = null; // Force a data reload
     }
-  }, [currentRound, displayRound]);
+  };
 
   // Calculate score for a position with proper null checks
   const calculateScore = (position, stats, backupPosition = null) => {
@@ -556,11 +563,11 @@ export default function useResults() {
       },
       debugInfo: debugData.length > 0 ? debugData : null
     };
-  }, [teams, playerStats, deadCertScores, roundEndPassed]);
+  }, [teams, playerStats, deadCertScores, roundEndPassed, playerTeamMap]);
 
   return {
     // State
-    currentRound: displayRound, 
+    currentRound: localRound, 
     teams,
     playerStats,
     deadCertScores,
@@ -571,7 +578,7 @@ export default function useResults() {
     roundInitialized: !loading && Object.keys(teams).length > 0, 
     
     // Actions
-    changeRound,
+    changeRound: handleRoundChange, // Use our local function instead of the global one
     calculateAllTeamScores,
     getTeamScores
   };
