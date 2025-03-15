@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAppContext } from '@/app/context/AppContext';
 import useResults from '@/app/hooks/useResults';
-import { USER_NAMES, OPENING_ROUND_END_TIME } from '@/app/lib/constants';
+import { USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { useUserContext } from '../layout';
 
@@ -20,6 +20,9 @@ export default function ResultsPage() {
   
   // State for the round displayed on the page
   const [displayedRound, setDisplayedRound] = useState(currentRound || 1);
+  
+  // Flag to track if we've already initialized the round
+  const didInitializeRound = useRef(false);
   
   // Get results functionality from our hook
   const {
@@ -38,11 +41,13 @@ export default function ResultsPage() {
   const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
   const [pageReady, setPageReady] = useState(false);
   
-  // Set displayed round from hook's current round when it changes
+  // Set displayed round from hook's current round when it changes - ONLY ONCE
   useEffect(() => {
-    if (hookRound !== null && hookRound !== undefined) {
-      console.log(`Setting displayed round to hook round: ${hookRound}`);
+    // Only update from hookRound once during initial load
+    if (!didInitializeRound.current && hookRound !== null && hookRound !== undefined) {
+      console.log(`INITIAL LOAD: Setting displayed round to ${hookRound}`);
       setDisplayedRound(hookRound);
+      didInitializeRound.current = true;
     }
   }, [hookRound]);
   
@@ -57,13 +62,7 @@ export default function ResultsPage() {
 
   // Check if the round is complete based on roundEndTime
   const isRoundComplete = () => {
-    // Special case for Opening Round
-    if (displayedRound === 0) {
-      const now = new Date();
-      return now > OPENING_ROUND_END_TIME;
-    }
-    
-    // For other rounds, check roundInfo.roundEndTime
+    // For all rounds, check roundInfo.roundEndTime
     if (!roundInfo.roundEndTime) return false;
     const now = new Date();
     const roundEnd = new Date(roundInfo.roundEndTime);
@@ -74,14 +73,8 @@ export default function ResultsPage() {
   useEffect(() => {
     if (displayedRound === null) return;
 
-    // Show welcome screen only if we're on round 0 and it's not locked yet
-    if (displayedRound === 0) {
-      const now = new Date();
-      const isRound0Active = now < OPENING_ROUND_END_TIME;
-      setShouldShowWelcome(isRound0Active);
-    } else {
-      setShouldShowWelcome(false);
-    }
+    // Show welcome screen only if user specifically selects round 0
+    setShouldShowWelcome(displayedRound === 0);
   }, [displayedRound]);
 
   // Get fixtures for the displayed round - only when displayedRound changes
@@ -164,7 +157,7 @@ export default function ResultsPage() {
     </div>
   );
 
-  // If we should show the welcome screen (Round 0 and not locked yet)
+  // If we should show the welcome screen (Round 0 is explicitly selected)
   if (shouldShowWelcome) {
     return (
       <WelcomeScreen 

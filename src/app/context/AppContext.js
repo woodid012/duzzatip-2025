@@ -69,55 +69,20 @@ export function AppProvider({ children }) {
         // CRITICAL CHANGE: Calculate round info immediately as first priority
         console.log('Calculating current round as first priority...');
         
-        // Current date
-        const now = new Date();
+        // Use normal round calculation logic
+        const currentRoundInfo = calculateRoundInfo(processedFixtures);
+        setCurrentRound(currentRoundInfo.currentRound);
         
-        // Check if we're still in Opening Round period
-        if (now < OPENING_ROUND_END_TIME) {
-          const round0Info = getRoundInfo(processedFixtures, 0);
-          setCurrentRound(0);
-          setRoundInfo({
-            ...round0Info,
-            currentRound: 0,
-            currentRoundDisplay: 'Opening Round',
-            lockoutTime: round0Info.lockoutTime,
-            isLocked: round0Info.isLocked,
-            roundEndTime: round0Info.roundEndTime
-          });
-          console.log('App initialized with Opening Round (0)');
-        } 
-        // Check if we're after Opening Round but before Round 1 lockout
-        else {
-          const round1Info = getRoundInfo(processedFixtures, 1);
-          const round1LockoutDate = round1Info.lockoutDate ? new Date(round1Info.lockoutDate) : null;
-          
-          // If we're before Round 1 lockout
-          if (round1LockoutDate && now < round1LockoutDate) {
-            // For team selection and tipping, we want to show Round 1
-            setCurrentRound(1);
-            setRoundInfo({
-              ...round1Info,
-              showResultsForRound0: true, // Flag for the results page to still show round 0
-              isRound0Locked: true,       // Flag to indicate round 0 is locked
-              prevRoundInfo: getRoundInfo(processedFixtures, 0) // Keep round 0 info for reference
-            });
-          } else {
-            // After round 1 lockout, use normal round calculation logic
-            const currentRoundInfo = calculateRoundInfo(processedFixtures);
-            setCurrentRound(currentRoundInfo.currentRound);
-            
-            // Get detailed round info for the current round
-            const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
-            
-            // Add next round info
-            const nextRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound + 1);
-            
-            setRoundInfo({
-              ...detailedRoundInfo,
-              nextRoundInfo // Include next round info
-            });
-          }
-        }
+        // Get detailed round info for the current round
+        const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
+        
+        // Add next round info
+        const nextRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound + 1);
+        
+        setRoundInfo({
+          ...detailedRoundInfo,
+          nextRoundInfo // Include next round info
+        });
         
         setLoading(prev => ({ ...prev, fixtures: false }));
       } catch (err) {
@@ -195,13 +160,7 @@ export function AppProvider({ children }) {
     try {
       setLoading(prev => ({ ...prev, teamSelections: true }));
       
-      // If round 0 is locked but round 1 isn't, always show round 1 for team selection
-      let targetRound = round;
-      
-      // If round 0 is specified but locked, use round 1 instead
-      if (round === 0 && roundInfo.isLocked) {
-        targetRound = 1;
-      }
+      const targetRound = round;
       
       const response = await fetch(`/api/team-selection?round=${targetRound}`);
       if (!response.ok) {
@@ -273,6 +232,8 @@ export function AppProvider({ children }) {
     
     const now = new Date();
     
+    // We've removed special handling for Round 0 -> Round 1 transition
+    
     // If current round info says we should advance to next round early
     if (roundInfo.shouldAdvanceToNextRound) {
       console.log(`Advancing to Round ${currentRound + 1} early (2 days before first fixture)`);
@@ -283,12 +244,6 @@ export function AppProvider({ children }) {
     // If current round is locked and there's a next round available
     if (roundInfo.isLocked && roundInfo.nextRoundInfo) {
       changeRound(currentRound + 1);
-      return;
-    }
-    
-    // If in special case where Round 0 is locked but Round 1 isn't
-    if (currentRound === 0 && roundInfo.isLocked) {
-      changeRound(1);
       return;
     }
     
