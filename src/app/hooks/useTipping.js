@@ -10,6 +10,9 @@ export default function useTipping(initialUserId = '') {
   // Use refs to maintain state between renders
   const isInitializedRef = useRef(false);
   
+  // Local round state - initialized from global current round but can be changed independently
+  const [localRound, setLocalRound] = useState(currentRound);
+  
   // State for user and tips
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
   const [tips, setTips] = useState({});
@@ -26,52 +29,36 @@ export default function useTipping(initialUserId = '') {
   // Track if data has been loaded
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Determine the appropriate round to load
-  const getAppropriateRound = () => {
-    // If we're viewing round 0 and it's locked, we should show round 1 instead
-    if (currentRound === 0 && roundInfo.isLocked) {
-      console.log('Round 0 is locked, showing Round 1 for tipping');
-      return 1;
+  // Initialize local round from global current round on first render
+  useEffect(() => {
+    if (localRound === undefined && currentRound !== undefined) {
+      setLocalRound(currentRound);
+    }
+  }, [currentRound, localRound]);
+
+  // Determine if round is locked for editing
+  const isRoundLocked = (round) => {
+    // If we're viewing the current global round and it's locked
+    if (roundInfo.isLocked && round === currentRound) {
+      return true;
     }
     
-    // If any round is locked, we want to show the next round for tipping
-    if (roundInfo.isLocked) {
-      console.log(`Round ${currentRound} is locked, showing Round ${currentRound + 1} for tipping`);
-      return currentRound + 1;
-    }
-    
-    // Otherwise, just display the current round
-    return currentRound;
-  };
+    // Otherwise this specific round is not locked
+    return false;
+  }
 
-  // Determine if we should advance to the next round
+  // Load fixtures for the selected local round
   useEffect(() => {
-    // If we're viewing round 0 and it's locked, we should show round 1 instead
-    if (currentRound === 0 && roundInfo.isLocked) {
-      console.log('Round 0 is locked, changing to Round 1 for tipping');
-      changeRound(1);
-    } else if (roundInfo.isLocked && roundInfo.nextRoundLockoutTime) {
-      // If any round is locked and there's a next round available, show it
-      console.log(`Round ${currentRound} is locked, advancing to next round`);
-      changeRound(currentRound + 1);
-    }
-  }, [currentRound, roundInfo.isLocked, roundInfo.nextRoundLockoutTime, changeRound]);
-
-  // Load fixtures for the current round
-  useEffect(() => {
-    if (fixtures.length > 0) {
-      // Use the appropriate round
-      const targetRound = getAppropriateRound();
-      
+    if (fixtures.length > 0 && localRound !== undefined) {
       const filtered = fixtures.filter(
-        fixture => fixture.RoundNumber.toString() === targetRound.toString()
+        fixture => fixture.RoundNumber.toString() === localRound.toString()
       );
       setRoundFixtures(filtered);
-      console.log(`Loaded ${filtered.length} fixtures for round ${targetRound}`);
+      console.log(`Loaded ${filtered.length} fixtures for round ${localRound}`);
     }
-  }, [fixtures, currentRound, roundInfo.isLocked]);
+  }, [fixtures, localRound]);
 
-  // Load tips data when user or round changes
+  // Load tips data when user or local round changes
   useEffect(() => {
     // Skip if no user is selected
     if (!selectedUserId) {
@@ -87,12 +74,10 @@ export default function useTipping(initialUserId = '') {
     const loadTips = async () => {
       try {
         setLoadingLocal(true);
-        // Use the appropriate round
-        const targetRound = getAppropriateRound();
         
-        console.log(`Loading tips for user ${selectedUserId}, round ${targetRound}`);
+        console.log(`Loading tips for user ${selectedUserId}, round ${localRound}`);
         
-        const url = `/api/tipping-data?round=${targetRound}&userId=${selectedUserId}`;
+        const url = `/api/tipping-data?round=${localRound}&userId=${selectedUserId}`;
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -149,12 +134,20 @@ export default function useTipping(initialUserId = '') {
         setIsEditing(false);
       }
     };
-  }, [currentRound, selectedUserId, roundFixtures, roundInfo.isLocked]);
+  }, [localRound, selectedUserId, roundFixtures]);
+
+  // Handle local round change
+  const handleRoundChange = (newRound) => {
+    console.log(`Changing local round to ${newRound}`);
+    setLocalRound(newRound);
+    // Reset editing state when changing rounds
+    setIsEditing(false);
+  };
 
   // Handle team tip selection
   const handleTipSelect = (matchNumber, team) => {
     console.log(`Setting tip for match ${matchNumber} to ${team} (isEditing: ${isEditing})`);
-    if (!isEditing || roundInfo.isLocked) {
+    if (!isEditing || isRoundLocked(localRound)) {
       console.log("Can't edit - editing is locked");
       return;
     }
@@ -173,7 +166,7 @@ export default function useTipping(initialUserId = '') {
   // Toggle dead cert status
   const handleDeadCertToggle = (matchNumber) => {
     console.log(`Toggling dead cert for match ${matchNumber} (isEditing: ${isEditing})`);
-    if (!isEditing || roundInfo.isLocked) {
+    if (!isEditing || isRoundLocked(localRound)) {
       console.log("Can't edit - editing is locked");
       return;
     }
@@ -190,7 +183,7 @@ export default function useTipping(initialUserId = '') {
 
   // Save tips
   const saveTips = async () => {
-    if (!selectedUserId || roundInfo.isLocked) {
+    if (!selectedUserId || isRoundLocked(localRound)) {
       console.log("Can't save - no user selected or round is locked");
       return false;
     }
@@ -200,16 +193,13 @@ export default function useTipping(initialUserId = '') {
     try {
       setErrorLocal(null);
       
-      // Use the appropriate round
-      const targetRound = getAppropriateRound();
-      
       const response = await fetch('/api/tipping-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          round: targetRound,
+          round: localRound,
           userId: selectedUserId,
           tips: editedTips,
           lastUpdated: new Date().toISOString()
@@ -247,8 +237,8 @@ export default function useTipping(initialUserId = '') {
 
   // Start editing
   const startEditing = () => {
-    console.log("Starting editing, isLocked:", roundInfo.isLocked, "userId:", selectedUserId);
-    if (!roundInfo.isLocked && selectedUserId) {
+    console.log("Starting editing, isLocked:", isRoundLocked(localRound), "userId:", selectedUserId);
+    if (!isRoundLocked(localRound) && selectedUserId) {
       console.log("Setting isEditing to true");
       // Ensure we're working with the latest data
       setEditedTips({ ...tips });
@@ -268,6 +258,12 @@ export default function useTipping(initialUserId = '') {
     }
   };
 
+  // Format round name nicely
+  const formatRoundName = (round) => {
+    if (round === 0) return "Opening Round";
+    return `Round ${round}`;
+  };
+
   return {
     // State
     selectedUserId,
@@ -279,8 +275,14 @@ export default function useTipping(initialUserId = '') {
     successMessage,
     dataLoaded,
     lastEditedTime,
+    localRound,
+    isRoundLocked: isRoundLocked(localRound),
+    
+    // Display helpers
+    formatRoundName,
     
     // Actions
+    handleRoundChange,
     handleTipSelect,
     handleDeadCertToggle,
     saveTips,

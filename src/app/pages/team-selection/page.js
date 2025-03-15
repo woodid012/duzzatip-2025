@@ -7,8 +7,8 @@ import useTeamSelection from '@/app/hooks/useTeamSelection';
 import { USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 
 export default function TeamSelectionPage() {
-  // Get data from our app context
-  const { currentRound, roundInfo, changeRound } = useAppContext();
+  // Get just the current round from the app context for initial display
+  const { currentRound, roundInfo } = useAppContext();
   
   // Get selected user context
   const { selectedUserId } = useUserContext();
@@ -20,6 +20,9 @@ export default function TeamSelectionPage() {
     isEditing,
     loading,
     error,
+    localRound,
+    isRoundLocked,
+    handleRoundChange,
     handlePlayerChange,
     handleBackupPositionChange,
     saveTeamSelections,
@@ -28,31 +31,21 @@ export default function TeamSelectionPage() {
     copyFromPreviousRound
   } = useTeamSelection();
 
-  // Track what round data we're displaying (might be different from currentRound)
-  const [displayRound, setDisplayRound] = useState(currentRound);
   // State for duplicate warnings
   const [duplicateWarnings, setDuplicateWarnings] = useState([]);
 
-  // Update display round when current round changes or when roundInfo updates
+  // Initialize with global current round on first render
   useEffect(() => {
-    // If the round is locked, we're likely viewing the next round for editing
-    // But we want to clearly indicate which round we're actually displaying
-    
-    if (roundInfo.isLocked) {
-      // For team selection page, we load the next round for editing
-      // but we want to show we're viewing the next round
-      setDisplayRound(currentRound + 1);
-    } else {
-      // Otherwise, just display the current round
-      setDisplayRound(currentRound);
+    if (currentRound !== undefined && localRound === undefined) {
+      handleRoundChange(currentRound);
     }
-  }, [currentRound, roundInfo.isLocked]);
+  }, [currentRound, localRound, handleRoundChange]);
 
   // Check for duplicate players in the team selections
   useEffect(() => {
     if (teams && Object.keys(teams).length > 0) {
       // Only check duplicates for the selected user
-      if (selectedUserId && teams[selectedUserId]) {
+      if (selectedUserId && selectedUserId !== 'admin' && teams[selectedUserId]) {
         const userTeam = teams[selectedUserId];
         const playerCounts = {};
         const duplicates = [];
@@ -84,7 +77,7 @@ export default function TeamSelectionPage() {
         });
 
         setDuplicateWarnings(duplicates);
-      } else {
+      } else if (selectedUserId === 'admin') {
         // For admin view, check all teams
         const allDuplicates = [];
         
@@ -121,15 +114,11 @@ export default function TeamSelectionPage() {
         });
 
         setDuplicateWarnings(allDuplicates);
+      } else {
+        setDuplicateWarnings([]);
       }
     }
   }, [teams, selectedUserId]);
-
-  // Handle round change
-  const handleRoundChange = (e) => {
-    const newRound = Number(e.target.value);
-    changeRound(newRound);
-  };
 
   // Handle save with confirmation for duplicates
   const handleSaveWithWarning = async () => {
@@ -178,35 +167,27 @@ export default function TeamSelectionPage() {
               : 'Team Selection'}
           </h1>
           
-          {/* Show a clear indication of which round data we're displaying */}
+          {/* Show which round we're displaying */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
-              {roundInfo.isLocked ? (
+              {isRoundLocked ? (
                 <>
                   <span className="text-red-600">
                     {formatRoundName(currentRound)} is locked 
                   </span>
                   <span className="text-gray-600 ml-1">
-                    - Editing {formatRoundName(displayRound)}
+                    - Showing {formatRoundName(localRound)}
                   </span>
                 </>
               ) : (
                 <span className="text-green-600">
-                  {formatRoundName(currentRound)} is open
+                  Showing {formatRoundName(localRound)}
                 </span>
               )}
             </div>
             
-            {roundInfo.lockoutTime && (
-              <div className="text-sm">
-                <span className="text-gray-600">Lockout:</span>
-                <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
-                {roundInfo.isLocked && (
-                  <span className="text-red-600 ml-1">(Locked)</span>
-                )}
-              </div>
-            )}
-            {Object.values(teams[selectedUserId] || {}).some(entry => entry.last_updated) && (
+            {/* Last update info */}
+            {selectedUserId && teams[selectedUserId] && Object.values(teams[selectedUserId] || {}).some(entry => entry.last_updated) && (
               <div className="text-sm">
                 <span className="text-gray-600">Last Submitted:</span>
                 <span className="font-medium text-black ml-1">
@@ -225,8 +206,8 @@ export default function TeamSelectionPage() {
             <label htmlFor="round-select" className="text-sm font-medium text-black mr-2">Round:</label>
             <select 
               id="round-select"
-              value={currentRound}
-              onChange={handleRoundChange}
+              value={localRound}
+              onChange={(e) => handleRoundChange(Number(e.target.value))}
               className="p-2 border rounded w-24 text-sm text-black"
             >
               {[...Array(29)].map((_, i) => (
@@ -256,14 +237,14 @@ export default function TeamSelectionPage() {
             ) : (
               <button 
                 onClick={startEditing}
-                disabled={roundInfo.isLocked && selectedUserId !== 'admin'} // Only disable if locked AND not admin
+                disabled={isRoundLocked && selectedUserId !== 'admin'} // Only disable if locked AND not admin
                 className={`w-full sm:w-auto px-4 py-2 rounded text-white ${
-                  roundInfo.isLocked && selectedUserId !== 'admin'
+                  isRoundLocked && selectedUserId !== 'admin'
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-500 hover:bg-blue-600'
                 }`}
               >
-                {roundInfo.isLocked && selectedUserId !== 'admin' ? 'Locked' : 'Edit Teams'}
+                {isRoundLocked && selectedUserId !== 'admin' ? 'Locked' : 'Edit Teams'}
               </button>
             )}
           </div>
@@ -304,23 +285,6 @@ export default function TeamSelectionPage() {
         </div>
       )}
       
-      {/* Display notice for locked rounds */}
-      {roundInfo.isLocked && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <h3 className="text-md font-semibold text-blue-800">Round Status</h3>
-          </div>
-          <p className="mt-2 text-blue-700">
-            {formatRoundName(currentRound)} is locked. {selectedUserId === 'admin' ? 
-              `You can edit team selections for ${formatRoundName(displayRound)} because you're an admin.` : 
-              `You're now viewing team selections for ${formatRoundName(displayRound)}.`}
-          </p>
-        </div>
-      )}
-      
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {/* Check if we have a selected user, otherwise show all teams */}
         {selectedUserId && selectedUserId !== 'admin' ? (
@@ -332,7 +296,7 @@ export default function TeamSelectionPage() {
             team={teams[selectedUserId] || {}}
             squad={squads[selectedUserId]?.players || []}
             isEditing={isEditing}
-            isLocked={roundInfo.isLocked && selectedUserId !== 'admin'} // Only locked if not admin
+            isLocked={isRoundLocked && selectedUserId !== 'admin'} // Only locked if not admin
             onPlayerChange={handlePlayerChange}
             onBackupPositionChange={handleBackupPositionChange}
             onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
@@ -348,7 +312,7 @@ export default function TeamSelectionPage() {
               team={teams[userId] || {}}
               squad={squads[userId]?.players || []}
               isEditing={isEditing}
-              isLocked={roundInfo.isLocked && selectedUserId !== 'admin'} // Only locked if not admin
+              isLocked={isRoundLocked && selectedUserId !== 'admin'} // Only locked if not admin
               onPlayerChange={handlePlayerChange}
               onBackupPositionChange={handleBackupPositionChange}
               onCopyFromPrevious={() => copyFromPreviousRound(userId)}
@@ -398,9 +362,8 @@ function TeamCard({
 
   // Force re-render when team changes
   useEffect(() => {
-    console.log(`TeamCard for ${userId} received updated team data:`, team);
     setKey(prevKey => prevKey + 1); // Increment key to force re-render
-  }, [team, userId]);
+  }, [team]);
 
   // Copy from previous with UI feedback
   const handleCopyFromPrevious = () => {

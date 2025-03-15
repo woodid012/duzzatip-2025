@@ -8,7 +8,7 @@ import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function TippingPage() {
   // Get data from our app context
-  const { currentRound, roundInfo, changeRound } = useAppContext();
+  const { currentRound, roundInfo } = useAppContext();
   
   // Get selected user context
   const { selectedUserId } = useUserContext();
@@ -41,6 +41,10 @@ export default function TippingPage() {
     successMessage,
     dataLoaded,
     lastEditedTime,
+    localRound,
+    isRoundLocked,
+    formatRoundName,
+    handleRoundChange,
     handleTipSelect,
     handleDeadCertToggle,
     saveTips,
@@ -57,11 +61,12 @@ export default function TippingPage() {
     }
   }, [selectedUserId, hookSelectedUserId, changeUser]);
 
-  // Handle round change
-  const handleRoundChange = (e) => {
-    const newRound = Number(e.target.value);
-    changeRound(newRound);
-  };
+  // Initialize with global current round on first render
+  useEffect(() => {
+    if (currentRound !== undefined && localRound === undefined) {
+      handleRoundChange(currentRound);
+    }
+  }, [currentRound, localRound, handleRoundChange]);
 
   // Handle edit button click with debounce
   const handleEditClick = () => {
@@ -78,10 +83,6 @@ export default function TippingPage() {
     setTimeout(() => {
       editClickedRef.current = false;
     }, 300);
-  };
-
-  const displayRound = (round) => {
-    return round === 0 ? 'Opening Round' : `Round ${round}`;
   };
 
   // Prevent form submission
@@ -111,15 +112,6 @@ export default function TippingPage() {
     );
   }
 
-  // Debug information for render
-  console.log("Rendering TippingPage component with state:", {
-    currentRound,
-    selectedUserId,
-    hookSelectedUserId,
-    isEditing,
-    isLocked: roundInfo.isLocked
-  });
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -129,23 +121,44 @@ export default function TippingPage() {
               ? `${USER_NAMES[selectedUserId]}'s Tips` 
               : `AFL ${CURRENT_YEAR} Tips`}
           </h1>
-          {roundInfo.lockoutTime && (
-            <div className="text-sm mt-2">
-              <span className="text-gray-600">Lockout:</span>
-              <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
-              {roundInfo.isLocked && (
-                <span className="text-red-600 ml-1">(Locked)</span>
+          
+          {/* Show round info */}
+          <div className="flex flex-col gap-1 mt-1">
+            <div className="text-sm font-medium">
+              {isRoundLocked ? (
+                <>
+                  <span className="text-red-600">
+                    {formatRoundName(currentRound)} is locked 
+                  </span>
+                  <span className="text-gray-600 ml-1">
+                    - Showing {formatRoundName(localRound)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-green-600">
+                  Showing {formatRoundName(localRound)}
+                </span>
               )}
             </div>
-          )}
-          {lastEditedTime && (
-            <div className="text-sm mt-1">
-              <span className="text-gray-600">Last Submitted:</span>
-              <span className="font-medium ml-1 text-gray-800">
-                {formatDate(lastEditedTime)}
-              </span>
-            </div>
-          )}
+            
+            {roundInfo.lockoutTime && (
+              <div className="text-sm">
+                <span className="text-gray-600">Lockout:</span>
+                <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
+                {roundInfo.isLocked && (
+                  <span className="text-red-600 ml-1">(Locked)</span>
+                )}
+              </div>
+            )}
+            {lastEditedTime && (
+              <div className="text-sm mt-1">
+                <span className="text-gray-600">Last Submitted:</span>
+                <span className="font-medium ml-1 text-gray-800">
+                  {formatDate(lastEditedTime)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {successMessage && (
@@ -180,14 +193,14 @@ export default function TippingPage() {
               <button 
                 onClick={handleEditClick}
                 type="button"
-                disabled={roundInfo.isLocked}
+                disabled={isRoundLocked}
                 className={`px-4 py-2 rounded ${
-                  roundInfo.isLocked 
+                  isRoundLocked 
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-500 hover:bg-blue-600'
                 } text-white`}
               >
-                {roundInfo.isLocked ? 'Locked' : 'Edit Tips'}
+                {isRoundLocked ? 'Locked' : 'Edit Tips'}
               </button>
             )
           )}
@@ -198,13 +211,13 @@ export default function TippingPage() {
         <div className="flex flex-col">
           <label className="mb-2 font-semibold text-black">Select Round:</label>
           <select 
-            value={currentRound}
-            onChange={handleRoundChange}
+            value={localRound}
+            onChange={(e) => handleRoundChange(Number(e.target.value))}
             className="border rounded p-2 text-black"
           >
             {[...Array(25)].map((_, i) => (
               <option key={i} value={i}>
-                {displayRound(i)}
+                {formatRoundName(i)}
               </option>
             ))}
           </select>
@@ -252,12 +265,12 @@ export default function TippingPage() {
                         handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
                       }}
                       type="button"
-                      disabled={!isEditing || roundInfo.isLocked}
+                      disabled={!isEditing || isRoundLocked}
                       className={`px-3 py-1 rounded ${
                         tips[fixture.MatchNumber]?.team === fixture.HomeTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
+                      } ${(!isEditing || isRoundLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       {fixture.HomeTeam}
                     </button>
@@ -269,12 +282,12 @@ export default function TippingPage() {
                         handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
                       }}
                       type="button"
-                      disabled={!isEditing || roundInfo.isLocked}
+                      disabled={!isEditing || isRoundLocked}
                       className={`px-3 py-1 rounded ${
                         tips[fixture.MatchNumber]?.team === fixture.AwayTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || roundInfo.isLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
+                      } ${(!isEditing || isRoundLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       {fixture.AwayTeam}
                     </button>
@@ -289,12 +302,12 @@ export default function TippingPage() {
                         handleDeadCertToggle(fixture.MatchNumber);
                       }}
                       type="button"
-                      disabled={!isEditing || roundInfo.isLocked || !tips[fixture.MatchNumber]?.team}
+                      disabled={!isEditing || isRoundLocked || !tips[fixture.MatchNumber]?.team}
                       className={`px-3 py-1 rounded ${
                         tips[fixture.MatchNumber]?.deadCert
                           ? 'bg-yellow-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || roundInfo.isLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${(!isEditing || isRoundLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
                     </button>
