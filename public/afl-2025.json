@@ -73,8 +73,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 147,
+    "AwayTeamScore": 69
   },
   {
     "MatchNumber": 8,
@@ -84,8 +84,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 82,
+    "AwayTeamScore": 86
   },
   {
     "MatchNumber": 9,
@@ -95,8 +95,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 113,
+    "AwayTeamScore": 97
   },
   {
     "MatchNumber": 10,
@@ -106,8 +106,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 136,
+    "AwayTeamScore": 45
   },
   {
     "MatchNumber": 11,
