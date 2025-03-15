@@ -19,10 +19,13 @@ export default function RoundSummary({
       {/* Substitution status indicator for regular rounds */}
       {displayedRound >= 1 && (
         <div className={`mb-4 p-2 rounded-lg text-sm ${hasSubstitutions ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-yellow-50 text-yellow-800 border border-yellow-200'}`}>
-          <span className="font-semibold">Substitution Status:</span> {hasSubstitutions ? 'Enabled' : 'Disabled'} 
+          <span className="font-semibold">Reserve Players:</span> {hasSubstitutions ? 'Available' : 'Locked'} 
           {!hasSubstitutions && displayedRound >= 1 && (
-            <span> - Substitutions will be applied after the round ends</span>
+            <span> - Reserve players will be available after the round ends</span>
           )}
+          <div className="mt-1 text-black">
+            <span className="font-semibold">Note:</span> Bench players with correct backup positions are always available for substitution
+          </div>
         </div>
       )}
       

@@ -133,17 +133,21 @@ export default function useResults() {
             const stats = statsData[playerName];
             const positionType = position.toUpperCase().replace(/\s+/g, '_');
             
-            const scoring = calculateScore(positionType, stats, data.backup_position);
+            // Ensure stats exists before trying to calculate score
+            let scoring = { total: 0, breakdown: [] };
+            if (stats) {
+              scoring = calculateScore(positionType, stats, data.backup_position);
+            }
             
             // Check if player has any stats (if they played)
             const hasPlayed = stats && (
-              stats.kicks > 0 || 
-              stats.handballs > 0 || 
-              stats.marks > 0 || 
-              stats.tackles > 0 || 
-              stats.hitouts > 0 || 
-              stats.goals > 0 || 
-              stats.behinds > 0
+              (stats.kicks && stats.kicks > 0) || 
+              (stats.handballs && stats.handballs > 0) || 
+              (stats.marks && stats.marks > 0) || 
+              (stats.tackles && stats.tackles > 0) || 
+              (stats.hitouts && stats.hitouts > 0) || 
+              (stats.goals && stats.goals > 0) || 
+              (stats.behinds && stats.behinds > 0)
             );
             
             playerStats[playerName] = {
@@ -181,19 +185,42 @@ export default function useResults() {
     }
   }, [currentRound, displayRound]);
 
-  // Calculate score for a position
+  // Calculate score for a position with proper null checks
   const calculateScore = (position, stats, backupPosition = null) => {
+    // Ensure stats exists
     if (!stats) return { total: 0, breakdown: [] };
+    
+    // Add default values for stats that might be missing
+    const safeStats = {
+      kicks: stats.kicks || 0,
+      handballs: stats.handballs || 0,
+      marks: stats.marks || 0,
+      tackles: stats.tackles || 0,
+      hitouts: stats.hitouts || 0,
+      goals: stats.goals || 0,
+      behinds: stats.behinds || 0,
+      ...stats
+    };
     
     // If it's a bench position, use the backup position for scoring
     if ((position === 'BENCH' || position.startsWith('RESERVE')) && backupPosition) {
       const backupPositionType = backupPosition.toUpperCase().replace(/\s+/g, '_');
-      return POSITIONS[backupPositionType]?.calculation(stats) || { total: 0, breakdown: [] };
+      try {
+        return POSITIONS[backupPositionType]?.calculation(safeStats) || { total: 0, breakdown: [] };
+      } catch (error) {
+        console.error(`Error calculating score for ${backupPositionType}:`, error);
+        return { total: 0, breakdown: [] };
+      }
     }
 
     // For regular positions, use the position's scoring rules
     const formattedPosition = position.replace(/\s+/g, '_');
-    return POSITIONS[formattedPosition]?.calculation(stats) || { total: 0, breakdown: [] };
+    try {
+      return POSITIONS[formattedPosition]?.calculation(safeStats) || { total: 0, breakdown: [] };
+    } catch (error) {
+      console.error(`Error calculating score for ${formattedPosition}:`, error);
+      return { total: 0, breakdown: [] };
+    }
   };
 
   // Function to check if a player's stats indicate they played
@@ -201,13 +228,13 @@ export default function useResults() {
     if (!stats) return false;
     
     return (
-      stats.kicks > 0 || 
-      stats.handballs > 0 || 
-      stats.marks > 0 || 
-      stats.tackles > 0 || 
-      stats.hitouts > 0 || 
-      stats.goals > 0 || 
-      stats.behinds > 0
+      (stats.kicks && stats.kicks > 0) || 
+      (stats.handballs && stats.handballs > 0) || 
+      (stats.marks && stats.marks > 0) || 
+      (stats.tackles && stats.tackles > 0) || 
+      (stats.hitouts && stats.hitouts > 0) || 
+      (stats.goals && stats.goals > 0) || 
+      (stats.behinds && stats.behinds > 0)
     );
   };
 
@@ -226,269 +253,279 @@ export default function useResults() {
   // Get scores for a specific team - memoize with useCallback to prevent recreation on each render
   const getTeamScores = useCallback((userId) => {
     const userTeam = teams[userId] || {};
+    const debugData = [];
     
-    // Get all bench and reserve players
+    // Extract bench players with their backup positions
+    const benchPlayers = Object.entries(userTeam)
+      .filter(([pos]) => pos === 'Bench')
+      .map(([pos, data]) => {
+        if (!data.player_name || !data.backup_position) return null;
+        
+        const stats = playerStats[userId]?.[data.player_name];
+        // Check if bench player played
+        const hasPlayed = didPlayerPlay(stats);
+        
+        if (!hasPlayed) return null; // Skip bench players who didn't play
+        
+        // Calculate the bench player's score in their backup position
+        const backupPosType = data.backup_position.toUpperCase().replace(/\s+/g, '_');
+        const scoring = calculateScore(backupPosType, stats);
+        
+        return {
+          position: pos,
+          playerName: data.player_name,
+          backupPosition: data.backup_position,
+          stats,
+          score: scoring?.total || 0,
+          breakdown: scoring?.breakdown || '',
+          hasPlayed
+        };
+      })
+      .filter(Boolean); // Remove nulls
+    
+    // Extract reserve players
     const reservePlayers = Object.entries(userTeam)
-      .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
+      .filter(([pos]) => pos.startsWith('Reserve'))
       .map(([pos, data]) => {
         if (!data.player_name) return null;
         
+        const stats = playerStats[userId]?.[data.player_name];
+        const hasPlayed = didPlayerPlay(stats);
+        
+        if (!hasPlayed) return null; // Skip reserve players who didn't play
+        
+        // For reserves, associate them with their position type
+        const isReserveA = pos === 'Reserve A';
+        const validPositions = isReserveA ? RESERVE_A_POSITIONS : RESERVE_B_POSITIONS;
+        
+        // Add direct backup position if specified
+        if (data.backup_position) {
+          validPositions.push(data.backup_position);
+        }
+        
         return {
-          ...playerStats[userId]?.[data.player_name],
-          original_position: pos,
-          backup_position: data.backup_position,
-          player_name: data.player_name
+          position: pos,
+          playerName: data.player_name,
+          backupPosition: data.backup_position,
+          stats,
+          hasPlayed,
+          validPositions,
+          isReserveA
         };
       })
       .filter(Boolean);
-
-    const mainTeamPositions = POSITION_TYPES.filter(pos => 
-      !pos.includes('Bench') && !pos.includes('Reserve'));
     
-    // Create debug info for specific players we want to track, but don't set state directly
-    const debugData = [];
+    // Process main positions and apply substitutions
+    const usedBenchPlayers = new Set();
+    const usedReservePlayers = new Set();
     
-    // Identify positions that need replacements
-    const positionsNeedingReplacement = [];
-    const workingPositionScores = mainTeamPositions.map(position => {
-      const playerData = Object.entries(userTeam).find(([pos]) => pos === position)?.[1];
-      if (!playerData) return { position, player: null, score: 0, isBenchPlayer: false };
-      
-      const mainPlayerStats = playerStats[userId]?.[playerData.player_name];
-      
-      // Check if the main player played
-      if (mainPlayerStats && didPlayerPlay(mainPlayerStats)) {
+    // First, calculate scores for all main positions with original scores
+    const positionScores = POSITION_TYPES
+      .filter(pos => !pos.includes('Bench') && !pos.includes('Reserve'))
+      .map(position => {
+        const playerData = userTeam[position];
+        if (!playerData || !playerData.player_name) {
+          return {
+            position,
+            playerName: null,
+            score: 0,
+            isBenchPlayer: false
+          };
+        }
+        
+        const playerName = playerData.player_name;
+        const stats = playerStats[userId]?.[playerName];
+        const hasPlayed = didPlayerPlay(stats);
+        
+        // Calculate original score
+        const positionType = position.toUpperCase().replace(/\s+/g, '_');
+        const scoring = calculateScore(positionType, stats);
+        const originalScore = scoring?.total || 0;
+        const breakdown = scoring?.breakdown || '';
+        
+        // Return position data with score
         return {
           position,
-          player: mainPlayerStats,
-          playerName: playerData.player_name,
-          score: mainPlayerStats.scoring?.total || 0,
-          breakdown: mainPlayerStats.scoring?.breakdown || '',
-          originalPlayerName: playerData.player_name,
-          isBenchPlayer: false
+          playerName,
+          originalPlayerName: playerName,
+          player: stats,
+          score: originalScore, // For now, set the score to the original score
+          originalScore, // Keep track of the original score separately
+          breakdown,
+          hasPlayed,
+          isBenchPlayer: false,
+          noStats: !hasPlayed
         };
-      }
-      
-      // Track for debugging
-      if (position === 'Ruck') {
-        debugData.push({
-          position,
-          playerName: playerData.player_name,
-          hasPlayed: didPlayerPlay(mainPlayerStats),
-          stats: mainPlayerStats
-        });
-      }
-      
-      // Only add to replacement list if substitutions are enabled (roundEndPassed)
-      if (roundEndPassed) {
-        // If main player didn't play, this position needs replacement
-        positionsNeedingReplacement.push({
-          position,
-          playerData,
-          isReserveAPosition: RESERVE_A_POSITIONS.includes(position),
-          isReserveBPosition: RESERVE_B_POSITIONS.includes(position)
-        });
-      }
-      
-      // Return a placeholder that will be updated
-      return {
-        position,
-        player: mainPlayerStats,
-        playerName: playerData.player_name,
-        score: 0,
-        breakdown: '',
-        originalPlayerName: playerData.player_name,
-        isBenchPlayer: false,
-        noStats: true,
-        needsReplacement: roundEndPassed // Only mark as needing replacement if substitutions are enabled
-      };
-    });
+      });
     
-    // If we have positions needing replacement AND substitutions are enabled
-    if (positionsNeedingReplacement.length > 0 && roundEndPassed) {
-      // Add debug info for bench players
-      reservePlayers.forEach(player => {
-        if (player && (player.original_position === 'Bench' || player.backup_position === 'Ruck')) {
-          debugData.push({
-            position: player.original_position,
-            playerName: player.player_name,
-            backup: player.backup_position,
-            hasPlayed: didPlayerPlay(player),
-            score: player.scoring?.total || 0
-          });
-        }
-      });
+    // Step 1: Check if any bench player has a higher score than their backup position player
+    for (const benchPlayer of benchPlayers) {
+      const { backupPosition, playerName, score } = benchPlayer;
       
-      // Calculate potential scores for each position-reserve combo
-      const scoringPotentials = [];
+      // Find the position this bench player can back up
+      const positionIndex = positionScores.findIndex(p => p.position === backupPosition);
+      if (positionIndex === -1) continue;
       
-      positionsNeedingReplacement.forEach(posInfo => {
-        // For debugging Ruck position
-        if (posInfo.position === 'Ruck') {
-          debugData.push({
-            message: 'Ruck position needs replacement',
-            availableReserves: reservePlayers
-              .filter(didPlayerPlay)
-              .map(r => ({
-                name: r.player_name,
-                position: r.original_position,
-                backup: r.backup_position,
-                score: r.scoring?.total || 0
-              }))
-          });
-        }
-        
-        // Calculate scoring potential for each reserve in this position
-        reservePlayers.forEach(reserve => {
-          if (!reserve || !didPlayerPlay(reserve)) return; // Skip reserves that didn't play
-          
-          // Calculate what score this reserve would get in this position
-          const positionType = posInfo.position.toUpperCase().replace(/\s+/g, '_');
-          // Use the player's real position scoring if available
-          const calculationFunc = POSITIONS[positionType]?.calculation;
-          
-          if (!calculationFunc) {
-            console.warn(`No scoring calculation found for position: ${posInfo.position}`);
-            return;
-          }
-          
-          const potentialScore = calculationFunc(reserve)?.total || 0;
-          
-          // Calculate priority score (for sorting)
-          // Direct backup position gets highest priority
-          let priority = 0;
-          if (reserve.backup_position === posInfo.position) {
-            priority = 3;
-          } else if (
-            (reserve.original_position === 'Reserve A' && posInfo.isReserveAPosition) ||
-            (reserve.original_position === 'Reserve B' && posInfo.isReserveBPosition)
-          ) {
-            priority = 2;
-          } else if (reserve.original_position.startsWith('Reserve')) {
-            priority = 1;
-          }
-          
-          scoringPotentials.push({
-            position: posInfo.position,
-            reserve,
-            score: potentialScore,
-            priority,
-            // Generate a composite score for sorting (priority * 1000 + score)
-            sortScore: (priority * 1000) + potentialScore
-          });
-          
-          // Add debug info for Ruck position
-          if (posInfo.position === 'Ruck') {
-            debugData.push({
-              potential: `${reserve.player_name} (${reserve.original_position}) as ${posInfo.position}`,
-              score: potentialScore,
-              priority,
-              sortScore: (priority * 1000) + potentialScore
-            });
-          }
+      const positionPlayer = positionScores[positionIndex];
+      const originalScore = positionPlayer.score;
+      
+      // Compare scores - if bench is higher, substitute
+      if (score > originalScore) {
+        debugData.push({
+          message: `Bench player ${playerName} score (${score}) > ${positionPlayer.playerName} score (${originalScore}) for position ${backupPosition}`,
         });
-      });
-      
-      // Sort by priority first, then by score
-      scoringPotentials.sort((a, b) => b.sortScore - a.sortScore);
-      
-      // Keep track of which positions and reserves have been used
-      const assignedPositions = new Set();
-      const usedReserves = new Set();
-      
-      // Add debug info for sorted potentials for Ruck position
-      debugData.push({
-        message: 'Sorted scoring potentials',
-        potentials: scoringPotentials
-          .filter(p => p.position === 'Ruck')
-          .map(p => ({
-            player: p.reserve.player_name,
-            position: p.position,
-            score: p.score,
-            sortScore: p.sortScore
-          }))
-      });
-      
-      // Assign reserves to positions based on sorted potential scores
-      scoringPotentials.forEach(potential => {
-        // Skip if this position already has a replacement or this reserve is already used
-        if (assignedPositions.has(potential.position) || 
-            usedReserves.has(potential.reserve.player_name)) {
-          return;
-        }
         
-        // Find the position in our working scores array
-        const positionIndex = workingPositionScores.findIndex(p => 
-          p.position === potential.position && p.needsReplacement);
+        // Update the position with the bench player's score
+        positionScores[positionIndex] = {
+          ...positionPlayer,
+          player: benchPlayer.stats,
+          playerName: benchPlayer.playerName,
+          score: benchPlayer.score, // For total calculation
+          originalScore, // Original player's score stays
+          breakdown: benchPlayer.breakdown,
+          isBenchPlayer: true,
+          replacementType: 'Bench'
+        };
         
-        if (positionIndex !== -1) {
-          // Calculate scoring for this position
-          const positionType = potential.position.toUpperCase().replace(/\s+/g, '_');
-          const scoring = POSITIONS[positionType]?.calculation(potential.reserve);
-          
-          // For debugging Ruck position assignments
-          if (potential.position === 'Ruck') {
-            debugData.push({
-              message: `Assigning ${potential.reserve.player_name} to ${potential.position}`,
-              score: scoring?.total || 0,
-              breakdown: scoring?.breakdown || ''
-            });
-          }
-          
-          // Update the position with the replacement
-          workingPositionScores[positionIndex] = {
-            position: potential.position,
-            player: potential.reserve,
-            playerName: potential.reserve.player_name,
-            score: scoring?.total || 0,
-            breakdown: scoring?.breakdown || '',
-            originalPlayerName: workingPositionScores[positionIndex].originalPlayerName,
-            isBenchPlayer: true,
-            replacementType: potential.reserve.original_position
-          };
-          
-          // Mark this position and reserve as used
-          assignedPositions.add(potential.position);
-          usedReserves.add(potential.reserve.player_name);
-        }
-      });
+        // Mark this bench player as used
+        usedBenchPlayers.add(playerName);
+      }
     }
     
-    // Our final position scores
-    const positionScores = workingPositionScores;
-
-    // Calculate bench/reserve scores
-    const benchScores = Object.entries(userTeam)
+    // Step 2: Check if any main position player didn't play and needs a substitute
+    // (only apply reserve substitutions if round has ended)
+    if (roundEndPassed) {
+      for (let i = 0; i < positionScores.length; i++) {
+        const positionData = positionScores[i];
+        
+        // Skip positions where player played or already has a bench substitution
+        if (positionData.hasPlayed || positionData.isBenchPlayer) continue;
+        
+        const position = positionData.position;
+        const originalScore = positionData.score; // Original score (should be 0 for DNP players)
+        
+        // First try remaining bench players with matching backup
+        const eligibleBench = benchPlayers
+          .filter(b => !usedBenchPlayers.has(b.playerName) && b.backupPosition === position)
+          .sort((a, b) => b.score - a.score);
+        
+        if (eligibleBench.length > 0) {
+          const bestBench = eligibleBench[0];
+          
+          // Apply substitution
+          positionScores[i] = {
+            ...positionData,
+            player: bestBench.stats,
+            playerName: bestBench.playerName,
+            score: bestBench.score, // For total calculation
+            originalScore, // Original player's score stays
+            breakdown: bestBench.breakdown,
+            isBenchPlayer: true,
+            replacementType: 'Bench'
+          };
+          
+          // Mark as used
+          usedBenchPlayers.add(bestBench.playerName);
+          continue; // Move to next position
+        }
+        
+        // If no bench player found, try reserve players
+        const isReserveAPosition = RESERVE_A_POSITIONS.includes(position);
+        const isReserveBPosition = RESERVE_B_POSITIONS.includes(position);
+        
+        // Find eligible reserves (not used and matches position type)
+        const eligibleReserves = reservePlayers
+          .filter(r => {
+            // Skip already used reserves
+            if (usedReservePlayers.has(r.playerName)) return false;
+            
+            // Check if this reserve covers this position
+            if (r.backupPosition === position) return true;
+            
+            // Check position type match
+            return (r.isReserveA && isReserveAPosition) || 
+                  (!r.isReserveA && isReserveBPosition);
+          });
+        
+        if (eligibleReserves.length > 0) {
+          // Calculate scores for each eligible reserve in this position
+          const reserveScores = eligibleReserves.map(reserve => {
+            const positionType = position.toUpperCase().replace(/\s+/g, '_');
+            const scoring = calculateScore(positionType, reserve.stats);
+            return {
+              ...reserve,
+              calculatedScore: scoring?.total || 0,
+              breakdown: scoring?.breakdown || '',
+              // Priority: direct backup > position type match
+              priority: reserve.backupPosition === position ? 2 : 1
+            };
+          });
+          
+          // Sort by priority first, then score
+          reserveScores.sort((a, b) => {
+            if (a.priority !== b.priority) return b.priority - a.priority;
+            return b.calculatedScore - a.calculatedScore;
+          });
+          
+          // Use best reserve
+          if (reserveScores.length > 0) {
+            const bestReserve = reserveScores[0];
+            
+            // Apply substitution
+            positionScores[i] = {
+              ...positionData,
+              player: bestReserve.stats,
+              playerName: bestReserve.playerName,
+              score: bestReserve.calculatedScore, // For total calculation
+              originalScore, // Original player's score stays
+              breakdown: bestReserve.breakdown,
+              isBenchPlayer: true,
+              replacementType: bestReserve.position
+            };
+            
+            // Mark as used
+            usedReservePlayers.add(bestReserve.playerName);
+          }
+        }
+      }
+    }
+    
+    // Now prepare the bench/reserve display data
+    const benchScores = [...Object.entries(userTeam)
       .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
       .map(([position, data]) => {
         if (!data.player_name) return null;
         
-        const reserveStats = playerStats[userId]?.[data.player_name];
+        const playerName = data.player_name;
+        const stats = playerStats[userId]?.[playerName];
         const backupPosition = data.backup_position;
         
-        // Check if this reserve is being used to replace a player
-        const replacedPosition = positionScores.find(pos => 
-          pos.isBenchPlayer && pos.playerName === data.player_name
-        );
+        // Check if this bench/reserve is being used to replace a player
+        const isBeingUsed = 
+          usedBenchPlayers.has(playerName) || 
+          usedReservePlayers.has(playerName);
         
-        const isBeingUsed = !!replacedPosition;
+        // Find which position this player is replacing
+        const replacedPosition = positionScores.find(
+          pos => pos.isBenchPlayer && pos.playerName === playerName
+        );
         
         return {
           position,
           backupPosition,
-          player: reserveStats,
-          playerName: data.player_name,
-          score: reserveStats?.scoring?.total || 0,
-          breakdown: reserveStats?.scoring?.breakdown || '',
+          player: stats,
+          playerName,
+          score: stats?.scoring?.total || 0,
+          breakdown: stats?.scoring?.breakdown || '',
           isBeingUsed,
-          replacingPosition: isBeingUsed ? replacedPosition.position : null,
-          replacingPlayerName: isBeingUsed ? replacedPosition.originalPlayerName : null,
-          didPlay: didPlayerPlay(reserveStats)
+          replacingPosition: isBeingUsed && replacedPosition ? replacedPosition.position : null,
+          replacingPlayerName: isBeingUsed && replacedPosition ? replacedPosition.originalPlayerName : null,
+          didPlay: didPlayerPlay(stats)
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)];
 
-    // Calculate total score
+    // Calculate total score (using the substituted scores for the total)
     const totalScore = positionScores.reduce((total, pos) => total + pos.score, 0);
     const deadCertScore = deadCertScores[userId] || 0;
     const finalScore = totalScore + deadCertScore;
@@ -500,44 +537,17 @@ export default function useResults() {
       finalScore,
       positionScores,
       benchScores,
-      substitutionsEnabled: roundEndPassed, // SIMPLIFIED: Only use roundEndPassed flag
-      debugInfo: debugData.length > 0 ? debugData : null  // Instead of setting state, return debug data
+      substitutionsEnabled: {
+        bench: true, // Bench players can always be substituted
+        reserve: roundEndPassed // Reserve A/B only when round has ended
+      },
+      debugInfo: debugData.length > 0 ? debugData : null
     };
   }, [teams, playerStats, deadCertScores, roundEndPassed]);
 
-  // Use a separate effect to handle debug info updates - throttled to avoid continuous updates
-  const debugUpdateTimeoutRef = useRef(null);
-  useEffect(() => {
-    // Clear any existing timeout to prevent stacking
-    if (debugUpdateTimeoutRef.current) {
-      clearTimeout(debugUpdateTimeoutRef.current);
-    }
-    
-    // Only update debug info when data is stable and loaded, with a delay
-    if (!loading && playerStats && Object.keys(playerStats).length > 0) {
-      debugUpdateTimeoutRef.current = setTimeout(() => {
-        const firstUserId = Object.keys(teams)[0];
-        if (firstUserId) {
-          const teamScores = getTeamScores(firstUserId);
-          if (teamScores.debugInfo) {
-            setDebugInfo(teamScores.debugInfo);
-          }
-        }
-        debugUpdateTimeoutRef.current = null; // Clear reference after execution
-      }, 1000); // 1 second delay
-    }
-    
-    // Cleanup
-    return () => {
-      if (debugUpdateTimeoutRef.current) {
-        clearTimeout(debugUpdateTimeoutRef.current);
-      }
-    };
-  }, [loading, playerStats, teams, getTeamScores]);
-
   return {
     // State
-    currentRound: displayRound, // Use the local display round instead of context's currentRound
+    currentRound: displayRound, 
     teams,
     playerStats,
     deadCertScores,
@@ -545,7 +555,7 @@ export default function useResults() {
     error,
     roundEndPassed,
     debugInfo,
-    roundInitialized: !loading && Object.keys(teams).length > 0, // Simplified: consider initialized when data is loaded
+    roundInitialized: !loading && Object.keys(teams).length > 0, 
     
     // Actions
     changeRound,
