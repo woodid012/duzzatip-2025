@@ -354,7 +354,8 @@ export default function useResults() {
           breakdown,
           hasPlayed,
           isBenchPlayer: false,
-          noStats: !hasPlayed
+          noStats: !hasPlayed,
+          team: stats?.team || playerTeamMap[playerName] // Store original player's team
         };
       });
     
@@ -378,13 +379,17 @@ export default function useResults() {
         // Update the position with the bench player's score
         positionScores[positionIndex] = {
           ...positionPlayer,
-          player: benchPlayer.stats,
+          player: {
+            ...benchPlayer.stats,
+            originalTeam: positionPlayer.player?.team // Keep original player's team
+          },
           playerName: benchPlayer.playerName,
           score: benchPlayer.score, // For total calculation
           originalScore, // Original player's score stays
           breakdown: benchPlayer.breakdown,
           isBenchPlayer: true,
-          replacementType: 'Bench'
+          replacementType: 'Bench',
+          team: positionPlayer.team // Preserve original player's team
         };
         
         // Mark this bench player as used
@@ -415,13 +420,17 @@ export default function useResults() {
           // Apply substitution
           positionScores[i] = {
             ...positionData,
-            player: bestBench.stats,
+            player: {
+              ...bestBench.stats,
+              originalTeam: positionData.player?.team // Keep original player's team
+            },
             playerName: bestBench.playerName,
             score: bestBench.score, // For total calculation
             originalScore, // Original player's score stays
             breakdown: bestBench.breakdown,
             isBenchPlayer: true,
-            replacementType: 'Bench'
+            replacementType: 'Bench',
+            team: positionData.team // Preserve original player's team
           };
           
           // Mark as used
@@ -474,13 +483,17 @@ export default function useResults() {
             // Apply substitution
             positionScores[i] = {
               ...positionData,
-              player: bestReserve.stats,
+              player: {
+                ...bestReserve.stats,
+                originalTeam: positionData.player?.team // Keep original player's team
+              },
               playerName: bestReserve.playerName,
               score: bestReserve.calculatedScore, // For total calculation
               originalScore, // Original player's score stays
               breakdown: bestReserve.breakdown,
               isBenchPlayer: true,
-              replacementType: bestReserve.position
+              replacementType: bestReserve.position,
+              team: positionData.team // Preserve original player's team
             };
             
             // Mark as used

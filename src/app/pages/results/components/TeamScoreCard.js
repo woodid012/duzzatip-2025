@@ -145,6 +145,7 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
         
         // For replaced players, we'll show both original and replacement details
         const originalScore = position.originalScore || 0;
+        const originalTeam = position.team || (position.player?.originalTeam);
         const replacementScore = isReplaced ? position.score : null;
         
         return (
@@ -153,9 +154,9 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
             <div className="col-span-3 mb-1 sm:mb-0">
               <div className={playerNameClass}>
                 <div className="truncate">{position.originalPlayerName || 'Not Selected'}</div>
-                {position.player?.team && (
+                {(originalTeam || position.player?.team) && (
                   <div className="text-xs text-gray-500">
-                    ({getTeamAbbreviation(position.player.team)})
+                    ({getTeamAbbreviation(originalTeam || position.player?.team)})
                     {showDNP && ' (DNP)'}
                     {isReplaced && ' (Substituted)'}
                   </div>
@@ -168,6 +169,9 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
                   <div className="text-green-600">
                     Substituted with: {position.playerName} 
                     <span className="ml-1 text-gray-500">({position.replacementType})</span>
+                  </div>
+                  <div className="text-xs mt-1 text-gray-600">
+                    {position.originalPlayerName}'s score: {originalScore}
                   </div>
                   <div className="text-xs mt-1 text-gray-600">
                     {position.playerName}'s score: {replacementScore}
