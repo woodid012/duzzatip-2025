@@ -33,7 +33,7 @@ const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }
 export default function PagesLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { roundInfo } = useAppContext();
+  const { roundInfo, loading } = useAppContext();
   
   // State for selected user - initialize from localStorage if available
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -79,6 +79,9 @@ export default function PagesLayout({ children }) {
   // Check if the current page should show only the selected user's team
   const isSingleUserPage = pathname === '/pages/team-selection' || pathname === '/pages/tipping';
 
+  // Determine if we should show round info yet
+  const showRoundInfo = !loading.fixtures && roundInfo && roundInfo.currentRound !== undefined;
+
   return (
     <UserContext.Provider value={{ selectedUserId, setSelectedUserId }}>
       <div className="min-h-screen bg-gray-50">
@@ -97,12 +100,22 @@ export default function PagesLayout({ children }) {
                     <span className="font-semibold">Season:</span>
                     <span>{CURRENT_YEAR}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Current Round:</span>
-                    <span>{roundInfo.currentRoundDisplay}</span>
-                  </div>
+                  
+                  {/* Only show round info when it's fully loaded */}
+                  {showRoundInfo ? (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Current Round:</span>
+                      <span>{roundInfo.currentRoundDisplay}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Round:</span>
+                      <span className="animate-pulse">Loading...</span>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-2 text-sm">
-                    {roundInfo.lockoutTime && (
+                    {showRoundInfo && roundInfo.lockoutTime && (
                       <div className="flex gap-1 items-center">
                         <span className="text-gray-600">Lockout:</span>
                         <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
@@ -111,10 +124,10 @@ export default function PagesLayout({ children }) {
                         )}
                       </div>
                     )}
-                    {roundInfo.lockoutTime && roundInfo.roundEndTime && (
+                    {showRoundInfo && roundInfo.lockoutTime && roundInfo.roundEndTime && (
                       <span className="text-gray-400 mx-1">|</span>
                     )}
-                    {roundInfo.roundEndTime && (
+                    {showRoundInfo && roundInfo.roundEndTime && (
                       <div className="flex gap-1 items-center">
                         <span className="text-gray-600">Round Ends:</span>
                         <span className="font-medium text-black">{roundInfo.roundEndTime}</span>

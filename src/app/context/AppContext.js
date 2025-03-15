@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { CURRENT_YEAR, OPENING_ROUND_END_TIME } from '@/app/lib/constants';
 import { processFixtures, calculateRoundInfo, getRoundInfo } from '@/app/lib/timeCalculations';
 
@@ -66,6 +66,9 @@ export function AppProvider({ children }) {
         const processedFixtures = processFixtures(fixturesData);
         setFixtures(processedFixtures);
         
+        // CRITICAL CHANGE: Calculate round info immediately as first priority
+        console.log('Calculating current round as first priority...');
+        
         // Current date
         const now = new Date();
         
@@ -81,6 +84,7 @@ export function AppProvider({ children }) {
             isLocked: round0Info.isLocked,
             roundEndTime: round0Info.roundEndTime
           });
+          console.log('App initialized with Opening Round (0)');
         } 
         // Check if we're after Opening Round but before Round 1 lockout
         else {
