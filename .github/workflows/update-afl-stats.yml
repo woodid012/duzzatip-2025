@@ -14,8 +14,10 @@ on:
     - cron: '00 13 * * 0'   # 11:00 PM Sunday in Melbourne (13:00 UTC)
     - cron: '00 8 * * 1'    # 6:00 PM Monday in Melbourne (8:00 UTC)
     - cron: '00 13 * * 1'   # 11:00 PM Monday in Melbourne (13:00 UTC)
+    - cron: '00 17 * * 5'   # 3:00 AM Saturday in Melbourne (17:00 UTC Friday)
+    - cron: '00 17 * * 6'   # 3:00 AM Sunday in Melbourne (17:00 UTC Saturday)
   workflow_dispatch:  # Allow manual trigger for testing
-
+  
 jobs:
   update-stats:
     runs-on: ubuntu-latest
