@@ -313,22 +313,6 @@ export default function ResultsPage() {
         })}
       </div>
       
-      {/* Info about Reserves - Moved to bottom of page */}
-      <div className="mt-10 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="text-lg font-semibold mb-2 text-blue-800">Reserve Rules</h3>
-        <ul className="list-disc pl-5 text-blue-700 text-sm space-y-1">
-          <li><strong>Reserve A</strong> is used as backup for: Full Forward, Tall Forward, and Ruck</li>
-          <li><strong>Reserve B</strong> is used as backup for: Offensive, Midfielder, and Tackler</li>
-          <li>If a player didn't play (DNP), their position will be filled by the appropriate reserve</li>
-          <li>Each reserve player can only be used once (in case multiple players didn't play)</li>
-          <li>Reserves are assigned to maximize total team score based on priority order:</li>
-          <ol className="list-decimal pl-5 pt-1">
-            <li>Specific backup position match (highest priority)</li>
-            <li>Position type match (Reserve A for FF/TF/Ruck, Reserve B for others)</li>
-            <li>Scoring potential (reserves are assigned to generate maximum points)</li>
-          </ol>
-        </ul>
-      </div>
     </div>
   );
 }
