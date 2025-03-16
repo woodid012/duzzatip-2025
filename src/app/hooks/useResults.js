@@ -16,8 +16,8 @@ export default function useResults() {
   const initializedRef = useRef(false);
   
   // State for the round displayed on the page - independent from global context
-  // Important: Start with null to ensure proper initialization from context
-  const [localRound, setLocalRound] = useState(null);
+  // IMPORTANT: Always initialize to 1 to avoid Opening Round
+  const [localRound, setLocalRound] = useState(1);
   
   // State for teams and player data
   const [teams, setTeams] = useState({});
@@ -33,21 +33,23 @@ export default function useResults() {
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
   const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
   
-  // Critical fix: Initialize local round from context only once on first load
+  // Update local round from context current round on first render after it's loaded
+  // But ONLY if the context round is greater than 0
   useEffect(() => {
     if (!initializedRef.current && currentRound !== null && currentRound !== undefined) {
-      console.log(`USERESULTS: Setting local round to global context round ${currentRound}`);
-      setLocalRound(currentRound);
+      // Only initialize with values > 0 to prevent Opening Round
+      if (currentRound > 0) {
+        console.log(`USERESULTS: Initializing local round to ${currentRound}`);
+        setLocalRound(currentRound);
+      } else {
+        console.log(`USERESULTS: Current round is ${currentRound}, using default round 1`);
+      }
       initializedRef.current = true;
     }
   }, [currentRound]);
 
   // Load data when local round changes
   useEffect(() => {
-    if (localRound === null) {
-      return;
-    }
-    
     // Skip if we've already loaded this round's data
     if (loadedRoundRef.current === localRound) {
       return;

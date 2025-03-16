@@ -21,6 +21,9 @@ export default function ResultsPage() {
   // Important: Start with null to ensure proper initialization from context
   const [displayedRound, setDisplayedRound] = useState(null);
   
+  // Create a state to track whether the context is fully initialized
+  const [isContextInitialized, setIsContextInitialized] = useState(false);
+  
   // Flag to track if we've already initialized the round
   const didInitializeRound = useRef(false);
   
@@ -42,20 +45,32 @@ export default function ResultsPage() {
   const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
   const [pageReady, setPageReady] = useState(false);
   
-  // Set displayed round from context current round on first render after it's loaded
+  // Track when context is ready (not just loaded)
   useEffect(() => {
-    if (!didInitializeRound.current && currentRound !== null && currentRound !== undefined) {
-      console.log(`RESULTS PAGE: Initializing displayed round to global context current round: ${currentRound}`);
+    // Context is considered initialized when:
+    // - Fixtures are loaded (context loading is done)
+    // - Current round has been calculated (is not undefined)
+    // - Round info is available
+    if (!contextLoading.fixtures && 
+        currentRound !== undefined && 
+        roundInfo && !roundInfo.isError) {
+      setIsContextInitialized(true);
+    }
+  }, [contextLoading.fixtures, currentRound, roundInfo]);
+  
+  // Set displayed round from context current round when context is fully initialized
+  useEffect(() => {
+    if (isContextInitialized && !didInitializeRound.current) {
+      console.log(`RESULTS PAGE: Context is ready, initializing with round: ${currentRound}`);
       setDisplayedRound(currentRound);
       
-      // Also update the hook's round
       if (hookChangeRound) {
         hookChangeRound(currentRound);
       }
       
       didInitializeRound.current = true;
     }
-  }, [currentRound, hookChangeRound]);
+  }, [isContextInitialized, currentRound, hookChangeRound]);
   
   // Secondary fallback - use hook's round if context failed
   useEffect(() => {
@@ -92,7 +107,9 @@ export default function ResultsPage() {
 
   // Get fixtures for the displayed round - only when displayedRound changes
   useEffect(() => {
-    if (displayedRound === null) return;
+    if (displayedRound === null) {
+      return; // Return early without loading fixtures
+    }
     
     // Get fixtures for the displayed round
     const roundFixtures = getFixturesForRound(displayedRound);
@@ -150,17 +167,19 @@ export default function ResultsPage() {
   };
 
   // Show loading during initial phase
-  if (displayedRound === null || !pageReady) return (
-    <div className="p-8 text-center">
-      <div role="status" className="flex flex-col items-center">
-        <svg className="animate-spin h-8 w-8 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span className="text-lg font-medium">Loading {displayedRound !== null ? displayRoundName(displayedRound) : 'current round'} data...</span>
+  if (!isContextInitialized || displayedRound === null || !pageReady) {
+    return (
+      <div className="p-8 text-center">
+        <div role="status" className="flex flex-col items-center">
+          <svg className="animate-spin h-8 w-8 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span className="text-lg font-medium">Waiting for round calculation...</span>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
   
   if (error) return (
     <div className="p-4 bg-red-50 border border-red-300 rounded-lg text-red-700">
@@ -174,17 +193,6 @@ export default function ResultsPage() {
       </button>
     </div>
   );
-
-  // Remove this entirely - we don't need the welcome screen logic
-  if (false) { // changed to false to effectively remove this code path
-    return (
-      <WelcomeScreen 
-        selectedUserId={selectedUserId} 
-        setSelectedUserId={setSelectedUserId} 
-        lockoutTime={roundInfo.lockoutTime} 
-      />
-    );
-  }
 
   // Calculate team scores once, outside the render logic
   const allTeamScores = Object.keys(USER_NAMES).map(userId => {
