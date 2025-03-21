@@ -161,8 +161,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 70,
+    "AwayTeamScore": 76
   },
   {
     "MatchNumber": 16,
