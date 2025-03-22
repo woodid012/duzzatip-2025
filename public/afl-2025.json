@@ -172,8 +172,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 100,
+    "AwayTeamScore": 161
   },
   {
     "MatchNumber": 17,
@@ -183,8 +183,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 140,
+    "AwayTeamScore": 68
   },
   {
     "MatchNumber": 18,
@@ -194,8 +194,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 98,
+    "AwayTeamScore": 91
   },
   {
     "MatchNumber": 19,
