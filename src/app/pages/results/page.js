@@ -60,7 +60,7 @@ export default function ResultsPage() {
   
   // Set displayed round from context current round when context is fully initialized
   useEffect(() => {
-    if (isContextInitialized && !didInitializeRound.current) {
+    if (isContextInitialized && !didInitializeRound.current && currentRound !== null) {
       console.log(`RESULTS PAGE: Context is ready, initializing with round: ${currentRound}`);
       setDisplayedRound(currentRound);
       
@@ -72,23 +72,14 @@ export default function ResultsPage() {
     }
   }, [isContextInitialized, currentRound, hookChangeRound]);
   
-  // Secondary fallback - use hook's round if context failed
-  useEffect(() => {
-    if (!didInitializeRound.current && hookRound !== null && hookRound !== undefined) {
-      console.log(`RESULTS PAGE: Fallback - setting displayed round to hook's round: ${hookRound}`);
-      setDisplayedRound(hookRound);
-      didInitializeRound.current = true;
-    }
-  }, [hookRound]);
-  
   // Ensure page ready status
   useEffect(() => {
-    if (!loading && teams && Object.keys(teams).length > 0) {
+    if (displayedRound !== null && !loading && teams && Object.keys(teams).length > 0) {
       setPageReady(true);
     } else {
       setPageReady(false);
     }
-  }, [loading, teams]);
+  }, [loading, teams, displayedRound]);
 
   // Check if the round is complete based on roundEndTime
   const isRoundComplete = () => {
@@ -175,7 +166,7 @@ export default function ResultsPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span className="text-lg font-medium">Waiting for round calculation...</span>
+          <span className="text-lg font-medium">Loading round data...</span>
         </div>
       </div>
     );
