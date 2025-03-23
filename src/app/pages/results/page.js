@@ -19,7 +19,7 @@ export default function ResultsPage() {
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
   // Important: Start with null to ensure proper initialization from context
-  const [displayedRound, setDisplayedRound] = useState(2);
+  const [displayedRound, setDisplayedRound] = useState(1);
   
   // Create a state to track whether the context is fully initialized
   const [isContextInitialized, setIsContextInitialized] = useState(false);
