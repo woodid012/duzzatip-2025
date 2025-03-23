@@ -16,8 +16,8 @@ export default function useResults() {
   const initializedRef = useRef(false);
   
   // State for the round displayed on the page - independent from global context
-  // IMPORTANT: Initialize to null instead of 1 to wait for the context round
-  const [localRound, setLocalRound] = useState(null);
+  // IMPORTANT: Always initialize to 1 to avoid Opening Round
+  const [localRound, setLocalRound] = useState(1);
   
   // State for teams and player data
   const [teams, setTeams] = useState({});
@@ -43,7 +43,6 @@ export default function useResults() {
         setLocalRound(currentRound);
       } else {
         console.log(`USERESULTS: Current round is ${currentRound}, using default round 1`);
-        setLocalRound(1); // Default to round 1 if context has round 0
       }
       initializedRef.current = true;
     }
@@ -51,11 +50,6 @@ export default function useResults() {
 
   // Load data when local round changes
   useEffect(() => {
-    // Skip if local round is null (not yet initialized)
-    if (localRound === null) {
-      return;
-    }
-    
     // Skip if we've already loaded this round's data
     if (loadedRoundRef.current === localRound) {
       return;
@@ -154,7 +148,15 @@ export default function useResults() {
             }
             
             // Check if player has any stats (if they played)
-            const hasPlayed = stats && didPlayerPlay(stats);
+            const hasPlayed = stats && (
+              (stats.kicks && stats.kicks > 0) || 
+              (stats.handballs && stats.handballs > 0) || 
+              (stats.marks && stats.marks > 0) || 
+              (stats.tackles && stats.tackles > 0) || 
+              (stats.hitouts && stats.hitouts > 0) || 
+              (stats.goals && stats.goals > 0) || 
+              (stats.behinds && stats.behinds > 0)
+            );
             
             playerStats[playerName] = {
               ...stats,
