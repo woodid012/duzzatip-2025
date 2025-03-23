@@ -19,7 +19,7 @@ export default function ResultsPage() {
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
   // Important: Start with null to ensure proper initialization from context
-  const [displayedRound, setDisplayedRound] = useState(1);
+  const [displayedRound, setDisplayedRound] = useState(null);
   
   // Create a state to track whether the context is fully initialized
   const [isContextInitialized, setIsContextInitialized] = useState(false);
@@ -49,10 +49,11 @@ export default function ResultsPage() {
   useEffect(() => {
     // Context is considered initialized when:
     // - Fixtures are loaded (context loading is done)
-    // - Current round has been calculated (is not undefined)
+    // - Current round has been calculated (is not null or undefined)
     // - Round info is available
     if (!contextLoading.fixtures && 
         currentRound !== undefined && 
+        currentRound !== null && 
         roundInfo && !roundInfo.isError) {
       setIsContextInitialized(true);
     }
@@ -81,14 +82,14 @@ export default function ResultsPage() {
     }
   }, [hookRound]);
   
-  // Ensure page ready status
+  // Ensure page ready status - only when we have a valid displayed round
   useEffect(() => {
-    if (!loading && teams && Object.keys(teams).length > 0) {
+    if (displayedRound !== null && !loading && teams && Object.keys(teams).length > 0) {
       setPageReady(true);
     } else {
       setPageReady(false);
     }
-  }, [loading, teams]);
+  }, [loading, teams, displayedRound]);
 
   // Check if the round is complete based on roundEndTime
   const isRoundComplete = () => {
@@ -166,7 +167,7 @@ export default function ResultsPage() {
     return `Round ${round}`;
   };
 
-  // Show loading during initial phase
+  // Show loading during initial phase - enhanced loading state
   if (!isContextInitialized || displayedRound === null || !pageReady) {
     return (
       <div className="p-8 text-center">
@@ -176,6 +177,11 @@ export default function ResultsPage() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
           <span className="text-lg font-medium">Waiting for round calculation...</span>
+          <span className="text-sm text-gray-500 mt-2">
+            {!isContextInitialized ? 'Loading round information...' : 
+             displayedRound === null ? 'Waiting for round data...' : 
+             'Preparing team scores...'}
+          </span>
         </div>
       </div>
     );
