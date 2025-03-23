@@ -29,6 +29,9 @@ export default function useResults() {
   const [debugInfo, setDebugInfo] = useState(null);
   const [playerTeamMap, setPlayerTeamMap] = useState({});
   
+  // Add a state to track if data is initialized
+  const [roundInitialized, setRoundInitialized] = useState(false);
+  
   // Define which positions are handled by which reserve
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
   const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
@@ -100,6 +103,7 @@ useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setRoundInitialized(false);
         console.log(`Fetching data for round: ${localRound}`);
         
         // Fetch squads to get player team information
@@ -159,11 +163,12 @@ useEffect(() => {
         });
         setDeadCertScores(deadCertMap);
 
-        // Fetch player stats for each team
+        // Fetch player stats for each team - FIX: Add null checks
         const allStats = {};
         for (const [userId, team] of Object.entries(teamsData)) {
-          // Collect all player names for this team
+          // Collect all player names for this team - FIX: Add null check
           const playerNames = Object.values(team)
+            .filter(data => data !== null && data !== undefined) // Add explicit null check
             .map(data => data.player_name)
             .filter(Boolean); // Remove any undefined/null values
     
@@ -177,6 +182,9 @@ useEffect(() => {
           // Process the stats for each player
           const playerStats = {};
           for (const [position, data] of Object.entries(team)) {
+            // FIX: Skip if position data is null or undefined
+            if (!data) continue;
+            
             const playerName = data.player_name;
             if (!playerName) continue;
             
@@ -215,6 +223,7 @@ useEffect(() => {
         
         // Mark this round as loaded
         loadedRoundRef.current = localRound;
+        setRoundInitialized(true);
       } catch (err) {
         console.error('Error fetching results data:', err);
         setError(err.message);
@@ -310,7 +319,8 @@ useEffect(() => {
     const benchPlayers = Object.entries(userTeam)
       .filter(([pos]) => pos === 'Bench')
       .map(([pos, data]) => {
-        if (!data.player_name || !data.backup_position) return null;
+        // FIX: Add null check for data
+        if (!data || !data.player_name || !data.backup_position) return null;
         
         const stats = playerStats[userId]?.[data.player_name];
         // Check if bench player played
@@ -338,7 +348,8 @@ useEffect(() => {
     const reservePlayers = Object.entries(userTeam)
       .filter(([pos]) => pos.startsWith('Reserve'))
       .map(([pos, data]) => {
-        if (!data.player_name) return null;
+        // FIX: Add null check for data
+        if (!data || !data.player_name) return null;
         
         const stats = playerStats[userId]?.[data.player_name];
         const hasPlayed = didPlayerPlay(stats);
@@ -375,6 +386,7 @@ useEffect(() => {
       .filter(pos => !pos.includes('Bench') && !pos.includes('Reserve'))
       .map(position => {
         const playerData = userTeam[position];
+        // FIX: Add null check for playerData
         if (!playerData || !playerData.player_name) {
           return {
             position,
@@ -558,7 +570,8 @@ useEffect(() => {
     const benchScores = [...Object.entries(userTeam)
       .filter(([pos]) => pos === 'Bench' || pos.startsWith('Reserve'))
       .map(([position, data]) => {
-        if (!data.player_name) return null;
+        // FIX: Add null check for data
+        if (!data || !data.player_name) return null;
         
         const playerName = data.player_name;
         const stats = playerStats[userId]?.[playerName];
@@ -619,7 +632,7 @@ useEffect(() => {
     error,
     roundEndPassed,
     debugInfo,
-    roundInitialized: !loading && Object.keys(teams).length > 0, 
+    roundInitialized, 
     
     // Actions
     changeRound: handleRoundChange, // Use our local function instead of the global one
