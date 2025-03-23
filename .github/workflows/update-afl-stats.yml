@@ -61,10 +61,18 @@ jobs:
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
           
-          # First pull with rebasing to get any remote changes
-          git pull --rebase origin main
+          # Stash our changes first
+          git stash
           
-          # Now add, commit and push changes
+          # Pull the latest changes
+          git pull origin main
+          
+          # Apply our stashed changes back
+          git stash pop
+          
+          # Add, commit and push with force if needed
           git add src/app/scripts/processed-games.json
           git commit -m "Update processed games record [skip ci]"
-          git push
+          
+          # Try to push, if it fails, force push with lease for safety
+          git push || git push --force-with-lease
