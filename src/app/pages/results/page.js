@@ -18,13 +18,16 @@ export default function ResultsPage() {
   // Get the selected user from context
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
-  // Important: Start with null to ensure proper initialization from context
+  // Important: Use null for displayedRound until we're ready to set it
   const [displayedRound, setDisplayedRound] = useState(null);
   
-  // Create a state to track whether the context is fully initialized
-  const [isContextInitialized, setIsContextInitialized] = useState(false);
+  // Add states to track initialization progress
+  const [contextReady, setContextReady] = useState(false);
+  const [roundInitialized, setRoundInitialized] = useState(false);
+  const [teamSelectionsLoaded, setTeamSelectionsLoaded] = useState(false);
+  const [statsLoadStarted, setStatsLoadStarted] = useState(false);
   
-  // Flag to track if we've already initialized the round
+  // Ref to track if we've initialized the round
   const didInitializeRound = useRef(false);
   
   // Get results functionality from our hook
@@ -36,7 +39,8 @@ export default function ResultsPage() {
     calculateAllTeamScores,
     getTeamScores,
     currentRound: hookRound,
-    changeRound: hookChangeRound
+    changeRound: hookChangeRound,
+    roundInitialized: hookDataReady
   } = useResults();
 
   // State for fixtures
@@ -45,72 +49,89 @@ export default function ResultsPage() {
   const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
   const [pageReady, setPageReady] = useState(false);
   
-  // Track when context is ready (not just loaded)
+  // Step 1: Wait for context to be ready
   useEffect(() => {
-    // Context is considered initialized when:
-    // - Fixtures are loaded (context loading is done)
-    // - Current round has been calculated (is not null or undefined)
-    // - Round info is available
     if (!contextLoading.fixtures && 
         currentRound !== undefined && 
         currentRound !== null && 
         roundInfo && !roundInfo.isError) {
-      setIsContextInitialized(true);
+      console.log(`Context is ready, current round: ${currentRound}`);
+      setContextReady(true);
     }
   }, [contextLoading.fixtures, currentRound, roundInfo]);
   
-  // Set displayed round from context current round when context is fully initialized
+  // Step 2: Set displayed round from context when ready
   useEffect(() => {
-    if (isContextInitialized && !didInitializeRound.current) {
-      console.log(`RESULTS PAGE: Context is ready, initializing with round: ${currentRound}`);
+    if (contextReady && !didInitializeRound.current) {
+      console.log(`Setting displayed round to ${currentRound} from global context`);
       setDisplayedRound(currentRound);
+      didInitializeRound.current = true;
+      setRoundInitialized(true);
+    }
+  }, [contextReady, currentRound]);
+  
+  // Step 3: First load the team selections
+  useEffect(() => {
+    if (roundInitialized && displayedRound !== null && !teamSelectionsLoaded) {
+      const loadTeamSelections = async () => {
+        try {
+          console.log(`Loading team selections for round ${displayedRound}`);
+          const response = await fetch(`/api/team-selection?round=${displayedRound}`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Team selections loaded successfully');
+            // Just loading the selections is enough - the hook will use them
+            setTeamSelectionsLoaded(true);
+          } else {
+            console.error('Failed to load team selections');
+            // Still mark as loaded so we can continue
+            setTeamSelectionsLoaded(true);
+          }
+        } catch (error) {
+          console.error('Error loading team selections:', error);
+          // Still mark as loaded so we can continue
+          setTeamSelectionsLoaded(true);
+        }
+      };
       
+      loadTeamSelections();
+    }
+  }, [roundInitialized, displayedRound, teamSelectionsLoaded]);
+  
+  // Step 4: After team selections are loaded, initialize the hook to fetch stats
+  useEffect(() => {
+    if (teamSelectionsLoaded && displayedRound !== null && !statsLoadStarted) {
+      console.log(`Initializing hook with round ${displayedRound} to fetch player stats`);
       if (hookChangeRound) {
-        hookChangeRound(currentRound);
+        hookChangeRound(displayedRound);
+        setStatsLoadStarted(true);
       }
-      
-      didInitializeRound.current = true;
     }
-  }, [isContextInitialized, currentRound, hookChangeRound]);
+  }, [teamSelectionsLoaded, displayedRound, hookChangeRound, statsLoadStarted]);
   
-  // Secondary fallback - use hook's round if context failed
+  // Step 5: Set page as ready once data is loaded
   useEffect(() => {
-    if (!didInitializeRound.current && hookRound !== null && hookRound !== undefined) {
-      console.log(`RESULTS PAGE: Fallback - setting displayed round to hook's round: ${hookRound}`);
-      setDisplayedRound(hookRound);
-      didInitializeRound.current = true;
-    }
-  }, [hookRound]);
-  
-  // Ensure page ready status - only when we have a valid displayed round
-  useEffect(() => {
-    if (displayedRound !== null && !loading && teams && Object.keys(teams).length > 0) {
+    if (displayedRound !== null && !loading && hookDataReady && teams && Object.keys(teams).length > 0 && teamSelectionsLoaded) {
+      console.log('All data loaded, setting page as ready');
       setPageReady(true);
-    } else {
-      setPageReady(false);
     }
-  }, [loading, teams, displayedRound]);
+  }, [displayedRound, loading, hookDataReady, teams, teamSelectionsLoaded]);
 
   // Check if the round is complete based on roundEndTime
   const isRoundComplete = () => {
-    // For all rounds, check roundInfo.roundEndTime
     if (!roundInfo.roundEndTime) return false;
     const now = new Date();
     const roundEnd = new Date(roundInfo.roundEndTime);
     return now > roundEnd;
   };
 
-  // Check if we should display the welcome screen - removed as requested
-  useEffect(() => {
-    // Always set this to false since we don't want the welcome screen anymore
-    setShouldShowWelcome(false);
-  }, [displayedRound]);
-
   // Get fixtures for the displayed round - only when displayedRound changes
   useEffect(() => {
     if (displayedRound === null) {
       return; // Return early without loading fixtures
     }
+    
+    console.log(`Getting fixtures for round ${displayedRound}`);
     
     // Get fixtures for the displayed round
     const roundFixtures = getFixturesForRound(displayedRound);
@@ -147,9 +168,8 @@ export default function ResultsPage() {
       setDisplayedRound(newRound);
       setPageReady(false); // Reset page ready state
       
-      // Important: Call changeRound from the useResults hook without updating global context
+      // Important: Call changeRound from the useResults hook
       if (hookChangeRound) {
-        // This will update the hook's internal state without affecting global context
         hookChangeRound(newRound);
       }
     }
@@ -167,8 +187,8 @@ export default function ResultsPage() {
     return `Round ${round}`;
   };
 
-  // Show loading during initial phase - enhanced loading state
-  if (!isContextInitialized || displayedRound === null || !pageReady) {
+  // Show enhanced loading state with details about what we're waiting for
+  if (!pageReady) {
     return (
       <div className="p-8 text-center">
         <div role="status" className="flex flex-col items-center">
@@ -176,11 +196,14 @@ export default function ResultsPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span className="text-lg font-medium">Waiting for round calculation...</span>
+          <span className="text-lg font-medium">Loading round data...</span>
           <span className="text-sm text-gray-500 mt-2">
-            {!isContextInitialized ? 'Loading round information...' : 
-             displayedRound === null ? 'Waiting for round data...' : 
-             'Preparing team scores...'}
+            {!contextReady ? 'Waiting for round information...' : 
+             !roundInitialized ? 'Initializing round data...' : 
+             !teamSelectionsLoaded ? 'Loading team selections...' :
+             !statsLoadStarted ? 'Preparing to fetch player stats...' :
+             !hookDataReady ? 'Fetching player stats...' :
+             'Finalizing team scores...'}
           </span>
         </div>
       </div>
