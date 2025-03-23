@@ -200,8 +200,8 @@ export default function LadderPage() {
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">L</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">D</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PF</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PA</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PF (Ave)</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PA (Ave)</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <Star className="inline text-yellow-500" size={14} />
@@ -248,8 +248,12 @@ export default function LadderPage() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.wins}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.losses}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.draws}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.pointsFor}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.pointsAgainst}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                  {team.pointsFor} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsFor / team.played)})</span>}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                  {team.pointsAgainst} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsAgainst / team.played)})</span>}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.percentage}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                   <div className="flex items-center justify-center">
@@ -285,8 +289,8 @@ export default function LadderPage() {
           <span className="font-medium ml-2">W</span>: Wins, 
           <span className="font-medium ml-2">L</span>: Losses, 
           <span className="font-medium ml-2">D</span>: Draws, 
-          <span className="font-medium ml-2">PF</span>: Points For, 
-          <span className="font-medium ml-2">PA</span>: Points Against, 
+          <span className="font-medium ml-2">PF (Ave)</span>: Points For (Average per game), 
+          <span className="font-medium ml-2">PA (Ave)</span>: Points Against (Average per game), 
           <span className="font-medium ml-2">%</span>: Percentage, 
           <span className="font-medium ml-2">
             <Star className="inline text-yellow-500 mb-1" size={14} />
