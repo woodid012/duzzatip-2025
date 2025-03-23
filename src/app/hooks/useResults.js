@@ -33,20 +33,62 @@ export default function useResults() {
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
   const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
   
-  // Update local round from context current round on first render after it's loaded
-  // But ONLY if the context round is greater than 0
-  useEffect(() => {
-    if (!initializedRef.current && currentRound !== null && currentRound !== undefined) {
-      // Only initialize with values > 0 to prevent Opening Round
-      if (currentRound > 0) {
-        console.log(`USERESULTS: Initializing local round to ${currentRound}`);
+// Determine initial round as part of the loading process
+// This calculates the current round locally rather than just using the context value
+useEffect(() => {
+  const determineInitialRound = async () => {
+    try {
+      if (initializedRef.current) return;
+      
+      // First try to use context round if it's valid
+      if (currentRound !== null && currentRound !== undefined && currentRound > 0) {
+        console.log(`USERESULTS: Using context round ${currentRound}`);
         setLocalRound(currentRound);
       } else {
-        console.log(`USERESULTS: Current round is ${currentRound}, using default round 1`);
+        // If context round is invalid or 0, fetch fixtures to determine the current round
+        console.log(`USERESULTS: Context round is ${currentRound}, calculating locally`);
+        
+        // Get fixtures first by fetching from the tipping-data endpoint
+        const fixturesRes = await fetch(`/api/tipping-data`);
+        if (fixturesRes.ok) {
+          const fixturesData = await fixturesRes.json();
+          
+          // Find the first fixture that hasn't been played yet
+          const now = new Date();
+          const sortedFixtures = fixturesData.sort((a, b) => 
+            new Date(a.DateUtc) - new Date(b.DateUtc)
+          );
+          
+          const nextFixture = sortedFixtures.find(fixture => 
+            new Date(fixture.DateUtc) > now
+          );
+          
+          // Current round is the round of the next fixture, or the last round if all fixtures are completed
+          const calculatedRound = nextFixture 
+            ? nextFixture.RoundNumber 
+            : sortedFixtures[sortedFixtures.length - 1].RoundNumber;
+          
+          console.log(`USERESULTS: Calculated current round: ${calculatedRound}`);
+          setLocalRound(calculatedRound > 0 ? calculatedRound : 1);
+        } else {
+          // Fallback to round 1 if fixtures can't be loaded
+          console.log(`USERESULTS: Failed to load fixtures, defaulting to round 1`);
+          setLocalRound(1);
+        }
       }
+      
+      initializedRef.current = true;
+    } catch (err) {
+      console.error('Error determining initial round:', err);
+      // Default to round 1 on error
+      setLocalRound(1);
       initializedRef.current = true;
     }
-  }, [currentRound]);
+  };
+
+  determineInitialRound();
+}, [currentRound]);
+
 
   // Load data when local round changes
   useEffect(() => {

@@ -18,8 +18,7 @@ export default function ResultsPage() {
   // Get the selected user from context
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
-  // Important: Start with null to ensure proper initialization from context
-  const [displayedRound, setDisplayedRound] = useState(null);
+ 
   
   // Create a state to track whether the context is fully initialized
   const [isContextInitialized, setIsContextInitialized] = useState(false);
@@ -81,6 +80,9 @@ export default function ResultsPage() {
     }
   }, [hookRound]);
   
+   // Important: Start with null to ensure proper initialization from context
+   const [displayedRound, setDisplayedRound] = useState(null);
+   
   // Ensure page ready status
   useEffect(() => {
     if (!loading && teams && Object.keys(teams).length > 0) {
