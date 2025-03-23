@@ -17,7 +17,7 @@ export default function useResults() {
   
   // State for the round displayed on the page - independent from global context
   // IMPORTANT: Always initialize to 1 to avoid Opening Round
-  const [localRound, setLocalRound] = useState(1);
+  const [localRound, setLocalRound] = useState(currentRound);
   
   // State for teams and player data
   const [teams, setTeams] = useState({});
