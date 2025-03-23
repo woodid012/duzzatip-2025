@@ -60,6 +60,11 @@ jobs:
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
+          
+          # First pull with rebasing to get any remote changes
+          git pull --rebase origin main
+          
+          # Now add, commit and push changes
           git add src/app/scripts/processed-games.json
           git commit -m "Update processed games record [skip ci]"
           git push
