@@ -18,22 +18,33 @@ export default function ResultsPage() {
   // Get the selected user from context
   const { selectedUserId, setSelectedUserId } = useUserContext();
   
-  // Important: Use null for displayedRound until we're ready to set it
+  // Keep the displayed round as null until we're ready
   const [displayedRound, setDisplayedRound] = useState(null);
   
-  // Add states to track initialization progress
+  // Progress tracking states
   const [contextReady, setContextReady] = useState(false);
   const [roundInitialized, setRoundInitialized] = useState(false);
   const [teamSelectionsLoaded, setTeamSelectionsLoaded] = useState(false);
-  const [statsLoadStarted, setStatsLoadStarted] = useState(false);
+  const [teamStats, setTeamStats] = useState({});
+  const [displayReady, setDisplayReady] = useState(false);
   
-  // Ref to track if we've initialized the round
+  // Track loading state of each step
+  const [loadingStates, setLoadingStates] = useState({
+    context: true,
+    round: true,
+    teamSelections: false,
+    playerStats: false,
+    display: false
+  });
+  
+  // Refs to prevent duplicate initializations
   const didInitializeRound = useRef(false);
+  const didFetchTeamSelections = useRef(false);
   
   // Get results functionality from our hook
   const {
     teams,
-    loading,
+    loading: resultsLoading,
     error,
     roundEndPassed,
     calculateAllTeamScores,
@@ -46,10 +57,12 @@ export default function ResultsPage() {
   // State for fixtures
   const [fixtures, setFixtures] = useState([]);
   const [orderedFixtures, setOrderedFixtures] = useState([]);
-  const [shouldShowWelcome, setShouldShowWelcome] = useState(false);
   const [pageReady, setPageReady] = useState(false);
+
+  // Loading status message
+  const [loadingStatus, setLoadingStatus] = useState('Initializing...');
   
-  // Step 1: Wait for context to be ready
+  // 1. STEP ONE: Wait for context to be ready
   useEffect(() => {
     if (!contextLoading.fixtures && 
         currentRound !== undefined && 
@@ -57,121 +70,146 @@ export default function ResultsPage() {
         roundInfo && !roundInfo.isError) {
       console.log(`Context is ready, current round: ${currentRound}`);
       setContextReady(true);
+      setLoadingStates(prev => ({ ...prev, context: false }));
+      setLoadingStatus('Context loaded, getting current round...');
     }
   }, [contextLoading.fixtures, currentRound, roundInfo]);
   
-  // Step 2: Set displayed round from context when ready
+  // 2. STEP TWO: Set displayed round from context
   useEffect(() => {
     if (contextReady && !didInitializeRound.current) {
       console.log(`Setting displayed round to ${currentRound} from global context`);
       setDisplayedRound(currentRound);
       didInitializeRound.current = true;
       setRoundInitialized(true);
+      setLoadingStates(prev => ({ ...prev, round: false, teamSelections: true }));
+      setLoadingStatus('Current round set, loading team selections...');
     }
   }, [contextReady, currentRound]);
   
-  // Step 3: First load the team selections
+  // 3. STEP THREE: Load team selections for the current round
   useEffect(() => {
-    if (roundInitialized && displayedRound !== null && !teamSelectionsLoaded) {
-      const loadTeamSelections = async () => {
+    const loadTeamSelections = async () => {
+      if (roundInitialized && 
+          displayedRound !== null && 
+          !didFetchTeamSelections.current &&
+          loadingStates.teamSelections) {
         try {
           console.log(`Loading team selections for round ${displayedRound}`);
+          setLoadingStatus(`Loading team selections for round ${displayedRound}...`);
+          
           const response = await fetch(`/api/team-selection?round=${displayedRound}`);
           if (response.ok) {
             const data = await response.json();
             console.log('Team selections loaded successfully');
-            // Just loading the selections is enough - the hook will use them
+            didFetchTeamSelections.current = true;
             setTeamSelectionsLoaded(true);
+            setLoadingStates(prev => ({ ...prev, teamSelections: false, playerStats: true }));
+            setLoadingStatus('Team selections loaded, now loading player stats...');
           } else {
             console.error('Failed to load team selections');
-            // Still mark as loaded so we can continue
+            setLoadingStatus('Error loading team selections, continuing anyway...');
+            // Still mark as loaded to continue
+            didFetchTeamSelections.current = true;
             setTeamSelectionsLoaded(true);
+            setLoadingStates(prev => ({ ...prev, teamSelections: false, playerStats: true }));
           }
         } catch (error) {
           console.error('Error loading team selections:', error);
-          // Still mark as loaded so we can continue
+          setLoadingStatus('Error loading team selections, continuing anyway...');
+          // Still mark as loaded to continue
+          didFetchTeamSelections.current = true;
           setTeamSelectionsLoaded(true);
+          setLoadingStates(prev => ({ ...prev, teamSelections: false, playerStats: true }));
         }
-      };
-      
-      loadTeamSelections();
-    }
-  }, [roundInitialized, displayedRound, teamSelectionsLoaded]);
+      }
+    };
+    
+    loadTeamSelections();
+  }, [roundInitialized, displayedRound, loadingStates.teamSelections]);
   
-  // Step 4: After team selections are loaded, initialize the hook to fetch stats
+  // 4. STEP FOUR: Load player stats after team selections are loaded
   useEffect(() => {
-    if (teamSelectionsLoaded && displayedRound !== null && !statsLoadStarted) {
+    if (teamSelectionsLoaded && 
+        displayedRound !== null && 
+        loadingStates.playerStats) {
       console.log(`Initializing hook with round ${displayedRound} to fetch player stats`);
+      setLoadingStatus(`Loading player stats for round ${displayedRound}...`);
+      
       if (hookChangeRound) {
         hookChangeRound(displayedRound);
-        setStatsLoadStarted(true);
+        setLoadingStates(prev => ({ ...prev, playerStats: false }));
       }
     }
-  }, [teamSelectionsLoaded, displayedRound, hookChangeRound, statsLoadStarted]);
+  }, [teamSelectionsLoaded, displayedRound, hookChangeRound, loadingStates.playerStats]);
   
-  // Step 5: Set page as ready once data is loaded
+  // 5. STEP FIVE: When player stats are loaded, prepare the display
   useEffect(() => {
-    if (displayedRound !== null && !loading && hookDataReady && teams && Object.keys(teams).length > 0 && teamSelectionsLoaded) {
-      console.log('All data loaded, setting page as ready');
-      setPageReady(true);
-    }
-  }, [displayedRound, loading, hookDataReady, teams, teamSelectionsLoaded]);
-
-  // Check if the round is complete based on roundEndTime
-  const isRoundComplete = () => {
-    if (!roundInfo.roundEndTime) return false;
-    const now = new Date();
-    const roundEnd = new Date(roundInfo.roundEndTime);
-    return now > roundEnd;
-  };
-
-  // Get fixtures for the displayed round - only when displayedRound changes
-  useEffect(() => {
-    if (displayedRound === null) {
-      return; // Return early without loading fixtures
-    }
-    
-    console.log(`Getting fixtures for round ${displayedRound}`);
-    
-    // Get fixtures for the displayed round
-    const roundFixtures = getFixturesForRound(displayedRound);
-    setFixtures(roundFixtures || []);
-    
-    // Reorganize fixtures to prioritize the selected user's match
-    if (selectedUserId && roundFixtures && roundFixtures.length > 0) {
-      // First check if the user is participating in this round
-      const userFixture = roundFixtures.find(fixture => 
-        fixture.home == selectedUserId || fixture.away == selectedUserId
-      );
+    if (displayedRound !== null && 
+        !resultsLoading && 
+        hookDataReady && 
+        teams && 
+        Object.keys(teams).length > 0 && 
+        teamSelectionsLoaded) {
+      console.log('Player stats loaded, preparing display...');
+      setLoadingStatus('Stats loaded, preparing display...');
       
-      if (userFixture) {
-        // Create a new array with the user's fixture first
-        const reorderedFixtures = [
-          userFixture,
-          ...roundFixtures.filter(fixture => fixture !== userFixture)
-        ];
-        setOrderedFixtures(reorderedFixtures);
+      // Get fixtures for the displayed round
+      const roundFixtures = getFixturesForRound(displayedRound);
+      setFixtures(roundFixtures || []);
+      
+      // Prioritize the selected user's fixture if applicable
+      if (selectedUserId && roundFixtures && roundFixtures.length > 0) {
+        const userFixture = roundFixtures.find(fixture => 
+          fixture.home == selectedUserId || fixture.away == selectedUserId
+        );
+        
+        if (userFixture) {
+          setOrderedFixtures([
+            userFixture,
+            ...roundFixtures.filter(fixture => fixture !== userFixture)
+          ]);
+        } else {
+          setOrderedFixtures(roundFixtures);
+        }
       } else {
         setOrderedFixtures(roundFixtures);
       }
-    } else {
-      // If no user selected, use the original order
-      setOrderedFixtures(roundFixtures);
+      
+      setDisplayReady(true);
+      setLoadingStates(prev => ({ ...prev, display: true }));
+      setLoadingStatus('All data loaded, rendering page...');
+      
+      // Give a small delay to ensure everything is rendered properly
+      setTimeout(() => {
+        setPageReady(true);
+      }, 100);
     }
-  }, [displayedRound, selectedUserId]);
+  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId]);
 
   // Handle round change - keep it local, don't update global context
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     if (newRound !== displayedRound) {
-      console.log(`Changing to local round ${newRound} (global context remains unchanged)`);
-      setDisplayedRound(newRound);
-      setPageReady(false); // Reset page ready state
+      console.log(`Changing to round ${newRound}`);
       
-      // Important: Call changeRound from the useResults hook
-      if (hookChangeRound) {
-        hookChangeRound(newRound);
-      }
+      // Reset all states to load data for the new round
+      setDisplayedRound(newRound);
+      setPageReady(false);
+      setDisplayReady(false);
+      setTeamSelectionsLoaded(false);
+      didFetchTeamSelections.current = false;
+      
+      // Reset loading states
+      setLoadingStates({
+        context: false,
+        round: false,
+        teamSelections: true,
+        playerStats: false,
+        display: false
+      });
+      
+      setLoadingStatus(`Loading data for round ${newRound}...`);
     }
   };
 
@@ -187,7 +225,15 @@ export default function ResultsPage() {
     return `Round ${round}`;
   };
 
-  // Show enhanced loading state with details about what we're waiting for
+  // Check if the round is complete
+  const isRoundComplete = () => {
+    if (!roundInfo.roundEndTime) return false;
+    const now = new Date();
+    const roundEnd = new Date(roundInfo.roundEndTime);
+    return now > roundEnd;
+  };
+
+  // Show detailed loading UI
   if (!pageReady) {
     return (
       <div className="p-8 text-center">
@@ -196,15 +242,17 @@ export default function ResultsPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span className="text-lg font-medium">Loading round data...</span>
+          <span className="text-lg font-medium">Loading...</span>
           <span className="text-sm text-gray-500 mt-2">
-            {!contextReady ? 'Waiting for round information...' : 
-             !roundInitialized ? 'Initializing round data...' : 
-             !teamSelectionsLoaded ? 'Loading team selections...' :
-             !statsLoadStarted ? 'Preparing to fetch player stats...' :
-             !hookDataReady ? 'Fetching player stats...' :
-             'Finalizing team scores...'}
+            {loadingStatus}
           </span>
+          <div className="mt-4 flex justify-center items-center space-x-2">
+            <div className={`h-2 w-2 rounded-full ${!loadingStates.context ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${!loadingStates.round ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${!loadingStates.teamSelections ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${!loadingStates.playerStats ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+            <div className={`h-2 w-2 rounded-full ${loadingStates.display ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+          </div>
         </div>
       </div>
     );
@@ -223,7 +271,7 @@ export default function ResultsPage() {
     </div>
   );
 
-  // Calculate team scores once, outside the render logic
+  // Calculate team scores
   const allTeamScores = Object.keys(USER_NAMES).map(userId => {
     const teamScore = getTeamScores(userId);
     return {
@@ -234,7 +282,7 @@ export default function ResultsPage() {
     };
   });
   
-  // Filter out any zero or undefined scores when determining highest/lowest
+  // Filter out any zero or undefined scores
   const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
   const highestScore = validScores.length > 0 
     ? Math.max(...validScores.map(s => s?.totalScore || 0)) 
