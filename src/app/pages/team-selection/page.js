@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
@@ -131,6 +131,41 @@ export default function TeamSelectionPage() {
     }
   };
 
+  // Format date for display
+  const formatDate = (date) => {
+    if (!date) return 'Never';
+    
+    return new Date(date).toLocaleString('en-AU', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
+    });
+  };
+
+  // Get the most recent update time from the team data
+  const getLastUpdateTime = () => {
+    if (!selectedUserId || !teams[selectedUserId]) return null;
+    
+    // Check for the _lastUpdated property first (from our updated API)
+    if (teams[selectedUserId]._lastUpdated) {
+      return new Date(teams[selectedUserId]._lastUpdated);
+    }
+    
+    // Fallback: look through all positions for last_updated values
+    const teamData = teams[selectedUserId];
+    const updateTimes = Object.values(teamData)
+      .filter(entry => entry && entry.last_updated)
+      .map(entry => new Date(entry.last_updated));
+    
+    if (updateTimes.length === 0) return null;
+    
+    // Return the most recent update time
+    return new Date(Math.max(...updateTimes));
+  };
+
   if (loading) return <div className="p-4">Loading teams...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
@@ -152,6 +187,9 @@ export default function TeamSelectionPage() {
     return `Round ${round}`;
   };
 
+  // Get last updated time
+  const lastUpdatedTime = getLastUpdateTime();
+
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <style jsx>{`
@@ -167,7 +205,7 @@ export default function TeamSelectionPage() {
               : 'Team Selection'}
           </h1>
           
-          {/* Show which round we're displaying */}
+          {/* Show which round we're displaying with improved formatting - matching tipping page style */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
               {isRoundLocked ? (
@@ -186,15 +224,23 @@ export default function TeamSelectionPage() {
               )}
             </div>
             
-            {/* Last update info */}
-            {selectedUserId && teams[selectedUserId] && Object.values(teams[selectedUserId] || {}).some(entry => entry.last_updated) && (
+            {/* Lockout time with formatting that matches tipping page */}
+            {roundInfo && roundInfo.lockoutTime && (
+              <div className="text-sm">
+                <span className="text-gray-600">Lockout:</span>
+                <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
+                {isRoundLocked && (
+                  <span className="text-red-600 ml-1">(Locked)</span>
+                )}
+              </div>
+            )}
+            
+            {/* Last update info, matching tipping page style exactly */}
+            {lastUpdatedTime && (
               <div className="text-sm">
                 <span className="text-gray-600">Last Submitted:</span>
                 <span className="font-medium text-black ml-1">
-                  {new Date(Math.max(...Object.values(teams[selectedUserId] || {})
-                    .filter(entry => entry.last_updated)
-                    .map(entry => new Date(entry.last_updated))
-                  )).toLocaleString()}
+                  {formatDate(lastUpdatedTime)}
                 </span>
               </div>
             )}

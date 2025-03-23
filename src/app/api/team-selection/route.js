@@ -28,9 +28,11 @@ export async function GET(request) {
                             $push: {
                                 position: '$Position',
                                 player_name: '$Player_Name',
-                                backup_position: '$Backup_Position'
+                                backup_position: '$Backup_Position',
+                                last_updated: '$Last_Updated' // Include the Last_Updated field
                             }
-                        }
+                        },
+                        lastUpdated: { $max: '$Last_Updated' } // Get the most recent update timestamp
                     }
                 }
             ]).toArray();
@@ -38,13 +40,18 @@ export async function GET(request) {
         const teams = {};
         teamSelection.forEach(user => {
             teams[user._id] = {};
+            
+            // Store the most recent update timestamp
+            teams[user._id]._lastUpdated = user.lastUpdated;
+            
             user.positions.forEach(pos => {
                 teams[user._id][pos.position] = {
                     player_name: pos.player_name,
                     position: pos.position,
                     ...(pos.position === 'Bench' && pos.backup_position 
                         ? { backup_position: pos.backup_position } 
-                        : {})
+                        : {}),
+                    last_updated: pos.last_updated
                 };
             });
         });
