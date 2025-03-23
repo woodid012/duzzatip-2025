@@ -23,6 +23,8 @@ export default function LadderPage() {
   const [highestScore, setHighestScore] = useState(0);
   const [lowestScore, setLowestScore] = useState(0);
   const [roundScores, setRoundScores] = useState({});
+  const [mostStars, setMostStars] = useState([]);
+  const [mostCrabs, setMostCrabs] = useState([]);
 
   // Handle round change
   const handleRoundChange = (e) => {
@@ -83,8 +85,8 @@ export default function LadderPage() {
     // Go through each round's scores to count stars and crabs
     if (allTeamScores) {
       Object.entries(allTeamScores).forEach(([round, roundScores]) => {
-        // Skip rounds with no scores or incomplete data
-        if (!roundScores || Object.keys(roundScores).length === 0) {
+        // Skip round 0 and rounds with no scores or incomplete data
+        if (round === '0' || !roundScores || Object.keys(roundScores).length === 0) {
           return;
         }
         
@@ -120,6 +122,27 @@ export default function LadderPage() {
   
   // Calculate the totals
   const starCrabTotals = calculateStarCrabTotals();
+  
+  // Find players with the most stars and crabs
+  useEffect(() => {
+    if (starCrabTotals && Object.keys(starCrabTotals).length > 0) {
+      // Find the highest star and crab counts
+      const maxStars = Math.max(...Object.values(starCrabTotals).map(t => t.stars));
+      const maxCrabs = Math.max(...Object.values(starCrabTotals).map(t => t.crabs));
+      
+      // Find all users with the max stars/crabs count
+      const usersWithMostStars = Object.entries(starCrabTotals)
+        .filter(([_, totals]) => totals.stars === maxStars && maxStars > 0)
+        .map(([userId]) => userId);
+        
+      const usersWithMostCrabs = Object.entries(starCrabTotals)
+        .filter(([_, totals]) => totals.crabs === maxCrabs && maxCrabs > 0)
+        .map(([userId]) => userId);
+      
+      setMostStars(usersWithMostStars);
+      setMostCrabs(usersWithMostCrabs);
+    }
+  }, [starCrabTotals]);
 
   // Display loading state
   if (loading) {
@@ -200,6 +223,8 @@ export default function LadderPage() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   <div className="flex items-center gap-1">
                     {team.userName}
+                    
+                    {/* Show current round star/crab if applicable */}
                     {roundScores[team.userId] && 
                      roundScores[team.userId] === highestScore && 
                      highestScore > 0 && 
@@ -207,6 +232,15 @@ export default function LadderPage() {
                     {roundScores[team.userId] && 
                      roundScores[team.userId] === lowestScore && 
                      lowestScore > 0 && 
+                      <GiCrab className="text-red-500" size={16} />}
+                    
+                    {/* Show indicators for most stars/crabs only if not already showing current round indicators */}
+                    {!(roundScores[team.userId] && roundScores[team.userId] === highestScore && highestScore > 0) && 
+                     mostStars.includes(team.userId) && 
+                      <Star className="text-yellow-500" size={16} />}
+                    
+                    {!(roundScores[team.userId] && roundScores[team.userId] === lowestScore && lowestScore > 0) && 
+                     mostCrabs.includes(team.userId) && 
                       <GiCrab className="text-red-500" size={16} />}
                   </div>
                 </td>
@@ -219,12 +253,16 @@ export default function LadderPage() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.percentage}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                   <div className="flex items-center justify-center">
-                    <span className="font-medium text-yellow-600">{starCrabTotals[team.userId]?.stars || 0}</span>
+                    <span className={`font-medium ${mostStars.includes(team.userId) ? 'text-yellow-600 font-bold' : 'text-yellow-600'}`}>
+                      {starCrabTotals[team.userId]?.stars || 0}
+                    </span>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                   <div className="flex items-center justify-center">
-                    <span className="font-medium text-red-600">{starCrabTotals[team.userId]?.crabs || 0}</span>
+                    <span className={`font-medium ${mostCrabs.includes(team.userId) ? 'text-red-600 font-bold' : 'text-red-600'}`}>
+                      {starCrabTotals[team.userId]?.crabs || 0}
+                    </span>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">{team.points}</td>
@@ -239,8 +277,8 @@ export default function LadderPage() {
         <div className="flex flex-wrap gap-4">
           <div><span className="inline-block w-2 h-2 rounded-full bg-green-600 mr-1"></span> Top position (automatic Grand Final)</div>
           <div><span className="inline-block w-2 h-2 rounded-full bg-blue-600 mr-1"></span> Finals positions (2-4)</div>
-          <div className="flex items-center"><Star className="text-yellow-500 mr-1" size={16} /> Highest score for round</div>
-          <div className="flex items-center"><GiCrab className="text-red-500 mr-1" size={16} /> Lowest score for round</div>
+          <div className="flex items-center"><Star className="text-yellow-500 mr-1" size={16} /> Highest score for round / Most star performances overall</div>
+          <div className="flex items-center"><GiCrab className="text-red-500 mr-1" size={16} /> Lowest score for round / Most crab performances overall</div>
         </div>
         <div className="mt-2">
           <span className="font-medium">P</span>: Played, 
@@ -252,10 +290,10 @@ export default function LadderPage() {
           <span className="font-medium ml-2">%</span>: Percentage, 
           <span className="font-medium ml-2">
             <Star className="inline text-yellow-500 mb-1" size={14} />
-          </span>: Total highest scores,
+          </span>: Total highest scores (excluding Round 0),
           <span className="font-medium ml-2">
             <GiCrab className="inline text-red-500 mb-1" size={14} />
-          </span>: Total lowest scores,
+          </span>: Total lowest scores (excluding Round 0),
           <span className="font-medium ml-2">Pts</span>: Ladder Points (Win: 4, Draw: 2, Loss: 0)
         </div>
       </div>
