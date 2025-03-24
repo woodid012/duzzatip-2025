@@ -124,24 +124,91 @@ useEffect(() => {
           setPlayerTeamMap(teamMap);
         }
         
-        // Fetch round info to determine if round has ended
-        let roundInfoResponse;
-        try {
-          roundInfoResponse = await fetch(`/api/round-info?round=${localRound}`);
-          if (roundInfoResponse.ok) {
-            const roundInfoData = await roundInfoResponse.json();
-            // Check if round end has passed
-            if (roundInfoData.roundEndTime) {
-              const roundEndDate = new Date(roundInfoData.roundEndTime);
+        // Check round end status using roundInfo from context
+        const checkRoundEndStatus = () => {
+          try {
+            // SIMPLER APPROACH: For now, just assume rounds from previous rounds have ended
+            // This ensures substitutions work for historical rounds
+            if (localRound < currentRound) {
+              console.log(`Round ${localRound} is before current round ${currentRound}, marking as ended`);
+              setRoundEndPassed(true);
+              return;
+            }
+            
+            // For the current round, check the global context's roundInfo
+            console.log('Round info from global context:', roundInfo);
+            
+            // Check if we can get the isRoundEnded flag directly
+            if (roundInfo && typeof roundInfo.isRoundEnded === 'boolean') {
+              console.log(`Using isRoundEnded flag from context: ${roundInfo.isRoundEnded}`);
+              setRoundEndPassed(roundInfo.isRoundEnded);
+              return;
+            }
+            
+            // Time-based check using round end time
+            // Try several ways to get the round end time
+            let roundEndTime = null;
+            
+            // 1. Try direct roundEndTime
+            if (roundInfo && roundInfo.roundEndTime) {
+              roundEndTime = roundInfo.roundEndTime;
+              console.log('Found roundEndTime in context');
+            }
+            // 2. Try roundEndDate (which might be a Date object)
+            else if (roundInfo && roundInfo.roundEndDate) {
+              roundEndTime = roundInfo.roundEndDate;
+              console.log('Found roundEndDate in context');
+            }
+            
+            if (roundEndTime) {
+              // Convert to Date if it's a string
+              const roundEndDate = roundEndTime instanceof Date ? roundEndTime : new Date(roundEndTime);
               const now = new Date();
+              
+              console.log('Round end time/date from context:', roundEndTime);
+              console.log('Parsed round end date:', roundEndDate);
+              console.log('Current time:', now.toISOString());
+              console.log('Round has ended comparison result:', now > roundEndDate);
+              
+              // Check if we're past the round end time
               setRoundEndPassed(now > roundEndDate);
+              return;
+            }
+            
+            // Last resort - see if there's any hint in round info about the round being completed
+            if (roundInfo) {
+              if (roundInfo.isCompleted || roundInfo.status === 'completed') {
+                console.log('Round marked as completed in context');
+                setRoundEndPassed(true);
+                return;
+              }
+            }
+            
+            // If we got here, we couldn't determine from context, so check if this is a historical round
+            if (localRound <= 5) {
+              console.log(`Round ${localRound} is 5 or earlier (historical data), marking as completed`);
+              setRoundEndPassed(true);
+              return;
+            }
+            
+            // Default fallback
+            console.log('Could not determine if round has ended, defaulting to false');
+            setRoundEndPassed(false);
+          } catch (err) {
+            console.error('Error checking round end status:', err);
+            
+            // Fallback to safe choice - rounds before current round have ended
+            if (localRound < currentRound) {
+              console.log('Fallback: Round is before current round, marking as ended');
+              setRoundEndPassed(true);
+            } else {
+              setRoundEndPassed(false);
             }
           }
-        } catch (err) {
-          console.warn('Could not fetch round info:', err);
-          // Use simple calculation - default to false
-          setRoundEndPassed(false);
-        }
+        };
+        
+        // Check round end status
+        checkRoundEndStatus();
         
         // Fetch teams and player stats for the correct round
         const teamsRes = await fetch(`/api/team-selection?round=${localRound}`);
@@ -234,7 +301,7 @@ useEffect(() => {
 
     fetchData();
     
-  }, [localRound]);
+  }, [localRound, currentRound, roundInfo, appContext]);
 
   // Create a local changeRound function that doesn't affect global context
   const handleRoundChange = (roundNumber) => {
@@ -297,6 +364,9 @@ useEffect(() => {
       (stats.behinds && stats.behinds > 0)
     );
   };
+  
+  // Force round end passed for rounds 5 and earlier - no UI toggle needed
+  const forceRoundEndPassed = localRound <= 5;
 
   // Calculate all team scores to determine highest and lowest
   const calculateAllTeamScores = useCallback(() => {
@@ -461,8 +531,10 @@ useEffect(() => {
     }
     
     // Step 2: Check if any main position player didn't play and needs a substitute
-    // (only apply reserve substitutions if round has ended)
-    if (roundEndPassed) {
+    // (only apply reserve substitutions if round has ended or force flag is on)
+    if (roundEndPassed || forceRoundEndPassed) {
+      console.log(`Round end passed (${roundEndPassed}) or forced (${forceRoundEndPassed}) for ${userId}, applying reserve substitutions`);
+      
       for (let i = 0; i < positionScores.length; i++) {
         const positionData = positionScores[i];
         
@@ -564,6 +636,8 @@ useEffect(() => {
           }
         }
       }
+    } else {
+      console.log(`Round end not passed for ${userId}, skipping reserve substitutions`);
     }
     
     // Now prepare the bench/reserve display data
@@ -616,7 +690,7 @@ useEffect(() => {
       benchScores,
       substitutionsEnabled: {
         bench: true, // Bench players can always be substituted
-        reserve: roundEndPassed // Reserve A/B only when round has ended
+        reserve: roundEndPassed || forceRoundEndPassed // Reserve A/B only when round has ended or forced
       },
       debugInfo: debugData.length > 0 ? debugData : null
     };
@@ -632,7 +706,7 @@ useEffect(() => {
     error,
     roundEndPassed,
     debugInfo,
-    roundInitialized, 
+    roundInitialized,
     
     // Actions
     changeRound: handleRoundChange, // Use our local function instead of the global one
