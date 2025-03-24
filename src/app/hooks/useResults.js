@@ -127,13 +127,10 @@ useEffect(() => {
         // Check round end status using roundInfo from context
         const checkRoundEndStatus = () => {
           try {
-            // SIMPLER APPROACH: For now, just assume rounds from previous rounds have ended
-            // This ensures substitutions work for historical rounds
-            if (localRound < currentRound) {
-              console.log(`Round ${localRound} is before current round ${currentRound}, marking as ended`);
-              setRoundEndPassed(true);
-              return;
-            }
+            // Make very sure we have the right context information
+            console.log('AppContext roundInfo:', roundInfo);
+            console.log('Current round from context:', currentRound);
+            console.log('Local round being checked:', localRound);
             
             // For the current round, check the global context's roundInfo
             console.log('Round info from global context:', roundInfo);
@@ -145,19 +142,37 @@ useEffect(() => {
               return;
             }
             
-            // Time-based check using round end time
-            // Try several ways to get the round end time
+            // Get the appropriate round info based on which round we're looking at
+            let targetRoundInfo = null;
+            
+            if (localRound === currentRound) {
+              // For current round, use the context's roundInfo directly
+              targetRoundInfo = roundInfo;
+              console.log('Using direct roundInfo for current round:', targetRoundInfo);
+            } else if (appContext.getSpecificRoundInfo) {
+              // For other rounds, try to get specific round info if available
+              targetRoundInfo = appContext.getSpecificRoundInfo(localRound);
+              console.log(`Retrieved specific round info for round ${localRound}:`, targetRoundInfo);
+            }
+            
+            // Time-based check using round end time from the appropriate round info
             let roundEndTime = null;
             
-            // 1. Try direct roundEndTime
-            if (roundInfo && roundInfo.roundEndTime) {
-              roundEndTime = roundInfo.roundEndTime;
-              console.log('Found roundEndTime in context');
+            // 1. Try direct roundEndTime from target round info
+            if (targetRoundInfo && targetRoundInfo.roundEndTime) {
+              roundEndTime = targetRoundInfo.roundEndTime;
+              console.log('Found roundEndTime in targetRoundInfo:', roundEndTime);
             }
             // 2. Try roundEndDate (which might be a Date object)
-            else if (roundInfo && roundInfo.roundEndDate) {
-              roundEndTime = roundInfo.roundEndDate;
-              console.log('Found roundEndDate in context');
+            else if (targetRoundInfo && targetRoundInfo.roundEndDate) {
+              roundEndTime = targetRoundInfo.roundEndDate;
+              console.log('Found roundEndDate in targetRoundInfo:', roundEndTime);
+            }
+            // 3. If we're checking past rounds and can't get specific info, assume they ended
+            else if (localRound < currentRound) {
+              console.log(`Past round ${localRound} with no end time available, assuming ended`);
+              setRoundEndPassed(true);
+              return;
             }
             
             if (roundEndTime) {
@@ -184,9 +199,10 @@ useEffect(() => {
               }
             }
             
-            // If we got here, we couldn't determine from context, so check if this is a historical round
-            if (localRound <= 5) {
-              console.log(`Round ${localRound} is 5 or earlier (historical data), marking as completed`);
+            // If we got here, we couldn't determine from context, so use more general heuristics
+            // Any round before the current round is considered completed
+            if (localRound < currentRound) {
+              console.log(`Round ${localRound} is before current round ${currentRound}, marking as completed`);
               setRoundEndPassed(true);
               return;
             }
@@ -365,8 +381,8 @@ useEffect(() => {
     );
   };
   
-  // Force round end passed for rounds 5 and earlier - no UI toggle needed
-  const forceRoundEndPassed = localRound <= 5;
+  // No force round end passed - rely entirely on context information
+  const forceRoundEndPassed = false;
 
   // Calculate all team scores to determine highest and lowest
   const calculateAllTeamScores = useCallback(() => {
