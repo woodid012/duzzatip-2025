@@ -207,12 +207,21 @@ function processStatsData(data) {
       return null;
     }
     
+    // Check if this is a BRI vs GEE game with Round 0
+    let roundNumber = parseInt(record.round, 10) || 0;
+    if (roundNumber === 0 && 
+        ((record.team === 'BRI' && record.opponent === 'GEE') || 
+         (record.team === 'GEE' && record.opponent === 'BRI'))) {
+      console.log(`Converting Round 0 to Round 3 for ${record.player} (${record.team} vs ${record.opponent})`);
+      roundNumber = 3;
+    }
+    
     // Map the field names to match our MongoDB schema
     return {
       player_name: record.player || '',
       team_name: record.team || '',
       opp: record.opponent || '',
-      round: parseInt(record.round, 10) || 0,
+      round: roundNumber,
       year: parseInt(record.year, 10) || CURRENT_YEAR,
       match_date: record.date || new Date().toISOString().split('T')[0],
       
@@ -238,7 +247,7 @@ function processStatsData(data) {
       SC: parseInt(record.superCoachPoints, 10) || 0,
       
       // Add extra fields
-      match_number: record.matchNumber || 100 + (parseInt(record.round, 10) || 0),
+      match_number: record.matchNumber || 100 + roundNumber,
       startingPosition: record.namedPosition || '',
       created_at: new Date()
     };
