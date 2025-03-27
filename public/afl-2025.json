@@ -238,8 +238,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 72,
+    "AwayTeamScore": 60
   },
   {
     "MatchNumber": 23,
