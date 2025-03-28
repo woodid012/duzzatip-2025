@@ -249,8 +249,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 75,
+    "AwayTeamScore": 83
   },
   {
     "MatchNumber": 24,
