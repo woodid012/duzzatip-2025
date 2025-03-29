@@ -29,8 +29,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 70,
+    "AwayTeamScore": 61
   },
   {
     "MatchNumber": 3,
@@ -260,8 +260,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 62,
+    "AwayTeamScore": 120
   },
   {
     "MatchNumber": 25,
@@ -271,8 +271,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 135,
+    "AwayTeamScore": 53
   },
   {
     "MatchNumber": 26,
@@ -282,8 +282,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 76,
+    "AwayTeamScore": 64
   },
   {
     "MatchNumber": 27,
