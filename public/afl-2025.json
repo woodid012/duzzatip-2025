@@ -293,8 +293,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 114,
+    "AwayTeamScore": 78
   },
   {
     "MatchNumber": 28,
@@ -304,8 +304,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 68,
+    "AwayTeamScore": 106
   },
   {
     "MatchNumber": 29,
