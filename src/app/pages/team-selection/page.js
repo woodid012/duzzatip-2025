@@ -52,8 +52,10 @@ export default function TeamSelectionPage() {
 
         // Count occurrences of each player
         Object.entries(userTeam).forEach(([position, data]) => {
+          // Add null check before accessing player_name - this fixes the error
+          if (!data || !data.player_name) return;
+          
           const playerName = data.player_name;
-          if (!playerName) return;
           
           if (!playerCounts[playerName]) {
             playerCounts[playerName] = {
@@ -86,8 +88,10 @@ export default function TeamSelectionPage() {
           
           // Count occurrences of each player
           Object.entries(userTeam).forEach(([position, data]) => {
+            // Add null check before accessing player_name - this fixes the error
+            if (!data || !data.player_name) return;
+            
             const playerName = data.player_name;
-            if (!playerName) return;
             
             if (!playerCounts[playerName]) {
               playerCounts[playerName] = {
@@ -463,8 +467,10 @@ function TeamCard({
       {isExpanded && (
         <div className="space-y-2">
           {POSITION_TYPES.map((position) => {
-            const playerData = team[position];
+            // Add null check here - this is key to fixing the error
+            const playerData = team[position] || null;
             const displayPosition = getPositionDisplay(position);
+            // Use optional chaining to safely access player_name
             const isDuplicate = playerData?.player_name ? 
               isDuplicatePlayer(playerData.player_name, position) : false;
             
