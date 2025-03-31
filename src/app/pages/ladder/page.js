@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { USER_NAMES } from '@/app/lib/constants';
 import useLadder from '@/app/hooks/useLadder';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
@@ -25,6 +25,9 @@ export default function LadderPage() {
   const [roundScores, setRoundScores] = useState({});
   const [mostStars, setMostStars] = useState([]);
   const [mostCrabs, setMostCrabs] = useState([]);
+  
+  // Add ref to prevent infinite loops
+  const processedScores = useRef(false);
 
   // Handle round change
   const handleRoundChange = (e) => {
@@ -33,21 +36,24 @@ export default function LadderPage() {
   };
   
   // Process round scores to find highest and lowest for current round
+  // FIXED: Added proper dependency array and condition to prevent infinite updates
   useEffect(() => {
-    if (allTeamScores && allTeamScores[currentRound]) {
-      const roundData = allTeamScores[currentRound];
-      setRoundScores(roundData);
-      
-      // Find highest and lowest scores
-      if (roundData && Object.keys(roundData).length > 0) {
-        // Skip if all scores are 0 (games haven't been played yet)
-        const allZeros = Object.values(roundData).every(score => score === 0);
-        if (allZeros) {
-          setHighestScore(0);
-          setLowestScore(0);
-          return;
-        }
-        
+    // Skip if we've already processed these scores or if allTeamScores isn't available yet
+    if (processedScores.current || !allTeamScores || !allTeamScores[currentRound]) {
+      return;
+    }
+    
+    const roundData = allTeamScores[currentRound];
+    setRoundScores(roundData);
+    
+    // Find highest and lowest scores
+    if (roundData && Object.keys(roundData).length > 0) {
+      // Skip if all scores are 0 (games haven't been played yet)
+      const allZeros = Object.values(roundData).every(score => score === 0);
+      if (allZeros) {
+        setHighestScore(0);
+        setLowestScore(0);
+      } else {
         const scores = Object.entries(roundData).map(([userId, score]) => ({ userId, score }));
         const highest = Math.max(...scores.map(item => item.score));
         const lowest = Math.min(...scores.map(item => item.score));
@@ -57,21 +63,18 @@ export default function LadderPage() {
           setHighestScore(highest);
           // Only set lowest if it's greater than 0 (actual game played)
           setLowestScore(lowest > 0 ? lowest : 0);
-        } else {
-          setHighestScore(0);
-          setLowestScore(0);
         }
-      } else {
-        // Reset if no data
-        setHighestScore(0);
-        setLowestScore(0);
       }
-    } else {
-      // Reset if no data
-      setHighestScore(0);
-      setLowestScore(0);
     }
+    
+    // Mark as processed to prevent re-processing
+    processedScores.current = true;
   }, [currentRound, allTeamScores]);
+  
+  // Reset the processedScores ref when round changes
+  useEffect(() => {
+    processedScores.current = false;
+  }, [currentRound]);
   
   // Calculate star and crab totals for each team
   const calculateStarCrabTotals = () => {
@@ -120,10 +123,10 @@ export default function LadderPage() {
     return totals;
   };
   
-  // Calculate the totals
-  const starCrabTotals = calculateStarCrabTotals();
+  // Calculate the totals - wrapped in useMemo to avoid recalculating on every render
+  const starCrabTotals = useMemo(() => calculateStarCrabTotals(), [allTeamScores]);
   
-  // Find players with the most stars and crabs
+  // Find players with the most stars and crabs - FIXED: added proper dependencies
   useEffect(() => {
     if (starCrabTotals && Object.keys(starCrabTotals).length > 0) {
       // Find the highest star and crab counts
@@ -142,7 +145,7 @@ export default function LadderPage() {
       setMostStars(usersWithMostStars);
       setMostCrabs(usersWithMostCrabs);
     }
-  }, [starCrabTotals]);
+  }, [starCrabTotals]); // Only depends on starCrabTotals
 
   // Display loading state
   if (loading) {
