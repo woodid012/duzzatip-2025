@@ -85,20 +85,37 @@ export default function useTeamSelection() {
   }, []);
 
   // Determine if round is locked for editing
-  const isRoundLocked = useCallback((round) => {
-    // If we're viewing round 0 and it's locked, we should show round 1 instead
-    if (round === 0 && roundInfo.isLocked) {
+  // MODIFIED: Changed this function to ensure rounds remain locked forever once they're locked
+  const isRoundLocked = useCallback((roundNumber) => {
+    // If viewing opening round (0) and it's locked, it stays locked
+    if (roundNumber === 0 && roundInfo.isLocked) {
       return true;
     }
     
-    // If current round is locked and this is the same round
-    if (roundInfo.isLocked && round === currentRound) {
+    // If the round is less than the current round, it's always locked (historical round)
+    if (roundNumber < currentRound) {
       return true;
+    }
+    
+    // If this is the current round and it's locked by time
+    if (roundInfo.isLocked && roundNumber === currentRound) {
+      return true;
+    }
+    
+    // Get lockout time for the specific round if available
+    if (roundInfo.nextRoundLockoutDate && roundNumber > currentRound) {
+      const now = new Date();
+      const lockoutDate = new Date(roundInfo.nextRoundLockoutDate);
+      
+      // If the future round's lockout time has passed
+      if (now > lockoutDate) {
+        return true;
+      }
     }
     
     // Otherwise this specific round is not locked
     return false;
-  }, [roundInfo.isLocked, currentRound]);
+  }, [roundInfo.isLocked, roundInfo.nextRoundLockoutDate, currentRound]);
 
   // Load data when local round changes
   useEffect(() => {

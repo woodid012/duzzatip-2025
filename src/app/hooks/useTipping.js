@@ -36,11 +36,32 @@ export default function useTipping(initialUserId = '') {
     }
   }, [currentRound, localRound]);
 
-  // Determine if round is locked for editing
+  // Determine if round is locked for editing - MODIFIED to ensure past rounds stay locked
   const isRoundLocked = (round) => {
+    // Any round before the current round is always locked (historical round)
+    if (round < currentRound) {
+      return true;
+    }
+    
+    // For opening round (0), if it's locked, it stays locked
+    if (round === 0 && roundInfo.isLocked) {
+      return true;
+    }
+    
     // If we're viewing the current global round and it's locked
     if (roundInfo.isLocked && round === currentRound) {
       return true;
+    }
+    
+    // If this is a future round, check if its lockout time has passed
+    if (round > currentRound && roundInfo.nextRoundInfo) {
+      const now = new Date();
+      const lockoutDate = new Date(roundInfo.nextRoundInfo.lockoutDate);
+      
+      // If the future round's lockout time has passed
+      if (now > lockoutDate) {
+        return true;
+      }
     }
     
     // Otherwise this specific round is not locked
