@@ -315,8 +315,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 63,
+    "AwayTeamScore": 46
   },
   {
     "MatchNumber": 30,
