@@ -326,8 +326,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 85,
+    "AwayTeamScore": 46
   },
   {
     "MatchNumber": 31,
