@@ -337,8 +337,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 91,
+    "AwayTeamScore": 90
   },
   {
     "MatchNumber": 32,
@@ -348,8 +348,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 90,
+    "AwayTeamScore": 118
   },
   {
     "MatchNumber": 33,
@@ -359,8 +359,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 52,
+    "AwayTeamScore": 117
   },
   {
     "MatchNumber": 34,
