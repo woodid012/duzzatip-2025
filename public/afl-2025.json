@@ -370,8 +370,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 132,
+    "AwayTeamScore": 51
   },
   {
     "MatchNumber": 35,
@@ -381,8 +381,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 72,
+    "AwayTeamScore": 89
   },
   {
     "MatchNumber": 36,
@@ -392,8 +392,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 97,
+    "AwayTeamScore": 81
   },
   {
     "MatchNumber": 37,
