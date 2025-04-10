@@ -403,8 +403,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 100,
+    "AwayTeamScore": 119
   },
   {
     "MatchNumber": 38,
