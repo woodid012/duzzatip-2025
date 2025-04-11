@@ -414,8 +414,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 109,
+    "AwayTeamScore": 78
   },
   {
     "MatchNumber": 39,
