@@ -165,7 +165,7 @@ export default function useTipping(initialUserId = '') {
     setIsEditing(false);
   };
 
-  // Handle team tip selection
+  // Handle team tip selection - UPDATED VERSION
   const handleTipSelect = (matchNumber, team) => {
     console.log(`Setting tip for match ${matchNumber} to ${team} (isEditing: ${isEditing})`);
     if (!isEditing || isRoundLocked(localRound)) {
@@ -176,9 +176,18 @@ export default function useTipping(initialUserId = '') {
     // Keep everything in editedTips immutable
     setEditedTips(prev => {
       const newTips = { ...prev };
+      
+      // Check if we're changing the team (not just re-selecting the same team)
+      const currentTeam = newTips[matchNumber]?.team;
+      const isChangingTeam = currentTeam && currentTeam !== team;
+      
+      // If we're changing teams, reset the dead cert status
+      const deadCert = isChangingTeam ? false : newTips[matchNumber]?.deadCert;
+      
       newTips[matchNumber] = {
         ...newTips[matchNumber],
-        team
+        team,
+        deadCert
       };
       return newTips;
     });

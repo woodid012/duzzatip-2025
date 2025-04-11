@@ -21,6 +21,8 @@ on:
 jobs:
   update-stats:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -49,30 +51,46 @@ jobs:
           cd src/app/scripts
           node update-afl-stats.js
           # Set output variable based on script output
-          if grep -q "PROCESSED_FIXTURES=true" <<< "$(cat /tmp/script_output.txt)"; then
+          if grep -q "PROCESSED_FIXTURES=true" <<< "$(cat /tmp/script_output.txt 2>/dev/null || echo '')"; then
             echo "CHANGES_MADE=true" >> $GITHUB_OUTPUT
           else
             echo "CHANGES_MADE=false" >> $GITHUB_OUTPUT
           fi
         
-      - name: Commit changes if fixtures were updated
+      - name: Check for changes to processed-games.json
+        id: check-changes
         if: steps.update-script.outputs.CHANGES_MADE == 'true'
+        run: |
+          if [[ -f src/app/scripts/processed-games.json ]]; then
+            if git diff --quiet src/app/scripts/processed-games.json; then
+              echo "FILE_CHANGED=false" >> $GITHUB_OUTPUT
+            else
+              echo "FILE_CHANGED=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "FILE_CHANGED=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Commit changes if processed-games.json was updated
+        if: steps.check-changes.outputs.FILE_CHANGED == 'true'
         run: |
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
           
-          # Stash our changes first
-          git stash
-          
-          # Pull the latest changes
-          git pull origin main
-          
-          # Apply our stashed changes back
-          git stash pop
-          
-          # Add, commit and push with force if needed
+          # Add the file directly without stashing
           git add src/app/scripts/processed-games.json
+          
+          # Check if there are changes to commit after adding
+          if git diff --staged --quiet; then
+            echo "No changes to commit after git add"
+            exit 0
+          fi
+          
+          # Commit changes
           git commit -m "Update processed games record [skip ci]"
           
-          # Try to push, if it fails, force push with lease for safety
-          git push || git push --force-with-lease
+          # Pull with rebase strategy to avoid merge conflicts
+          git pull --rebase origin main
+          
+          # Push changes
+          git push
