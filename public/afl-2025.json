@@ -425,8 +425,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 89,
+    "AwayTeamScore": 141
   },
   {
     "MatchNumber": 40,
@@ -436,8 +436,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 121,
+    "AwayTeamScore": 50
   },
   {
     "MatchNumber": 41,
@@ -447,8 +447,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 97,
+    "AwayTeamScore": 118
   },
   {
     "MatchNumber": 42,
@@ -458,8 +458,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 57,
+    "AwayTeamScore": 96
   },
   {
     "MatchNumber": 43,
