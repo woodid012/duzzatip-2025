@@ -469,8 +469,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 47,
+    "AwayTeamScore": 108
   },
   {
     "MatchNumber": 44,
@@ -480,8 +480,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 82,
+    "AwayTeamScore": 110
   },
   {
     "MatchNumber": 45,
@@ -491,8 +491,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 121,
+    "AwayTeamScore": 91
   },
   {
     "MatchNumber": 46,
