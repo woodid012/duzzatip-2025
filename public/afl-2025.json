@@ -502,8 +502,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 53,
+    "AwayTeamScore": 105
   },
   {
     "MatchNumber": 47,
