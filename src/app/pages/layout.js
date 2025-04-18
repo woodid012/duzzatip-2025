@@ -8,10 +8,11 @@ import { useAppContext } from '@/app/context/AppContext';
 import logo from '@/app/assets/logo.png';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 
-// Create context for selected user
+// Create context for selected user and admin authentication
 export const UserContext = createContext({
   selectedUserId: '',
   setSelectedUserId: () => {},
+  isAdminAuthenticated: false,
 });
 
 // Custom hook to use the user context
@@ -38,12 +39,22 @@ export default function PagesLayout({ children }) {
   // State for selected user - initialize from localStorage if available
   const [selectedUserId, setSelectedUserId] = useState('');
   
+  // Admin authentication state
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  
   // Load selectedUserId from localStorage on initial render
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedUserId = localStorage.getItem('selectedUserId');
       if (savedUserId) {
-        setSelectedUserId(savedUserId);
+        // If user was previously admin, we need to revalidate
+        if (savedUserId === 'admin') {
+          setShowAdminModal(true);
+        } else {
+          setSelectedUserId(savedUserId);
+        }
       }
     }
   }, []);
@@ -64,7 +75,28 @@ export default function PagesLayout({ children }) {
 
   // Handle user selection change
   const handleUserChange = (e) => {
-    setSelectedUserId(e.target.value);
+    const newUserId = e.target.value;
+    
+    if (newUserId === 'admin') {
+      // Show admin password modal when admin is selected
+      setShowAdminModal(true);
+    } else {
+      setSelectedUserId(newUserId);
+      setIsAdminAuthenticated(false);
+    }
+  };
+  
+  // Handle admin password submission
+  const handleAdminPasswordSubmit = (e) => {
+    e.preventDefault();
+    
+    if (adminPassword === 'Duz') {
+      setIsAdminAuthenticated(true);
+      setSelectedUserId('admin');
+      setShowAdminModal(false);
+    } else {
+      alert('Incorrect password');
+    }
   };
 
   const navigationItems = [
@@ -83,8 +115,65 @@ export default function PagesLayout({ children }) {
   const showRoundInfo = !loading.fixtures && roundInfo && roundInfo.currentRound !== undefined;
 
   return (
-    <UserContext.Provider value={{ selectedUserId, setSelectedUserId }}>
+    <UserContext.Provider value={{ 
+      selectedUserId, 
+      setSelectedUserId, 
+      isAdminAuthenticated,
+      setIsAdminAuthenticated
+    }}>
       <div className="min-h-screen bg-gray-50">
+        {/* Admin Password Modal */}
+        {showAdminModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold mb-4">Admin Authentication</h3>
+              <form onSubmit={handleAdminPasswordSubmit}>
+                <div className="mb-4">
+                  <label htmlFor="adminPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    Admin Password
+                  </label>
+                  <input
+                    type="password"
+                    id="adminPassword"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    className="w-full p-2 border rounded text-black"
+                    placeholder="Enter password"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminModal(false);
+                      setAdminPassword('');
+                      // Reset dropdown to previous value
+                      if (typeof window !== 'undefined') {
+                        const savedUserId = localStorage.getItem('selectedUserId');
+                        if (savedUserId && savedUserId !== 'admin') {
+                          setSelectedUserId(savedUserId);
+                        } else {
+                          setSelectedUserId('');
+                        }
+                      }
+                    }}
+                    className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Login
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      
         {/* Top Banner */}
         <div className="bg-white shadow">
           <div className="w-full p-4 md:p-6">
@@ -151,6 +240,13 @@ export default function PagesLayout({ children }) {
                     ))}
                     <option value="admin">Admin</option>
                   </select>
+                  
+                  {/* Admin indicator */}
+                  {selectedUserId === 'admin' && isAdminAuthenticated && (
+                    <span className="ml-2 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                      Admin Mode
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -183,7 +279,22 @@ export default function PagesLayout({ children }) {
 
             {/* Main Content */}
             <div className="flex-1 bg-white rounded-lg shadow p-4 md:p-6">
-              {children}
+              {selectedUserId === 'admin' && !isAdminAuthenticated ? (
+                // Show a message if somehow the admin access is attempted without auth
+                <div className="p-8 text-center">
+                  <h2 className="text-xl font-bold mb-4">Admin Authentication Required</h2>
+                  <p className="mb-4">You need to authenticate as an admin to view this content.</p>
+                  <button
+                    onClick={() => setShowAdminModal(true)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded"
+                  >
+                    Authenticate
+                  </button>
+                </div>
+              ) : (
+                // Show the content if authorized or not an admin
+                children
+              )}
             </div>
           </div>
         </div>
