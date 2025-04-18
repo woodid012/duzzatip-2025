@@ -36,8 +36,14 @@ export default function useTipping(initialUserId = '') {
     }
   }, [currentRound, localRound]);
 
-  // Determine if round is locked for editing - MODIFIED to ensure past rounds stay locked
+  // Determine if round is locked for editing
+  // MODIFIED: Added check for admin user - will never be locked for admin
   const isRoundLocked = (round) => {
+    // Admin can always edit any round
+    if (selectedUserId === 'admin') {
+      return false;
+    }
+    
     // Any round before the current round is always locked (historical round)
     if (round < currentRound) {
       return true;
@@ -168,7 +174,8 @@ export default function useTipping(initialUserId = '') {
   // Handle team tip selection - UPDATED VERSION
   const handleTipSelect = (matchNumber, team) => {
     console.log(`Setting tip for match ${matchNumber} to ${team} (isEditing: ${isEditing})`);
-    if (!isEditing || isRoundLocked(localRound)) {
+    // MODIFIED: Added check for admin user which can bypass lock
+    if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
       console.log("Can't edit - editing is locked");
       return;
     }
@@ -196,7 +203,8 @@ export default function useTipping(initialUserId = '') {
   // Toggle dead cert status
   const handleDeadCertToggle = (matchNumber) => {
     console.log(`Toggling dead cert for match ${matchNumber} (isEditing: ${isEditing})`);
-    if (!isEditing || isRoundLocked(localRound)) {
+    // MODIFIED: Added check for admin user which can bypass lock
+    if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
       console.log("Can't edit - editing is locked");
       return;
     }
@@ -213,7 +221,8 @@ export default function useTipping(initialUserId = '') {
 
   // Save tips
   const saveTips = async () => {
-    if (!selectedUserId || isRoundLocked(localRound)) {
+    // MODIFIED: Added check for admin user which can bypass lock
+    if (!selectedUserId || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
       console.log("Can't save - no user selected or round is locked");
       return false;
     }
@@ -267,8 +276,11 @@ export default function useTipping(initialUserId = '') {
 
   // Start editing
   const startEditing = () => {
+    // MODIFIED: Added check for admin user which can bypass lock
     console.log("Starting editing, isLocked:", isRoundLocked(localRound), "userId:", selectedUserId);
-    if (!isRoundLocked(localRound) && selectedUserId) {
+    
+    // Admin can always edit, or regular users if not locked
+    if ((selectedUserId === 'admin' || !isRoundLocked(localRound)) && selectedUserId) {
       console.log("Setting isEditing to true");
       // Ensure we're working with the latest data
       setEditedTips({ ...tips });

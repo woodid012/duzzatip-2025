@@ -92,6 +92,9 @@ export default function TippingPage() {
     return false;
   };
 
+  // Check if user is admin
+  const isAdmin = selectedUserId === 'admin' || hookSelectedUserId === 'admin';
+
   if (loading && !dataLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -125,7 +128,7 @@ export default function TippingPage() {
           {/* Show round info */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
-              {isRoundLocked ? (
+              {isRoundLocked && !isAdmin ? (
                 <>
                   <span className="text-red-600">
                     {formatRoundName(currentRound)} is locked 
@@ -135,9 +138,16 @@ export default function TippingPage() {
                   </span>
                 </>
               ) : (
-                <span className="text-green-600">
-                  Showing {formatRoundName(localRound)}
-                </span>
+                <>
+                  <span className="text-green-600">
+                    Showing {formatRoundName(localRound)}
+                  </span>
+                  {isAdmin && isRoundLocked && (
+                    <span className="ml-2 text-orange-500 font-medium">
+                      (Normally locked, admin override enabled)
+                    </span>
+                  )}
+                </>
               )}
             </div>
             
@@ -145,7 +155,7 @@ export default function TippingPage() {
               <div className="text-sm">
                 <span className="text-gray-600">Lockout:</span>
                 <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
-                {roundInfo.isLocked && (
+                {isRoundLocked && !isAdmin && (
                   <span className="text-red-600 ml-1">(Locked)</span>
                 )}
               </div>
@@ -193,14 +203,14 @@ export default function TippingPage() {
               <button 
                 onClick={handleEditClick}
                 type="button"
-                disabled={isRoundLocked}
+                disabled={isRoundLocked && !isAdmin}
                 className={`px-4 py-2 rounded ${
-                  isRoundLocked 
+                  isRoundLocked && !isAdmin
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-500 hover:bg-blue-600'
                 } text-white`}
               >
-                {isRoundLocked ? 'Locked' : 'Edit Tips'}
+                {isRoundLocked && !isAdmin ? 'Locked' : 'Edit Tips'}
               </button>
             )
           )}
@@ -223,7 +233,7 @@ export default function TippingPage() {
           </select>
         </div>
 
-        {selectedUserId === 'admin' && (
+        {isAdmin && (
           <div className="flex flex-col">
             <label className="mb-2 font-semibold text-black">Select Team:</label>
             <select 
@@ -265,12 +275,12 @@ export default function TippingPage() {
                         handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
                       }}
                       type="button"
-                      disabled={!isEditing || isRoundLocked}
+                      disabled={!isEditing || (isRoundLocked && !isAdmin)}
                       className={`px-3 py-1 rounded ${
                         tips[fixture.MatchNumber]?.team === fixture.HomeTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || isRoundLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
+                      } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       {fixture.HomeTeam}
                     </button>
@@ -282,12 +292,12 @@ export default function TippingPage() {
                         handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
                       }}
                       type="button"
-                      disabled={!isEditing || isRoundLocked}
+                      disabled={!isEditing || (isRoundLocked && !isAdmin)}
                       className={`px-3 py-1 rounded ${
                         tips[fixture.MatchNumber]?.team === fixture.AwayTeam
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || isRoundLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
+                      } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       {fixture.AwayTeam}
                     </button>
@@ -302,12 +312,12 @@ export default function TippingPage() {
                         handleDeadCertToggle(fixture.MatchNumber);
                       }}
                       type="button"
-                      disabled={!isEditing || isRoundLocked || !tips[fixture.MatchNumber]?.team}
+                      disabled={!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team}
                       className={`px-3 py-1 rounded ${
                         tips[fixture.MatchNumber]?.deadCert
                           ? 'bg-yellow-500 text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || isRoundLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${(!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
                     </button>
@@ -318,6 +328,20 @@ export default function TippingPage() {
           </table>
         </form>
       </div>
+
+      {/* Admin note section when admin is selected */}
+      {isAdmin && (
+        <div className="mt-8 p-4 rounded-lg bg-amber-50 border border-amber-200">
+          <h3 className="text-lg font-semibold text-amber-800">Admin Override Enabled</h3>
+          <p className="text-amber-700 mt-2">
+            As an admin, you can edit tips for any user in any round, even if the round is locked.
+            This allows you to make corrections or adjustments as needed.
+          </p>
+          <p className="text-amber-700 mt-2">
+            Remember that changes made to locked rounds will be saved immediately and could affect scoring.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
