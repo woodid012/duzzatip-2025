@@ -513,8 +513,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 71,
+    "AwayTeamScore": 153
   },
   {
     "MatchNumber": 48,
@@ -524,8 +524,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 75,
+    "AwayTeamScore": 77
   },
   {
     "MatchNumber": 49,
