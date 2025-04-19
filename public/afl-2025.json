@@ -535,8 +535,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 107,
+    "AwayTeamScore": 97
   },
   {
     "MatchNumber": 50,
@@ -546,8 +546,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 52,
+    "AwayTeamScore": 34
   },
   {
     "MatchNumber": 51,
@@ -557,8 +557,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 80,
+    "AwayTeamScore": 69
   },
   {
     "MatchNumber": 52,
