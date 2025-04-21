@@ -568,8 +568,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 77,
+    "AwayTeamScore": 85
   },
   {
     "MatchNumber": 53,
@@ -579,8 +579,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 127,
+    "AwayTeamScore": 56
   },
   {
     "MatchNumber": 54,
@@ -662,7 +662,7 @@
   {
     "MatchNumber": 61,
     "RoundNumber": 7,
-    "DateUtc": "2025-04-27 03:10:00Z",
+    "DateUtc": "2025-04-27 03:15:00Z",
     "Location": "People First Stadium",
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Sydney Swans",
@@ -684,7 +684,7 @@
   {
     "MatchNumber": 63,
     "RoundNumber": 7,
-    "DateUtc": "2025-04-27 06:40:00Z",
+    "DateUtc": "2025-04-27 06:45:00Z",
     "Location": "Marvel Stadium",
     "HomeTeam": "Hawthorn",
     "AwayTeam": "West Coast Eagles",
