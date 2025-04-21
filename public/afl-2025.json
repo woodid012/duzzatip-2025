@@ -590,8 +590,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 86,
+    "AwayTeamScore": 79
   },
   {
     "MatchNumber": 55,
