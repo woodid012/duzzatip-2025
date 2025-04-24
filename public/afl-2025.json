@@ -601,8 +601,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 83,
+    "AwayTeamScore": 63
   },
   {
     "MatchNumber": 56,
