@@ -612,8 +612,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 107,
+    "AwayTeamScore": 66
   },
   {
     "MatchNumber": 57,
