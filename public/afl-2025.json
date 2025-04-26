@@ -623,8 +623,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 85,
+    "AwayTeamScore": 67
   },
   {
     "MatchNumber": 58,
