@@ -634,8 +634,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 73,
+    "AwayTeamScore": 118
   },
   {
     "MatchNumber": 59,
@@ -645,8 +645,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 97,
+    "AwayTeamScore": 88
   },
   {
     "MatchNumber": 60,
@@ -656,8 +656,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 81,
+    "AwayTeamScore": 113
   },
   {
     "MatchNumber": 61,
