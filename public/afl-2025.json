@@ -667,8 +667,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 117,
+    "AwayTeamScore": 79
   },
   {
     "MatchNumber": 62,
@@ -678,8 +678,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 94,
+    "AwayTeamScore": 76
   },
   {
     "MatchNumber": 63,
@@ -689,8 +689,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 124,
+    "AwayTeamScore": 74
   },
   {
     "MatchNumber": 64,
