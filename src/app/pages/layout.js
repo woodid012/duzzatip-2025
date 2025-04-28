@@ -106,6 +106,7 @@ export default function PagesLayout({ children }) {
     { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
     { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
+    { name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' },
   ];
 
   // Check if the current page should show only the selected user's team

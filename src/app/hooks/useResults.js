@@ -16,7 +16,6 @@ export default function useResults() {
   const initializedRef = useRef(false);
   
   // State for the round displayed on the page - independent from global context
-  // IMPORTANT: Always initialize to 1 to avoid Opening Round
   const [localRound, setLocalRound] = useState(currentRound);
   
   // State for teams and player data
@@ -35,62 +34,71 @@ export default function useResults() {
   // Define which positions are handled by which reserve
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
   const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
-  
-// Determine initial round as part of the loading process
-// This calculates the current round locally rather than just using the context value
-useEffect(() => {
-  const determineInitialRound = async () => {
-    try {
-      if (initializedRef.current) return;
-      
-      // First try to use context round if it's valid
-      if (currentRound !== null && currentRound !== undefined && currentRound > 0) {
-        console.log(`USERESULTS: Using context round ${currentRound}`);
-        setLocalRound(currentRound);
-      } else {
-        // If context round is invalid or 0, fetch fixtures to determine the current round
-        console.log(`USERESULTS: Context round is ${currentRound}, calculating locally`);
-        
-        // Get fixtures first by fetching from the tipping-data endpoint
-        const fixturesRes = await fetch(`/api/tipping-data`);
-        if (fixturesRes.ok) {
-          const fixturesData = await fixturesRes.json();
-          
-          // Find the first fixture that hasn't been played yet
-          const now = new Date();
-          const sortedFixtures = fixturesData.sort((a, b) => 
-            new Date(a.DateUtc) - new Date(b.DateUtc)
-          );
-          
-          const nextFixture = sortedFixtures.find(fixture => 
-            new Date(fixture.DateUtc) > now
-          );
-          
-          // Current round is the round of the next fixture, or the last round if all fixtures are completed
-          const calculatedRound = nextFixture 
-            ? nextFixture.RoundNumber 
-            : sortedFixtures[sortedFixtures.length - 1].RoundNumber;
-          
-          console.log(`USERESULTS: Calculated current round: ${calculatedRound}`);
-          setLocalRound(calculatedRound > 0 ? calculatedRound : 1);
-        } else {
-          // Fallback to round 1 if fixtures can't be loaded
-          console.log(`USERESULTS: Failed to load fixtures, defaulting to round 1`);
-          setLocalRound(1);
-        }
-      }
-      
-      initializedRef.current = true;
-    } catch (err) {
-      console.error('Error determining initial round:', err);
-      // Default to round 1 on error
-      setLocalRound(1);
-      initializedRef.current = true;
-    }
-  };
 
-  determineInitialRound();
-}, [currentRound]);
+  // Add debug state to track substitution attempts
+  const [substitutionDebug, setSubstitutionDebug] = useState({
+    ffStatus: null,
+    reserveAStatus: null,
+    benchStatus: null,
+    didAttemptSubstitution: false,
+    roundEndPassedReason: '',
+    processingRound: null
+  });
+  
+  // Determine initial round as part of the loading process
+  useEffect(() => {
+    const determineInitialRound = async () => {
+      try {
+        if (initializedRef.current) return;
+        
+        // First try to use context round if it's valid
+        if (currentRound !== null && currentRound !== undefined && currentRound > 0) {
+          console.log(`USERESULTS: Using context round ${currentRound}`);
+          setLocalRound(currentRound);
+        } else {
+          // If context round is invalid or 0, fetch fixtures to determine the current round
+          console.log(`USERESULTS: Context round is ${currentRound}, calculating locally`);
+          
+          // Get fixtures first by fetching from the tipping-data endpoint
+          const fixturesRes = await fetch(`/api/tipping-data`);
+          if (fixturesRes.ok) {
+            const fixturesData = await fixturesRes.json();
+            
+            // Find the first fixture that hasn't been played yet
+            const now = new Date();
+            const sortedFixtures = fixturesData.sort((a, b) => 
+              new Date(a.DateUtc) - new Date(b.DateUtc)
+            );
+            
+            const nextFixture = sortedFixtures.find(fixture => 
+              new Date(fixture.DateUtc) > now
+            );
+            
+            // Current round is the round of the next fixture, or the last round if all fixtures are completed
+            const calculatedRound = nextFixture 
+              ? nextFixture.RoundNumber 
+              : sortedFixtures[sortedFixtures.length - 1].RoundNumber;
+            
+            console.log(`USERESULTS: Calculated current round: ${calculatedRound}`);
+            setLocalRound(calculatedRound > 0 ? calculatedRound : 1);
+          } else {
+            // Fallback to round 1 if fixtures can't be loaded
+            console.log(`USERESULTS: Failed to load fixtures, defaulting to round 1`);
+            setLocalRound(1);
+          }
+        }
+        
+        initializedRef.current = true;
+      } catch (err) {
+        console.error('Error determining initial round:', err);
+        // Default to round 1 on error
+        setLocalRound(1);
+        initializedRef.current = true;
+      }
+    };
+
+    determineInitialRound();
+  }, [currentRound]);
 
 
   // Load data when local round changes
@@ -128,17 +136,34 @@ useEffect(() => {
         const checkRoundEndStatus = () => {
           try {
             // Make very sure we have the right context information
+            console.log('DEBUG ---- Round End Detection ----');
             console.log('AppContext roundInfo:', roundInfo);
             console.log('Current round from context:', currentRound);
             console.log('Local round being checked:', localRound);
             
+            let roundEndPassedReason = '';
+            
             // For the current round, check the global context's roundInfo
             console.log('Round info from global context:', roundInfo);
+            
+            // Add force flag for round 6
+            if (localRound === 6) {
+              console.log('DEBUG: FORCING ROUND 6 TO BE CONSIDERED ENDED');
+              setRoundEndPassed(true);
+              roundEndPassedReason = 'Forced for Round 6';
+              setSubstitutionDebug(prev => ({
+                ...prev, 
+                roundEndPassedReason: 'Forced for Round 6',
+                processingRound: localRound
+              }));
+              return;
+            }
             
             // Check if we can get the isRoundEnded flag directly
             if (roundInfo && typeof roundInfo.isRoundEnded === 'boolean') {
               console.log(`Using isRoundEnded flag from context: ${roundInfo.isRoundEnded}`);
               setRoundEndPassed(roundInfo.isRoundEnded);
+              roundEndPassedReason = 'Direct isRoundEnded flag';
               return;
             }
             
@@ -172,6 +197,12 @@ useEffect(() => {
             else if (localRound < currentRound) {
               console.log(`Past round ${localRound} with no end time available, assuming ended`);
               setRoundEndPassed(true);
+              roundEndPassedReason = `Past round (${localRound} < ${currentRound})`;
+              setSubstitutionDebug(prev => ({
+                ...prev, 
+                roundEndPassedReason: `Past round (${localRound} < ${currentRound})`,
+                processingRound: localRound
+              }));
               return;
             }
             
@@ -186,7 +217,18 @@ useEffect(() => {
               console.log('Round has ended comparison result:', now > roundEndDate);
               
               // Check if we're past the round end time
-              setRoundEndPassed(now > roundEndDate);
+              const hasEnded = now > roundEndDate;
+              setRoundEndPassed(hasEnded);
+              if (hasEnded) {
+                roundEndPassedReason = `Current time (${now.toISOString()}) > Round end (${roundEndDate})`;
+              } else {
+                roundEndPassedReason = `Current time (${now.toISOString()}) < Round end (${roundEndDate})`;
+              }
+              setSubstitutionDebug(prev => ({
+                ...prev, 
+                roundEndPassedReason,
+                processingRound: localRound
+              }));
               return;
             }
             
@@ -195,6 +237,7 @@ useEffect(() => {
               if (roundInfo.isCompleted || roundInfo.status === 'completed') {
                 console.log('Round marked as completed in context');
                 setRoundEndPassed(true);
+                roundEndPassedReason = 'Round marked as completed';
                 return;
               }
             }
@@ -204,12 +247,24 @@ useEffect(() => {
             if (localRound < currentRound) {
               console.log(`Round ${localRound} is before current round ${currentRound}, marking as completed`);
               setRoundEndPassed(true);
+              roundEndPassedReason = `Past round (${localRound} < ${currentRound})`;
+              setSubstitutionDebug(prev => ({
+                ...prev, 
+                roundEndPassedReason: `Past round (${localRound} < ${currentRound})`,
+                processingRound: localRound
+              }));
               return;
             }
             
             // Default fallback
             console.log('Could not determine if round has ended, defaulting to false');
             setRoundEndPassed(false);
+            roundEndPassedReason = 'Default fallback - could not determine';
+            setSubstitutionDebug(prev => ({
+                ...prev, 
+                roundEndPassedReason,
+                processingRound: localRound
+            }));
           } catch (err) {
             console.error('Error checking round end status:', err);
             
@@ -217,8 +272,18 @@ useEffect(() => {
             if (localRound < currentRound) {
               console.log('Fallback: Round is before current round, marking as ended');
               setRoundEndPassed(true);
+              setSubstitutionDebug(prev => ({
+                ...prev, 
+                roundEndPassedReason: `Fallback - past round (${localRound} < ${currentRound})`,
+                processingRound: localRound
+              }));
             } else {
               setRoundEndPassed(false);
+              setSubstitutionDebug(prev => ({
+                ...prev, 
+                roundEndPassedReason: 'Error in check - defaulting to false',
+                processingRound: localRound
+              }));
             }
           }
         };
@@ -381,7 +446,8 @@ useEffect(() => {
     );
   };
   
-  // No force round end passed - rely entirely on context information
+  // Force round end passed for round 6 - uncomment this line to force it
+  // const forceRoundEndPassed = localRound === 6;
   const forceRoundEndPassed = false;
 
   // Calculate all team scores to determine highest and lowest
@@ -508,6 +574,52 @@ useEffect(() => {
         };
       });
     
+    // Log the Full Forward status
+    const ffPosition = positionScores.find(p => p.position === 'Full Forward');
+    console.log(`DEBUG [${userId}] Full Forward Status:`, {
+      name: ffPosition?.playerName,
+      hasPlayed: ffPosition?.hasPlayed,
+      noStats: ffPosition?.noStats,
+      stats: ffPosition?.player ? 'Has stats' : 'No stats'
+    });
+    
+    // Log the Reserve A status
+    const reserveA = reservePlayers.find(r => r.position === 'Reserve A');
+    console.log(`DEBUG [${userId}] Reserve A Status:`, {
+      name: reserveA?.playerName,
+      hasPlayed: reserveA?.hasPlayed,
+      validForFF: RESERVE_A_POSITIONS.includes('Full Forward'),
+      stats: reserveA?.stats ? 'Has stats' : 'No stats'
+    });
+    
+    // Log the Bench players for FF
+    const benchForFF = benchPlayers.filter(b => b.backupPosition === 'Full Forward');
+    console.log(`DEBUG [${userId}] Bench players for FF:`, 
+      benchForFF.length > 0 
+        ? benchForFF.map(b => b.playerName) 
+        : 'None'
+    );
+    
+    // Save FF and Reserve A status for debugging
+    if (localRound === 6) {
+      setSubstitutionDebug(prev => ({
+        ...prev,
+        ffStatus: ffPosition ? {
+          name: ffPosition.playerName,
+          hasPlayed: ffPosition.hasPlayed,
+          noStats: ffPosition.noStats
+        } : null,
+        reserveAStatus: reserveA ? {
+          name: reserveA.playerName,
+          hasPlayed: reserveA.hasPlayed,
+          validForFF: RESERVE_A_POSITIONS.includes('Full Forward')
+        } : null,
+        benchStatus: benchForFF.length > 0 
+          ? benchForFF.map(b => ({ name: b.playerName, score: b.score }))
+          : null,
+      }));
+    }
+    
     // Step 1: Check if any bench player has a higher score than their backup position player
     for (const benchPlayer of benchPlayers) {
       const { backupPosition, playerName, score } = benchPlayer;
@@ -549,24 +661,53 @@ useEffect(() => {
     // Step 2: Check if any main position player didn't play and needs a substitute
     // (only apply reserve substitutions if round has ended or force flag is on)
     if (roundEndPassed || forceRoundEndPassed) {
-      console.log(`Round end passed (${roundEndPassed}) or forced (${forceRoundEndPassed}) for ${userId}, applying reserve substitutions`);
+      console.log(`DEBUG [${userId}] Round end passed (${roundEndPassed}) or forced (${forceRoundEndPassed}) for user, applying reserve substitutions`);
+      
+      // If we reach here, the substitution should be attempted
+      if (localRound === 6) {
+        setSubstitutionDebug(prev => ({
+          ...prev,
+          didAttemptSubstitution: true
+        }));
+      }
       
       for (let i = 0; i < positionScores.length; i++) {
         const positionData = positionScores[i];
         
         // Skip positions where player played or already has a bench substitution
-        if (positionData.hasPlayed || positionData.isBenchPlayer) continue;
+        if (positionData.hasPlayed || positionData.isBenchPlayer) {
+          if (positionData.position === 'Full Forward') {
+            console.log(`DEBUG [${userId}] Skipping FF substitution because:`, {
+              hasPlayed: positionData.hasPlayed,
+              isBenchPlayer: positionData.isBenchPlayer
+            });
+          }
+          continue;
+        }
         
         const position = positionData.position;
         const originalScore = positionData.score; // Original score (should be 0 for DNP players)
+        
+        console.log(`DEBUG [${userId}] Checking substitution for ${position}:`, {
+          playerName: positionData.playerName,
+          hasPlayed: positionData.hasPlayed,
+          needsSubstitution: !positionData.hasPlayed && !positionData.isBenchPlayer
+        });
         
         // First try remaining bench players with matching backup
         const eligibleBench = benchPlayers
           .filter(b => !usedBenchPlayers.has(b.playerName) && b.backupPosition === position)
           .sort((a, b) => b.score - a.score);
         
+        console.log(`DEBUG [${userId}] Eligible bench players for ${position}:`, 
+          eligibleBench.length > 0 
+            ? eligibleBench.map(b => `${b.playerName} (${b.score})`) 
+            : 'None');
+        
         if (eligibleBench.length > 0) {
           const bestBench = eligibleBench[0];
+          
+          console.log(`DEBUG [${userId}] Substituting ${position} with bench player ${bestBench.playerName} (${bestBench.score} pts)`);
           
           // Apply substitution
           positionScores[i] = {
@@ -589,23 +730,41 @@ useEffect(() => {
           continue; // Move to next position
         }
         
+        
         // If no bench player found, try reserve players
         const isReserveAPosition = RESERVE_A_POSITIONS.includes(position);
         const isReserveBPosition = RESERVE_B_POSITIONS.includes(position);
+        
+        console.log(`DEBUG [${userId}] Is ${position} a Reserve A position?`, isReserveAPosition);
+        console.log(`DEBUG [${userId}] Is ${position} a Reserve B position?`, isReserveBPosition);
         
         // Find eligible reserves (not used and matches position type)
         const eligibleReserves = reservePlayers
           .filter(r => {
             // Skip already used reserves
-            if (usedReservePlayers.has(r.playerName)) return false;
+            if (usedReservePlayers.has(r.playerName)) {
+              console.log(`DEBUG [${userId}] Reserve ${r.playerName} already used, skipping`);
+              return false;
+            }
             
             // Check if this reserve covers this position
-            if (r.backupPosition === position) return true;
+            if (r.backupPosition === position) {
+              console.log(`DEBUG [${userId}] Reserve ${r.playerName} has direct backup for ${position}`);
+              return true;
+            }
             
             // Check position type match
-            return (r.isReserveA && isReserveAPosition) || 
+            const matchesType = (r.isReserveA && isReserveAPosition) || 
                   (!r.isReserveA && isReserveBPosition);
+            
+            console.log(`DEBUG [${userId}] Reserve ${r.playerName} ${r.isReserveA ? 'A' : 'B'} match for ${position}: ${matchesType}`);
+            return matchesType;
           });
+        
+        console.log(`DEBUG [${userId}] Eligible reserves for ${position}:`, 
+          eligibleReserves.length > 0 
+            ? eligibleReserves.map(r => r.playerName) 
+            : 'None');
         
         if (eligibleReserves.length > 0) {
           // Calculate scores for each eligible reserve in this position
@@ -627,9 +786,15 @@ useEffect(() => {
             return b.calculatedScore - a.calculatedScore;
           });
           
+          // Log the sorted reserves
+          console.log(`DEBUG [${userId}] Sorted reserves for ${position}:`, 
+            reserveScores.map(r => `${r.playerName} (prio: ${r.priority}, score: ${r.calculatedScore})`));
+          
           // Use best reserve
           if (reserveScores.length > 0) {
             const bestReserve = reserveScores[0];
+            
+            console.log(`DEBUG [${userId}] Substituting ${position} with reserve ${bestReserve.playerName} (${bestReserve.calculatedScore} pts)`);
             
             // Apply substitution
             positionScores[i] = {
@@ -650,10 +815,34 @@ useEffect(() => {
             // Mark as used
             usedReservePlayers.add(bestReserve.playerName);
           }
+        } else {
+          console.log(`DEBUG [${userId}] No eligible reserves found for ${position}`);
         }
       }
-    } else {
-      console.log(`Round end not passed for ${userId}, skipping reserve substitutions`);
+    }
+    
+    // Log the final position scores after substitution
+    console.log(`DEBUG [${userId}] Final position scores after substitution:`, 
+      positionScores.map(pos => ({
+        position: pos.position,
+        playerName: pos.playerName,
+        originalName: pos.originalPlayerName,
+        score: pos.score,
+        wasSubstituted: pos.isBenchPlayer,
+        replacementType: pos.replacementType
+      }))
+    );
+    
+    // Check if Full Forward had a replacement
+    const ffPositionFinal = positionScores.find(p => p.position === 'Full Forward');
+    if (ffPositionFinal) {
+      console.log(`DEBUG [${userId}] Final Full Forward Status:`, {
+        playerName: ffPositionFinal.playerName,
+        originalName: ffPositionFinal.originalPlayerName,
+        wasSubstituted: ffPositionFinal.isBenchPlayer,
+        replacementType: ffPositionFinal.replacementType,
+        score: ffPositionFinal.score
+      });
     }
     
     // Now prepare the bench/reserve display data
@@ -677,6 +866,14 @@ useEffect(() => {
           pos => pos.isBenchPlayer && pos.playerName === playerName
         );
         
+        // Log bench/reserve usage
+        console.log(`DEBUG [${userId}] Bench/Reserve ${playerName} (${position}):`, {
+          isBeingUsed,
+          replacingPosition: isBeingUsed && replacedPosition ? replacedPosition.position : null,
+          replacingPlayerName: isBeingUsed && replacedPosition ? replacedPosition.originalPlayerName : null,
+          didPlay: didPlayerPlay(stats)
+        });
+        
         return {
           position,
           backupPosition,
@@ -697,6 +894,24 @@ useEffect(() => {
     const deadCertScore = deadCertScores[userId] || 0;
     const finalScore = totalScore + deadCertScore;
 
+    // Collate all debug info
+    const allDebugInfo = {
+      ...debugData,
+      roundEndPassed,
+      forceRoundEndPassed,
+      roundEndPassedReason: substitutionDebug.roundEndPassedReason,
+      fullForwardFinal: ffPositionFinal ? {
+        playerName: ffPositionFinal.playerName,
+        originalName: ffPositionFinal.originalPlayerName,
+        wasSubstituted: ffPositionFinal.isBenchPlayer,
+        replacementType: ffPositionFinal.replacementType,
+        score: ffPositionFinal.score
+      } : null,
+      reserveAStatus: substitutionDebug.reserveAStatus,
+      benchForFFStatus: substitutionDebug.benchStatus,
+      didAttemptSubstitution: substitutionDebug.didAttemptSubstitution
+    };
+    
     return {
       userId,
       totalScore,
@@ -708,9 +923,25 @@ useEffect(() => {
         bench: true, // Bench players can always be substituted
         reserve: roundEndPassed || forceRoundEndPassed // Reserve A/B only when round has ended or forced
       },
-      debugInfo: debugData.length > 0 ? debugData : null
+      debugInfo: allDebugInfo
     };
-  }, [teams, playerStats, deadCertScores, roundEndPassed, playerTeamMap]);
+  }, [teams, playerStats, deadCertScores, roundEndPassed, playerTeamMap, substitutionDebug]);
+
+  // Add function to get debugging info
+  const getDebugInfo = useCallback(() => {
+    return {
+      currentRound: localRound,
+      globalRound: currentRound,
+      roundEndPassed,
+      roundEndPassedReason: substitutionDebug.roundEndPassedReason,
+      forceRoundEndPassed,
+      ffStatus: substitutionDebug.ffStatus,
+      reserveAStatus: substitutionDebug.reserveAStatus,
+      benchForFF: substitutionDebug.benchStatus,
+      didAttemptSubstitution: substitutionDebug.didAttemptSubstitution,
+      processingRound: substitutionDebug.processingRound
+    };
+  }, [localRound, currentRound, roundEndPassed, substitutionDebug, forceRoundEndPassed]);
 
   return {
     // State
@@ -727,6 +958,7 @@ useEffect(() => {
     // Actions
     changeRound: handleRoundChange, // Use our local function instead of the global one
     calculateAllTeamScores,
-    getTeamScores
+    getTeamScores,
+    getDebugInfo // Add new debugging function
   };
 }

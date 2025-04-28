@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUserContext } from '../layout';
 import { USER_NAMES } from '@/app/lib/constants';
-import { User, ArrowRightLeft, UserPlus, UserMinus, Calendar, Edit, X, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import { User, ArrowRightLeft, UserPlus, UserMinus, Calendar, Edit, X, Save } from 'lucide-react';
 
 export default function SquadManagementPage() {
   const { selectedUserId } = useUserContext();
@@ -16,9 +16,6 @@ export default function SquadManagementPage() {
   const [availablePlayers, setAvailablePlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
-  const [tradeWithUserId, setTradeWithUserId] = useState('');
-  const [allUserSquads, setAllUserSquads] = useState({});
 
   // Initialize squadData with empty structure
   const [squadData, setSquadData] = useState({
@@ -34,13 +31,10 @@ export default function SquadManagementPage() {
       try {
         setLoading(true);
         
-        // Get all squads
+        // Get current squad
         const squadRes = await fetch('/api/squads');
         if (!squadRes.ok) throw new Error('Failed to fetch squad');
         const squadData = await squadRes.json();
-        
-        // Store all squads for trading purposes
-        setAllUserSquads(squadData);
         
         // Get squad history (if you've implemented this endpoint)
         let transactions = [];
@@ -75,9 +69,8 @@ export default function SquadManagementPage() {
         if (!playersRes.ok) throw new Error('Failed to fetch players');
         const playersData = await playersRes.json();
         
-        // Flatten the players from all teams and sort alphabetically
+        // Flatten the players from all teams
         const allPlayers = Object.values(playersData).flat();
-        allPlayers.sort((a, b) => a.name.localeCompare(b.name));
         setAvailablePlayers(allPlayers);
         
       } catch (err) {
@@ -123,7 +116,6 @@ export default function SquadManagementPage() {
     setTransactionType('');
     setNewPlayerName('');
     setNewPlayerTeam('');
-    setTradeWithUserId('');
   };
 
   const handleSaveTransaction = async () => {
@@ -151,58 +143,21 @@ export default function SquadManagementPage() {
         });
       }
 
-      // Send to API - for trade, we need to update both teams
-      if (transactionType === 'trade' && tradeWithUserId) {
-        // Update for the current user
-        const response = await fetch('/api/squads', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: selectedUserId,
-            type: transactionType,
-            players_in: [{name: newPlayerName, team: newPlayerTeam}],
-            players_out: [{name: editingPlayer.name, team: editingPlayer.team}],
-            tradeWithUserId: tradeWithUserId
-          })
-        });
+      // Send to API
+      const response = await fetch('/api/squads', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          type: transactionType,
+          players_in: transactionType === 'trade' ? [{name: newPlayerName, team: newPlayerTeam}] : [],
+          players_out: [{name: editingPlayer.name, team: editingPlayer.team}]
+        })
+      });
 
-        if (!response.ok) throw new Error('Failed to save trade for current user');
-        
-        // Update for the trade partner - reversed players in/out
-        const partnerResponse = await fetch('/api/squads', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: tradeWithUserId,
-            type: transactionType,
-            players_in: [{name: editingPlayer.name, team: editingPlayer.team}],
-            players_out: [{name: newPlayerName, team: newPlayerTeam}],
-            tradeWithUserId: selectedUserId
-          })
-        });
-
-        if (!partnerResponse.ok) throw new Error('Failed to save trade for partner user');
-      } else {
-        // Normal non-trade transaction or delist
-        const response = await fetch('/api/squads', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: selectedUserId,
-            type: transactionType,
-            players_in: transactionType === 'trade' ? [{name: newPlayerName, team: newPlayerTeam}] : [],
-            players_out: [{name: editingPlayer.name, team: editingPlayer.team}]
-          })
-        });
-
-        if (!response.ok) throw new Error('Failed to save transaction');
-      }
+      if (!response.ok) throw new Error('Failed to save transaction');
 
       // Update state
       setSquadData({
@@ -215,8 +170,6 @@ export default function SquadManagementPage() {
       setTransactionType('');
       setNewPlayerName('');
       setNewPlayerTeam('');
-      setTradeWithUserId('');
-      setAllUserSquads({});
     } catch (err) {
       console.error('Error saving transaction:', err);
       setError('Failed to save changes');
@@ -293,16 +246,6 @@ export default function SquadManagementPage() {
       </div>
     );
   }
-
-  // Create initial draft transaction if not already present
-  const initialDraftTransaction = {
-    type: 'initial',
-    date: squadData.currentSquad.length > 0 ? squadData.currentSquad[0].acquisition_date : new Date().toISOString(),
-    players_in: squadData.currentSquad
-      .filter(player => player.acquisition_type === 'initial')
-      .map(player => player.name),
-    players_out: []
-  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -415,73 +358,25 @@ export default function SquadManagementPage() {
           </div>
           
           {transactionType === 'trade' && (
-            <>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Select Team to Trade With:</label>
-                <select
-                  value={tradeWithUserId}
-                  onChange={(e) => {
-                    setTradeWithUserId(e.target.value);
-                    setNewPlayerName('');
-                    setNewPlayerTeam('');
-                  }}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Team</option>
-                  {Object.keys(allUserSquads)
-                    .filter(userId => userId !== selectedUserId)
-                    .map(userId => (
-                      <option key={userId} value={userId}>
-                        {USER_NAMES[userId] || `User ${userId}`}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              
-              {tradeWithUserId && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">Select Player to Receive:</label>
-                  <select
-                    value={newPlayerName}
-                    onChange={(e) => {
-                      const squad = allUserSquads[tradeWithUserId];
-                      const selectedPlayer = squad?.players.find(p => p.name === e.target.value);
-                      if (selectedPlayer) {
-                        setNewPlayerName(selectedPlayer.name);
-                        setNewPlayerTeam(selectedPlayer.team);
-                      }
-                    }}
-                    className="w-full p-2 border rounded"
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Select New Player:</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded p-2">
+                {availablePlayers.map((player, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handlePlayerSelect(player)}
+                    className={`p-2 text-left rounded ${
+                      newPlayerName === player.name 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'hover:bg-gray-100'
+                    }`}
                   >
-                    <option value="">Select Player</option>
-                    {allUserSquads[tradeWithUserId]?.players
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((player, index) => (
-                        <option key={index} value={player.name}>
-                          {player.name} ({player.team})
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
-              
-              {tradeWithUserId && newPlayerName && (
-                <div className="mb-4 p-3 bg-gray-100 rounded-lg">
-                  <p className="font-medium mb-2">Trade Summary:</p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">You Send:</p>
-                      <p className="text-sm">{editingPlayer.name} ({editingPlayer.team})</p>
-                    </div>
-                    <div className="text-gray-500">↔️</div>
-                    <div>
-                      <p className="text-sm font-medium">You Receive:</p>
-                      <p className="text-sm">{newPlayerName} ({newPlayerTeam})</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+                    <span className="font-medium">{player.name}</span>
+                    <span className="text-sm text-gray-600 ml-2">({player.teamName || player.team})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           
           <div className="flex justify-end gap-3">
@@ -493,9 +388,9 @@ export default function SquadManagementPage() {
             </button>
             <button
               onClick={handleSaveTransaction}
-              disabled={!transactionType || (transactionType === 'trade' && (!newPlayerName || !tradeWithUserId))}
+              disabled={!transactionType || (transactionType === 'trade' && !newPlayerName)}
               className={`px-4 py-2 rounded flex items-center gap-2 ${
-                transactionType && (transactionType === 'delist' || (newPlayerName && tradeWithUserId))
+                transactionType && (transactionType === 'delist' || newPlayerName)
                   ? 'bg-green-500 text-white hover:bg-green-600'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
@@ -528,24 +423,22 @@ export default function SquadManagementPage() {
           {transactionType && (
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Select Player to Draft:</label>
-              <select
-                value={newPlayerName}
-                onChange={(e) => {
-                  const selectedPlayer = availablePlayers.find(p => p.name === e.target.value);
-                  if (selectedPlayer) {
-                    setNewPlayerName(selectedPlayer.name);
-                    setNewPlayerTeam(selectedPlayer.teamName || selectedPlayer.team);
-                  }
-                }}
-                className="w-full p-2 border rounded"
-              >
-                <option value="">Select Player</option>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded p-2">
                 {availablePlayers.map((player, index) => (
-                  <option key={index} value={player.name}>
-                    {player.name} ({player.teamName || player.team})
-                  </option>
+                  <button
+                    key={index}
+                    onClick={() => handlePlayerSelect(player)}
+                    className={`p-2 text-left rounded ${
+                      newPlayerName === player.name 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="font-medium">{player.name}</span>
+                    <span className="text-sm text-gray-600 ml-2">({player.teamName || player.team})</span>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
           
@@ -576,74 +469,40 @@ export default function SquadManagementPage() {
         </div>
       )}
 
-      {/* Squad History with collapsible section */}
+      {/* Squad History */}
       <div className="bg-white rounded-lg shadow p-6">
-        <div 
-          className="flex items-center justify-between cursor-pointer mb-4"
-          onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
-        >
-          <h2 className="text-xl font-semibold">Squad History</h2>
-          <button className="text-gray-600 hover:text-gray-800">
-            {isHistoryCollapsed ? 
-              <ChevronRight className="h-5 w-5" /> : 
-              <ChevronDown className="h-5 w-5" />
-            }
-          </button>
-        </div>
-        
-        <div className={`space-y-4 ${isHistoryCollapsed ? 'hidden' : ''}`}>
-          {/* Add initial draft transaction first */}
-          {initialDraftTransaction.players_in.length > 0 && (
-            <div className="border-l-4 border-gray-200 pl-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <span className="font-medium">{formatDate(initialDraftTransaction.date)}</span>
-                <span className="px-2 py-1 rounded text-sm bg-blue-100 text-blue-800">
-                  Initial Draft
-                </span>
-              </div>
-              <div className="mb-2">
-                <p className="text-sm font-medium text-green-700">Players In:</p>
-                <p className="text-sm text-green-600">
-                  {initialDraftTransaction.players_in.join(', ')}
-                </p>
-              </div>
-            </div>
-          )}
-          
-          {/* Display other transactions */}
-          {squadData.transactions
-            .filter(t => t.type !== 'initial') // Skip 'initial' since we're showing it separately
-            .map((transaction, index) => {
-              const typeInfo = getAcquisitionTypeInfo(transaction.type);
-              return (
-                <div key={index} className="border-l-4 border-gray-200 pl-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium">{formatDate(transaction.date)}</span>
-                    <span className={`px-2 py-1 rounded text-sm ${typeInfo.color}`}>
-                      {typeInfo.label}
-                    </span>
-                  </div>
-                  {transaction.players_in?.length > 0 && (
-                    <div className="mb-2">
-                      <p className="text-sm font-medium text-green-700">Players In:</p>
-                      <p className="text-sm text-green-600">
-                        {transaction.players_in.join(', ')}
-                      </p>
-                    </div>
-                  )}
-                  {transaction.players_out?.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-red-700">Players Out:</p>
-                      <p className="text-sm text-red-600">
-                        {transaction.players_out.join(', ')}
-                      </p>
-                    </div>
-                  )}
+        <h2 className="text-xl font-semibold mb-4">Squad History</h2>
+        <div className="space-y-4">
+          {squadData.transactions.map((transaction, index) => {
+            const typeInfo = getAcquisitionTypeInfo(transaction.type);
+            return (
+              <div key={index} className="border-l-4 border-gray-200 pl-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium">{formatDate(transaction.date)}</span>
+                  <span className={`px-2 py-1 rounded text-sm ${typeInfo.color}`}>
+                    {typeInfo.label}
+                  </span>
                 </div>
-              );
-            })}
+                {transaction.players_in?.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-sm font-medium text-green-700">Players In:</p>
+                    <p className="text-sm text-green-600">
+                      {transaction.players_in.join(', ')}
+                    </p>
+                  </div>
+                )}
+                {transaction.players_out?.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-red-700">Players Out:</p>
+                    <p className="text-sm text-red-600">
+                      {transaction.players_out.join(', ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
