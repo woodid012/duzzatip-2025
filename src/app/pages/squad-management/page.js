@@ -171,16 +171,12 @@ export default function SquadManagementPage() {
   };
 
   const handleDelistPlayer = (player) => {
-    if (window.confirm(`Are you sure you want to delist ${player.name}?`)) {
-      setEditingPlayer(player);
-      setTransactionType('delist');
-      setNewPlayerName('');
-      setNewPlayerTeam('');
-      setTradeWithUserId('');
-      
-      // Save the delist transaction after confirmation
-      handleSaveTransaction('delist');
-    }
+    // Select player for deletion confirmation UI
+    setEditingPlayer(player);
+    setTransactionType('delist');
+    setNewPlayerName('');
+    setNewPlayerTeam('');
+    setTradeWithUserId('');
   };
   
   const handleTradePlayer = (player) => {
@@ -197,8 +193,15 @@ export default function SquadManagementPage() {
     if (!editingPlayer || !transType) return;
 
     try {
-      // If delistng, we don't need the confirmation UI
+      // If delisting, ask for confirmation
       if (transType === 'delist') {
+        if (!window.confirm(`Are you sure you want to delist ${editingPlayer.name}?`)) {
+          // Reset editing state if user cancels
+          setEditingPlayer(null);
+          setTransactionType('');
+          return;
+        }
+        
         // Create new transaction for delist
         const newTransaction = {
           type: 'delist',
@@ -425,53 +428,92 @@ export default function SquadManagementPage() {
         <h1 className="text-2xl font-bold">{USER_NAMES[selectedUserId]} - Squad</h1>
         <div className="flex gap-2">
           {isEditing && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setEditingPlayer(null);
-                  setTransactionType('initial');
-                  setNewPlayerName('');
-                  setNewPlayerTeam('');
-                }}
-                className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-blue-500 text-white"
-              >
-                <User className="h-4 w-4" />
-                Initial
-              </button>
-              <button
-                onClick={() => {
-                  setEditingPlayer(null);
-                  setTransactionType('midseason_draft_1');
-                  setNewPlayerName('');
-                  setNewPlayerTeam('');
-                }}
-                className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-green-500 text-white"
-              >
-                <UserPlus className="h-4 w-4" />
-                Add
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                setIsEditing(!isEditing);
+                setEditingPlayer(null);
+                setTransactionType('');
+                setNewPlayerName('');
+                setNewPlayerTeam('');
+              }}
+              className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-red-500 text-white"
+            >
+              <X className="h-4 w-4" />
+              Done
+            </button>
           )}
-          <button
-            onClick={() => {
-              setIsEditing(!isEditing);
-              setEditingPlayer(null);
-              setTransactionType('');
-              setNewPlayerName('');
-              setNewPlayerTeam('');
-            }}
-            className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 ${
-              isEditing ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
-            }`}
-          >
-            {isEditing ? <X className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
-            {isEditing ? 'Done' : 'Edit'}
-          </button>
+          {!isEditing && (
+            <button
+              onClick={() => {
+                setIsEditing(true);
+                setEditingPlayer(null);
+                setTransactionType('');
+                setNewPlayerName('');
+                setNewPlayerTeam('');
+              }}
+              className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-blue-500 text-white"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Draft & Trade Action Buttons - Now positioned at the top left */}
+      {isEditing && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => {
+              setEditingPlayer(null);
+              setTransactionType('initial');
+              setNewPlayerName('');
+              setNewPlayerTeam('');
+            }}
+            className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-blue-500 text-white"
+          >
+            <User className="h-4 w-4" />
+            Initial Draft
+          </button>
+          <button
+            onClick={() => {
+              setEditingPlayer(null);
+              setTransactionType('midseason_draft_1');
+              setNewPlayerName('');
+              setNewPlayerTeam('');
+            }}
+            className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-green-500 text-white"
+          >
+            <UserPlus className="h-4 w-4" />
+            Draft
+          </button>
+          <button
+            onClick={() => {
+              setEditingPlayer(null);
+              setTransactionType('trade');
+              setNewPlayerName('');
+              setNewPlayerTeam('');
+            }}
+            className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-orange-500 text-white"
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            Trade
+          </button>
+        </div>
+      )}
+      
+      {/* Trade selection mode message */}
+      {isEditing && transactionType === 'trade' && !editingPlayer && (
+        <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 mb-4">
+          <p className="flex items-center gap-2 text-orange-800">
+            <ArrowRightLeft className="h-5 w-5 text-orange-500" />
+            Press the <RefreshCw className="h-4 w-4 inline text-orange-700" /> button on the player you wish to trade
+          </p>
+        </div>
+      )}
+
       {/* Draft Form - Moved above squad */}
-      {isEditing && !editingPlayer && (
+      {isEditing && !editingPlayer && (transactionType === 'initial' || transactionType === 'midseason_draft_1' || transactionType === 'midseason_draft_2') && (
         <div className="bg-gray-50 rounded-lg shadow p-4 mb-4">
           <h2 className="text-lg font-semibold mb-2">
             {transactionType === 'initial' ? 'Initial Draft' : 
@@ -480,75 +522,89 @@ export default function SquadManagementPage() {
           </h2>
           
           <div className="flex flex-col sm:flex-row gap-2 items-end">
-            {transactionType !== 'initial' && !transactionType && (
-              <div className="w-full sm:w-1/3">
-                <label className="block text-sm font-medium mb-1">Draft Type:</label>
-                <select
-                  value={transactionType}
-                  onChange={(e) => setTransactionType(e.target.value)}
-                  className="w-full p-2 text-sm border rounded"
-                >
-                  <option value="">Select draft type</option>
-                  <option value="initial">Initial Draft</option>
-                  <option value="midseason_draft_1">Mid-Season Draft 1</option>
-                  <option value="midseason_draft_2">Mid-Season Draft 2</option>
-                  <option value="trade">Trade</option>
-                </select>
-              </div>
-            )}
+            <div className="w-full sm:w-1/2">
+              <label className="block text-sm font-medium mb-1">
+                {transactionType === 'initial' ? 'Select Player:' : 'Select Player:'}
+              </label>
+              <select
+                value={newPlayerName}
+                onChange={(e) => {
+                  const selectedPlayer = availablePlayers.find(p => p.name === e.target.value);
+                  if (selectedPlayer) {
+                    setNewPlayerName(selectedPlayer.name);
+                    setNewPlayerTeam(selectedPlayer.teamName || selectedPlayer.team);
+                  }
+                }}
+                className="w-full p-2 text-sm border rounded"
+              >
+                <option value="">Select a player</option>
+                {availablePlayers.map((player, index) => (
+                  <option key={index} value={player.name}>
+                    {player.name} ({player.teamName || player.team})
+                  </option>
+                ))}
+              </select>
+            </div>
             
-            {(transactionType === 'initial' || transactionType === 'midseason_draft_1' || transactionType === 'midseason_draft_2') && (
-              <>
-                <div className="w-full sm:w-1/2">
-                  <label className="block text-sm font-medium mb-1">
-                    {transactionType === 'initial' ? 'Select Player:' : 'Select Player:'}
-                  </label>
-                  <select
-                    value={newPlayerName}
-                    onChange={(e) => {
-                      const selectedPlayer = availablePlayers.find(p => p.name === e.target.value);
-                      if (selectedPlayer) {
-                        setNewPlayerName(selectedPlayer.name);
-                        setNewPlayerTeam(selectedPlayer.teamName || selectedPlayer.team);
-                      }
-                    }}
-                    className="w-full p-2 text-sm border rounded"
-                  >
-                    <option value="">Select a player</option>
-                    {availablePlayers.map((player, index) => (
-                      <option key={index} value={player.name}>
-                        {player.name} ({player.teamName || player.team})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="flex gap-2 mt-2 sm:mt-0">
-                  <button
-                    onClick={() => {
-                      setTransactionType('');
-                      setNewPlayerName('');
-                      setNewPlayerTeam('');
-                    }}
-                    className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveDraft}
-                    disabled={!transactionType || !newPlayerName}
-                    className={`px-3 py-1.5 text-sm rounded flex items-center gap-1 ${
-                      transactionType && newPlayerName
-                        ? 'bg-green-500 text-white hover:bg-green-600'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Save className="h-4 w-4" />
-                    Draft
-                  </button>
-                </div>
-              </>
-            )}
+            <div className="flex gap-2 mt-2 sm:mt-0">
+              <button
+                onClick={() => {
+                  setTransactionType('');
+                  setNewPlayerName('');
+                  setNewPlayerTeam('');
+                }}
+                className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDraft}
+                disabled={!transactionType || !newPlayerName}
+                className={`px-3 py-1.5 text-sm rounded flex items-center gap-1 ${
+                  transactionType && newPlayerName
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Save className="h-4 w-4" />
+                Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delist Player Confirmation UI */}
+      {editingPlayer && transactionType === 'delist' && (
+        <div className="bg-red-50 rounded-lg shadow p-4 mb-4 border border-red-200">
+          <h2 className="text-lg font-semibold mb-2 text-red-800">Confirm Player Delisting</h2>
+          <div className="mb-3 p-3 bg-white rounded border border-red-200">
+            <div className="flex items-center gap-2">
+              <UserMinus className="h-5 w-5 text-red-600" />
+              <div>
+                <p className="font-semibold text-red-800">{editingPlayer.name}</p>
+                <p className="text-sm text-gray-600">{editingPlayer.team}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => {
+                setEditingPlayer(null);
+                setTransactionType('');
+              }}
+              className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleSaveTransaction('delist')}
+              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-1"
+            >
+              <UserMinus className="h-4 w-4" />
+              Confirm Delist
+            </button>
           </div>
         </div>
       )}
