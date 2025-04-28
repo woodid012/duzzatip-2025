@@ -441,7 +441,7 @@ export default function SquadManagementPage() {
               <button
                 onClick={() => {
                   setEditingPlayer(null);
-                  setTransactionType('');
+                  setTransactionType('midseason_draft_1');
                   setNewPlayerName('');
                   setNewPlayerTeam('');
                 }}
@@ -474,11 +474,13 @@ export default function SquadManagementPage() {
       {isEditing && !editingPlayer && (
         <div className="bg-gray-50 rounded-lg shadow p-4 mb-4">
           <h2 className="text-lg font-semibold mb-2">
-            {transactionType === 'initial' ? 'Initial Draft' : 'Mid-Season Draft'}
+            {transactionType === 'initial' ? 'Initial Draft' : 
+             transactionType === 'midseason_draft_1' ? 'Mid-Season Draft 1' :
+             transactionType === 'midseason_draft_2' ? 'Mid-Season Draft 2' : 'Draft Player'}
           </h2>
           
           <div className="flex flex-col sm:flex-row gap-2 items-end">
-            {transactionType !== 'initial' && (
+            {transactionType !== 'initial' && !transactionType && (
               <div className="w-full sm:w-1/3">
                 <label className="block text-sm font-medium mb-1">Draft Type:</label>
                 <select
@@ -487,8 +489,10 @@ export default function SquadManagementPage() {
                   className="w-full p-2 text-sm border rounded"
                 >
                   <option value="">Select draft type</option>
+                  <option value="initial">Initial Draft</option>
                   <option value="midseason_draft_1">Mid-Season Draft 1</option>
                   <option value="midseason_draft_2">Mid-Season Draft 2</option>
+                  <option value="trade">Trade</option>
                 </select>
               </div>
             )}
@@ -549,64 +553,7 @@ export default function SquadManagementPage() {
         </div>
       )}
       
-      {/* Current Squad with Color Coding - Made more compact */}
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <h2 className="text-lg font-semibold mb-2">Current Squad</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-          {squadData.currentSquad.map((player, index) => {
-            const typeInfo = getAcquisitionTypeInfo(player.acquisition_type);
-            return (
-              <div 
-                key={index} 
-                className={`p-2 rounded-lg ${typeInfo.color} ${
-                  editingPlayer?.name === player.name ? 'ring-1 ring-blue-500' : ''
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex-1 truncate">
-                    <p className="font-medium text-sm truncate">{player.name}</p>
-                    <p className="text-xs truncate">{player.team}</p>
-                  </div>
-                  {isEditing && (
-                    <div className="flex gap-1 ml-1 flex-shrink-0">
-                      <button
-                        onClick={() => handleTradePlayer(player)}
-                        className="bg-orange-600 text-white p-1 rounded hover:bg-orange-700"
-                        title="Trade player"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDelistPlayer(player)}
-                        className="bg-red-600 text-white p-1 rounded hover:bg-red-700"
-                        title="Delist player"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        
-        {/* Legend */}
-        <div className="mt-3 pt-2 border-t border-gray-200">
-          <div className="flex flex-wrap gap-2 text-xs">
-            {['initial', 'midseason_draft_1', 'midseason_draft_2', 'trade'].map((type) => {
-              const typeInfo = getAcquisitionTypeInfo(type);
-              return (
-                <div key={type} className={`px-2 py-1 rounded ${typeInfo.color}`}>
-                  {typeInfo.label}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Trade Player Form - More compact */}
+      {/* Trade Player Form - Moved above squad */}
       {editingPlayer && transactionType === 'trade' && (
         <div className="bg-gray-50 rounded-lg shadow p-4 mb-4">
           <h2 className="text-lg font-semibold mb-2">Trade Player</h2>
@@ -704,6 +651,65 @@ export default function SquadManagementPage() {
           )}
         </div>
       )}
+      
+      {/* Current Squad with Color Coding - Made more compact */}
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <h2 className="text-lg font-semibold mb-2">Current Squad</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          {squadData.currentSquad.map((player, index) => {
+            const typeInfo = getAcquisitionTypeInfo(player.acquisition_type);
+            return (
+              <div 
+                key={index} 
+                className={`p-2 rounded-lg ${typeInfo.color} ${
+                  editingPlayer?.name === player.name ? 'ring-1 ring-blue-500' : ''
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <div className="flex-1 truncate">
+                    <p className="font-medium text-sm truncate">{player.name}</p>
+                    <p className="text-xs truncate">{player.team}</p>
+                  </div>
+                  {isEditing && (
+                    <div className="flex gap-1 ml-1 flex-shrink-0">
+                      <button
+                        onClick={() => handleTradePlayer(player)}
+                        className="bg-orange-600 text-white p-1 rounded hover:bg-orange-700"
+                        title="Trade player"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDelistPlayer(player)}
+                        className="bg-red-600 text-white p-1 rounded hover:bg-red-700"
+                        title="Delist player"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Legend */}
+        <div className="mt-3 pt-2 border-t border-gray-200">
+          <div className="flex flex-wrap gap-2 text-xs">
+            {['initial', 'midseason_draft_1', 'midseason_draft_2', 'trade'].map((type) => {
+              const typeInfo = getAcquisitionTypeInfo(type);
+              return (
+                <div key={type} className={`px-2 py-1 rounded ${typeInfo.color}`}>
+                  {typeInfo.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+
 
       {/* Squad History - More compact */}
       <div className="bg-white rounded-lg shadow p-4">

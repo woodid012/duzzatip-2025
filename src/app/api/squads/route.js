@@ -111,6 +111,16 @@ export async function POST(request) {
 export async function PATCH(request) {
     try {
         const { userId, type, players_in, players_out, tradeWithUserId } = await request.json();
+        
+        if (!userId || !type) {
+            return Response.json({ error: 'Missing required parameters' }, { status: 400 });
+        }
+        
+        console.log(`Processing ${type} transaction for user ${userId}:`, { 
+            players_in: players_in || [], 
+            players_out: players_out || [] 
+        });
+        
         const { db } = await connectToDatabase();
         const collection = db.collection(`${CURRENT_YEAR}_squads`);
 
@@ -118,6 +128,37 @@ export async function PATCH(request) {
 
         // Handle different modification types
         switch (type) {
+            case 'initial':
+                // Add new players from initial draft
+                if (players_in && players_in.length > 0) {
+                    console.log(`Adding ${players_in.length} players from initial draft`);
+                    players_in.forEach(player => {
+                        if (!player.name) return;
+                        
+                        bulkOps.push({
+                            updateOne: {
+                                filter: {
+                                    user_id: parseInt(userId),
+                                    player_name: player.name,
+                                    team: player.team || ''
+                                },
+                                update: {
+                                    $set: {
+                                        user_id: parseInt(userId),
+                                        player_name: player.name,
+                                        team: player.team || '',
+                                        Active: 1,
+                                        acquisition_type: 'initial',
+                                        acquisition_date: new Date()
+                                    }
+                                },
+                                upsert: true
+                            }
+                        });
+                    });
+                }
+                break;
+                
             case 'trade':
                 // Remove players that are traded out
                 if (players_out && players_out.length > 0) {
@@ -143,7 +184,7 @@ export async function PATCH(request) {
                 if (players_in && players_in.length > 0) {
                     players_in.forEach(player => {
                         const playerName = typeof player === 'string' ? player : player.name;
-                        const playerTeam = typeof player === 'string' ? '' : player.team;
+                        const playerTeam = typeof player === 'string' ? '' : (player.team || '');
                         
                         bulkOps.push({
                             updateOne: {
@@ -175,7 +216,7 @@ export async function PATCH(request) {
                 if (players_in && players_in.length > 0) {
                     players_in.forEach(player => {
                         const playerName = typeof player === 'string' ? player : player.name;
-                        const playerTeam = typeof player === 'string' ? '' : player.team;
+                        const playerTeam = typeof player === 'string' ? '' : (player.team || '');
                         
                         bulkOps.push({
                             updateOne: {
@@ -227,11 +268,17 @@ export async function PATCH(request) {
                     });
                 }
                 break;
+                
+            default:
+                return Response.json({ error: `Unknown transaction type: ${type}` }, { status: 400 });
         }
 
         // Execute all operations
         if (bulkOps.length > 0) {
+            console.log(`Executing ${bulkOps.length} database operations`);
             await collection.bulkWrite(bulkOps, { ordered: false });
+        } else {
+            console.warn('No database operations to perform');
         }
 
         // Process players for transaction history
@@ -259,7 +306,8 @@ export async function PATCH(request) {
         }
         
         await db.collection(`${CURRENT_YEAR}_squad_transactions`).insertOne(transactionData);
-
+        
+        console.log(`Successfully completed ${type} transaction for user ${userId}`);
         return Response.json({ success: true });
     } catch (error) {
         console.error('Database Error:', error);
