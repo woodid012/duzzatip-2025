@@ -700,8 +700,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 65,
+    "AwayTeamScore": 62
   },
   {
     "MatchNumber": 65,
