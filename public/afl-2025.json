@@ -711,8 +711,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 94,
+    "AwayTeamScore": 33
   },
   {
     "MatchNumber": 66,
