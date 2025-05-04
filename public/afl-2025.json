@@ -722,8 +722,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 131,
+    "AwayTeamScore": 41
   },
   {
     "MatchNumber": 67,
@@ -733,8 +733,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 110,
+    "AwayTeamScore": 50
   },
   {
     "MatchNumber": 68,
@@ -744,8 +744,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 87,
+    "AwayTeamScore": 90
   },
   {
     "MatchNumber": 69,
@@ -755,8 +755,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 76,
+    "AwayTeamScore": 108
   },
   {
     "MatchNumber": 70,
