@@ -766,8 +766,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 87,
+    "AwayTeamScore": 73
   },
   {
     "MatchNumber": 71,
@@ -777,8 +777,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 109,
+    "AwayTeamScore": 44
   },
   {
     "MatchNumber": 72,
@@ -788,8 +788,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 66,
+    "AwayTeamScore": 49
   },
   {
     "MatchNumber": 73,
