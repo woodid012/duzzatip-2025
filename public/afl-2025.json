@@ -799,8 +799,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 83,
+    "AwayTeamScore": 97
   },
   {
     "MatchNumber": 74,
