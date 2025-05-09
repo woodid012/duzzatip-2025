@@ -810,8 +810,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 62,
+    "AwayTeamScore": 77
   },
   {
     "MatchNumber": 75,
