@@ -821,8 +821,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 56,
+    "AwayTeamScore": 91
   },
   {
     "MatchNumber": 76,
@@ -832,8 +832,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 71,
+    "AwayTeamScore": 63
   },
   {
     "MatchNumber": 77,
@@ -843,8 +843,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 106,
+    "AwayTeamScore": 96
   },
   {
     "MatchNumber": 78,
@@ -854,8 +854,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 84,
+    "AwayTeamScore": 89
   },
   {
     "MatchNumber": 79,
