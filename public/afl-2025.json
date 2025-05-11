@@ -865,8 +865,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 81,
+    "AwayTeamScore": 79
   },
   {
     "MatchNumber": 80,
@@ -876,8 +876,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 101,
+    "AwayTeamScore": 105
   },
   {
     "MatchNumber": 81,
@@ -887,8 +887,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 71,
+    "AwayTeamScore": 71
   },
   {
     "MatchNumber": 82,
