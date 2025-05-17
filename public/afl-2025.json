@@ -909,8 +909,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 78,
+    "AwayTeamScore": 62
   },
   {
     "MatchNumber": 84,
