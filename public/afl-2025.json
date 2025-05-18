@@ -920,8 +920,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 78,
+    "AwayTeamScore": 68
   },
   {
     "MatchNumber": 85,
@@ -931,8 +931,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 39,
+    "AwayTeamScore": 115
   },
   {
     "MatchNumber": 86,
@@ -942,8 +942,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 61,
+    "AwayTeamScore": 95
   },
   {
     "MatchNumber": 87,
@@ -953,8 +953,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 127,
+    "AwayTeamScore": 36
   },
   {
     "MatchNumber": 88,
