@@ -997,8 +997,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 127,
+    "AwayTeamScore": 113
   },
   {
     "MatchNumber": 92,
