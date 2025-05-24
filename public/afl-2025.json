@@ -1008,8 +1008,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 81,
+    "AwayTeamScore": 58
   },
   {
     "MatchNumber": 93,
