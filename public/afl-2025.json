@@ -1019,8 +1019,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 82,
+    "AwayTeamScore": 110
   },
   {
     "MatchNumber": 94,
@@ -1030,8 +1030,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 60,
+    "AwayTeamScore": 93
   },
   {
     "MatchNumber": 95,
@@ -1041,8 +1041,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 63,
+    "AwayTeamScore": 108
   },
   {
     "MatchNumber": 96,
@@ -1052,8 +1052,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 100,
+    "AwayTeamScore": 51
   },
   {
     "MatchNumber": 97,
