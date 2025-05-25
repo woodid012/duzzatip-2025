@@ -1063,8 +1063,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 128,
+    "AwayTeamScore": 62
   },
   {
     "MatchNumber": 98,
@@ -1074,8 +1074,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 131,
+    "AwayTeamScore": 78
   },
   {
     "MatchNumber": 99,
@@ -1085,8 +1085,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 61,
+    "AwayTeamScore": 80
   },
   {
     "MatchNumber": 100,
