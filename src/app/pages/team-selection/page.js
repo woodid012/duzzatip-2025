@@ -31,9 +31,11 @@ export default function TeamSelectionPage() {
     copyFromPreviousRound
   } = useTeamSelection();
 
+
+  
   // State for duplicate warnings
   const [duplicateWarnings, setDuplicateWarnings] = useState([]);
-
+  const [forceEditMode, setForceEditMode] = useState(false);
   // Initialize with global current round on first render
   useEffect(() => {
     if (currentRound !== undefined && localRound === undefined) {
@@ -124,6 +126,35 @@ export default function TeamSelectionPage() {
     }
   }, [teams, selectedUserId]);
 
+  
+// Admin edit handler - bypasses hook's logic
+const handleAdminEditClick = () => {
+  console.log("Admin edit button clicked");
+  if (selectedUserId === 'admin') {
+    console.log("Admin override - forcing edit mode");
+    setForceEditMode(true);
+  } else {
+    startEditing();
+  }
+};
+
+// Modify saveTeamSelections for admin
+const handleAdminSave = async () => {
+  console.log("Admin save button clicked");
+  const success = await saveTeamSelections();
+  if (success) {
+    setForceEditMode(false);
+  }
+  return success;
+};
+
+// Modify cancelEditing for admin
+const handleAdminCancel = () => {
+  console.log("Admin cancel button clicked");
+  cancelEditing();
+  setForceEditMode(false);
+};
+
   // Handle save with confirmation for duplicates
   const handleSaveWithWarning = async () => {
     if (duplicateWarnings.length > 0) {
@@ -194,6 +225,9 @@ export default function TeamSelectionPage() {
   // Get last updated time
   const lastUpdatedTime = getLastUpdateTime();
 
+  // Is admin flag for simplified checking
+  const isAdmin = selectedUserId === 'admin';
+
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <style jsx>{`
@@ -212,7 +246,7 @@ export default function TeamSelectionPage() {
           {/* Show which round we're displaying with improved formatting - matching tipping page style */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
-              {isRoundLocked ? (
+              {isRoundLocked && !isAdmin ? (
                 <>
                   <span className="text-red-600">
                     {formatRoundName(currentRound)} is locked 
@@ -226,6 +260,12 @@ export default function TeamSelectionPage() {
                   Showing {formatRoundName(localRound)}
                 </span>
               )}
+              
+              {isAdmin && isRoundLocked && (
+                <span className="ml-2 text-orange-500 font-medium">
+                  (Normally locked, admin override enabled)
+                </span>
+              )}
             </div>
             
             {/* Lockout time with formatting that matches tipping page */}
@@ -233,7 +273,7 @@ export default function TeamSelectionPage() {
               <div className="text-sm">
                 <span className="text-gray-600">Lockout:</span>
                 <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
-                {isRoundLocked && (
+                {isRoundLocked && !isAdmin && (
                   <span className="text-red-600 ml-1">(Locked)</span>
                 )}
               </div>
@@ -269,33 +309,33 @@ export default function TeamSelectionPage() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-2">
-            {isEditing ? (
-              <>
-                <button 
-                  onClick={handleSaveWithWarning}
-                  className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  Save Changes
-                </button>
-                <button 
-                  onClick={cancelEditing}
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <button 
-                onClick={startEditing}
-                disabled={isRoundLocked && selectedUserId !== 'admin'} // Only disable if locked AND not admin
-                className={`w-full sm:w-auto px-4 py-2 rounded text-white ${
-                  isRoundLocked && selectedUserId !== 'admin'
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-500 hover:bg-blue-600'
-                }`}
-              >
-                {isRoundLocked && selectedUserId !== 'admin' ? 'Locked' : 'Edit Teams'}
-              </button>
+          {isEditing || forceEditMode ? (
+  <>
+    <button 
+      onClick={isAdmin ? handleAdminSave : handleSaveWithWarning}
+      className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+    >
+      Save Changes
+    </button>
+    <button 
+      onClick={isAdmin ? handleAdminCancel : cancelEditing}
+      className="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+    >
+      Cancel
+    </button>
+  </>
+) : (
+  <button 
+    onClick={isAdmin ? handleAdminEditClick : startEditing}
+    disabled={isRoundLocked && !isAdmin}
+    className={`w-full sm:w-auto px-4 py-2 rounded text-white ${
+      isRoundLocked && !isAdmin
+        ? 'bg-gray-400 cursor-not-allowed' 
+        : 'bg-blue-500 hover:bg-blue-600'
+    }`}
+  >
+    {isRoundLocked && !isAdmin ? 'Locked' : 'Edit Teams'}
+  </button>
             )}
           </div>
         </div>
@@ -346,7 +386,7 @@ export default function TeamSelectionPage() {
             team={teams[selectedUserId] || {}}
             squad={squads[selectedUserId]?.players || []}
             isEditing={isEditing}
-            isLocked={isRoundLocked && selectedUserId !== 'admin'} // Only locked if not admin
+            isLocked={isRoundLocked && !isAdmin} // Only locked if not admin
             onPlayerChange={handlePlayerChange}
             onBackupPositionChange={handleBackupPositionChange}
             onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
@@ -362,7 +402,7 @@ export default function TeamSelectionPage() {
               team={teams[userId] || {}}
               squad={squads[userId]?.players || []}
               isEditing={isEditing}
-              isLocked={isRoundLocked && selectedUserId !== 'admin'} // Only locked if not admin
+              isLocked={isRoundLocked && !isAdmin} // Only locked if not admin
               onPlayerChange={handlePlayerChange}
               onBackupPositionChange={handleBackupPositionChange}
               onCopyFromPrevious={() => copyFromPreviousRound(userId)}
@@ -382,6 +422,25 @@ export default function TeamSelectionPage() {
           <li>Bench players with specific backup positions take priority over reserves</li>
         </ul>
       </div>
+      
+      {/* Admin Controls Section - Only shown when admin is active */}
+      {isAdmin && (
+        <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2 text-amber-800">Admin Controls</h3>
+          <p className="text-amber-700">
+            As an admin user, you can edit and save team selections for any round, regardless of whether 
+            it's locked for regular users. This allows you to fix issues or make adjustments as needed.
+          </p>
+          <div className="mt-4 bg-white p-3 rounded border border-amber-200">
+            <p className="font-medium text-amber-800">Current Admin Settings:</p>
+            <ul className="list-disc pl-5 mt-2 text-sm space-y-1">
+              <li><span className="font-medium">Round Status:</span> {isRoundLocked ? 'Locked for regular users' : 'Unlocked'}</li>
+              <li><span className="font-medium">Admin Override:</span> Enabled</li>
+              <li><span className="font-medium">Edit Capabilities:</span> Full access to all teams and rounds</li>
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

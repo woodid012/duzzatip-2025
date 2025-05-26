@@ -359,63 +359,63 @@ export default function useTeamSelection() {
   }, [localRound, editedTeams, changedPositions]);
 
   // Save team selections
-  const saveTeamSelections = useCallback(async () => {
-    // Allow admin to save even if round is locked
-    if (isRoundLocked(localRound) && currentRound === localRound) {
-      // Only prevent saving if we're trying to edit the current round that's locked
-      // and we're not an admin
-      const selectedUserId = Object.keys(changedPositions)[0]; // Get the first user being edited
-      if (selectedUserId !== 'admin') {
-        console.log("Current round is locked, can't save changes");
-        return false;
-      }
+// Update the saveTeamSelections function in src/app/hooks/useTeamSelection.js
+
+// Save team selections
+const saveTeamSelections = useCallback(async () => {
+  // Allow admin to save even if round is locked
+  const firstUserId = Object.keys(changedPositions)[0]; // Get the first user being edited
+  
+  // Check if it's locked AND the user is not admin
+  if (isRoundLocked(localRound) && firstUserId !== 'admin') {
+    console.log("Current round is locked and user is not admin, can't save changes");
+    return false;
+  }
+  
+  const changedTeamSelection = {};
+  Object.entries(changedPositions).forEach(([userId, positions]) => {
+    if (Object.keys(positions).length > 0) {
+      changedTeamSelection[userId] = {};
+      Object.keys(positions).forEach(position => {
+        if (editedTeams[userId] && editedTeams[userId][position]) {
+          changedTeamSelection[userId][position] = editedTeams[userId][position];
+        }
+      });
     }
+  });
+
+  // Don't send empty updates
+  if (Object.keys(changedTeamSelection).length === 0) {
+    return true;
+  }
+
+  try {
+    console.log(`Saving team selections for round ${localRound}:`, changedTeamSelection);
     
-    const changedTeamSelection = {};
-    Object.entries(changedPositions).forEach(([userId, positions]) => {
-      if (Object.keys(positions).length > 0) {
-        changedTeamSelection[userId] = {};
-        Object.keys(positions).forEach(position => {
-          if (editedTeams[userId] && editedTeams[userId][position]) {
-            changedTeamSelection[userId][position] = editedTeams[userId][position];
-          }
-        });
-      }
+    const response = await fetch('/api/team-selection', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        year: CURRENT_YEAR,
+        round: parseInt(localRound),
+        team_selection: changedTeamSelection
+      })
     });
 
-    // Don't send empty updates
-    if (Object.keys(changedTeamSelection).length === 0) {
-      return true;
-    }
-
-    try {
-      console.log(`Saving team selections for round ${localRound}:`, changedTeamSelection);
-      
-      const response = await fetch('/api/team-selection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          year: CURRENT_YEAR,
-          round: parseInt(localRound),
-          team_selection: changedTeamSelection
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to save team selections');
-      
-      setTeams(editedTeams);
-      setIsEditing(false);
-      setChangedPositions({});
-      return true;
-    } catch (err) {
-      console.error('Error saving team selections:', err);
-      setErrorLocal('Failed to save changes');
-      return false;
-    }
-  }, [localRound, currentRound, isRoundLocked, changedPositions, editedTeams]);
-
+    if (!response.ok) throw new Error('Failed to save team selections');
+    
+    setTeams(editedTeams);
+    setIsEditing(false);
+    setChangedPositions({});
+    return true;
+  } catch (err) {
+    console.error('Error saving team selections:', err);
+    setError('Failed to save changes');
+    return false;
+  }
+}, [localRound, isRoundLocked, changedPositions, editedTeams]);
   // Cancel editing and revert changes
   const cancelEditing = useCallback(() => {
     setEditedTeams(teams);
