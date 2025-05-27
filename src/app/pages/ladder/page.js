@@ -5,10 +5,14 @@ import { USER_NAMES } from '@/app/lib/constants';
 import useLadder from '@/app/hooks/useLadder';
 import useResults from '@/app/hooks/useResults';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
+import { useUserContext } from '../layout';
 import { Star, RefreshCw, Database, Calculator, AlertCircle } from 'lucide-react';
 import { GiCrab } from 'react-icons/gi';
 
 export default function LadderPage() {
+  // Get selected user context
+  const { selectedUserId } = useUserContext();
+  
   const { 
     ladder, 
     currentRoundResults,
@@ -47,6 +51,16 @@ export default function LadderPage() {
   // State for YTD star/crab totals
   const [ytdStarCrabTotals, setYtdStarCrabTotals] = useState({});
   const [loadingStarCrabs, setLoadingStarCrabs] = useState(false);
+
+  // State for form data
+  const [teamForms, setTeamForms] = useState({});
+  const [loadingForms, setLoadingForms] = useState(false);
+
+  // State for next fixtures
+  const [nextFixtures, setNextFixtures] = useState({});
+
+  // Check if admin is selected
+  const isAdmin = selectedUserId === 'admin';
 
   // Sync selected round with current round
   useEffect(() => {
@@ -123,6 +137,128 @@ export default function LadderPage() {
 
     if (selectedRound && selectedRound > 0) {
       calculateYTDStarCrabs();
+    }
+  }, [selectedRound]);
+
+  // Load team forms (last 5 results)
+  useEffect(() => {
+    const calculateTeamForms = async () => {
+      setLoadingForms(true);
+      
+      try {
+        const forms = {};
+        
+        // Initialize forms for all teams
+        Object.keys(USER_NAMES).forEach(userId => {
+          forms[userId] = [];
+        });
+
+        // Get results for rounds leading up to selected round
+        const formRounds = [];
+        for (let round = Math.max(1, selectedRound - 4); round <= selectedRound; round++) {
+          formRounds.push(round);
+        }
+
+        // Fetch results for form rounds
+        const roundPromises = formRounds.map(round => 
+          fetch(`/api/store-round-results?round=${round}`)
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null)
+        );
+
+        const formRoundResults = await Promise.all(roundPromises);
+
+        // Process each round's results to determine W/L/D for each team
+        formRoundResults.forEach((roundData, index) => {
+          const round = formRounds[index];
+          
+          if (!roundData || !roundData.found || !roundData.results) {
+            return;
+          }
+
+          const results = roundData.results;
+          const fixtures = getFixturesForRound(round);
+          
+          // Process each fixture
+          fixtures.forEach(fixture => {
+            const homeUserId = String(fixture.home);
+            const awayUserId = String(fixture.away);
+            
+            if (!results[homeUserId] || !results[awayUserId]) {
+              return;
+            }
+            
+            const homeScore = Number(results[homeUserId]);
+            const awayScore = Number(results[awayUserId]);
+            
+            // Determine result for each team
+            if (homeScore > awayScore) {
+              // Home win, away loss
+              forms[homeUserId].push({ result: 'W', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
+              forms[awayUserId].push({ result: 'L', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
+            } else if (awayScore > homeScore) {
+              // Away win, home loss
+              forms[awayUserId].push({ result: 'W', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
+              forms[homeUserId].push({ result: 'L', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
+            } else {
+              // Draw
+              forms[homeUserId].push({ result: 'D', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
+              forms[awayUserId].push({ result: 'D', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
+            }
+          });
+        });
+
+        // Sort each team's form by round and keep only last 5
+        Object.keys(forms).forEach(userId => {
+          forms[userId] = forms[userId]
+            .sort((a, b) => a.round - b.round)
+            .slice(-5); // Keep only last 5 results
+        });
+
+        setTeamForms(forms);
+        
+      } catch (error) {
+        console.error('Error calculating team forms:', error);
+      } finally {
+        setLoadingForms(false);
+      }
+    };
+
+    if (selectedRound && selectedRound > 0) {
+      calculateTeamForms();
+    }
+  }, [selectedRound]);
+
+  // Calculate next fixtures
+  useEffect(() => {
+    const calculateNextFixtures = () => {
+      const nextRound = selectedRound + 1;
+      const fixtures = getFixturesForRound(nextRound);
+      const nextOpponents = {};
+      
+      fixtures.forEach(fixture => {
+        const homeUserId = String(fixture.home);
+        const awayUserId = String(fixture.away);
+        
+        if (USER_NAMES[homeUserId] && USER_NAMES[awayUserId]) {
+          nextOpponents[homeUserId] = {
+            opponent: USER_NAMES[awayUserId],
+            isHome: true,
+            round: nextRound
+          };
+          nextOpponents[awayUserId] = {
+            opponent: USER_NAMES[homeUserId],
+            isHome: false,
+            round: nextRound
+          };
+        }
+      });
+      
+      setNextFixtures(nextOpponents);
+    };
+
+    if (selectedRound) {
+      calculateNextFixtures();
     }
   }, [selectedRound]);
 
@@ -238,6 +374,23 @@ export default function LadderPage() {
     }
   };
 
+  // Function to render form string
+  const renderForm = (form) => {
+    if (!form || form.length === 0) return '-';
+    
+    return form.map((game, index) => {
+      const colorClass = game.result === 'W' ? 'text-green-600' : 
+                        game.result === 'L' ? 'text-red-600' : 
+                        'text-yellow-600';
+      
+      return (
+        <span key={index} className={`${colorClass} font-mono font-bold`} title={`Round ${game.round}: ${game.result} vs ${game.opponent} (${game.score})`}>
+          {game.result}
+        </span>
+      );
+    }).reduce((prev, curr, index) => [prev, <span key={`sep-${index}`} className="text-gray-400 mx-1">·</span>, curr]);
+  };
+
   // Display loading state
   if (loading) {
     return (
@@ -298,7 +451,6 @@ export default function LadderPage() {
               onChange={handleRoundChange}
               className="p-2 border rounded w-24 text-base text-black"
             >
-              {/* Remove Opening Round (0) from options */}
               {[...Array(24)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>{i + 1}</option>
               ))}
@@ -306,25 +458,27 @@ export default function LadderPage() {
           </div>
         </div>
         
-        {/* Admin Panel Toggle */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowComparison(!showComparison)}
-            className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-          >
-            {showComparison ? 'Hide' : 'Show'} Live Comparison
-          </button>
-          <button
-            onClick={() => setShowAdminPanel(!showAdminPanel)}
-            className="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm"
-          >
-            Admin Panel
-          </button>
-        </div>
+        {/* Admin Panel Toggle - Only show if admin is selected */}
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowComparison(!showComparison)}
+              className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            >
+              {showComparison ? 'Hide' : 'Show'} Live Comparison
+            </button>
+            <button
+              onClick={() => setShowAdminPanel(!showAdminPanel)}
+              className="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm"
+            >
+              Admin Panel
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Admin Panel */}
-      {showAdminPanel && (
+      {/* Admin Panel - Only show if admin is selected */}
+      {isAdmin && showAdminPanel && (
         <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
           <h3 className="text-lg font-semibold mb-3 text-gray-800">Admin Functions</h3>
           
@@ -371,8 +525,8 @@ export default function LadderPage() {
         </div>
       )}
 
-      {/* Live Comparison Panel */}
-      {showComparison && (
+      {/* Live Comparison Panel - Only show if admin is selected */}
+      {isAdmin && showComparison && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h3 className="text-lg font-semibold mb-3 text-blue-800">Live vs Stored Comparison (Round {selectedRound})</h3>
           
@@ -429,12 +583,15 @@ export default function LadderPage() {
         </div>
       )}
 
-      {/* Loading indicator for star/crab totals */}
-      {loadingStarCrabs && (
+      {/* Loading indicator for calculations */}
+      {(loadingStarCrabs || loadingForms) && (
         <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded">
           <div className="flex items-center gap-2 text-blue-700">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Calculating YTD star/crab totals...</span>
+            <span className="text-sm">
+              {loadingStarCrabs && "Calculating YTD star/crab totals..."}
+              {loadingForms && "Calculating team forms..."}
+            </span>
           </div>
         </div>
       )}
@@ -444,36 +601,42 @@ export default function LadderPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
             <tr className="bg-gray-50">
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pos</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">P</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">L</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">D</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PF (Ave)</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PA (Ave)</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                R{selectedRound}
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pos</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">P</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">L</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">D</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <Star className="inline text-yellow-500" size={14} />
               </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <GiCrab className="inline text-red-500" size={14} />
               </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PF (Ave)</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PA (Ave)</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                R{selectedRound}
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Form → Latest
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Up Next (R{selectedRound + 1})
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {ladder.map((team, index) => (
               <tr key={team.userId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {index + 1}
                   {index === 0 && <span className="ml-1 text-green-600">•</span>}
                   {index >= 1 && index <= 3 && <span className="ml-1 text-blue-600">•</span>}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   <div className="flex items-center gap-1">
                     {team.userName}
                     
@@ -488,35 +651,49 @@ export default function LadderPage() {
                       <GiCrab className="text-red-500" size={16} />}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.played}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.wins}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.losses}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.draws}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
-                  {team.pointsFor} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsFor / team.played)})</span>}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
-                  {team.pointsAgainst} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsAgainst / team.played)})</span>}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.percentage}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">
-                  {getTeamCurrentRoundScore(team.userId)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.played}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.wins}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.losses}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.draws}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">{team.points}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                   <div className="flex items-center justify-center">
                     <span className={`font-medium ${mostStars.includes(team.userId) ? 'text-yellow-600 font-bold' : 'text-yellow-600'}`}>
                       {ytdStarCrabTotals[team.userId]?.stars || 0}
                     </span>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
                   <div className="flex items-center justify-center">
                     <span className={`font-medium ${mostCrabs.includes(team.userId) ? 'text-red-600 font-bold' : 'text-red-600'}`}>
                       {ytdStarCrabTotals[team.userId]?.crabs || 0}
                     </span>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">{team.points}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                  {team.pointsFor} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsFor / team.played)})</span>}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                  {team.pointsAgainst} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsAgainst / team.played)})</span>}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.percentage}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">
+                  {getTeamCurrentRoundScore(team.userId)}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                  <div className="flex items-center justify-center">
+                    {renderForm(teamForms[team.userId])}
+                  </div>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-700">
+                  {nextFixtures[team.userId] ? (
+                    <span className="font-medium">
+                      {nextFixtures[team.userId].opponent}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -540,6 +717,8 @@ export default function LadderPage() {
           <span className="font-medium ml-2">PA (Ave)</span>: Points Against (Average per game), 
           <span className="font-medium ml-2">%</span>: Percentage, 
           <span className="font-medium ml-2">R{selectedRound}</span>: Round {selectedRound} score,
+          <span className="font-medium ml-2">Form</span>: Last 5 results (W=Win, L=Loss, D=Draw),
+          <span className="font-medium ml-2">Up Next</span>: Next opponent (vs=home, @=away),
           <span className="font-medium ml-2">
             <Star className="inline text-yellow-500 mb-1" size={14} />
           </span>: Total highest scores (YTD),
