@@ -31,11 +31,12 @@ export default function TeamSelectionPage() {
     copyFromPreviousRound
   } = useTeamSelection();
 
-
-  
   // State for duplicate warnings
   const [duplicateWarnings, setDuplicateWarnings] = useState([]);
-  const [forceEditMode, setForceEditMode] = useState(false);
+  
+  // Admin override state - separate from the hook's isEditing
+  const [adminEditMode, setAdminEditMode] = useState(false);
+  
   // Initialize with global current round on first render
   useEffect(() => {
     if (currentRound !== undefined && localRound === undefined) {
@@ -126,43 +127,43 @@ export default function TeamSelectionPage() {
     }
   }, [teams, selectedUserId]);
 
-  
-// Admin edit handler - bypasses hook's logic
-const handleAdminEditClick = () => {
-  console.log("Admin edit button clicked");
-  if (selectedUserId === 'admin') {
-    console.log("Admin override - forcing edit mode");
-    setForceEditMode(true);
-  } else {
-    startEditing();
-  }
-};
+  // Admin edit handlers
+  const handleAdminEditClick = () => {
+    if (selectedUserId === 'admin') {
+      setAdminEditMode(true);
+    } else {
+      startEditing();
+    }
+  };
 
-// Modify saveTeamSelections for admin
-const handleAdminSave = async () => {
-  console.log("Admin save button clicked");
-  const success = await saveTeamSelections();
-  if (success) {
-    setForceEditMode(false);
-  }
-  return success;
-};
+  const handleAdminSave = async () => {
+    if (selectedUserId === 'admin') {
+      const success = await saveTeamSelections();
+      if (success) {
+        setAdminEditMode(false);
+      }
+      return success;
+    } else {
+      return await saveTeamSelections();
+    }
+  };
 
-// Modify cancelEditing for admin
-const handleAdminCancel = () => {
-  console.log("Admin cancel button clicked");
-  cancelEditing();
-  setForceEditMode(false);
-};
+  const handleAdminCancel = () => {
+    if (selectedUserId === 'admin') {
+      setAdminEditMode(false);
+    }
+    cancelEditing();
+  };
 
   // Handle save with confirmation for duplicates
   const handleSaveWithWarning = async () => {
     if (duplicateWarnings.length > 0) {
       if (confirm(`Warning: You have ${duplicateWarnings.length} duplicate player selections. Do you want to save anyway?`)) {
-        await saveTeamSelections();
+        return await handleAdminSave();
       }
+      return false;
     } else {
-      await saveTeamSelections();
+      return await handleAdminSave();
     }
   };
 
@@ -227,6 +228,15 @@ const handleAdminCancel = () => {
 
   // Is admin flag for simplified checking
   const isAdmin = selectedUserId === 'admin';
+  
+  // Determine if we're in edit mode (either regular editing or admin edit mode)
+  const inEditMode = isEditing || adminEditMode;
+  
+  // Check if editing is allowed (admin can always edit, regular users only if not locked)
+  const canEdit = isAdmin || !isRoundLocked;
+  
+  // For TeamCard props - admin should never be locked when in edit mode
+  const isTeamCardLocked = isAdmin ? false : isRoundLocked;
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
@@ -299,6 +309,7 @@ const handleAdminCancel = () => {
               value={localRound}
               onChange={(e) => handleRoundChange(Number(e.target.value))}
               className="p-2 border rounded w-24 text-sm text-black"
+              disabled={inEditMode && !isAdmin} // Only disable for non-admin when editing
             >
               {[...Array(29)].map((_, i) => (
                 <option key={i} value={i}>
@@ -309,33 +320,33 @@ const handleAdminCancel = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-2">
-          {isEditing || forceEditMode ? (
-  <>
-    <button 
-      onClick={isAdmin ? handleAdminSave : handleSaveWithWarning}
-      className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-    >
-      Save Changes
-    </button>
-    <button 
-      onClick={isAdmin ? handleAdminCancel : cancelEditing}
-      className="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-    >
-      Cancel
-    </button>
-  </>
-) : (
-  <button 
-    onClick={isAdmin ? handleAdminEditClick : startEditing}
-    disabled={isRoundLocked && !isAdmin}
-    className={`w-full sm:w-auto px-4 py-2 rounded text-white ${
-      isRoundLocked && !isAdmin
-        ? 'bg-gray-400 cursor-not-allowed' 
-        : 'bg-blue-500 hover:bg-blue-600'
-    }`}
-  >
-    {isRoundLocked && !isAdmin ? 'Locked' : 'Edit Teams'}
-  </button>
+            {inEditMode ? (
+              <>
+                <button 
+                  onClick={handleSaveWithWarning}
+                  className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  Save Changes
+                </button>
+                <button 
+                  onClick={handleAdminCancel}
+                  className="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={handleAdminEditClick}
+                disabled={!canEdit}
+                className={`w-full sm:w-auto px-4 py-2 rounded text-white ${
+                  !canEdit
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
+              >
+                {!canEdit ? 'Locked' : 'Edit Teams'}
+              </button>
             )}
           </div>
         </div>
@@ -385,8 +396,8 @@ const handleAdminCancel = () => {
             userName={USER_NAMES[selectedUserId]}
             team={teams[selectedUserId] || {}}
             squad={squads[selectedUserId]?.players || []}
-            isEditing={isEditing}
-            isLocked={isRoundLocked && !isAdmin} // Only locked if not admin
+            isEditing={inEditMode}
+            isLocked={isTeamCardLocked}
             onPlayerChange={handlePlayerChange}
             onBackupPositionChange={handleBackupPositionChange}
             onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
@@ -401,8 +412,8 @@ const handleAdminCancel = () => {
               userName={userName}
               team={teams[userId] || {}}
               squad={squads[userId]?.players || []}
-              isEditing={isEditing}
-              isLocked={isRoundLocked && !isAdmin} // Only locked if not admin
+              isEditing={inEditMode}
+              isLocked={isTeamCardLocked}
               onPlayerChange={handlePlayerChange}
               onBackupPositionChange={handleBackupPositionChange}
               onCopyFromPrevious={() => copyFromPreviousRound(userId)}
@@ -437,6 +448,7 @@ const handleAdminCancel = () => {
               <li><span className="font-medium">Round Status:</span> {isRoundLocked ? 'Locked for regular users' : 'Unlocked'}</li>
               <li><span className="font-medium">Admin Override:</span> Enabled</li>
               <li><span className="font-medium">Edit Capabilities:</span> Full access to all teams and rounds</li>
+              <li><span className="font-medium">Current Mode:</span> {inEditMode ? 'Editing Mode' : 'View Mode'}</li>
             </ul>
           </div>
         </div>
@@ -460,7 +472,7 @@ function TeamCard({
 }) {
   // State for toggling visibility on mobile
   const [isExpanded, setIsExpanded] = useState(true);
-  const [key, setKey] = useState(0); // Add a key to force re-render
+  const [key, setKey] = useState(0);
 
   // Get display name for each position
   const getPositionDisplay = (position) => {
@@ -471,7 +483,7 @@ function TeamCard({
 
   // Force re-render when team changes
   useEffect(() => {
-    setKey(prevKey => prevKey + 1); // Increment key to force re-render
+    setKey(prevKey => prevKey + 1);
   }, [team]);
 
   // Copy from previous with UI feedback
