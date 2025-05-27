@@ -327,7 +327,7 @@ export default function SquadManagementPage() {
       setTradeWithUserId('');
     } catch (err) {
       console.error('Error saving transaction:', err);
-      setError('Failed to save changes');
+      setError(err.message);
     }
   };
 
@@ -335,7 +335,9 @@ export default function SquadManagementPage() {
     if (!transactionType || !newPlayerName) return;
 
     try {
-      // Create transaction type - could be initial or midseason
+      console.log(`Saving draft: ${transactionType} - ${newPlayerName}`);
+      
+      // Create transaction type - could be initial, midseason_draft_1, or midseason_draft_2
       const draftType = transactionType;
       
       // Create new transaction for draft
@@ -485,7 +487,19 @@ export default function SquadManagementPage() {
             className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-green-500 text-white"
           >
             <UserPlus className="h-4 w-4" />
-            Draft
+            Mid Draft 1
+          </button>
+          <button
+            onClick={() => {
+              setEditingPlayer(null);
+              setTransactionType('midseason_draft_2');
+              setNewPlayerName('');
+              setNewPlayerTeam('');
+            }}
+            className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-purple-500 text-white"
+          >
+            <UserPlus className="h-4 w-4" />
+            Mid Draft 2
           </button>
           <button
             onClick={() => {
@@ -524,7 +538,9 @@ export default function SquadManagementPage() {
           <div className="flex flex-col sm:flex-row gap-2 items-end">
             <div className="w-full sm:w-1/2">
               <label className="block text-sm font-medium mb-1">
-                {transactionType === 'initial' ? 'Select Player:' : 'Select Player:'}
+                {transactionType === 'initial' ? 'Select Player:' : 
+                 transactionType === 'midseason_draft_1' ? 'Select Player (Mid Draft 1):' :
+                 transactionType === 'midseason_draft_2' ? 'Select Player (Mid Draft 2):' : 'Select Player:'}
               </label>
               <select
                 value={newPlayerName}

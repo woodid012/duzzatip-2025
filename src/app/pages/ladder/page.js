@@ -44,12 +44,87 @@ export default function LadderPage() {
   const [showComparison, setShowComparison] = useState(false);
   const [liveScores, setLiveScores] = useState({});
 
+  // State for YTD star/crab totals
+  const [ytdStarCrabTotals, setYtdStarCrabTotals] = useState({});
+  const [loadingStarCrabs, setLoadingStarCrabs] = useState(false);
+
   // Sync selected round with current round
   useEffect(() => {
     if (currentRound !== undefined) {
       setSelectedRound(currentRound);
     }
   }, [currentRound]);
+
+  // Load YTD star/crab totals
+  useEffect(() => {
+    const calculateYTDStarCrabs = async () => {
+      setLoadingStarCrabs(true);
+      
+      try {
+        const totals = {};
+        
+        // Initialize totals for all teams
+        Object.keys(USER_NAMES).forEach(userId => {
+          totals[userId] = { stars: 0, crabs: 0 };
+        });
+
+        // Fetch stored results for rounds 1 through selectedRound
+        const roundPromises = [];
+        for (let round = 1; round <= Math.min(selectedRound, 21); round++) {
+          roundPromises.push(
+            fetch(`/api/store-round-results?round=${round}`)
+              .then(res => res.ok ? res.json() : null)
+              .catch(() => null)
+          );
+        }
+
+        const allRoundResults = await Promise.all(roundPromises);
+
+        // Process each round's results
+        allRoundResults.forEach((roundData, index) => {
+          const round = index + 1;
+          
+          if (!roundData || !roundData.found || !roundData.results) {
+            console.log(`No stored results found for round ${round}`);
+            return;
+          }
+
+          const results = roundData.results;
+          const scores = Object.entries(results)
+            .map(([userId, score]) => ({ userId, score: Number(score) }))
+            .filter(s => s.score > 0); // Only consider teams with scores > 0
+
+          if (scores.length === 0) return;
+
+          // Find highest and lowest scores for this round
+          const maxScore = Math.max(...scores.map(s => s.score));
+          const minScore = Math.min(...scores.map(s => s.score));
+
+          // Award stars and crabs
+          scores.forEach(({ userId, score }) => {
+            if (score === maxScore && maxScore > 0) {
+              totals[userId].stars += 1;
+            }
+            if (score === minScore && minScore > 0 && minScore < maxScore) {
+              totals[userId].crabs += 1;
+            }
+          });
+        });
+
+        console.log('YTD Star/Crab totals calculated:', totals);
+        setYtdStarCrabTotals(totals);
+        
+      } catch (error) {
+        console.error('Error calculating YTD star/crab totals:', error);
+      } finally {
+        setLoadingStarCrabs(false);
+      }
+    };
+
+    if (selectedRound && selectedRound > 0) {
+      calculateYTDStarCrabs();
+    }
+  }, [selectedRound]);
 
   // Load live scores for comparison when needed
   useEffect(() => {
@@ -76,60 +151,36 @@ export default function LadderPage() {
   const [mostStars, setMostStars] = useState([]);
   const [mostCrabs, setMostCrabs] = useState([]);
 
-  // Calculate star and crab totals for each team based on stored results
-  const calculateStarCrabTotals = useMemo(() => {
-    const totals = {};
-    
-    // Initialize totals for all teams
-    Object.keys(USER_NAMES).forEach(userId => {
-      totals[userId] = { stars: 0, crabs: 0 };
-    });
-
-    // For now, just use current round results
-    // You can extend this to fetch historical round results from the database
-    if (currentRoundResults && Object.keys(currentRoundResults).length > 0) {
-      const scores = Object.entries(currentRoundResults).map(([userId, score]) => ({ userId, score }));
-      
-      if (scores.length > 0 && scores.some(s => s.score > 0)) {
-        const maxScore = Math.max(...scores.map(s => s.score));
-        const minScore = Math.min(...scores.filter(s => s.score > 0).map(s => s.score));
-        
-        setHighestScore(maxScore);
-        setLowestScore(minScore);
-        
-        // Count stars and crabs for current round
-        scores.forEach(({ userId, score }) => {
-          if (score === maxScore && maxScore > 0) {
-            totals[userId].stars += 1;
-          }
-          if (score === minScore && minScore > 0) {
-            totals[userId].crabs += 1;
-          }
-        });
-      }
-    }
-    
-    return totals;
-  }, [currentRoundResults]);
-
-  // Find players with the most stars and crabs
+  // Find players with the most stars and crabs YTD
   useEffect(() => {
-    if (calculateStarCrabTotals && Object.keys(calculateStarCrabTotals).length > 0) {
-      const maxStars = Math.max(...Object.values(calculateStarCrabTotals).map(t => t.stars));
-      const maxCrabs = Math.max(...Object.values(calculateStarCrabTotals).map(t => t.crabs));
+    if (ytdStarCrabTotals && Object.keys(ytdStarCrabTotals).length > 0) {
+      const maxStars = Math.max(...Object.values(ytdStarCrabTotals).map(t => t.stars));
+      const maxCrabs = Math.max(...Object.values(ytdStarCrabTotals).map(t => t.crabs));
       
-      const usersWithMostStars = Object.entries(calculateStarCrabTotals)
+      const usersWithMostStars = Object.entries(ytdStarCrabTotals)
         .filter(([_, totals]) => totals.stars === maxStars && maxStars > 0)
         .map(([userId]) => userId);
         
-      const usersWithMostCrabs = Object.entries(calculateStarCrabTotals)
+      const usersWithMostCrabs = Object.entries(ytdStarCrabTotals)
         .filter(([_, totals]) => totals.crabs === maxCrabs && maxCrabs > 0)
         .map(([userId]) => userId);
       
       setMostStars(usersWithMostStars);
       setMostCrabs(usersWithMostCrabs);
     }
-  }, [calculateStarCrabTotals]);
+  }, [ytdStarCrabTotals]);
+
+  // Calculate current round highest/lowest scores
+  useEffect(() => {
+    if (currentRoundResults && Object.keys(currentRoundResults).length > 0) {
+      const scores = Object.values(currentRoundResults).filter(score => score > 0);
+      
+      if (scores.length > 0) {
+        setHighestScore(Math.max(...scores));
+        setLowestScore(Math.min(...scores));
+      }
+    }
+  }, [currentRoundResults]);
 
   // Handle round change
   const handleRoundChange = (e) => {
@@ -247,8 +298,9 @@ export default function LadderPage() {
               onChange={handleRoundChange}
               className="p-2 border rounded w-24 text-base text-black"
             >
-              {[...Array(25)].map((_, i) => (
-                <option key={i} value={i}>{i === 0 ? 'Opening' : i}</option>
+              {/* Remove Opening Round (0) from options */}
+              {[...Array(24)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>{i + 1}</option>
               ))}
             </select>
           </div>
@@ -377,6 +429,16 @@ export default function LadderPage() {
         </div>
       )}
 
+      {/* Loading indicator for star/crab totals */}
+      {loadingStarCrabs && (
+        <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded">
+          <div className="flex items-center gap-2 text-blue-700">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Calculating YTD star/crab totals...</span>
+          </div>
+        </div>
+      )}
+
       {/* Ladder table */}
       <div className="overflow-x-auto bg-white rounded-lg shadow">
         <table className="min-w-full divide-y divide-gray-200">
@@ -422,13 +484,7 @@ export default function LadderPage() {
                       <Star className="text-yellow-500" size={16} />}
                     {currentRoundResults[team.userId] && 
                      currentRoundResults[team.userId] === lowestScore && 
-                     lowestScore > 0 && 
-                      <GiCrab className="text-red-500" size={16} />}
-                    
-                    {/* Show indicators for most stars/crabs overall */}
-                    {mostStars.includes(team.userId) && 
-                      <Star className="text-yellow-500" size={16} />}
-                    {mostCrabs.includes(team.userId) && 
+                     lowestScore > 0 && highestScore !== lowestScore &&
                       <GiCrab className="text-red-500" size={16} />}
                   </div>
                 </td>
@@ -449,14 +505,14 @@ export default function LadderPage() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                   <div className="flex items-center justify-center">
                     <span className={`font-medium ${mostStars.includes(team.userId) ? 'text-yellow-600 font-bold' : 'text-yellow-600'}`}>
-                      {calculateStarCrabTotals[team.userId]?.stars || 0}
+                      {ytdStarCrabTotals[team.userId]?.stars || 0}
                     </span>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                   <div className="flex items-center justify-center">
                     <span className={`font-medium ${mostCrabs.includes(team.userId) ? 'text-red-600 font-bold' : 'text-red-600'}`}>
-                      {calculateStarCrabTotals[team.userId]?.crabs || 0}
+                      {ytdStarCrabTotals[team.userId]?.crabs || 0}
                     </span>
                   </div>
                 </td>
@@ -472,8 +528,8 @@ export default function LadderPage() {
         <div className="flex flex-wrap gap-4">
           <div><span className="inline-block w-2 h-2 rounded-full bg-green-600 mr-1"></span> Top position (automatic Grand Final)</div>
           <div><span className="inline-block w-2 h-2 rounded-full bg-blue-600 mr-1"></span> Finals positions (2-4)</div>
-          <div className="flex items-center"><Star className="text-yellow-500 mr-1" size={16} /> Highest score for round / Most star performances overall</div>
-          <div className="flex items-center"><GiCrab className="text-red-500 mr-1" size={16} /> Lowest score for round / Most crab performances overall</div>
+          <div className="flex items-center"><Star className="text-yellow-500 mr-1" size={16} /> Highest score for current round / Most star performances YTD</div>
+          <div className="flex items-center"><GiCrab className="text-red-500 mr-1" size={16} /> Lowest score for current round / Most crab performances YTD</div>
         </div>
         <div className="mt-2">
           <span className="font-medium">P</span>: Played, 
@@ -486,10 +542,10 @@ export default function LadderPage() {
           <span className="font-medium ml-2">R{selectedRound}</span>: Round {selectedRound} score,
           <span className="font-medium ml-2">
             <Star className="inline text-yellow-500 mb-1" size={14} />
-          </span>: Total highest scores,
+          </span>: Total highest scores (YTD),
           <span className="font-medium ml-2">
             <GiCrab className="inline text-red-500 mb-1" size={14} />
-          </span>: Total lowest scores,
+          </span>: Total lowest scores (YTD),
           <span className="font-medium ml-2">Pts</span>: Ladder Points (Win: 4, Draw: 2, Loss: 0)
         </div>
       </div>
