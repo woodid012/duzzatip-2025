@@ -95,6 +95,9 @@ export default function TippingPage() {
   // Check if user is admin
   const isAdmin = selectedUserId === 'admin' || hookSelectedUserId === 'admin';
 
+  // Get the current team being edited for display
+  const currentTeamBeingEdited = hookSelectedUserId && hookSelectedUserId !== 'admin' ? hookSelectedUserId : null;
+
   if (loading && !dataLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -120,9 +123,11 @@ export default function TippingPage() {
       <div className="flex justify-between items-center mb-8">
         <div className="flex flex-col">
           <h1 className="text-3xl font-bold text-black">
-            {selectedUserId && selectedUserId !== 'admin' 
-              ? `${USER_NAMES[selectedUserId]}'s Tips` 
-              : `AFL ${CURRENT_YEAR} Tips`}
+            {currentTeamBeingEdited 
+              ? `${USER_NAMES[currentTeamBeingEdited]}'s Tips${isAdmin ? ' (Admin Editing)' : ''}` 
+              : isAdmin 
+                ? `AFL ${CURRENT_YEAR} Tips - Admin Mode`
+                : `AFL ${CURRENT_YEAR} Tips`}
           </h1>
           
           {/* Show round info */}
@@ -237,11 +242,15 @@ export default function TippingPage() {
           <div className="flex flex-col">
             <label className="mb-2 font-semibold text-black">Select Team:</label>
             <select 
-              value={hookSelectedUserId}
+              value={hookSelectedUserId || ''}
               onChange={(e) => changeUser(e.target.value)}
               className="border rounded p-2 text-black"
             >
-              <option value="">Select a team</option>
+              <option value="">
+                {currentTeamBeingEdited 
+                  ? `Editing: ${USER_NAMES[currentTeamBeingEdited]}` 
+                  : 'Select a team to edit'}
+              </option>
               {Object.entries(USER_NAMES).map(([id, name]) => (
                 <option key={id} value={id}>
                   {name}
@@ -340,6 +349,14 @@ export default function TippingPage() {
           <p className="text-amber-700 mt-2">
             Remember that changes made to locked rounds will be saved immediately and could affect scoring.
           </p>
+          {currentTeamBeingEdited && (
+            <div className="mt-3 p-3 bg-white rounded border border-amber-200">
+              <p className="font-medium text-amber-800">Currently Editing:</p>
+              <p className="text-amber-700">
+                <span className="font-semibold">{USER_NAMES[currentTeamBeingEdited]}</span>'s tips for {formatRoundName(localRound)}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
