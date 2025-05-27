@@ -51,12 +51,13 @@ export default function TippingPage() {
     cancelEditing,
     startEditing,
     changeUser
-  } = useTipping(selectedUserId); // Pass selected user from context
+  } = useTipping(selectedUserId === 'admin' ? '' : selectedUserId); // Only pass user if not admin
 
-  // Sync the selected user from context to the hook when it changes
+  // For admin mode, don't sync with global context changes
+  // Admin mode manages its own team selection locally
   useEffect(() => {
-    if (selectedUserId && selectedUserId !== hookSelectedUserId) {
-      console.log(`Syncing selected user from context: ${selectedUserId}`);
+    if (selectedUserId && selectedUserId !== 'admin' && selectedUserId !== hookSelectedUserId) {
+      console.log(`Syncing selected user from context (non-admin): ${selectedUserId}`);
       changeUser(selectedUserId);
     }
   }, [selectedUserId, hookSelectedUserId, changeUser]);
@@ -93,10 +94,22 @@ export default function TippingPage() {
   };
 
   // Check if user is admin
-  const isAdmin = selectedUserId === 'admin' || hookSelectedUserId === 'admin';
+  const isAdmin = selectedUserId === 'admin';
 
-  // Get the current team being edited for display
-  const currentTeamBeingEdited = hookSelectedUserId && hookSelectedUserId !== 'admin' ? hookSelectedUserId : null;
+  // Get the current team being edited for display - FIXED LOGIC
+  const currentTeamBeingEdited = (() => {
+    if (isAdmin && hookSelectedUserId && hookSelectedUserId !== 'admin') {
+      // Admin mode with a specific team selected
+      return hookSelectedUserId;
+    } else if (!isAdmin && selectedUserId && selectedUserId !== 'admin') {
+      // Regular user mode
+      return selectedUserId;
+    }
+    return null;
+  })();
+
+  // Get display name for the current team
+  const currentTeamDisplayName = currentTeamBeingEdited ? USER_NAMES[currentTeamBeingEdited] : null;
 
   if (loading && !dataLoaded) {
     return (
@@ -123,8 +136,8 @@ export default function TippingPage() {
       <div className="flex justify-between items-center mb-8">
         <div className="flex flex-col">
           <h1 className="text-3xl font-bold text-black">
-            {currentTeamBeingEdited 
-              ? `${USER_NAMES[currentTeamBeingEdited]}'s Tips${isAdmin ? ' (Admin Editing)' : ''}` 
+            {currentTeamDisplayName 
+              ? `${currentTeamDisplayName}'s Tips${isAdmin ? ' (Admin Editing)' : ''}` 
               : isAdmin 
                 ? `AFL ${CURRENT_YEAR} Tips - Admin Mode`
                 : `AFL ${CURRENT_YEAR} Tips`}
@@ -165,7 +178,7 @@ export default function TippingPage() {
                 )}
               </div>
             )}
-            {lastEditedTime && (
+            {lastEditedTime && currentTeamBeingEdited && (
               <div className="text-sm mt-1">
                 <span className="text-gray-600">Last Submitted:</span>
                 <span className="font-medium ml-1 text-gray-800">
@@ -186,7 +199,8 @@ export default function TippingPage() {
               {error}
             </span>
           )}
-          {(selectedUserId || hookSelectedUserId) && (
+          {/* Only show edit buttons if we have a team selected (either admin with team or regular user) */}
+          {currentTeamBeingEdited && (
             isEditing ? (
               <>
                 <button 
@@ -243,12 +257,15 @@ export default function TippingPage() {
             <label className="mb-2 font-semibold text-black">Select Team:</label>
             <select 
               value={hookSelectedUserId || ''}
-              onChange={(e) => changeUser(e.target.value)}
+              onChange={(e) => {
+                console.log(`Admin selecting team: ${e.target.value}`);
+                changeUser(e.target.value);
+              }}
               className="border rounded p-2 text-black"
             >
               <option value="">
-                {currentTeamBeingEdited 
-                  ? `Editing: ${USER_NAMES[currentTeamBeingEdited]}` 
+                {currentTeamDisplayName 
+                  ? `Currently Editing: ${currentTeamDisplayName}` 
                   : 'Select a team to edit'}
               </option>
               {Object.entries(USER_NAMES).map(([id, name]) => (
@@ -261,82 +278,95 @@ export default function TippingPage() {
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <form onSubmit={handleFormSubmit}>
-          <table className="min-w-full bg-white border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="py-2 px-4 border text-black">Date</th>
-                <th className="py-2 px-4 border text-black">Home Team</th>
-                <th className="py-2 px-4 border text-black">Away Team</th>
-                <th className="py-2 px-4 border text-black">Your Tip</th>
-                <th className="py-2 px-4 border text-black">Dead Cert</th>
-              </tr>
-            </thead>
-            <tbody className="text-black">
-              {roundFixtures.map((fixture) => (
-                <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border text-black">{fixture.DateMelb}</td>
-                  <td className="py-2 px-4 border">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
-                      }}
-                      type="button"
-                      disabled={!isEditing || (isRoundLocked && !isAdmin)}
-                      className={`px-3 py-1 rounded ${
-                        tips[fixture.MatchNumber]?.team === fixture.HomeTeam
-                          ? 'bg-green-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
-                    >
-                      {fixture.HomeTeam}
-                    </button>
-                  </td>
-                  <td className="py-2 px-4 border">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
-                      }}
-                      type="button"
-                      disabled={!isEditing || (isRoundLocked && !isAdmin)}
-                      className={`px-3 py-1 rounded ${
-                        tips[fixture.MatchNumber]?.team === fixture.AwayTeam
-                          ? 'bg-green-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
-                    >
-                      {fixture.AwayTeam}
-                    </button>
-                  </td>
-                  <td className="py-2 px-4 border text-center text-black">
-                    {tips[fixture.MatchNumber]?.team || '-'}
-                  </td>
-                  <td className="py-2 px-4 border text-center">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleDeadCertToggle(fixture.MatchNumber);
-                      }}
-                      type="button"
-                      disabled={!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team}
-                      className={`px-3 py-1 rounded ${
-                        tips[fixture.MatchNumber]?.deadCert
-                          ? 'bg-yellow-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-black'
-                      } ${(!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
-                    </button>
-                  </td>
+      {/* Show message if admin but no team selected */}
+      {isAdmin && !currentTeamBeingEdited && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h3 className="text-blue-800 font-semibold mb-2">Admin Mode</h3>
+          <p className="text-blue-700">
+            Select a team from the dropdown above to view and edit their tips.
+          </p>
+        </div>
+      )}
+
+      {/* Show fixtures table only if we have a team selected or it's not admin mode */}
+      {(currentTeamBeingEdited || !isAdmin) && roundFixtures.length > 0 && (
+        <div className="overflow-x-auto">
+          <form onSubmit={handleFormSubmit}>
+            <table className="min-w-full bg-white border">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="py-2 px-4 border text-black">Date</th>
+                  <th className="py-2 px-4 border text-black">Home Team</th>
+                  <th className="py-2 px-4 border text-black">Away Team</th>
+                  <th className="py-2 px-4 border text-black">Your Tip</th>
+                  <th className="py-2 px-4 border text-black">Dead Cert</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </form>
-      </div>
+              </thead>
+              <tbody className="text-black">
+                {roundFixtures.map((fixture) => (
+                  <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
+                    <td className="py-2 px-4 border text-black">{fixture.DateMelb}</td>
+                    <td className="py-2 px-4 border">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
+                        }}
+                        type="button"
+                        disabled={!isEditing || (isRoundLocked && !isAdmin)}
+                        className={`px-3 py-1 rounded ${
+                          tips[fixture.MatchNumber]?.team === fixture.HomeTeam
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 hover:bg-gray-200 text-black'
+                        } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
+                      >
+                        {fixture.HomeTeam}
+                      </button>
+                    </td>
+                    <td className="py-2 px-4 border">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
+                        }}
+                        type="button"
+                        disabled={!isEditing || (isRoundLocked && !isAdmin)}
+                        className={`px-3 py-1 rounded ${
+                          tips[fixture.MatchNumber]?.team === fixture.AwayTeam
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 hover:bg-gray-200 text-black'
+                        } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
+                      >
+                        {fixture.AwayTeam}
+                      </button>
+                    </td>
+                    <td className="py-2 px-4 border text-center text-black">
+                      {tips[fixture.MatchNumber]?.team || '-'}
+                    </td>
+                    <td className="py-2 px-4 border text-center">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleDeadCertToggle(fixture.MatchNumber);
+                        }}
+                        type="button"
+                        disabled={!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team}
+                        className={`px-3 py-1 rounded ${
+                          tips[fixture.MatchNumber]?.deadCert
+                            ? 'bg-yellow-500 text-white'
+                            : 'bg-gray-100 hover:bg-gray-200 text-black'
+                        } ${(!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </form>
+        </div>
+      )}
 
       {/* Admin note section when admin is selected */}
       {isAdmin && (
@@ -349,11 +379,11 @@ export default function TippingPage() {
           <p className="text-amber-700 mt-2">
             Remember that changes made to locked rounds will be saved immediately and could affect scoring.
           </p>
-          {currentTeamBeingEdited && (
+          {currentTeamDisplayName && (
             <div className="mt-3 p-3 bg-white rounded border border-amber-200">
               <p className="font-medium text-amber-800">Currently Editing:</p>
               <p className="text-amber-700">
-                <span className="font-semibold">{USER_NAMES[currentTeamBeingEdited]}</span>'s tips for {formatRoundName(localRound)}
+                <span className="font-semibold">{currentTeamDisplayName}</span>'s tips for {formatRoundName(localRound)}
               </p>
             </div>
           )}
