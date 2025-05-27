@@ -160,26 +160,43 @@ export default function ResultsPage() {
     }
   }, [teamSelectionsLoaded, displayedRound, hookChangeRound, loadingStates.playerStats]);
   
-  // 5. STEP FIVE: When player stats are loaded, calculate scores and prepare display
-  useEffect(() => {
-    if (displayedRound !== null && 
-        !resultsLoading && 
-        hookDataReady && 
-        teams && 
-        Object.keys(teams).length > 0 && 
-        teamSelectionsLoaded) {
-      console.log('Player stats loaded, calculating scores...');
-      setLoadingStatus('Stats loaded, calculating scores...');
-      
+// 5. STEP FIVE: When player stats are loaded, calculate scores and prepare display
+useEffect(() => {
+  if (displayedRound !== null && 
+      !resultsLoading && 
+      hookDataReady && 
+      teams && 
+      Object.keys(teams).length > 0 && 
+      teamSelectionsLoaded) {
+    console.log('Player stats loaded, calculating scores...');
+    setLoadingStatus('Stats loaded, calculating scores...');
+    
+    // Add a small delay to ensure all data is stable
+    setTimeout(() => {
       // Calculate team scores ONCE and store them
       const calculatedScores = {};
       Object.keys(USER_NAMES).forEach(userId => {
-        calculatedScores[userId] = getTeamScores(userId);
+        try {
+          calculatedScores[userId] = getTeamScores(userId);
+        } catch (error) {
+          console.error(`Error calculating scores for user ${userId}:`, error);
+          // Fallback to empty scores
+          calculatedScores[userId] = {
+            userId,
+            totalScore: 0,
+            teamOnly: 0,
+            deadCert: 0,
+            finalScore: 0,
+            positionScores: [],
+            benchScores: [],
+            substitutionsEnabled: { bench: false, reserve: false }
+          };
+        }
       });
       
       // Update team scores state
       setTeamScores(calculatedScores);
-      
+    
       // Get fixtures for the displayed round
       const roundFixtures = getFixturesForRound(displayedRound);
       setFixtures(roundFixtures || []);
@@ -187,7 +204,8 @@ export default function ResultsPage() {
       // Prioritize the selected user's fixture if applicable
       if (selectedUserId && roundFixtures && roundFixtures.length > 0) {
         const userFixture = roundFixtures.find(fixture => 
-          fixture.home == selectedUserId || fixture.away == selectedUserId
+          fixture.home?.toString() === selectedUserId?.toString() || 
+          fixture.away?.toString() === selectedUserId?.toString()
         );
         
         if (userFixture) {
@@ -210,9 +228,9 @@ export default function ResultsPage() {
       setTimeout(() => {
         setPageReady(true);
       }, 100);
-    }
-  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores]);
-
+    }, 50); // Added missing comma and closing bracket here
+  }
+}, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores]);
   // Handle round change - keep it local, don't update global context
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
@@ -417,6 +435,21 @@ export default function ResultsPage() {
           if (!userId || !USER_NAMES[userId]) return null;
           
           const userTeamScores = teamScores[userId];
+          
+          // Don't render if scores aren't calculated yet (prevents flashing)
+          if (!userTeamScores || userTeamScores.finalScore === "") {
+            return (
+              <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId]}</h2>
+                  <div className="text-right font-bold text-lg border-t pt-2 text-black">
+                    Final Total: Loading...
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          
           return (
             <TeamScoreCard 
               key={userId}

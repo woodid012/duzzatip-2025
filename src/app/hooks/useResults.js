@@ -406,6 +406,19 @@ export default function useResults() {
 
   // Get scores for a specific team - memoize with useCallback to prevent recreation on each render
   const getTeamScores = useCallback((userId) => {
+    // Don't calculate if we don't have the necessary data
+    if (!teams[userId] || !playerStats[userId] || loading) {
+      return {
+        userId,
+        totalScore: "",
+        deadCertScore: "",
+        finalScore: "",
+        positionScores: [],
+        benchScores: [],
+        substitutionsEnabled: { bench: false, reserve: false }
+      };
+    }
+
     const userTeam = teams[userId] || {};
     const debugData = [];
     
