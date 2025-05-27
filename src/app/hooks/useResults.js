@@ -15,8 +15,8 @@ export default function useResults() {
   const loadedRoundRef = useRef(null);
   const initializedRef = useRef(false);
   
-  // State for the round displayed on the page - independent from global context
-  const [localRound, setLocalRound] = useState(currentRound);
+  // State for the round displayed on the page - start with null to show blank state
+  const [localRound, setLocalRound] = useState(null);
   
   // State for teams and player data
   const [teams, setTeams] = useState({});
@@ -35,64 +35,27 @@ export default function useResults() {
   const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
   const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
   
-  // Determine initial round as part of the loading process
+  // Wait for context to be ready, then set the initial round
   useEffect(() => {
-    const determineInitialRound = async () => {
-      try {
-        if (initializedRef.current) return;
-        
-        // First try to use context round if it's valid
-        if (currentRound !== null && currentRound !== undefined && currentRound > 0) {
-          console.log(`USERESULTS: Using context round ${currentRound}`);
-          setLocalRound(currentRound);
-        } else {
-          // If context round is invalid or 0, fetch fixtures to determine the current round
-          console.log(`USERESULTS: Context round is ${currentRound}, calculating locally`);
-          
-          // Get fixtures first by fetching from the tipping-data endpoint
-          const fixturesRes = await fetch(`/api/tipping-data`);
-          if (fixturesRes.ok) {
-            const fixturesData = await fixturesRes.json();
-            
-            // Find the first fixture that hasn't been played yet
-            const now = new Date();
-            const sortedFixtures = fixturesData.sort((a, b) => 
-              new Date(a.DateUtc) - new Date(b.DateUtc)
-            );
-            
-            const nextFixture = sortedFixtures.find(fixture => 
-              new Date(fixture.DateUtc) > now
-            );
-            
-            // Current round is the round of the next fixture, or the last round if all fixtures are completed
-            const calculatedRound = nextFixture 
-              ? nextFixture.RoundNumber 
-              : sortedFixtures[sortedFixtures.length - 1].RoundNumber;
-            
-            console.log(`USERESULTS: Calculated current round: ${calculatedRound}`);
-            setLocalRound(calculatedRound > 0 ? calculatedRound : 1);
-          } else {
-            // Fallback to round 1 if fixtures can't be loaded
-            console.log(`USERESULTS: Failed to load fixtures, defaulting to round 1`);
-            setLocalRound(1);
-          }
-        }
-        
-        initializedRef.current = true;
-      } catch (err) {
-        console.error('Error determining initial round:', err);
-        // Default to round 1 on error
-        setLocalRound(1);
-        initializedRef.current = true;
-      }
-    };
+    // Only set the initial round once when context is ready
+    if (!initializedRef.current && 
+        !contextLoading.fixtures && 
+        currentRound !== undefined && 
+        currentRound !== null) {
+      
+      console.log(`USERESULTS: Context is ready, setting initial round to ${currentRound}`);
+      setLocalRound(currentRound);
+      initializedRef.current = true;
+    }
+  }, [currentRound, contextLoading.fixtures]);
 
-    determineInitialRound();
-  }, [currentRound]);
-
-
-  // Load data when local round changes
+  // Load data when local round changes and is not null
   useEffect(() => {
+    // Don't load data if localRound is null (initial blank state)
+    if (localRound === null || localRound === undefined) {
+      return;
+    }
+
     // Skip if we've already loaded this round's data
     if (loadedRoundRef.current === localRound) {
       return;
@@ -406,8 +369,8 @@ export default function useResults() {
 
   // Get scores for a specific team - memoize with useCallback to prevent recreation on each render
   const getTeamScores = useCallback((userId) => {
-    // Don't calculate if we don't have the necessary data
-    if (!teams[userId] || !playerStats[userId] || loading) {
+    // Don't calculate if we don't have the necessary data or localRound is null
+    if (localRound === null || !teams[userId] || !playerStats[userId] || loading) {
       return {
         userId,
         totalScore: "",
@@ -736,7 +699,7 @@ export default function useResults() {
         reserve: roundEndPassed // Reserve A/B only when round has ended
       }
     };
-  }, [teams, playerStats, deadCertScores, roundEndPassed, playerTeamMap]);
+  }, [teams, playerStats, deadCertScores, roundEndPassed, playerTeamMap, localRound, loading]);
 
   return {
     // State
