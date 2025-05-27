@@ -25,7 +25,6 @@ export default function ResultsPage() {
   const [contextReady, setContextReady] = useState(false);
   const [roundInitialized, setRoundInitialized] = useState(false);
   const [teamSelectionsLoaded, setTeamSelectionsLoaded] = useState(false);
-  const [teamStats, setTeamStats] = useState({});
   const [displayReady, setDisplayReady] = useState(false);
   
   // Track loading state of each step
@@ -61,6 +60,24 @@ export default function ResultsPage() {
 
   // Loading status message
   const [loadingStatus, setLoadingStatus] = useState('Initializing...');
+  
+  // Initialize empty team scores to prevent flashing
+  const [teamScores, setTeamScores] = useState(() => {
+    const initialScores = {};
+    Object.keys(USER_NAMES).forEach(userId => {
+      initialScores[userId] = {
+        userId,
+        totalScore: "", // Initialize as empty string
+        teamOnly: "",
+        deadCert: "",
+        finalScore: "",
+        positionScores: [],
+        benchScores: [],
+        substitutionsEnabled: { bench: false, reserve: false }
+      };
+    });
+    return initialScores;
+  });
   
   // 1. STEP ONE: Wait for context to be ready
   useEffect(() => {
@@ -143,7 +160,7 @@ export default function ResultsPage() {
     }
   }, [teamSelectionsLoaded, displayedRound, hookChangeRound, loadingStates.playerStats]);
   
-  // 5. STEP FIVE: When player stats are loaded, prepare the display
+  // 5. STEP FIVE: When player stats are loaded, calculate scores and prepare display
   useEffect(() => {
     if (displayedRound !== null && 
         !resultsLoading && 
@@ -151,8 +168,17 @@ export default function ResultsPage() {
         teams && 
         Object.keys(teams).length > 0 && 
         teamSelectionsLoaded) {
-      console.log('Player stats loaded, preparing display...');
-      setLoadingStatus('Stats loaded, preparing display...');
+      console.log('Player stats loaded, calculating scores...');
+      setLoadingStatus('Stats loaded, calculating scores...');
+      
+      // Calculate team scores ONCE and store them
+      const calculatedScores = {};
+      Object.keys(USER_NAMES).forEach(userId => {
+        calculatedScores[userId] = getTeamScores(userId);
+      });
+      
+      // Update team scores state
+      setTeamScores(calculatedScores);
       
       // Get fixtures for the displayed round
       const roundFixtures = getFixturesForRound(displayedRound);
@@ -185,13 +211,29 @@ export default function ResultsPage() {
         setPageReady(true);
       }, 100);
     }
-  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId]);
+  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores]);
 
   // Handle round change - keep it local, don't update global context
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     if (newRound !== displayedRound) {
       console.log(`Changing to round ${newRound}`);
+      
+      // Reset team scores to empty immediately to prevent flashing
+      const emptyScores = {};
+      Object.keys(USER_NAMES).forEach(userId => {
+        emptyScores[userId] = {
+          userId,
+          totalScore: "",
+          teamOnly: "",
+          deadCert: "",
+          finalScore: "",
+          positionScores: [],
+          benchScores: [],
+          substitutionsEnabled: { bench: false, reserve: false }
+        };
+      });
+      setTeamScores(emptyScores);
       
       // Reset all states to load data for the new round
       setDisplayedRound(newRound);
@@ -271,9 +313,9 @@ export default function ResultsPage() {
     </div>
   );
 
-  // Calculate team scores
+  // Calculate all team scores using the stored scores
   const allTeamScores = Object.keys(USER_NAMES).map(userId => {
-    const teamScore = getTeamScores(userId);
+    const teamScore = teamScores[userId];
     return {
       userId,
       totalScore: teamScore.finalScore || 0, // Use finalScore which includes dead cert scores
@@ -282,7 +324,7 @@ export default function ResultsPage() {
     };
   });
   
-  // Filter out any zero or undefined scores
+  // Filter out any zero or undefined scores for comparison
   const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
   const highestScore = validScores.length > 0 
     ? Math.max(...validScores.map(s => s?.totalScore || 0)) 
@@ -342,7 +384,7 @@ export default function ResultsPage() {
             <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
             <select 
               id="round-select"
-              value={displayedRound}
+              value={displayedRound || ""}
               onChange={handleRoundChange}
               className="p-2 border rounded w-24 text-sm text-black"
             >
@@ -374,15 +416,15 @@ export default function ResultsPage() {
         {getTeamCardsOrder().map(userId => {
           if (!userId || !USER_NAMES[userId]) return null;
           
-          const teamScores = getTeamScores(userId);
+          const userTeamScores = teamScores[userId];
           return (
             <TeamScoreCard 
               key={userId}
               userId={userId}
               userName={USER_NAMES[userId]}
-              teamScores={teamScores}
-              isHighestScore={teamScores.finalScore === highestScore && highestScore > 0}
-              isLowestScore={teamScores.finalScore === lowestScore && lowestScore > 0}
+              teamScores={userTeamScores}
+              isHighestScore={userTeamScores.finalScore === highestScore && highestScore > 0}
+              isLowestScore={userTeamScores.finalScore === lowestScore && lowestScore > 0}
               isSelectedUser={userId === selectedUserId}
               isRoundComplete={isRoundComplete()}
             />
