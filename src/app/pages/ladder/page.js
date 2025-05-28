@@ -704,7 +704,7 @@ export default function LadderPage() {
       {/* Legend */}
       <div className="mt-4 text-sm text-gray-600">
         <div className="flex flex-wrap gap-4">
-          <div><span className="inline-block w-2 h-2 rounded-full bg-green-600 mr-1"></span> Top position (automatic Grand Final)</div>
+          <div><span className="inline-block w-2 h-2 rounded-full bg-green-600 mr-1"></span> Minor Prem.</div>
           <div><span className="inline-block w-2 h-2 rounded-full bg-blue-600 mr-1"></span> Finals positions (2-4)</div>
           <div className="flex items-center"><Star className="text-yellow-500 mr-1" size={16} /> Highest score for current round / Most star performances YTD</div>
           <div className="flex items-center"><GiCrab className="text-red-500 mr-1" size={16} /> Lowest score for current round / Most crab performances YTD</div>
