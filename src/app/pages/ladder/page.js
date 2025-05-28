@@ -576,9 +576,10 @@ export default function LadderPage() {
             Finals Series: {getFinalRoundName(selectedRound)}
           </h2>
           <p className="text-yellow-700">
-            {selectedRound === 22 && "Top team plays 4th, 2nd plays 3rd. Winners advance to preliminary & grand finals."}
-            {selectedRound === 23 && "Winner from Qualifying Final 2 plays the loser from Qualifying Final 1."}
-            {selectedRound === 24 && "Grand Final - Winner takes all!"}
+            // Update these lines (around line 186-190):
+            {selectedRound === 22 && "1st plays 2nd (Winner to Grand Final), 3rd plays 4th (Winner to Prelim Final)."}
+            {selectedRound === 23 && "Loser from 1st vs 2nd plays Winner from 3rd vs 4th. Winner advances to Grand Final."}
+            {selectedRound === 24 && "Grand Final - Winner from 1st vs 2nd plays Winner from Prelim Final!"}
           </p>
         </div>
       )}
