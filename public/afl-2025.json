@@ -1096,8 +1096,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 90,
+    "AwayTeamScore": 72
   },
   {
     "MatchNumber": 101,
