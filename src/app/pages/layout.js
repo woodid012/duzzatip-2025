@@ -175,24 +175,24 @@ export default function PagesLayout({ children }) {
           </div>
         )}
       
-        {/* Top Banner - Mobile Optimized */}
+        {/* Top Banner */}
         <div className="bg-white shadow">
           <div className="w-full p-3 md:p-6">
-            {/* Mobile Layout - Logo and Info Side by Side */}
-            <div className="flex items-start gap-3 md:flex-col md:gap-2">
+            {/* Mobile Layout (md:hidden) */}
+            <div className="flex items-start gap-3 md:hidden">
               {/* Logo - Smaller on Mobile */}
               <div className="flex-shrink-0">
                 <Logo 
                   width={80} 
                   height={80} 
-                  className="rounded-lg md:w-44 md:h-44" 
+                  className="rounded-lg" 
                 />
               </div>
               
-              {/* Right side content on mobile, below logo on desktop */}
+              {/* Right side content on mobile */}
               <div className="flex-1 min-w-0">
                 {/* Competition Info - Compact on Mobile */}
-                <div className="space-y-1 text-xs md:text-sm text-gray-600 mb-2 md:mb-0">
+                <div className="space-y-1 text-xs text-gray-600 mb-2">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">Season:</span>
                     <span>{CURRENT_YEAR}</span>
@@ -236,7 +236,7 @@ export default function PagesLayout({ children }) {
                   <select
                     value={selectedUserId}
                     onChange={handleUserChange}
-                    className="w-full p-2 border rounded text-sm md:text-base text-black bg-white"
+                    className="w-full p-2 border rounded text-sm text-black bg-white"
                   >
                     <option value="">Select Player</option>
                     {Object.entries(USER_NAMES).map(([id, name]) => (
@@ -253,6 +253,83 @@ export default function PagesLayout({ children }) {
                       Admin Mode
                     </span>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Layout (hidden md:block) */}
+            <div className="hidden md:block">
+              <div className="flex flex-col gap-2">
+                <div className="flex-shrink-0 px-4">
+                  <Logo width={176} height={176} className="rounded-lg" />
+                </div>
+                
+                {/* Competition Info Bar */}
+                <div className="flex flex-wrap justify-between items-center px-4 text-sm text-gray-600">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Season:</span>
+                      <span>{CURRENT_YEAR}</span>
+                    </div>
+                    
+                    {/* Only show round info when it's fully loaded */}
+                    {showRoundInfo ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">Current Round:</span>
+                        <span>{roundInfo.currentRoundDisplay}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">Round:</span>
+                        <span className="animate-pulse">Loading...</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-2 text-sm">
+                      {showRoundInfo && roundInfo.lockoutTime && (
+                        <div className="flex gap-1 items-center">
+                          <span className="text-gray-600">Lockout:</span>
+                          <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
+                          {roundInfo.isLocked && (
+                            <span className="text-red-600">(Locked)</span>
+                          )}
+                        </div>
+                      )}
+                      {showRoundInfo && roundInfo.lockoutTime && roundInfo.roundEndTime && (
+                        <span className="text-gray-400 mx-1">|</span>
+                      )}
+                      {showRoundInfo && roundInfo.roundEndTime && (
+                        <div className="flex gap-1 items-center">
+                          <span className="text-gray-600">Round Ends:</span>
+                          <span className="font-medium text-black">{roundInfo.roundEndTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* User Selection Dropdown */}
+                  <div className="flex items-center mt-2 sm:mt-0">
+                    <select
+                      value={selectedUserId}
+                      onChange={handleUserChange}
+                      className="p-2 border rounded text-base text-black bg-white w-48"
+                    >
+                      <option value="">Select Player</option>
+                      {Object.entries(USER_NAMES).map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                      <option value="admin">Admin</option>
+                    </select>
+                    
+                    {/* Admin indicator */}
+                    {selectedUserId === 'admin' && isAdminAuthenticated && (
+                      <span className="ml-2 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                        Admin Mode
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

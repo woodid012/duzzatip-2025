@@ -228,9 +228,10 @@ useEffect(() => {
       setTimeout(() => {
         setPageReady(true);
       }, 100);
-    }, 50); // Added missing comma and closing bracket here
+    }, 50);
   }
 }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores]);
+
   // Handle round change - keep it local, don't update global context
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
@@ -395,7 +396,24 @@ useEffect(() => {
   
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+      {/* Mobile-optimized header */}
+      <div className="block sm:hidden mb-4">
+        <select 
+          id="round-select-mobile"
+          value={displayedRound || ""}
+          onChange={handleRoundChange}
+          className="w-full p-3 border rounded-lg text-base text-black bg-white"
+        >
+          {[...Array(25)].map((_, i) => (
+            <option key={i} value={i}>
+              {i === 0 ? 'Opening Round' : `Round ${i}`}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop header */}
+      <div className="hidden sm:flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold text-black">Team Scores</h1>
           <div className="w-full sm:w-auto flex items-center gap-2">
@@ -429,42 +447,186 @@ useEffect(() => {
         hasSubstitutions={hasSubstitutions}
       />
       
-      {/* Team Cards Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {getTeamCardsOrder().map(userId => {
-          if (!userId || !USER_NAMES[userId]) return null;
-          
-          const userTeamScores = teamScores[userId];
-          
-          // Don't render if scores aren't calculated yet (prevents flashing)
-          if (!userTeamScores || userTeamScores.finalScore === "") {
-            return (
-              <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId]}</h2>
-                  <div className="text-right font-bold text-lg border-t pt-2 text-black">
-                    Final Total: Loading...
+      {/* Mobile Team Cards Section - 2-column compact layout */}
+      <div className="block sm:hidden">
+        <div className="grid grid-cols-2 gap-2">
+          {getTeamCardsOrder().map(userId => {
+            if (!userId || !USER_NAMES[userId]) return null;
+            
+            const userTeamScores = teamScores[userId];
+            
+            // Don't render if scores aren't calculated yet (prevents flashing)
+            if (!userTeamScores || userTeamScores.finalScore === "") {
+              return (
+                <div key={userId} className="bg-white rounded-lg shadow-md p-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-sm font-bold text-black truncate">{USER_NAMES[userId]}</h2>
+                    <div className="text-right font-bold text-sm text-black">
+                      Loading...
+                    </div>
                   </div>
+                </div>
+              );
+            }
+            
+            return (
+              <MobileTeamScoreCard 
+                key={userId}
+                userId={userId}
+                userName={USER_NAMES[userId]}
+                teamScores={userTeamScores}
+                isHighestScore={userTeamScores.finalScore === highestScore && highestScore > 0}
+                isLowestScore={userTeamScores.finalScore === lowestScore && lowestScore > 0}
+                isSelectedUser={userId === selectedUserId}
+                isRoundComplete={isRoundComplete()}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Desktop Team Cards Section - Original layout */}
+      <div className="hidden sm:block">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {getTeamCardsOrder().map(userId => {
+            if (!userId || !USER_NAMES[userId]) return null;
+            
+            const userTeamScores = teamScores[userId];
+            
+            // Don't render if scores aren't calculated yet (prevents flashing)
+            if (!userTeamScores || userTeamScores.finalScore === "") {
+              return (
+                <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId]}</h2>
+                    <div className="text-right font-bold text-lg border-t pt-2 text-black">
+                      Final Total: Loading...
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            
+            return (
+              <TeamScoreCard 
+                key={userId}
+                userId={userId}
+                userName={USER_NAMES[userId]}
+                teamScores={userTeamScores}
+                isHighestScore={userTeamScores.finalScore === highestScore && highestScore > 0}
+                isLowestScore={userTeamScores.finalScore === lowestScore && lowestScore > 0}
+                isSelectedUser={userId === selectedUserId}
+                isRoundComplete={isRoundComplete()}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Mobile-optimized TeamScoreCard component
+function MobileTeamScoreCard({ 
+  userId, 
+  userName, 
+  teamScores, 
+  isHighestScore, 
+  isLowestScore,
+  isSelectedUser,
+  isRoundComplete
+}) {
+  return (
+    <div className="bg-white rounded-lg shadow-md p-2 sm:p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1 min-w-0 flex-1">
+          <h2 className="text-sm sm:text-lg font-bold text-black truncate">{userName}</h2>
+          {isHighestScore && <span className="text-yellow-500 text-xs sm:text-base">⭐</span>}
+          {isLowestScore && <span className="text-red-500 text-xs sm:text-base">🦀</span>}
+          {isSelectedUser && 
+            <span className="text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded text-xs hidden sm:inline">Selected</span>}
+        </div>
+        <div className="text-right font-bold text-sm sm:text-lg text-black">
+          {teamScores.finalScore}
+        </div>
+      </div>
+
+      <div className="space-y-2 text-xs sm:text-sm">
+        {/* Main Team Positions - Compact */}
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold border-b pb-1 text-black">Main Team</h3>
+          {teamScores.positionScores.map((position) => {
+            const didNotPlay = position.noStats || !position.player?.hasPlayed;
+            const isReplaced = position.isBenchPlayer;
+            const showDNP = isRoundComplete && didNotPlay;
+            
+            return (
+              <div key={position.position} className="flex justify-between items-center py-1">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">{position.position}</div>
+                  <div className={`text-xs truncate ${(showDNP || isReplaced) ? 'text-red-600' : 'text-black'}`}>
+                    {position.originalPlayerName || 'Not Selected'}
+                    {isReplaced && (
+                      <div className="text-green-600 text-xs">
+                        → {position.playerName}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right ml-1">
+                  <span className={`font-semibold ${showDNP || isReplaced ? "text-red-600" : ""}`}>
+                    {position.originalScore || position.score}
+                  </span>
+                  {isReplaced && (
+                    <div className="text-xs text-green-600 font-medium">
+                      +{position.score}
+                    </div>
+                  )}
                 </div>
               </div>
             );
-          }
-          
-          return (
-            <TeamScoreCard 
-              key={userId}
-              userId={userId}
-              userName={USER_NAMES[userId]}
-              teamScores={userTeamScores}
-              isHighestScore={userTeamScores.finalScore === highestScore && highestScore > 0}
-              isLowestScore={userTeamScores.finalScore === lowestScore && lowestScore > 0}
-              isSelectedUser={userId === selectedUserId}
-              isRoundComplete={isRoundComplete()}
-            />
-          );
-        })}
+          })}
+        </div>
+        
+        {/* Team Score + Dead Cert */}
+        <div className="border-t pt-2 space-y-1">
+          <div className="flex justify-between">
+            <span className="font-medium text-black">Team Score:</span>
+            <span className="font-semibold text-black">{teamScores.totalScore}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-black">Dead Cert:</span>
+            <span className="font-semibold text-black">{teamScores.deadCertScore}</span>
+          </div>
+        </div>
+
+        {/* Bench/Reserves - Very Compact */}
+        {teamScores.benchScores && teamScores.benchScores.length > 0 && (
+          <div className="bg-gray-50 p-2 rounded text-xs">
+            <h3 className="text-xs font-semibold mb-1 text-black">Bench/Reserves</h3>
+            {teamScores.benchScores.map((bench) => {
+              const showDNP = isRoundComplete && !bench.didPlay;
+              const isBeingUsed = bench.isBeingUsed;
+              
+              return (
+                <div key={bench.position} className="flex justify-between items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs truncate">{bench.position}</div>
+                    <div className={`text-xs truncate ${isBeingUsed ? 'text-green-600' : showDNP ? 'text-red-600' : 'text-black'}`}>
+                      {bench.playerName}
+                      {isBeingUsed && ' (Used)'}
+                      {!isRoundComplete && !isBeingUsed && ' : Locked'}
+                    </div>
+                  </div>
+                  <div className={`text-xs ${showDNP ? 'text-red-600' : isBeingUsed ? 'text-green-600' : 'text-black'}`}>
+                    {bench.score}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
-      
     </div>
   );
 }
