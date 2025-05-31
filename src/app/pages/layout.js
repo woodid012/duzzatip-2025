@@ -175,17 +175,24 @@ export default function PagesLayout({ children }) {
           </div>
         )}
       
-        {/* Top Banner */}
+        {/* Top Banner - Mobile Optimized */}
         <div className="bg-white shadow">
-          <div className="w-full p-4 md:p-6">
-            <div className="flex flex-col gap-2">
-              <div className="flex-shrink-0 px-4">
-                <Logo width={176} height={176} className="rounded-lg" />
+          <div className="w-full p-3 md:p-6">
+            {/* Mobile Layout - Logo and Info Side by Side */}
+            <div className="flex items-start gap-3 md:flex-col md:gap-2">
+              {/* Logo - Smaller on Mobile */}
+              <div className="flex-shrink-0">
+                <Logo 
+                  width={80} 
+                  height={80} 
+                  className="rounded-lg md:w-44 md:h-44" 
+                />
               </div>
               
-              {/* Competition Info Bar */}
-              <div className="flex flex-wrap justify-between items-center px-4 text-sm text-gray-600">
-                <div className="flex flex-wrap gap-4">
+              {/* Right side content on mobile, below logo on desktop */}
+              <div className="flex-1 min-w-0">
+                {/* Competition Info - Compact on Mobile */}
+                <div className="space-y-1 text-xs md:text-sm text-gray-600 mb-2 md:mb-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">Season:</span>
                     <span>{CURRENT_YEAR}</span>
@@ -194,7 +201,7 @@ export default function PagesLayout({ children }) {
                   {/* Only show round info when it's fully loaded */}
                   {showRoundInfo ? (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">Current Round:</span>
+                      <span className="font-semibold">Round:</span>
                       <span>{roundInfo.currentRoundDisplay}</span>
                     </div>
                   ) : (
@@ -204,34 +211,32 @@ export default function PagesLayout({ children }) {
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-2 text-sm">
-                    {showRoundInfo && roundInfo.lockoutTime && (
-                      <div className="flex gap-1 items-center">
+                  {/* Lockout info - Stacked on mobile */}
+                  {showRoundInfo && roundInfo.lockoutTime && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
                         <span className="text-gray-600">Lockout:</span>
-                        <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
+                        <span className="font-medium text-black text-xs">{roundInfo.lockoutTime}</span>
                         {roundInfo.isLocked && (
-                          <span className="text-red-600">(Locked)</span>
+                          <span className="text-red-600 text-xs">(Locked)</span>
                         )}
                       </div>
-                    )}
-                    {showRoundInfo && roundInfo.lockoutTime && roundInfo.roundEndTime && (
-                      <span className="text-gray-400 mx-1">|</span>
-                    )}
-                    {showRoundInfo && roundInfo.roundEndTime && (
-                      <div className="flex gap-1 items-center">
-                        <span className="text-gray-600">Round Ends:</span>
-                        <span className="font-medium text-black">{roundInfo.roundEndTime}</span>
-                      </div>
-                    )}
-                  </div>
+                      {roundInfo.roundEndTime && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600">Ends:</span>
+                          <span className="font-medium text-black text-xs">{roundInfo.roundEndTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
-                {/* User Selection Dropdown */}
-                <div className="flex items-center mt-2 sm:mt-0">
+                {/* User Selection - Full width on mobile */}
+                <div className="w-full">
                   <select
                     value={selectedUserId}
                     onChange={handleUserChange}
-                    className="p-2 border rounded text-base text-black bg-white w-48"
+                    className="w-full p-2 border rounded text-sm md:text-base text-black bg-white"
                   >
                     <option value="">Select Player</option>
                     {Object.entries(USER_NAMES).map(([id, name]) => (
@@ -244,7 +249,7 @@ export default function PagesLayout({ children }) {
                   
                   {/* Admin indicator */}
                   {selectedUserId === 'admin' && isAdminAuthenticated && (
-                    <span className="ml-2 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                    <span className="inline-block mt-1 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
                       Admin Mode
                     </span>
                   )}
@@ -265,7 +270,7 @@ export default function PagesLayout({ children }) {
                     <Link 
                       key={item.id}
                       href={item.path}
-                      className={`flex-shrink-0 md:flex-shrink block px-4 py-2 rounded-md transition-colors text-left whitespace-nowrap ${
+                      className={`flex-shrink-0 md:flex-shrink block px-3 py-2 md:px-4 rounded-md transition-colors text-left whitespace-nowrap text-sm ${
                         pathname === item.path
                           ? 'bg-blue-600 text-white'
                           : 'text-gray-700 hover:bg-gray-100'
