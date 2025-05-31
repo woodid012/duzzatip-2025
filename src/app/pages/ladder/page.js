@@ -59,6 +59,20 @@ export default function LadderPage() {
   // State for next fixtures
   const [nextFixtures, setNextFixtures] = useState({});
 
+  // Mobile view states
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Check if admin is selected
   const isAdmin = selectedUserId === 'admin';
 
@@ -416,6 +430,262 @@ export default function LadderPage() {
   }
 
   return (
+    <div className="w-full">
+      {/* Mobile View */}
+      <div className="block md:hidden">
+        <MobileLadder 
+          selectedRound={selectedRound}
+          handleRoundChange={handleRoundChange}
+          ladder={ladder}
+          currentRoundResults={currentRoundResults}
+          highestScore={highestScore}
+          lowestScore={lowestScore}
+          ytdStarCrabTotals={ytdStarCrabTotals}
+          mostStars={mostStars}
+          mostCrabs={mostCrabs}
+          teamForms={teamForms}
+          nextFixtures={nextFixtures}
+          getTeamCurrentRoundScore={getTeamCurrentRoundScore}
+          renderForm={renderForm}
+          isFinalRound={isFinalRound}
+          getFinalRoundName={getFinalRoundName}
+          isAdmin={isAdmin}
+        />
+      </div>
+
+      {/* Desktop View */}
+      <div className="hidden md:block">
+        <DesktopLadder 
+          selectedRound={selectedRound}
+          handleRoundChange={handleRoundChange}
+          ladder={ladder}
+          currentRoundResults={currentRoundResults}
+          highestScore={highestScore}
+          lowestScore={lowestScore}
+          ytdStarCrabTotals={ytdStarCrabTotals}
+          mostStars={mostStars}
+          mostCrabs={mostCrabs}
+          teamForms={teamForms}
+          nextFixtures={nextFixtures}
+          getTeamCurrentRoundScore={getTeamCurrentRoundScore}
+          renderForm={renderForm}
+          isFinalRound={isFinalRound}
+          getFinalRoundName={getFinalRoundName}
+          isAdmin={isAdmin}
+          showAdminPanel={showAdminPanel}
+          setShowAdminPanel={setShowAdminPanel}
+          showComparison={showComparison}
+          setShowComparison={setShowComparison}
+          handleCalculateAndStore={handleCalculateAndStore}
+          handleRecalculateLadder={handleRecalculateLadder}
+          handleClearCache={handleClearCache}
+          adminLoading={adminLoading}
+          adminMessage={adminMessage}
+          lastUpdated={lastUpdated}
+          dataSource={dataSource}
+          liveScores={liveScores}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Mobile Ladder Component
+function MobileLadder({
+  selectedRound,
+  handleRoundChange,
+  ladder,
+  currentRoundResults,
+  highestScore,
+  lowestScore,
+  ytdStarCrabTotals,
+  mostStars,
+  mostCrabs,
+  teamForms,
+  nextFixtures,
+  getTeamCurrentRoundScore,
+  renderForm,
+  isFinalRound,
+  getFinalRoundName,
+  isAdmin
+}) {
+  return (
+    <div className="p-3 space-y-4">
+      {/* Header */}
+      <div className="bg-white rounded-lg p-4 shadow">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-xl font-bold text-black">Season Ladder</h1>
+          <select 
+            value={selectedRound}
+            onChange={handleRoundChange}
+            className="border rounded p-2 text-sm text-black bg-white"
+          >
+            {[...Array(24)].map((_, i) => (
+              <option key={i + 1} value={i + 1}>{i + 1}</option>
+            ))}
+          </select>
+        </div>
+        
+        {/* Finals banner for rounds 22-24 */}
+        {isFinalRound(selectedRound) && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+            <h2 className="text-lg font-semibold text-yellow-800">
+              Finals Series: {getFinalRoundName(selectedRound)}
+            </h2>
+            <p className="text-yellow-700 text-sm">
+              {selectedRound === 22 && "1st plays 2nd (Winner to Grand Final), 3rd plays 4th (Winner to Prelim Final)."}
+              {selectedRound === 23 && "Loser from 1st vs 2nd plays Winner from 3rd vs 4th. Winner advances to Grand Final."}
+              {selectedRound === 24 && "Grand Final - Winner from 1st vs 2nd plays Winner from Prelim Final!"}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Ladder Cards */}
+      <div className="space-y-3">
+        {ladder.map((team, index) => {
+          const currentRoundScore = getTeamCurrentRoundScore(team.userId);
+          const roundCorrectTips = Math.floor(currentRoundScore / 1); // Assuming 1 point per correct tip
+          const roundDeadCertScore = currentRoundScore - roundCorrectTips;
+          
+          return (
+            <div key={team.userId} className="bg-white rounded-lg shadow p-4">
+              {/* Position and Team Name */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    index === 0 ? 'bg-yellow-500 text-white' :
+                    index >= 1 && index <= 3 ? 'bg-blue-500 text-white' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold text-black">{team.userName}</span>
+                      
+                      {/* Current round star/crab indicators */}
+                      {currentRoundResults[team.userId] && 
+                       currentRoundResults[team.userId] === highestScore && 
+                       highestScore > 0 && 
+                        <Star className="text-yellow-500" size={14} />}
+                      {currentRoundResults[team.userId] && 
+                       currentRoundResults[team.userId] === lowestScore && 
+                       lowestScore > 0 && highestScore !== lowestScore &&
+                        <GiCrab className="text-red-500" size={14} />}
+                    </div>
+                    
+                    {/* Record and Points */}
+                    <div className="text-xs text-gray-600">
+                      {team.wins}W-{team.losses}L-{team.draws}D • {team.points} pts
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Round Score - New Format */}
+              </div>
+              
+              {/* Stats Row */}
+              <div className="grid grid-cols-3 gap-4 text-center text-xs">
+                <div>
+                  <div className="text-gray-600">Stars/Crabs</div>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className={`font-medium ${mostStars.includes(team.userId) ? 'text-yellow-600 font-bold' : 'text-yellow-600'}`}>
+                      ⭐ {ytdStarCrabTotals[team.userId]?.stars || 0}
+                    </span>
+                    <span className={`font-medium ${mostCrabs.includes(team.userId) ? 'text-red-600 font-bold' : 'text-red-600'}`}>
+                      🦀 {ytdStarCrabTotals[team.userId]?.crabs || 0}
+                    </span>
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-gray-600">For/Against</div>
+                  <div className="font-medium text-black">
+                    {team.pointsFor}/{team.pointsAgainst}
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-gray-600">Percentage</div>
+                  <div className="font-medium text-black">{team.percentage}%</div>
+                </div>
+              </div>
+              
+              {/* Form and Next Opponent */}
+              <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t text-xs">
+                <div>
+                  <div className="text-gray-600 mb-1">Form (Recent)</div>
+                  <div className="flex items-center">
+                    {renderForm(teamForms[team.userId])}
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-gray-600 mb-1">Next (R{selectedRound + 1})</div>
+                  <div className="font-medium text-black">
+                    {nextFixtures[team.userId] ? (
+                      <span>
+                        {nextFixtures[team.userId].isHome ? 'vs' : '@'} {nextFixtures[team.userId].opponent}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-semibold text-black mb-2">Legend</h3>
+        <div className="text-xs text-gray-600 space-y-1">
+          <div><span className="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-2"></span> Minor Premiership</div>
+          <div><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2"></span> Finals positions (2-4)</div>
+          <div className="flex items-center"><Star className="text-yellow-500 mr-1" size={12} /> Highest score this round / Most stars YTD</div>
+          <div className="flex items-center"><GiCrab className="text-red-500 mr-1" size={12} /> Lowest score this round / Most crabs YTD</div>
+          <div><span className="font-medium">Form:</span> W=Win, L=Loss, D=Draw (last 5 games)</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Desktop Ladder Component (Original)
+function DesktopLadder({
+  selectedRound,
+  handleRoundChange,
+  ladder,
+  currentRoundResults,
+  highestScore,
+  lowestScore,
+  ytdStarCrabTotals,
+  mostStars,
+  mostCrabs,
+  teamForms,
+  nextFixtures,
+  getTeamCurrentRoundScore,
+  renderForm,
+  isFinalRound,
+  getFinalRoundName,
+  isAdmin,
+  showAdminPanel,
+  setShowAdminPanel,
+  showComparison,
+  setShowComparison,
+  handleCalculateAndStore,
+  handleRecalculateLadder,
+  handleClearCache,
+  adminLoading,
+  adminMessage,
+  lastUpdated,
+  dataSource,
+  liveScores
+}) {
+  return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -576,24 +846,10 @@ export default function LadderPage() {
             Finals Series: {getFinalRoundName(selectedRound)}
           </h2>
           <p className="text-yellow-700">
-            // Update these lines (around line 186-190):
             {selectedRound === 22 && "1st plays 2nd (Winner to Grand Final), 3rd plays 4th (Winner to Prelim Final)."}
             {selectedRound === 23 && "Loser from 1st vs 2nd plays Winner from 3rd vs 4th. Winner advances to Grand Final."}
             {selectedRound === 24 && "Grand Final - Winner from 1st vs 2nd plays Winner from Prelim Final!"}
           </p>
-        </div>
-      )}
-
-      {/* Loading indicator for calculations */}
-      {(loadingStarCrabs || loadingForms) && (
-        <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded">
-          <div className="flex items-center gap-2 text-blue-700">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            <span className="text-sm">
-              {loadingStarCrabs && "Calculating YTD star/crab totals..."}
-              {loadingForms && "Calculating team forms..."}
-            </span>
-          </div>
         </div>
       )}
 
@@ -630,73 +886,86 @@ export default function LadderPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {ladder.map((team, index) => (
-              <tr key={team.userId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {index + 1}
-                  {index === 0 && <span className="ml-1 text-green-600">•</span>}
-                  {index >= 1 && index <= 3 && <span className="ml-1 text-blue-600">•</span>}
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  <div className="flex items-center gap-1">
-                    {team.userName}
-                    
-                    {/* Show current round star/crab if applicable */}
-                    {currentRoundResults[team.userId] && 
-                     currentRoundResults[team.userId] === highestScore && 
-                     highestScore > 0 && 
-                      <Star className="text-yellow-500" size={16} />}
-                    {currentRoundResults[team.userId] && 
-                     currentRoundResults[team.userId] === lowestScore && 
-                     lowestScore > 0 && highestScore !== lowestScore &&
-                      <GiCrab className="text-red-500" size={16} />}
-                  </div>
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.played}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.wins}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.losses}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.draws}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">{team.points}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                  <div className="flex items-center justify-center">
-                    <span className={`font-medium ${mostStars.includes(team.userId) ? 'text-yellow-600 font-bold' : 'text-yellow-600'}`}>
-                      {ytdStarCrabTotals[team.userId]?.stars || 0}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                  <div className="flex items-center justify-center">
-                    <span className={`font-medium ${mostCrabs.includes(team.userId) ? 'text-red-600 font-bold' : 'text-red-600'}`}>
-                      {ytdStarCrabTotals[team.userId]?.crabs || 0}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
-                  {team.pointsFor} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsFor / team.played)})</span>}
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
-                  {team.pointsAgainst} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsAgainst / team.played)})</span>}
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.percentage}</td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">
-                  {getTeamCurrentRoundScore(team.userId)}
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                  <div className="flex items-center justify-center">
-                    {renderForm(teamForms[team.userId])}
-                  </div>
-                </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-700">
-                  {nextFixtures[team.userId] ? (
-                    <span className="font-medium">
-                      {nextFixtures[team.userId].opponent}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {ladder.map((team, index) => {
+              const currentRoundScore = getTeamCurrentRoundScore(team.userId);
+              // Calculate tips and DCs from the current round score
+              // This is a simplified calculation - you might need to adjust based on your scoring system
+              const roundCorrectTips = Math.floor(currentRoundScore / 1); // Assuming 1 point per correct tip
+              const roundDeadCertScore = currentRoundScore - roundCorrectTips;
+              
+              return (
+                <tr key={team.userId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {index + 1}
+                    {index === 0 && <span className="ml-1 text-green-600">•</span>}
+                    {index >= 1 && index <= 3 && <span className="ml-1 text-blue-600">•</span>}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <div className="flex items-center gap-1">
+                      {team.userName}
+                      
+                      {/* Show current round star/crab if applicable */}
+                      {currentRoundResults[team.userId] && 
+                       currentRoundResults[team.userId] === highestScore && 
+                       highestScore > 0 && 
+                        <Star className="text-yellow-500" size={16} />}
+                      {currentRoundResults[team.userId] && 
+                       currentRoundResults[team.userId] === lowestScore && 
+                       lowestScore > 0 && highestScore !== lowestScore &&
+                        <GiCrab className="text-red-500" size={16} />}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.played}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.wins}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.losses}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.draws}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">{team.points}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                    <div className="flex items-center justify-center">
+                      <span className={`font-medium ${mostStars.includes(team.userId) ? 'text-yellow-600 font-bold' : 'text-yellow-600'}`}>
+                        {ytdStarCrabTotals[team.userId]?.stars || 0}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                    <div className="flex items-center justify-center">
+                      <span className={`font-medium ${mostCrabs.includes(team.userId) ? 'text-red-600 font-bold' : 'text-red-600'}`}>
+                        {ytdStarCrabTotals[team.userId]?.crabs || 0}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                    {team.pointsFor} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsFor / team.played)})</span>}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                    {team.pointsAgainst} {team.played > 0 && <span className="text-gray-400">({Math.round(team.pointsAgainst / team.played)})</span>}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-500">{team.percentage}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">
+                    <div className="flex flex-col">
+                      <span className="font-bold">{currentRoundScore}</span>
+                      <span className="text-xs text-gray-500">
+                        {roundCorrectTips} Tips + {roundDeadCertScore} DCs
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                    <div className="flex items-center justify-center">
+                      {renderForm(teamForms[team.userId])}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-700">
+                    {nextFixtures[team.userId] ? (
+                      <span className="font-medium">
+                        {nextFixtures[team.userId].opponent}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
