@@ -1151,8 +1151,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 63,
+    "AwayTeamScore": 91
   },
   {
     "MatchNumber": 106,
@@ -1162,8 +1162,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 73,
+    "AwayTeamScore": 116
   },
   {
     "MatchNumber": 107,
