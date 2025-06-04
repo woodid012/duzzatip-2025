@@ -24,7 +24,7 @@ export default function useLadder() {
     try {
       console.log(`Fetching ladder data for round ${currentRound}`);
       
-      // First, try to get cached ladder from database
+      // Get ladder data (now includes auto-storage logic)
       const ladderResponse = await fetch(`/api/ladder?round=${currentRound}`);
       
       if (!ladderResponse.ok) {
@@ -41,7 +41,7 @@ export default function useLadder() {
         
         setLadder(ladderData.standings);
         setLastUpdated(ladderData.lastUpdated ? new Date(ladderData.lastUpdated) : null);
-        setDataSource(ladderData.fromCache ? 'cached' : 'calculated');
+        setDataSource(ladderData.fromCache ? 'cached' : 'live');
       } else {
         console.warn(`No ladder data available for round ${currentRound}`);
         setLadder([]);
@@ -88,7 +88,9 @@ export default function useLadder() {
         if (resultsData.found && resultsData.results) {
           setCurrentRoundResults(resultsData.results);
         } else {
-          setCurrentRoundResults({});
+          // If no stored results, try to get live results
+          const liveResults = await fetchLiveCurrentRoundResults();
+          setCurrentRoundResults(liveResults);
         }
       }
     } catch (error) {
@@ -97,122 +99,36 @@ export default function useLadder() {
     }
   }, [currentRound]);
 
-  // Force recalculate ladder from stored results
-  const recalculateLadder = useCallback(async () => {
-    if (currentRound === undefined || currentRound === null) return;
-    
-    setLoading(true);
-    setError(null);
+  // Fetch live current round results
+  const fetchLiveCurrentRoundResults = useCallback(async () => {
+    const results = {};
     
     try {
-      console.log(`Force recalculating ladder for round ${currentRound}`);
-      
-      const response = await fetch('/api/ladder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          round: currentRound,
-          standings: [],
-          forceRecalculate: true
-        })
+      // Get live results for all users
+      const userPromises = Object.keys(USER_NAMES).map(async (userId) => {
+        try {
+          const response = await fetch(`/api/round-results?round=${currentRound}&userId=${userId}`);
+          if (response.ok) {
+            const userData = await response.json();
+            return { userId, score: userData.total || 0 };
+          }
+          return { userId, score: 0 };
+        } catch (error) {
+          console.warn(`Error getting live results for user ${userId}:`, error);
+          return { userId, score: 0 };
+        }
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to recalculate ladder');
-      }
+      const userResults = await Promise.all(userPromises);
+      userResults.forEach(({ userId, score }) => {
+        results[userId] = score;
+      });
       
-      const data = await response.json();
-      
-      if (data.standings) {
-        setLadder(data.standings);
-        setLastUpdated(new Date());
-        setDataSource('recalculated');
-        console.log(`Successfully recalculated ladder for round ${currentRound}`);
-      }
-      
-    } catch (err) {
-      console.error('Error recalculating ladder:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching live round results:', error);
     }
-  }, [currentRound]);
-
-  // Calculate and store current round results
-  const calculateAndStoreCurrentRound = useCallback(async (forceRecalculate = false) => {
-    if (currentRound === undefined || currentRound === null) return;
     
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log(`Calculating and storing results for round ${currentRound}`);
-      
-      const response = await fetch('/api/store-round-results', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          round: currentRound,
-          forceRecalculate: forceRecalculate
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to calculate and store round results');
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log(data.message);
-        setCurrentRoundResults(data.results || {});
-        
-        // Trigger a re-fetch of ladder data by updating a trigger state
-        // This is safer than calling fetchLadderData directly
-        window.location.reload(); // Simple but effective solution
-      }
-      
-      return data;
-      
-    } catch (err) {
-      console.error('Error calculating and storing round results:', err);
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [currentRound]);
-
-  // Clear cached data for current round
-  const clearCachedData = useCallback(async () => {
-    if (currentRound === undefined || currentRound === null) return;
-    
-    try {
-      console.log(`Clearing cached data for round ${currentRound}`);
-      
-      // Clear cached ladder
-      await fetch(`/api/ladder?round=${currentRound}`, {
-        method: 'DELETE'
-      });
-      
-      // Clear stored round results
-      await fetch(`/api/store-round-results?round=${currentRound}`, {
-        method: 'DELETE'
-      });
-      
-      // Refresh data
-      setTimeout(async () => {
-        await fetchLadderData();
-      }, 500);
-      
-    } catch (err) {
-      console.error('Error clearing cached data:', err);
-      setError(err.message);
-    }
+    return results;
   }, [currentRound]);
 
   // Get team's current round score
@@ -266,6 +182,11 @@ export default function useLadder() {
     return [];
   }, [ladder]);
 
+  // Refresh data manually
+  const refreshLadder = useCallback(async () => {
+    await fetchLadderData();
+  }, [fetchLadderData]);
+
   return {
     // State
     ladder,
@@ -278,9 +199,7 @@ export default function useLadder() {
     
     // Actions
     changeRound,
-    recalculateLadder,
-    calculateAndStoreCurrentRound,
-    clearCachedData,
+    refreshLadder,
     
     // Getters
     getTeamCurrentRoundScore,
