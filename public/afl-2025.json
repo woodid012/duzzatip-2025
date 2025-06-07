@@ -1184,8 +1184,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 68,
+    "AwayTeamScore": 63
   },
   {
     "MatchNumber": 109,
