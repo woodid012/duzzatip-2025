@@ -1195,8 +1195,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 36,
+    "AwayTeamScore": 80
   },
   {
     "MatchNumber": 110,
@@ -1206,8 +1206,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 61,
+    "AwayTeamScore": 37
   },
   {
     "MatchNumber": 111,
@@ -1217,8 +1217,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 50,
+    "AwayTeamScore": 66
   },
   {
     "MatchNumber": 112,
