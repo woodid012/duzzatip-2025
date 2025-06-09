@@ -3,8 +3,8 @@ import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 
 /**
- * GET handler for ladder data
- * Retrieves current live ladder or calculates it from stored results
+ * GET handler for ladder data.
+ * Retrieves ladder, using a cache that automatically updates.
  */
 export async function GET(request) {
     try {
@@ -13,15 +13,20 @@ export async function GET(request) {
         
         const { db } = await connectToDatabase();
         
-        // Check if round results should be automatically stored
-        await checkAndStoreRoundResults(db, round);
+        // Automatically check and store results for any past rounds that need it.
+        await checkAndStorePastRoundResults(db, round);
         
-        // Try to get cached ladder first
-        const cachedLadder = await db.collection(`${CURRENT_YEAR}_ladder`)
-            .findOne({ round: round });
+        const ladderCollection = db.collection(`${CURRENT_YEAR}_ladder`);
         
-        if (cachedLadder && cachedLadder.standings) {
-            console.log(`Returning cached ladder for round ${round}`);
+        // Check for a cached ladder
+        const cachedLadder = await ladderCollection.findOne({ round: round });
+        
+        // Set a max age for the cache (e.g., 15 minutes)
+        const CACHE_MAX_AGE_MS = 15 * 60 * 1000;
+        const isCacheStale = !cachedLadder || !cachedLadder.lastUpdated || (new Date() - new Date(cachedLadder.lastUpdated) > CACHE_MAX_AGE_MS);
+        
+        if (cachedLadder && cachedLadder.standings && !isCacheStale) {
+            console.log(`Returning fresh cached ladder for round ${round}`);
             return Response.json({
                 standings: cachedLadder.standings,
                 lastUpdated: cachedLadder.lastUpdated,
@@ -29,160 +34,127 @@ export async function GET(request) {
             });
         }
         
-        // If no cached data, calculate from stored results or live data
-        console.log(`Calculating ladder for round ${round}`);
+        // If cache is missing or stale, calculate a new ladder
+        console.log(`Calculating new ladder for round ${round} (cache was ${cachedLadder ? 'stale' : 'missing'})`);
         const calculatedLadder = await calculateLadderFromAvailableData(db, round);
+        
+        const lastUpdated = new Date();
+
+        // Save the newly calculated ladder to the cache
+        await ladderCollection.updateOne(
+            { round: round },
+            { 
+                $set: { 
+                    round: round,
+                    standings: calculatedLadder,
+                    lastUpdated: lastUpdated,
+                    calculatedFrom: 'auto_update'
+                } 
+            },
+            { upsert: true }
+        );
         
         return Response.json({
             standings: calculatedLadder,
+            lastUpdated: lastUpdated,
             fromCache: false,
             calculated: true
         });
         
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('API Error in GET /api/ladder:', error);
         return Response.json({ error: 'Failed to fetch ladder data' }, { status: 500 });
     }
 }
 
 /**
- * POST handler to store/update ladder data (kept for manual overrides if needed)
+ * POST handler to store/update ladder data (for manual overrides).
  */
 export async function POST(request) {
     try {
         const data = await request.json();
         const { round, standings, forceRecalculate } = data;
         
-        if (!round || !Array.isArray(standings) || standings.length === 0) {
-            return Response.json(
-                { error: 'Invalid data: round and standings array required' }, 
-                { status: 400 }
-            );
+        if (!round) {
+            return Response.json({ error: 'Invalid data: round is required' }, { status: 400 });
         }
         
         const { db } = await connectToDatabase();
         
-        // If force recalculate is requested, calculate fresh ladder
         if (forceRecalculate) {
             console.log(`Force recalculating ladder for round ${round}`);
             const freshLadder = await calculateLadderFromAvailableData(db, round);
             
-            // Store the fresh calculation
             await db.collection(`${CURRENT_YEAR}_ladder`).updateOne(
                 { round: round },
-                { 
-                    $set: { 
-                        round: round,
-                        standings: freshLadder,
-                        lastUpdated: new Date(),
-                        calculatedFrom: 'forced_recalculation'
-                    } 
-                },
+                { $set: { round, standings: freshLadder, lastUpdated: new Date(), calculatedFrom: 'forced_recalculation' } },
                 { upsert: true }
             );
             
-            return Response.json({ 
-                success: true, 
-                standings: freshLadder,
-                recalculated: true 
-            });
+            return Response.json({ success: true, standings: freshLadder, recalculated: true });
         }
         
-        // Otherwise, store the provided standings
+        if (!Array.isArray(standings) || standings.length === 0) {
+            return Response.json({ error: 'Invalid data: standings array required for manual update' }, { status: 400 });
+        }
+        
         await db.collection(`${CURRENT_YEAR}_ladder`).updateOne(
             { round: round },
-            { 
-                $set: { 
-                    round: round,
-                    standings: standings,
-                    lastUpdated: new Date(),
-                    calculatedFrom: 'provided'
-                } 
-            },
+            { $set: { round, standings, lastUpdated: new Date(), calculatedFrom: 'provided' } },
             { upsert: true }
         );
         
         return Response.json({ success: true });
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('API Error in POST /api/ladder:', error);
         return Response.json({ error: 'Failed to store ladder data' }, { status: 500 });
     }
 }
 
 /**
- * Check if round results should be automatically stored (1 week after round completion)
+ * Checks all past rounds and stores their results if they are over a week old and not yet stored.
  */
-async function checkAndStoreRoundResults(db, round) {
+async function checkAndStorePastRoundResults(db, currentRound) {
     try {
-        // Don't auto-store for current round or future rounds
-        if (round === 0) return; // Skip opening round
-        
-        // Check if results are already stored
-        const existingResults = await db.collection(`${CURRENT_YEAR}_round_results`)
-            .findOne({ round: round });
+        for (let roundToCheck = 1; roundToCheck < currentRound; roundToCheck++) {
+            const existingResults = await db.collection(`${CURRENT_YEAR}_round_results`).findOne({ round: roundToCheck });
             
-        if (existingResults) {
-            console.log(`Results already stored for round ${round}`);
-            return; // Already stored
+            if (existingResults) {
+                continue; // Already stored
+            }
+            
+            const roundEndDate = await getRoundEndDate(roundToCheck);
+            if (!roundEndDate) continue;
+            
+            const now = new Date();
+            const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+            const oneWeekAfterRoundEnd = new Date(roundEndDate.getTime() + ONE_WEEK_MS);
+            
+            if (now > oneWeekAfterRoundEnd) {
+                console.log(`Auto-storing results for round ${roundToCheck} (1 week has passed)`);
+                await autoStoreRoundResults(db, roundToCheck);
+            }
         }
-        
-        // Calculate if round ended more than 1 week ago
-        const roundEndDate = await getRoundEndDate(round);
-        if (!roundEndDate) return;
-        
-        const now = new Date();
-        const oneWeekAfterRoundEnd = new Date(roundEndDate.getTime() + (7 * 24 * 60 * 60 * 1000));
-        
-        if (now > oneWeekAfterRoundEnd) {
-            console.log(`Auto-storing results for round ${round} (1 week has passed)`);
-            await autoStoreRoundResults(db, round);
-        }
-        
     } catch (error) {
-        console.error(`Error checking auto-store for round ${round}:`, error);
+        console.error(`Error checking auto-store for currentRound ${currentRound}:`, error);
     }
 }
 
 /**
- * Automatically store round results
+ * Fetches and stores the results for a specific round.
  */
 async function autoStoreRoundResults(db, round) {
     try {
-        // Calculate current results using the live scoring system
-        const results = {};
+        const results = await calculateLiveRoundResults(round);
         
-        // Call the existing round-results API for each user to get their complete scores
-        for (const userId of Object.keys(USER_NAMES)) {
-            try {
-                const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-                const response = await fetch(`${baseUrl}/api/round-results?round=${round}&userId=${userId}`);
-                
-                if (response.ok) {
-                    const userData = await response.json();
-                    results[userId] = userData.total || 0;
-                    console.log(`Auto-stored score for user ${userId} round ${round}: ${userData.total}`);
-                } else {
-                    console.warn(`Failed to get results for user ${userId} in round ${round}: ${response.status}`);
-                    results[userId] = 0;
-                }
-            } catch (error) {
-                console.error(`Error getting results for user ${userId}:`, error);
-                results[userId] = 0;
-            }
+        if (Object.keys(results).length === 0) {
+            console.warn(`No results to auto-store for round ${round}`);
+            return;
         }
-        
-        // Store the results
+
         await db.collection(`${CURRENT_YEAR}_round_results`).updateOne(
             { round: round },
-            { 
-                $set: { 
-                    round: round,
-                    results: results,
-                    lastUpdated: new Date(),
-                    source: 'auto_stored',
-                    userCount: Object.keys(results).length
-                } 
-            },
+            { $set: { round, results, lastUpdated: new Date(), source: 'auto_stored' } },
             { upsert: true }
         );
         
@@ -194,13 +166,12 @@ async function autoStoreRoundResults(db, round) {
 }
 
 /**
- * Get round end date (3 hours after last fixture)
+ * Gets the end date for a round (estimated as 3 hours after the last game).
  */
 async function getRoundEndDate(round) {
     try {
-        // This would need to fetch from your fixtures API or database
-        // For now, using a simplified approach
-        const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/tipping-data`);
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+        const response = await fetch(`${baseUrl}/api/tipping-data`);
         if (!response.ok) return null;
         
         const fixtures = await response.json();
@@ -208,10 +179,8 @@ async function getRoundEndDate(round) {
         
         if (roundFixtures.length === 0) return null;
         
-        // Get last fixture of the round
         const lastFixture = roundFixtures.sort((a, b) => new Date(b.DateUtc) - new Date(a.DateUtc))[0];
         
-        // Add 3 hours to get round end time
         const roundEndDate = new Date(lastFixture.DateUtc);
         roundEndDate.setHours(roundEndDate.getHours() + 3);
         
@@ -224,155 +193,112 @@ async function getRoundEndDate(round) {
 }
 
 /**
- * Calculate ladder from available data (stored results or live calculation)
+ * Calculates the ladder from all available data, using stored results where possible.
  */
 async function calculateLadderFromAvailableData(db, currentRound) {
-    try {
-        // Initialize ladder with all users
-        const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
-            userId,
-            userName,
-            played: 0,
-            wins: 0,
-            losses: 0,
-            draws: 0,
-            pointsFor: 0,
-            pointsAgainst: 0,
-            percentage: 0,
-            points: 0
-        }));
+    const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
+        userId, userName, played: 0, wins: 0, losses: 0, draws: 0,
+        pointsFor: 0, pointsAgainst: 0, percentage: 0, points: 0
+    }));
 
-        // Process regular season rounds (1 up to currentRound)
-        for (let round = 1; round <= Math.min(currentRound, 21); round++) {
-            let roundResults = null;
-            
-            // Try to get stored results first
-            const storedResults = await db.collection(`${CURRENT_YEAR}_round_results`)
-                .findOne({ round: round });
-                
-            if (storedResults && storedResults.results) {
-                roundResults = storedResults.results;
-                console.log(`Using stored results for round ${round}`);
-            } else {
-                // Calculate live results for this round
-                console.log(`Calculating live results for round ${round}`);
-                roundResults = await calculateLiveRoundResults(round);
-            }
-            
-            if (!roundResults || Object.keys(roundResults).length === 0) {
-                console.log(`No results available for round ${round}, skipping`);
-                continue;
-            }
-            
-            // Get fixtures for this round
-            const fixtures = getFixturesForRound(round);
-            
-            // Process each fixture
-            fixtures.forEach(fixture => {
-                const homeUserId = String(fixture.home);
-                const awayUserId = String(fixture.away);
-                
-                // Skip if scores aren't available for either team
-                if (!roundResults[homeUserId] || !roundResults[awayUserId]) {
-                    console.log(`Missing results for fixture ${homeUserId} vs ${awayUserId} in round ${round}`);
-                    return;
-                }
-                
-                const homeScore = roundResults[homeUserId];
-                const awayScore = roundResults[awayUserId];
-                
-                const homeLadder = ladder.find(entry => entry.userId === homeUserId);
-                const awayLadder = ladder.find(entry => entry.userId === awayUserId);
-                
-                if (homeLadder && awayLadder) {
-                    homeLadder.played += 1;
-                    awayLadder.played += 1;
-                    
-                    homeLadder.pointsFor += homeScore;
-                    homeLadder.pointsAgainst += awayScore;
-                    
-                    awayLadder.pointsFor += awayScore;
-                    awayLadder.pointsAgainst += homeScore;
-                    
-                    if (homeScore > awayScore) {
-                        // Home team wins
-                        homeLadder.wins += 1;
-                        homeLadder.points += 4;
-                        awayLadder.losses += 1;
-                    } else if (awayScore > homeScore) {
-                        // Away team wins
-                        awayLadder.wins += 1;
-                        awayLadder.points += 4;
-                        homeLadder.losses += 1;
-                    } else {
-                        // Draw
-                        homeLadder.draws += 1;
-                        homeLadder.points += 2;
-                        awayLadder.draws += 1;
-                        awayLadder.points += 2;
-                    }
-                }
-            });
-        }
-
-        // Calculate percentages
-        ladder.forEach(team => {
-            team.percentage = team.pointsAgainst === 0 
-                ? team.pointsFor * 100 
-                : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
-        });
-
-        // Sort ladder by points, then percentage
-        return ladder.sort((a, b) => {
-            if (b.points !== a.points) {
-                return b.points - a.points;
-            }
-            return b.percentage - a.percentage;
-        });
+    for (let round = 1; round <= Math.min(currentRound, 21); round++) {
+        let roundResults = null;
         
-    } catch (error) {
-        console.error('Error calculating ladder from available data:', error);
-        throw error;
+        const storedResults = await db.collection(`${CURRENT_YEAR}_round_results`).findOne({ round });
+            
+        if (storedResults && storedResults.results) {
+            roundResults = storedResults.results;
+        } else {
+            console.log(`Calculating live results for round ${round}`);
+            roundResults = await calculateLiveRoundResults(round);
+        }
+        
+        if (!roundResults || Object.keys(roundResults).length === 0) {
+            console.log(`No results available for round ${round}, skipping`);
+            continue;
+        }
+        
+        const fixtures = getFixturesForRound(round);
+        
+        fixtures.forEach(fixture => {
+            const homeUserId = String(fixture.home);
+            const awayUserId = String(fixture.away);
+            
+            if (roundResults[homeUserId] === undefined || roundResults[awayUserId] === undefined) {
+                return;
+            }
+            
+            const homeScore = roundResults[homeUserId];
+            const awayScore = roundResults[awayUserId];
+            
+            const homeLadder = ladder.find(entry => entry.userId === homeUserId);
+            const awayLadder = ladder.find(entry => entry.userId === awayUserId);
+            
+            if (homeLadder && awayLadder) {
+                homeLadder.played++;
+                awayLadder.played++;
+                homeLadder.pointsFor += homeScore;
+                homeLadder.pointsAgainst += awayScore;
+                awayLadder.pointsFor += awayScore;
+                awayLadder.pointsAgainst += homeScore;
+                
+                if (homeScore > awayScore) {
+                    homeLadder.wins++;
+                    homeLadder.points += 4;
+                    awayLadder.losses++;
+                } else if (awayScore > homeScore) {
+                    awayLadder.wins++;
+                    awayLadder.points += 4;
+                    homeLadder.losses++;
+                } else {
+                    homeLadder.draws++;
+                    homeLadder.points += 2;
+                    awayLadder.draws++;
+                    awayLadder.points += 2;
+                }
+            }
+        });
     }
+
+    ladder.forEach(team => {
+        team.percentage = team.pointsAgainst === 0 
+            ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
+            : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+    });
+
+    return ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
 }
 
 /**
- * Calculate live round results using the existing round-results API
+ * Calculates live round results by calling the round-results API for all users.
  */
 async function calculateLiveRoundResults(round) {
-    try {
-        const results = {};
-        
-        // Use the existing round-results API endpoint for each user
-        for (const userId of Object.keys(USER_NAMES)) {
-            try {
-                const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-                const response = await fetch(`${baseUrl}/api/round-results?round=${round}&userId=${userId}`);
-                
-                if (response.ok) {
-                    const userData = await response.json();
-                    results[userId] = userData.total || 0;
-                    console.log(`Got live score for user ${userId} round ${round}: ${userData.total}`);
-                } else {
-                    console.warn(`Failed to get live results for user ${userId} in round ${round}: ${response.status}`);
-                    results[userId] = 0;
-                }
-            } catch (error) {
-                console.error(`Error getting live results for user ${userId} round ${round}:`, error);
-                results[userId] = 0;
+    const results = {};
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    
+    const userPromises = Object.keys(USER_NAMES).map(async (userId) => {
+        try {
+            const response = await fetch(`${baseUrl}/api/round-results?round=${round}&userId=${userId}`);
+            if (response.ok) {
+                const userData = await response.json();
+                return { userId, total: userData.total || 0 };
             }
+        } catch (error) {
+            console.error(`Error getting live results for user ${userId} round ${round}:`, error);
         }
-        
-        return results;
-        
-    } catch (error) {
-        console.error('Error calculating live round results:', error);
-        return {};
-    }
+        return { userId, total: 0 };
+    });
+
+    const userResults = await Promise.all(userPromises);
+    userResults.forEach(({ userId, total }) => {
+        results[userId] = total;
+    });
+    
+    return results;
 }
 
 /**
- * DELETE handler to clear cached ladder data
+ * DELETE handler to clear cached ladder data for a specific round.
  */
 export async function DELETE(request) {
     try {
@@ -384,13 +310,16 @@ export async function DELETE(request) {
         }
         
         const { db } = await connectToDatabase();
+        const result = await db.collection(`${CURRENT_YEAR}_ladder`).deleteOne({ round: round });
         
-        await db.collection(`${CURRENT_YEAR}_ladder`).deleteOne({ round: round });
-        
+        if (result.deletedCount === 0) {
+            return Response.json({ success: true, message: `No cached ladder to clear for round ${round}` });
+        }
+
         return Response.json({ success: true, message: `Cleared cached ladder for round ${round}` });
         
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('API Error in DELETE /api/ladder:', error);
         return Response.json({ error: 'Failed to clear ladder data' }, { status: 500 });
     }
 }
