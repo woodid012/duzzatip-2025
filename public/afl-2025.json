@@ -1250,8 +1250,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 71,
+    "AwayTeamScore": 72
   },
   {
     "MatchNumber": 115,
