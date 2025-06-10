@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { USER_NAMES } from '@/app/lib/constants';
-import useLadder from '@/app/hooks/useLadder';
 import useResults from '@/app/hooks/useResults';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { useUserContext } from '../layout';
@@ -13,27 +12,20 @@ export default function LadderPage() {
   // Get selected user context
   const { selectedUserId } = useUserContext();
   
-  const { 
-    ladder, 
-    currentRoundResults,
-    loading, 
-    error, 
-    changeRound, 
-    isFinalRound, 
-    getFinalRoundName,
-    currentRound,
-    lastUpdated,
-    dataSource,
-    refreshLadder,
-    getTeamCurrentRoundScore,
-    getTeamLadderPosition
-  } = useLadder();
-
+  // State for the round we're viewing the ladder for
+  const [selectedRound, setSelectedRound] = useState(1);
+  
+  // State for calculated ladder
+  const [ladder, setLadder] = useState([]);
+  const [currentRoundResults, setCurrentRoundResults] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
   // State for YTD star/crab totals
   const [ytdStarCrabTotals, setYtdStarCrabTotals] = useState({});
   const [loadingStarCrabs, setLoadingStarCrabs] = useState(false);
 
-  // State for form data
+  // State for team forms
   const [teamForms, setTeamForms] = useState({});
   const [loadingForms, setLoadingForms] = useState(false);
 
@@ -42,7 +34,6 @@ export default function LadderPage() {
 
   // Mobile view states
   const [isMobile, setIsMobile] = useState(false);
-  const [selectedRound, setSelectedRound] = useState(currentRound);
   
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -55,172 +46,274 @@ export default function LadderPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Sync selected round with current round
-  useEffect(() => {
-    if (currentRound !== undefined) {
-      setSelectedRound(currentRound);
+  // Calculate ladder from team scores
+  const calculateLadder = async (upToRound) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Initialize ladder with all users
+      const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
+        userId,
+        userName,
+        played: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        pointsFor: 0,
+        pointsAgainst: 0,
+        percentage: 0,
+        points: 0
+      }));
+
+      // Get results for each round up to the selected round
+      const allRoundResults = {};
+      
+      // Process regular season rounds (1-21) only for ladder standings
+      for (let round = 1; round <= Math.min(upToRound, 21); round++) {
+        console.log(`Calculating scores for round ${round}`);
+        
+        // Get team selections for this round
+        const teamSelectionsRes = await fetch(`/api/team-selection?round=${round}`);
+        if (!teamSelectionsRes.ok) continue;
+        const teamSelections = await teamSelectionsRes.json();
+        
+        // Calculate scores for each user in this round
+        const roundResults = {};
+        
+        for (const userId of Object.keys(USER_NAMES)) {
+          try {
+            // Get round results using the same API as results page
+            const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+            if (roundResultsRes.ok) {
+              const userData = await roundResultsRes.json();
+              roundResults[userId] = userData.total || 0;
+            } else {
+              roundResults[userId] = 0;
+            }
+          } catch (error) {
+            console.error(`Error getting results for user ${userId} round ${round}:`, error);
+            roundResults[userId] = 0;
+          }
+        }
+        
+        allRoundResults[round] = roundResults;
+        
+        // Process fixtures for this round
+        const fixtures = getFixturesForRound(round);
+        
+        fixtures.forEach(fixture => {
+          const homeUserId = String(fixture.home);
+          const awayUserId = String(fixture.away);
+          
+          if (roundResults[homeUserId] === undefined || roundResults[awayUserId] === undefined) {
+            return;
+          }
+          
+          const homeScore = roundResults[homeUserId];
+          const awayScore = roundResults[awayUserId];
+          
+          const homeLadder = ladder.find(entry => entry.userId === homeUserId);
+          const awayLadder = ladder.find(entry => entry.userId === awayUserId);
+          
+          if (homeLadder && awayLadder) {
+            homeLadder.played++;
+            awayLadder.played++;
+            homeLadder.pointsFor += homeScore;
+            homeLadder.pointsAgainst += awayScore;
+            awayLadder.pointsFor += awayScore;
+            awayLadder.pointsAgainst += homeScore;
+            
+            if (homeScore > awayScore) {
+              homeLadder.wins++;
+              homeLadder.points += 4;
+              awayLadder.losses++;
+            } else if (awayScore > homeScore) {
+              awayLadder.wins++;
+              awayLadder.points += 4;
+              homeLadder.losses++;
+            } else {
+              homeLadder.draws++;
+              homeLadder.points += 2;
+              awayLadder.draws++;
+              awayLadder.points += 2;
+            }
+          }
+        });
+      }
+
+      // Calculate percentages
+      ladder.forEach(team => {
+        team.percentage = team.pointsAgainst === 0 
+          ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
+          : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+      });
+
+      // Sort ladder by points, then percentage
+      const sortedLadder = ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
+      
+      setLadder(sortedLadder);
+      
+      // Set current round results (for star/crab display)
+      if (allRoundResults[upToRound]) {
+        setCurrentRoundResults(allRoundResults[upToRound]);
+      }
+      
+      console.log(`Ladder calculated for round ${upToRound}:`, sortedLadder);
+      
+    } catch (error) {
+      console.error('Error calculating ladder:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
-  }, [currentRound]);
+  };
 
   // Load YTD star/crab totals
-  useEffect(() => {
-    const calculateYTDStarCrabs = async () => {
-      setLoadingStarCrabs(true);
+  const calculateYTDStarCrabs = async (upToRound) => {
+    setLoadingStarCrabs(true);
+    
+    try {
+      const totals = {};
       
-      try {
-        const totals = {};
-        
-        // Initialize totals for all teams
-        Object.keys(USER_NAMES).forEach(userId => {
-          totals[userId] = { stars: 0, crabs: 0 };
-        });
+      // Initialize totals for all teams
+      Object.keys(USER_NAMES).forEach(userId => {
+        totals[userId] = { stars: 0, crabs: 0 };
+      });
 
-        // Fetch stored results for rounds 1 through selectedRound
-        const roundPromises = [];
-        for (let round = 1; round <= Math.min(selectedRound, 21); round++) {
-          roundPromises.push(
-            fetch(`/api/store-round-results?round=${round}`)
-              .then(res => res.ok ? res.json() : null)
-              .catch(() => null)
-          );
+      // Calculate for rounds 1 through selectedRound
+      for (let round = 1; round <= Math.min(upToRound, 21); round++) {
+        const roundResults = {};
+        
+        // Get results for all users in this round
+        for (const userId of Object.keys(USER_NAMES)) {
+          try {
+            const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+            if (roundResultsRes.ok) {
+              const userData = await roundResultsRes.json();
+              roundResults[userId] = userData.total || 0;
+            } else {
+              roundResults[userId] = 0;
+            }
+          } catch (error) {
+            roundResults[userId] = 0;
+          }
         }
 
-        const allRoundResults = await Promise.all(roundPromises);
+        const scores = Object.entries(roundResults)
+          .map(([userId, score]) => ({ userId, score: Number(score) }))
+          .filter(s => s.score > 0); // Only consider teams with scores > 0
 
-        // Process each round's results
-        allRoundResults.forEach((roundData, index) => {
-          const round = index + 1;
-          
-          if (!roundData || !roundData.found || !roundData.results) {
-            console.log(`No stored results found for round ${round}`);
-            return;
+        if (scores.length === 0) continue;
+
+        // Find highest and lowest scores for this round
+        const maxScore = Math.max(...scores.map(s => s.score));
+        const minScore = Math.min(...scores.map(s => s.score));
+
+        // Award stars and crabs
+        scores.forEach(({ userId, score }) => {
+          if (score === maxScore && maxScore > 0) {
+            totals[userId].stars += 1;
           }
-
-          const results = roundData.results;
-          const scores = Object.entries(results)
-            .map(([userId, score]) => ({ userId, score: Number(score) }))
-            .filter(s => s.score > 0); // Only consider teams with scores > 0
-
-          if (scores.length === 0) return;
-
-          // Find highest and lowest scores for this round
-          const maxScore = Math.max(...scores.map(s => s.score));
-          const minScore = Math.min(...scores.map(s => s.score));
-
-          // Award stars and crabs
-          scores.forEach(({ userId, score }) => {
-            if (score === maxScore && maxScore > 0) {
-              totals[userId].stars += 1;
-            }
-            if (score === minScore && minScore > 0 && minScore < maxScore) {
-              totals[userId].crabs += 1;
-            }
-          });
+          if (score === minScore && minScore > 0 && minScore < maxScore) {
+            totals[userId].crabs += 1;
+          }
         });
-
-        console.log('YTD Star/Crab totals calculated:', totals);
-        setYtdStarCrabTotals(totals);
-        
-      } catch (error) {
-        console.error('Error calculating YTD star/crab totals:', error);
-      } finally {
-        setLoadingStarCrabs(false);
       }
-    };
 
-    if (selectedRound && selectedRound > 0) {
-      calculateYTDStarCrabs();
+      console.log('YTD Star/Crab totals calculated:', totals);
+      setYtdStarCrabTotals(totals);
+      
+    } catch (error) {
+      console.error('Error calculating YTD star/crab totals:', error);
+    } finally {
+      setLoadingStarCrabs(false);
     }
-  }, [selectedRound]);
+  };
 
   // Load team forms (last 5 results)
-  useEffect(() => {
-    const calculateTeamForms = async () => {
-      setLoadingForms(true);
+  const calculateTeamForms = async (upToRound) => {
+    setLoadingForms(true);
+    
+    try {
+      const forms = {};
       
-      try {
-        const forms = {};
+      // Initialize forms for all teams
+      Object.keys(USER_NAMES).forEach(userId => {
+        forms[userId] = [];
+      });
+
+      // Get results for rounds leading up to selected round
+      const formRounds = [];
+      for (let round = Math.max(1, upToRound - 4); round <= upToRound; round++) {
+        formRounds.push(round);
+      }
+
+      // Process each round's results to determine W/L/D for each team
+      for (const round of formRounds) {
+        const roundResults = {};
         
-        // Initialize forms for all teams
-        Object.keys(USER_NAMES).forEach(userId => {
-          forms[userId] = [];
-        });
-
-        // Get results for rounds leading up to selected round
-        const formRounds = [];
-        for (let round = Math.max(1, selectedRound - 4); round <= selectedRound; round++) {
-          formRounds.push(round);
+        // Get results for all users in this round
+        for (const userId of Object.keys(USER_NAMES)) {
+          try {
+            const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+            if (roundResultsRes.ok) {
+              const userData = await roundResultsRes.json();
+              roundResults[userId] = userData.total || 0;
+            } else {
+              roundResults[userId] = 0;
+            }
+          } catch (error) {
+            roundResults[userId] = 0;
+          }
         }
-
-        // Fetch results for form rounds
-        const roundPromises = formRounds.map(round => 
-          fetch(`/api/store-round-results?round=${round}`)
-            .then(res => res.ok ? res.json() : null)
-            .catch(() => null)
-        );
-
-        const formRoundResults = await Promise.all(roundPromises);
-
-        // Process each round's results to determine W/L/D for each team
-        formRoundResults.forEach((roundData, index) => {
-          const round = formRounds[index];
+        
+        const fixtures = getFixturesForRound(round);
+        
+        // Process each fixture
+        fixtures.forEach(fixture => {
+          const homeUserId = String(fixture.home);
+          const awayUserId = String(fixture.away);
           
-          if (!roundData || !roundData.found || !roundData.results) {
+          if (!roundResults[homeUserId] || !roundResults[awayUserId]) {
             return;
           }
-
-          const results = roundData.results;
-          const fixtures = getFixturesForRound(round);
           
-          // Process each fixture
-          fixtures.forEach(fixture => {
-            const homeUserId = String(fixture.home);
-            const awayUserId = String(fixture.away);
-            
-            if (!results[homeUserId] || !results[awayUserId]) {
-              return;
-            }
-            
-            const homeScore = Number(results[homeUserId]);
-            const awayScore = Number(results[awayUserId]);
-            
-            // Determine result for each team
-            if (homeScore > awayScore) {
-              // Home win, away loss
-              forms[homeUserId].push({ result: 'W', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
-              forms[awayUserId].push({ result: 'L', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
-            } else if (awayScore > homeScore) {
-              // Away win, home loss
-              forms[awayUserId].push({ result: 'W', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
-              forms[homeUserId].push({ result: 'L', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
-            } else {
-              // Draw
-              forms[homeUserId].push({ result: 'D', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
-              forms[awayUserId].push({ result: 'D', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
-            }
-          });
+          const homeScore = Number(roundResults[homeUserId]);
+          const awayScore = Number(roundResults[awayUserId]);
+          
+          // Determine result for each team
+          if (homeScore > awayScore) {
+            // Home win, away loss
+            forms[homeUserId].push({ result: 'W', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
+            forms[awayUserId].push({ result: 'L', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
+          } else if (awayScore > homeScore) {
+            // Away win, home loss
+            forms[awayUserId].push({ result: 'W', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
+            forms[homeUserId].push({ result: 'L', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
+          } else {
+            // Draw
+            forms[homeUserId].push({ result: 'D', round, score: homeScore, opponent: USER_NAMES[awayUserId] });
+            forms[awayUserId].push({ result: 'D', round, score: awayScore, opponent: USER_NAMES[homeUserId] });
+          }
         });
-
-        // Sort each team's form by round and keep only last 5
-        Object.keys(forms).forEach(userId => {
-          forms[userId] = forms[userId]
-            .sort((a, b) => a.round - b.round)
-            .slice(-5); // Keep only last 5 results
-        });
-
-        setTeamForms(forms);
-        
-      } catch (error) {
-        console.error('Error calculating team forms:', error);
-      } finally {
-        setLoadingForms(false);
       }
-    };
 
-    if (selectedRound && selectedRound > 0) {
-      calculateTeamForms();
+      // Sort each team's form by round and keep only last 5
+      Object.keys(forms).forEach(userId => {
+        forms[userId] = forms[userId]
+          .sort((a, b) => a.round - b.round)
+          .slice(-5); // Keep only last 5 results
+      });
+
+      setTeamForms(forms);
+      
+    } catch (error) {
+      console.error('Error calculating team forms:', error);
+    } finally {
+      setLoadingForms(false);
     }
-  }, [selectedRound]);
+  };
 
   // Calculate next fixtures
   useEffect(() => {
@@ -252,6 +345,15 @@ export default function LadderPage() {
 
     if (selectedRound) {
       calculateNextFixtures();
+    }
+  }, [selectedRound]);
+
+  // Calculate all data when round changes
+  useEffect(() => {
+    if (selectedRound) {
+      calculateLadder(selectedRound);
+      calculateYTDStarCrabs(selectedRound);
+      calculateTeamForms(selectedRound);
     }
   }, [selectedRound]);
 
@@ -296,7 +398,6 @@ export default function LadderPage() {
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     setSelectedRound(newRound);
-    changeRound(newRound);
   };
 
   // Function to render form string
@@ -314,6 +415,36 @@ export default function LadderPage() {
         </span>
       );
     }).reduce((prev, curr, index) => [prev, <span key={`sep-${index}`} className="text-gray-400 mx-1">·</span>, curr]);
+  };
+
+  // Get team's current round score
+  const getTeamCurrentRoundScore = (userId) => {
+    return currentRoundResults[userId] || 0;
+  };
+
+  // Helper functions for finals
+  const isFinalRound = (round) => {
+    return round >= 22 && round <= 24;
+  };
+
+  const getFinalRoundName = (round) => {
+    switch (round) {
+      case 22:
+        return "Qualifying Finals";
+      case 23:
+        return "Preliminary Final";
+      case 24:
+        return "Grand Final";
+      default:
+        return `Round ${round}`;
+    }
+  };
+
+  // Refresh function
+  const refreshLadder = () => {
+    calculateLadder(selectedRound);
+    calculateYTDStarCrabs(selectedRound);
+    calculateTeamForms(selectedRound);
   };
 
   // Display loading state
@@ -361,8 +492,6 @@ export default function LadderPage() {
           isFinalRound={isFinalRound}
           getFinalRoundName={getFinalRoundName}
           refreshLadder={refreshLadder}
-          dataSource={dataSource}
-          lastUpdated={lastUpdated}
         />
       </div>
 
@@ -385,8 +514,6 @@ export default function LadderPage() {
           isFinalRound={isFinalRound}
           getFinalRoundName={getFinalRoundName}
           refreshLadder={refreshLadder}
-          dataSource={dataSource}
-          lastUpdated={lastUpdated}
         />
       </div>
     </div>
@@ -410,9 +537,7 @@ function MobileLadder({
   renderForm,
   isFinalRound,
   getFinalRoundName,
-  refreshLadder,
-  dataSource,
-  lastUpdated
+  refreshLadder
 }) {
   return (
     <div className="p-3 space-y-4">
@@ -438,12 +563,6 @@ function MobileLadder({
               ))}
             </select>
           </div>
-        </div>
-        
-        {/* Data source indicator */}
-        <div className="text-xs text-gray-500 mb-3">
-          Data: {dataSource === 'cached' ? 'Stored' : 'Live'} 
-          {lastUpdated && ` • Updated: ${lastUpdated.toLocaleTimeString()}`}
         </div>
         
         {/* Finals banner for rounds 22-24 */}
@@ -587,28 +706,13 @@ function DesktopLadder({
   renderForm,
   isFinalRound,
   getFinalRoundName,
-  refreshLadder,
-  dataSource,
-  lastUpdated
+  refreshLadder
 }) {
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold text-black">Season Ladder</h1>
-          
-          {/* Data source indicator */}
-          <div className="flex items-center gap-2 text-sm">
-            <div className="flex items-center text-blue-600">
-              <RefreshCw className="h-4 w-4 mr-1" />
-              {dataSource === 'cached' ? 'Stored Data' : 'Live Data'}
-            </div>
-            {lastUpdated && (
-              <div className="text-gray-500">
-                Updated: {lastUpdated.toLocaleTimeString()}
-              </div>
-            )}
-          </div>
           
           <div className="w-full sm:w-auto flex items-center gap-2">
             <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
@@ -764,7 +868,7 @@ function DesktopLadder({
           <div className="flex items-center"><GiCrab className="text-red-500 mr-1" size={16} /> Lowest score for current round / Most crab performances YTD</div>
         </div>
         <div className="mt-2">
-          <span className="font-medium">Auto Storage:</span> Results are automatically stored 1 week after round completion and match live calculations.
+          <span className="font-medium">Live Calculation:</span> Ladder is calculated live using the same scoring system as the Results page, including bench/reserve substitutions.
         </div>
       </div>
     </div>
