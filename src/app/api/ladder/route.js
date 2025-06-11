@@ -285,18 +285,333 @@ async function calculateLadderFromAvailableData(db, currentRound) {
 }
 
 /**
- * Calculates live round results by calling the round-results API for all users.
- * NOW INCLUDES DEAD CERT SCORES to match results page!
+ * Calculates live round results using the EXACT same logic as the results page.
+ * FIXED: NOW INCLUDES SUBSTITUTIONS AND DEAD CERT SCORES for accurate ladder calculations!
  */
 async function calculateLiveRoundResults(round) {
     const results = {};
     const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
     
-    console.log(`Calculating live results for round ${round} with dead certs included`);
+    console.log(`Calculating live results for round ${round} with substitutions and dead certs included`);
+    
+    try {
+        // Import the same scoring logic used by the results page
+        const { POSITIONS } = await import('@/app/lib/scoring_rules');
+        const { connectToDatabase } = await import('@/app/lib/mongodb');
+        
+        const { db } = await connectToDatabase();
+        
+        // Get team selections for this round
+        const teamSelections = await db.collection(`${CURRENT_YEAR}_team_selection`)
+            .find({ 
+                Round: round,
+                Active: 1 
+            })
+            .toArray();
+
+        // Get player stats for this round
+        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
+            .find({ round: round })
+            .toArray();
+
+        // Check if round has ended (for reserve substitutions)
+        const roundEndPassed = await checkIfRoundEnded(round);
+        
+        // Calculate scores for each user using the SAME logic as results page
+        const userPromises = Object.keys(USER_NAMES).map(async (userId) => {
+            try {
+                console.log(`Calculating comprehensive score for user ${userId} round ${round}`);
+                
+                // Get this user's team selection
+                const userTeamSelection = teamSelections.filter(selection => 
+                    selection.User === parseInt(userId)
+                );
+
+                if (userTeamSelection.length === 0) {
+                    console.log(`No team selection found for user ${userId} round ${round}`);
+                    return { userId, total: 0 };
+                }
+
+                // Calculate team score with substitutions (same logic as results page)
+                const teamScore = calculateTeamScoreWithSubstitutions(
+                    userTeamSelection, 
+                    playerStats, 
+                    roundEndPassed,
+                    userId
+                );
+
+                // Get dead cert score
+                let deadCertScore = 0;
+                try {
+                    const tippingResponse = await fetch(`${baseUrl}/api/tipping-results?round=${round}&userId=${userId}`);
+                    if (tippingResponse.ok) {
+                        const tippingData = await tippingResponse.json();
+                        deadCertScore = tippingData.deadCertScore || 0;
+                    }
+                } catch (tippingError) {
+                    console.error(`Error getting tipping results for user ${userId} round ${round}:`, tippingError);
+                    deadCertScore = 0;
+                }
+
+                // Final score = team score (with substitutions) + dead cert score
+                const finalScore = teamScore + deadCertScore;
+                console.log(`User ${userId} Round ${round}: Team=${teamScore} (with subs), DeadCert=${deadCertScore}, Final=${finalScore}`);
+                
+                return { userId, total: finalScore };
+                
+            } catch (error) {
+                console.error(`Error calculating comprehensive score for user ${userId} round ${round}:`, error);
+                return { userId, total: 0 };
+            }
+        });
+
+        const userResults = await Promise.all(userPromises);
+        userResults.forEach(({ userId, total }) => {
+            results[userId] = total;
+        });
+        
+        console.log(`Final round ${round} results with substitutions and dead certs:`, results);
+        return results;
+        
+    } catch (error) {
+        console.error(`Error in calculateLiveRoundResults for round ${round}:`, error);
+        // Fallback to basic scoring if comprehensive scoring fails
+        return await calculateBasicRoundResults(round);
+    }
+}
+
+/**
+ * Calculate team score with substitutions using the same logic as the results page
+ */
+function calculateTeamScoreWithSubstitutions(userTeamSelection, playerStats, roundEndPassed, userId) {
+    const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
+    const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
+    
+    // Build team structure
+    const team = {};
+    userTeamSelection.forEach(selection => {
+        team[selection.Position] = {
+            player_name: selection.Player_Name,
+            backup_position: selection.Backup_Position
+        };
+    });
+
+    // Get stats for all players
+    const playerStatsMap = {};
+    playerStats.forEach(stat => {
+        playerStatsMap[stat.player_name] = stat;
+    });
+
+    // Function to check if player played
+    const didPlayerPlay = (stats) => {
+        if (!stats) return false;
+        return (stats.kicks > 0 || stats.handballs > 0 || stats.marks > 0 || 
+                stats.tackles > 0 || stats.hitouts > 0 || stats.goals > 0 || stats.behinds > 0);
+    };
+
+    // Function to calculate score for a position
+    const calculateScore = (position, stats, backupPosition = null) => {
+        if (!stats) return { total: 0 };
+        
+        const safeStats = {
+            kicks: stats.kicks || 0,
+            handballs: stats.handballs || 0,
+            marks: stats.marks || 0,
+            tackles: stats.tackles || 0,
+            hitouts: stats.hitouts || 0,
+            goals: stats.goals || 0,
+            behinds: stats.behinds || 0,
+            ...stats
+        };
+        
+        // If it's a bench position, use the backup position for scoring
+        if ((position === 'Bench' || position.startsWith('Reserve')) && backupPosition) {
+            const backupPositionType = backupPosition.toUpperCase().replace(/\s+/g, '_');
+            try {
+                const { POSITIONS } = require('@/app/lib/scoring_rules');
+                return POSITIONS[backupPositionType]?.calculation(safeStats) || { total: 0 };
+            } catch (error) {
+                return { total: 0 };
+            }
+        }
+
+        // For regular positions
+        const formattedPosition = position.replace(/\s+/g, '_');
+        try {
+            const { POSITIONS } = require('@/app/lib/scoring_rules');
+            return POSITIONS[formattedPosition]?.calculation(safeStats) || { total: 0 };
+        } catch (error) {
+            return { total: 0 };
+        }
+    };
+
+    // Extract bench and reserve players
+    const benchPlayers = Object.entries(team)
+        .filter(([pos]) => pos === 'Bench')
+        .map(([pos, data]) => {
+            if (!data || !data.player_name || !data.backup_position) return null;
+            const stats = playerStatsMap[data.player_name];
+            const hasPlayed = didPlayerPlay(stats);
+            if (!hasPlayed) return null;
+            
+            const backupPosType = data.backup_position.toUpperCase().replace(/\s+/g, '_');
+            const scoring = calculateScore(backupPosType, stats);
+            
+            return {
+                position: pos,
+                playerName: data.player_name,
+                backupPosition: data.backup_position,
+                stats,
+                score: scoring?.total || 0,
+                hasPlayed
+            };
+        })
+        .filter(Boolean);
+
+    const reservePlayers = Object.entries(team)
+        .filter(([pos]) => pos.startsWith('Reserve'))
+        .map(([pos, data]) => {
+            if (!data || !data.player_name) return null;
+            const stats = playerStatsMap[data.player_name];
+            const hasPlayed = didPlayerPlay(stats);
+            if (!hasPlayed) return null;
+            
+            const isReserveA = pos === 'Reserve A';
+            const validPositions = isReserveA ? RESERVE_A_POSITIONS : RESERVE_B_POSITIONS;
+            
+            if (data.backup_position) {
+                validPositions.push(data.backup_position);
+            }
+            
+            return {
+                position: pos,
+                playerName: data.player_name,
+                backupPosition: data.backup_position,
+                stats,
+                hasPlayed,
+                validPositions,
+                isReserveA
+            };
+        })
+        .filter(Boolean);
+
+    // Calculate main position scores with substitutions
+    const usedBenchPlayers = new Set();
+    const usedReservePlayers = new Set();
+    let totalScore = 0;
+
+    // Process main positions
+    const mainPositions = ['Full Forward', 'Tall Forward', 'Offensive', 'Midfielder', 'Tackler', 'Ruck'];
+    
+    for (const position of mainPositions) {
+        const playerData = team[position];
+        if (!playerData || !playerData.player_name) {
+            continue; // No player selected for this position
+        }
+
+        const playerName = playerData.player_name;
+        const stats = playerStatsMap[playerName];
+        const hasPlayed = didPlayerPlay(stats);
+        
+        // Calculate original score
+        const positionType = position.toUpperCase().replace(/\s+/g, '_');
+        const scoring = calculateScore(positionType, stats);
+        let positionScore = scoring?.total || 0;
+
+        // Check for bench substitution (always available)
+        const eligibleBench = benchPlayers
+            .filter(b => !usedBenchPlayers.has(b.playerName) && b.backupPosition === position)
+            .sort((a, b) => b.score - a.score);
+
+        if (eligibleBench.length > 0 && eligibleBench[0].score > positionScore) {
+            const bestBench = eligibleBench[0];
+            positionScore = bestBench.score;
+            usedBenchPlayers.add(bestBench.playerName);
+            console.log(`  Bench substitution: ${bestBench.playerName} (${bestBench.score}) replaces ${playerName} (${scoring?.total || 0}) for ${position}`);
+        }
+
+        // Check for reserve substitution (only if round ended and player didn't play)
+        if (roundEndPassed && !hasPlayed) {
+            const isReserveAPosition = RESERVE_A_POSITIONS.includes(position);
+            const isReserveBPosition = RESERVE_B_POSITIONS.includes(position);
+            
+            const eligibleReserves = reservePlayers
+                .filter(r => {
+                    if (usedReservePlayers.has(r.playerName)) return false;
+                    if (r.backupPosition === position) return true;
+                    const matchesType = (r.isReserveA && isReserveAPosition) || (!r.isReserveA && isReserveBPosition);
+                    return matchesType;
+                });
+
+            if (eligibleReserves.length > 0) {
+                const reserveScores = eligibleReserves.map(reserve => {
+                    const posType = position.toUpperCase().replace(/\s+/g, '_');
+                    const scoring = calculateScore(posType, reserve.stats);
+                    return {
+                        ...reserve,
+                        calculatedScore: scoring?.total || 0,
+                        priority: reserve.backupPosition === position ? 2 : 1
+                    };
+                });
+                
+                reserveScores.sort((a, b) => {
+                    if (a.priority !== b.priority) return b.priority - a.priority;
+                    return b.calculatedScore - a.calculatedScore;
+                });
+                
+                if (reserveScores.length > 0 && reserveScores[0].calculatedScore > positionScore) {
+                    const bestReserve = reserveScores[0];
+                    positionScore = bestReserve.calculatedScore;
+                    usedReservePlayers.add(bestReserve.playerName);
+                    console.log(`  Reserve substitution: ${bestReserve.playerName} (${bestReserve.calculatedScore}) replaces ${playerName} (${scoring?.total || 0}) for ${position}`);
+                }
+            }
+        }
+
+        totalScore += positionScore;
+        console.log(`  ${position}: ${playerName} = ${positionScore} points`);
+    }
+
+    console.log(`Total team score for user ${userId} with substitutions: ${totalScore}`);
+    return totalScore;
+}
+
+/**
+ * Check if a round has ended (for reserve substitution eligibility)
+ */
+async function checkIfRoundEnded(round) {
+    try {
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+        const response = await fetch(`${baseUrl}/api/tipping-data`);
+        if (!response.ok) return false;
+        
+        const fixtures = await response.json();
+        const roundFixtures = fixtures.filter(f => f.RoundNumber === round);
+        
+        if (roundFixtures.length === 0) return false;
+        
+        const lastFixture = roundFixtures.sort((a, b) => new Date(b.DateUtc) - new Date(a.DateUtc))[0];
+        const roundEndTime = new Date(lastFixture.DateUtc);
+        roundEndTime.setHours(roundEndTime.getHours() + 3);
+        
+        return new Date() > roundEndTime;
+    } catch (error) {
+        console.error('Error checking if round ended:', error);
+        return false;
+    }
+}
+
+/**
+ * Fallback basic scoring (original method) if comprehensive scoring fails
+ */
+async function calculateBasicRoundResults(round) {
+    const results = {};
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    
+    console.log(`Falling back to basic scoring for round ${round}`);
     
     const userPromises = Object.keys(USER_NAMES).map(async (userId) => {
         try {
-            // Get team score (without dead certs)
             let teamScore = 0;
             const response = await fetch(`${baseUrl}/api/round-results?round=${round}&userId=${userId}`);
             if (response.ok) {
@@ -304,7 +619,6 @@ async function calculateLiveRoundResults(round) {
                 teamScore = userData.total || 0;
             }
 
-            // Get dead cert score from tipping results
             let deadCertScore = 0;
             try {
                 const tippingResponse = await fetch(`${baseUrl}/api/tipping-results?round=${round}&userId=${userId}`);
@@ -313,18 +627,14 @@ async function calculateLiveRoundResults(round) {
                     deadCertScore = tippingData.deadCertScore || 0;
                 }
             } catch (tippingError) {
-                console.error(`Error getting tipping results for user ${userId} round ${round}:`, tippingError);
                 deadCertScore = 0;
             }
 
-            // Total score = team score + dead cert score (same as results page)
             const totalScore = teamScore + deadCertScore;
-            console.log(`User ${userId} Round ${round}: Team=${teamScore}, DeadCert=${deadCertScore}, Total=${totalScore}`);
-            
             return { userId, total: totalScore };
             
         } catch (error) {
-            console.error(`Error getting live results for user ${userId} round ${round}:`, error);
+            console.error(`Error getting basic results for user ${userId} round ${round}:`, error);
         }
         return { userId, total: 0 };
     });
@@ -334,7 +644,6 @@ async function calculateLiveRoundResults(round) {
         results[userId] = total;
     });
     
-    console.log(`Final round ${round} results:`, results);
     return results;
 }
 
