@@ -78,19 +78,34 @@ export default function LadderPage() {
         if (!teamSelectionsRes.ok) continue;
         const teamSelections = await teamSelectionsRes.json();
         
-        // Calculate scores for each user in this round
+        // Calculate scores for each user in this round (team score + dead certs)
         const roundResults = {};
         
         for (const userId of Object.keys(USER_NAMES)) {
           try {
-            // Get round results using the same API as results page
+            // Get team score (without dead certs)
             const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+            let teamScore = 0;
             if (roundResultsRes.ok) {
               const userData = await roundResultsRes.json();
-              roundResults[userId] = userData.total || 0;
-            } else {
-              roundResults[userId] = 0;
+              teamScore = userData.total || 0;
             }
+
+            // Get dead cert score from tipping results
+            let deadCertScore = 0;
+            try {
+              const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
+              if (tippingRes.ok) {
+                const tippingData = await tippingRes.json();
+                deadCertScore = tippingData.deadCertScore || 0;
+              }
+            } catch (tippingError) {
+              console.error(`Error getting tipping results for user ${userId} round ${round}:`, tippingError);
+            }
+
+            // Total score = team score + dead cert score (same as results page)
+            roundResults[userId] = teamScore + deadCertScore;
+            
           } catch (error) {
             console.error(`Error getting results for user ${userId} round ${round}:`, error);
             roundResults[userId] = 0;
@@ -185,16 +200,32 @@ export default function LadderPage() {
       for (let round = 1; round <= Math.min(upToRound, 21); round++) {
         const roundResults = {};
         
-        // Get results for all users in this round
+        // Get results for all users in this round (including dead certs)
         for (const userId of Object.keys(USER_NAMES)) {
           try {
+            // Get team score
             const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+            let teamScore = 0;
             if (roundResultsRes.ok) {
               const userData = await roundResultsRes.json();
-              roundResults[userId] = userData.total || 0;
-            } else {
-              roundResults[userId] = 0;
+              teamScore = userData.total || 0;
             }
+
+            // Get dead cert score
+            let deadCertScore = 0;
+            try {
+              const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
+              if (tippingRes.ok) {
+                const tippingData = await tippingRes.json();
+                deadCertScore = tippingData.deadCertScore || 0;
+              }
+            } catch (tippingError) {
+              console.error(`Error getting tipping results for user ${userId} round ${round}:`, tippingError);
+            }
+
+            // Total score = team score + dead cert score
+            roundResults[userId] = teamScore + deadCertScore;
+            
           } catch (error) {
             roundResults[userId] = 0;
           }
