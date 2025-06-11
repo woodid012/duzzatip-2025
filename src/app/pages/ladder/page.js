@@ -2,24 +2,44 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { USER_NAMES } from '@/app/lib/constants';
-import useResults from '@/app/hooks/useResults';
+import { useAppContext } from '@/app/context/AppContext';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { useUserContext } from '../layout';
 import { Star, RefreshCw, AlertCircle } from 'lucide-react';
 import { GiCrab } from 'react-icons/gi';
 
 export default function LadderPage() {
-  // Get selected user context
+  // Get selected user context and app context
   const { selectedUserId } = useUserContext();
+  const { currentRound, roundInfo } = useAppContext();
+  
+  // Determine which round to show by default
+  const getDefaultRound = () => {
+    // If we don't have round info yet, default to 1
+    if (!roundInfo || currentRound === undefined) return 1;
+    
+    // If current round lockout has passed, show current round
+    if (roundInfo.isLocked) {
+      return currentRound;
+    }
+    
+    // If lockout hasn't passed, show the previous completed round
+    return Math.max(1, currentRound - 1);
+  };
   
   // State for the round we're viewing the ladder for
-  const [selectedRound, setSelectedRound] = useState(1);
+  const [selectedRound, setSelectedRound] = useState(getDefaultRound());
   
-  // State for calculated ladder
+  // State for ladder data
   const [ladder, setLadder] = useState([]);
   const [currentRoundResults, setCurrentRoundResults] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // TEMPORARY: State for storage rebuild
+  const [isRebuilding, setIsRebuilding] = useState(false);
+  const [rebuildProgress, setRebuildProgress] = useState('');
+  const [rebuildComplete, setRebuildComplete] = useState(false);
   
   // State for YTD star/crab totals
   const [ytdStarCrabTotals, setYtdStarCrabTotals] = useState({});
@@ -46,141 +66,120 @@ export default function LadderPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Calculate ladder from team scores
+  // Update selectedRound when roundInfo changes (for initial load and lockout changes)
+  useEffect(() => {
+    if (roundInfo && currentRound !== undefined) {
+      const defaultRound = getDefaultRound();
+      if (selectedRound !== defaultRound && selectedRound === 1) {
+        // Only auto-update if we're still on the initial default
+        setSelectedRound(defaultRound);
+      }
+    }
+  }, [roundInfo, currentRound]);
+
+  // Calculate ladder using database storage approach but with better error handling
   const calculateLadder = async (upToRound) => {
     setLoading(true);
     setError(null);
     
     try {
-      // Initialize ladder with all users
-      const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
-        userId,
-        userName,
-        played: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        pointsFor: 0,
-        pointsAgainst: 0,
-        percentage: 0,
-        points: 0
-      }));
-
-      // Get results for each round up to the selected round
-      const allRoundResults = {};
+      console.log(`Fetching ladder for round ${upToRound} using database storage approach`);
       
-      // Process regular season rounds (1-21) only for ladder standings
-      for (let round = 1; round <= Math.min(upToRound, 21); round++) {
-        console.log(`Calculating scores for round ${round}`);
+      // First try to get cached ladder data
+      const getResponse = await fetch(`/api/ladder?round=${upToRound}`);
+      
+      if (getResponse.ok) {
+        const data = await getResponse.json();
         
-        // Get team selections for this round
-        const teamSelectionsRes = await fetch(`/api/team-selection?round=${round}`);
-        if (!teamSelectionsRes.ok) continue;
-        const teamSelections = await teamSelectionsRes.json();
-        
-        // Calculate scores for each user in this round (team score + dead certs)
-        const roundResults = {};
-        
-        for (const userId of Object.keys(USER_NAMES)) {
-          try {
-            // Get team score (without dead certs)
-            const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
-            let teamScore = 0;
-            if (roundResultsRes.ok) {
-              const userData = await roundResultsRes.json();
-              teamScore = userData.total || 0;
-            }
-
-            // Get dead cert score from tipping results
-            let deadCertScore = 0;
-            try {
-              const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
-              if (tippingRes.ok) {
-                const tippingData = await tippingRes.json();
-                deadCertScore = tippingData.deadCertScore || 0;
-              }
-            } catch (tippingError) {
-              console.error(`Error getting tipping results for user ${userId} round ${round}:`, tippingError);
-            }
-
-            // Total score = team score + dead cert score (same as results page)
-            roundResults[userId] = teamScore + deadCertScore;
-            
-          } catch (error) {
-            console.error(`Error getting results for user ${userId} round ${round}:`, error);
-            roundResults[userId] = 0;
-          }
+        if (data.standings && data.standings.length > 0) {
+          setLadder(data.standings);
+          console.log(`Ladder loaded from ${data.fromCache ? 'cache' : 'fresh calculation'} for round ${upToRound}`);
+          
+          // Get current round results for star/crab display
+          await calculateCurrentRoundResults(upToRound);
+          return;
         }
-        
-        allRoundResults[round] = roundResults;
-        
-        // Process fixtures for this round
-        const fixtures = getFixturesForRound(round);
-        
-        fixtures.forEach(fixture => {
-          const homeUserId = String(fixture.home);
-          const awayUserId = String(fixture.away);
-          
-          if (roundResults[homeUserId] === undefined || roundResults[awayUserId] === undefined) {
-            return;
-          }
-          
-          const homeScore = roundResults[homeUserId];
-          const awayScore = roundResults[awayUserId];
-          
-          const homeLadder = ladder.find(entry => entry.userId === homeUserId);
-          const awayLadder = ladder.find(entry => entry.userId === awayUserId);
-          
-          if (homeLadder && awayLadder) {
-            homeLadder.played++;
-            awayLadder.played++;
-            homeLadder.pointsFor += homeScore;
-            homeLadder.pointsAgainst += awayScore;
-            awayLadder.pointsFor += awayScore;
-            awayLadder.pointsAgainst += homeScore;
-            
-            if (homeScore > awayScore) {
-              homeLadder.wins++;
-              homeLadder.points += 4;
-              awayLadder.losses++;
-            } else if (awayScore > homeScore) {
-              awayLadder.wins++;
-              awayLadder.points += 4;
-              homeLadder.losses++;
-            } else {
-              homeLadder.draws++;
-              homeLadder.points += 2;
-              awayLadder.draws++;
-              awayLadder.points += 2;
-            }
-          }
-        });
       }
-
-      // Calculate percentages
-      ladder.forEach(team => {
-        team.percentage = team.pointsAgainst === 0 
-          ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
-          : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+      
+      // If GET failed, try forcing recalculation
+      console.log(`GET failed, forcing recalculation for round ${upToRound}`);
+      const postResponse = await fetch(`/api/ladder?round=${upToRound}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          round: upToRound,
+          forceRecalculate: true
+        })
       });
-
-      // Sort ladder by points, then percentage
-      const sortedLadder = ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
       
-      setLadder(sortedLadder);
-      
-      // Set current round results (for star/crab display)
-      if (allRoundResults[upToRound]) {
-        setCurrentRoundResults(allRoundResults[upToRound]);
+      if (!postResponse.ok) {
+        throw new Error('Failed to fetch ladder data from both GET and POST');
       }
       
-      console.log(`Ladder calculated for round ${upToRound}:`, sortedLadder);
+      const data = await postResponse.json();
+      
+      if (data.standings && data.standings.length > 0) {
+        setLadder(data.standings);
+        console.log(`Ladder loaded via forced recalculation for round ${upToRound}`);
+      } else {
+        console.warn(`No ladder data available for round ${upToRound}`);
+        setLadder([]);
+      }
+      
+      // Get current round results for star/crab display
+      await calculateCurrentRoundResults(upToRound);
       
     } catch (error) {
-      console.error('Error calculating ladder:', error);
+      console.error('Error fetching ladder:', error);
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Calculate current round results for star/crab indicators
+  const calculateCurrentRoundResults = async (round) => {
+    try {
+      const results = {};
+      
+      // Get results for all users in this round (including dead certs)
+      for (const userId of Object.keys(USER_NAMES)) {
+        try {
+          // Get team score
+          const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+          let teamScore = 0;
+          if (roundResultsRes.ok) {
+            const userData = await roundResultsRes.json();
+            teamScore = userData.total || 0;
+          }
+
+          // Get dead cert score
+          let deadCertScore = 0;
+          try {
+            const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
+            if (tippingRes.ok) {
+              const tippingData = await tippingRes.json();
+              deadCertScore = tippingData.deadCertScore || 0;
+            }
+          } catch (tippingError) {
+            // Silent fail for tipping results
+          }
+
+          // Total score = team score + dead cert score
+          results[userId] = teamScore + deadCertScore;
+          
+        } catch (error) {
+          results[userId] = 0;
+        }
+      }
+      
+      setCurrentRoundResults(results);
+      
+    } catch (error) {
+      console.error('Error calculating current round results:', error);
+      setCurrentRoundResults({});
     }
   };
 
@@ -471,13 +470,122 @@ export default function LadderPage() {
     }
   };
 
+  // TEMPORARY: Function to rebuild all stored results with proper team+dead cert scores
+  const rebuildAllStoredResults = async () => {
+    setIsRebuilding(true);
+    setRebuildProgress('Starting rebuild process...');
+    setRebuildComplete(false);
+    
+    try {
+      // Clear all existing cached ladder data first
+      setRebuildProgress('Clearing existing cached data...');
+      for (let round = 1; round <= 24; round++) {
+        try {
+          await fetch(`/api/ladder?round=${round}`, { method: 'DELETE' });
+        } catch (e) {
+          // Ignore delete errors
+        }
+      }
+      
+      // Rebuild results for rounds 1-24
+      for (let round = 1; round <= 24; round++) {
+        setRebuildProgress(`Processing Round ${round}...`);
+        
+        // Calculate fresh results for this round (team + dead certs)
+        const roundResults = {};
+        
+        for (const userId of Object.keys(USER_NAMES)) {
+          try {
+            // Get team score
+            let teamScore = 0;
+            const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+            if (roundResultsRes.ok) {
+              const userData = await roundResultsRes.json();
+              teamScore = userData.total || 0;
+            }
+
+            // Get dead cert score
+            let deadCertScore = 0;
+            try {
+              const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
+              if (tippingRes.ok) {
+                const tippingData = await tippingRes.json();
+                deadCertScore = tippingData.deadCertScore || 0;
+              }
+            } catch (tippingError) {
+              // Silent fail for tipping results
+            }
+
+            // Total score = team score + dead cert score
+            roundResults[userId] = teamScore + deadCertScore;
+            
+          } catch (error) {
+            console.error(`Error calculating results for user ${userId} round ${round}:`, error);
+            roundResults[userId] = 0;
+          }
+        }
+        
+        // Store the results using the store-round-results API
+        try {
+          const storeResponse = await fetch('/api/store-round-results', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              round: round,
+              results: roundResults,
+              source: 'manual_rebuild'
+            })
+          });
+          
+          if (storeResponse.ok) {
+            console.log(`Stored results for round ${round}:`, roundResults);
+          } else {
+            console.error(`Failed to store results for round ${round}`);
+          }
+        } catch (storeError) {
+          console.error(`Error storing results for round ${round}:`, storeError);
+        }
+        
+        // Small delay to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      setRebuildProgress('Rebuilding ladder cache...');
+      
+      // Force recalculation of ladder for current round
+      await fetch(`/api/ladder?round=${selectedRound}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          round: selectedRound,
+          forceRecalculate: true
+        })
+      });
+      
+      setRebuildProgress('Rebuild complete! Refreshing ladder...');
+      setRebuildComplete(true);
+      
+      // Refresh the current ladder
+      await calculateLadder(selectedRound);
+      
+    } catch (error) {
+      console.error('Error during rebuild:', error);
+      setRebuildProgress(`Error during rebuild: ${error.message}`);
+    } finally {
+      setIsRebuilding(false);
+    }
+  };
+
   // Refresh function
   const refreshLadder = () => {
     calculateLadder(selectedRound);
     calculateYTDStarCrabs(selectedRound);
     calculateTeamForms(selectedRound);
   };
-
   // Display loading state
   if (loading) {
     return (
@@ -504,6 +612,48 @@ export default function LadderPage() {
 
   return (
     <div className="w-full">
+      {/* TEMPORARY: Rebuild Storage Section - DELETE AFTER USE */}
+      {!rebuildComplete && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-yellow-800 mb-2">🔧 TEMPORARY: Storage Rebuild Tool</h3>
+          <p className="text-yellow-700 mb-4">
+            This will recalculate and store results for all rounds (1-24) with proper team scores + dead cert scores.
+            <br />
+            <strong>Only run this once, then delete this section from the code!</strong>
+          </p>
+          
+          {!isRebuilding ? (
+            <button
+              onClick={rebuildAllStoredResults}
+              className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+            >
+              🚀 Rebuild All Stored Results
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                <span className="font-medium">Rebuilding storage...</span>
+              </div>
+              <div className="text-sm text-yellow-700">{rebuildProgress}</div>
+              <div className="w-full bg-yellow-200 rounded-full h-2">
+                <div className="bg-yellow-600 h-2 rounded-full transition-all duration-300" style={{width: '100%'}}></div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {rebuildComplete && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-green-800 mb-2">✅ Rebuild Complete!</h3>
+          <p className="text-green-700">
+            All rounds have been recalculated with proper team + dead cert scores. 
+            <br />
+            <strong>You can now delete this rebuild section from the code.</strong>
+          </p>
+        </div>
+      )}
       {/* Mobile View */}
       <div className="block md:hidden">
         <MobileLadder 

@@ -196,6 +196,8 @@ async function getRoundEndDate(round) {
  * Calculates the ladder from all available data, using stored results where possible.
  */
 async function calculateLadderFromAvailableData(db, currentRound) {
+    console.log(`Calculating ladder from round 1 to ${currentRound}`);
+    
     const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
         userId, userName, played: 0, wins: 0, losses: 0, draws: 0,
         pointsFor: 0, pointsAgainst: 0, percentage: 0, points: 0
@@ -207,6 +209,7 @@ async function calculateLadderFromAvailableData(db, currentRound) {
         const storedResults = await db.collection(`${CURRENT_YEAR}_round_results`).findOne({ round });
             
         if (storedResults && storedResults.results) {
+            console.log(`Using stored results for round ${round}`);
             roundResults = storedResults.results;
         } else {
             console.log(`Calculating live results for round ${round}`);
@@ -219,17 +222,21 @@ async function calculateLadderFromAvailableData(db, currentRound) {
         }
         
         const fixtures = getFixturesForRound(round);
+        console.log(`Processing ${fixtures.length} fixtures for round ${round}`);
         
-        fixtures.forEach(fixture => {
+        fixtures.forEach((fixture, fixtureIndex) => {
             const homeUserId = String(fixture.home);
             const awayUserId = String(fixture.away);
             
             if (roundResults[homeUserId] === undefined || roundResults[awayUserId] === undefined) {
+                console.log(`Missing results for fixture ${fixtureIndex + 1}: ${homeUserId} vs ${awayUserId}`);
                 return;
             }
             
             const homeScore = roundResults[homeUserId];
             const awayScore = roundResults[awayUserId];
+            
+            console.log(`Round ${round} Fixture ${fixtureIndex + 1}: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore})`);
             
             const homeLadder = ladder.find(entry => entry.userId === homeUserId);
             const awayLadder = ladder.find(entry => entry.userId === awayUserId);
@@ -246,15 +253,18 @@ async function calculateLadderFromAvailableData(db, currentRound) {
                     homeLadder.wins++;
                     homeLadder.points += 4;
                     awayLadder.losses++;
+                    console.log(`  -> ${USER_NAMES[homeUserId]} WINS`);
                 } else if (awayScore > homeScore) {
                     awayLadder.wins++;
                     awayLadder.points += 4;
                     homeLadder.losses++;
+                    console.log(`  -> ${USER_NAMES[awayUserId]} WINS`);
                 } else {
                     homeLadder.draws++;
                     homeLadder.points += 2;
                     awayLadder.draws++;
                     awayLadder.points += 2;
+                    console.log(`  -> DRAW`);
                 }
             }
         });
@@ -264,25 +274,55 @@ async function calculateLadderFromAvailableData(db, currentRound) {
         team.percentage = team.pointsAgainst === 0 
             ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
             : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+            
+        console.log(`Final ladder entry for ${team.userName}: ${team.wins}W-${team.losses}L-${team.draws}D, ${team.points} pts, ${team.pointsFor} PF, ${team.pointsAgainst} PA`);
     });
 
-    return ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
+    const sortedLadder = ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
+    
+    console.log(`Ladder calculation complete for round ${currentRound}`);
+    return sortedLadder;
 }
 
 /**
  * Calculates live round results by calling the round-results API for all users.
+ * NOW INCLUDES DEAD CERT SCORES to match results page!
  */
 async function calculateLiveRoundResults(round) {
     const results = {};
     const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
     
+    console.log(`Calculating live results for round ${round} with dead certs included`);
+    
     const userPromises = Object.keys(USER_NAMES).map(async (userId) => {
         try {
+            // Get team score (without dead certs)
+            let teamScore = 0;
             const response = await fetch(`${baseUrl}/api/round-results?round=${round}&userId=${userId}`);
             if (response.ok) {
                 const userData = await response.json();
-                return { userId, total: userData.total || 0 };
+                teamScore = userData.total || 0;
             }
+
+            // Get dead cert score from tipping results
+            let deadCertScore = 0;
+            try {
+                const tippingResponse = await fetch(`${baseUrl}/api/tipping-results?round=${round}&userId=${userId}`);
+                if (tippingResponse.ok) {
+                    const tippingData = await tippingResponse.json();
+                    deadCertScore = tippingData.deadCertScore || 0;
+                }
+            } catch (tippingError) {
+                console.error(`Error getting tipping results for user ${userId} round ${round}:`, tippingError);
+                deadCertScore = 0;
+            }
+
+            // Total score = team score + dead cert score (same as results page)
+            const totalScore = teamScore + deadCertScore;
+            console.log(`User ${userId} Round ${round}: Team=${teamScore}, DeadCert=${deadCertScore}, Total=${totalScore}`);
+            
+            return { userId, total: totalScore };
+            
         } catch (error) {
             console.error(`Error getting live results for user ${userId} round ${round}:`, error);
         }
@@ -294,6 +334,7 @@ async function calculateLiveRoundResults(round) {
         results[userId] = total;
     });
     
+    console.log(`Final round ${round} results:`, results);
     return results;
 }
 
