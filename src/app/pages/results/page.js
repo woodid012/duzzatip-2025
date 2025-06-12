@@ -332,6 +332,39 @@ useEffect(() => {
     </div>
   );
 
+  const storeFinalTotalsForLadder = async (allTeamScores, round) => {
+  try {
+    // Extract just the Final Total values from the team scores
+    const finalTotals = {};
+    allTeamScores.forEach(team => {
+      finalTotals[team.userId] = team.totalScore || 0; // This should be the finalScore
+    });
+    
+    console.log(`Storing Final Totals for round ${round} for ladder:`, finalTotals);
+    
+    // Store these values so the ladder can use them
+    const response = await fetch('/api/final-totals', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        round: round,
+        allFinalTotals: finalTotals
+      })
+    });
+    
+    if (response.ok) {
+      console.log(`Successfully stored Final Totals for round ${round}`);
+    } else {
+      console.warn(`Failed to store Final Totals for round ${round}`);
+    }
+    
+  } catch (error) {
+    console.error(`Error storing Final Totals for round ${round}:`, error);
+  }
+};
+
   // Calculate all team scores using the stored scores
   const allTeamScores = Object.keys(USER_NAMES).map(userId => {
     const teamScore = teamScores[userId];
@@ -343,6 +376,9 @@ useEffect(() => {
     };
   });
   
+  if (displayedRound && allTeamScores.length > 0) {
+  storeFinalTotalsForLadder(allTeamScores, displayedRound);
+}
   // Filter out any zero or undefined scores for comparison
   const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
   const highestScore = validScores.length > 0 

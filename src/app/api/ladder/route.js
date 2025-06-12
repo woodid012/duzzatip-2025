@@ -4,7 +4,7 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 
 /**
  * GET handler for ladder data.
- * Now uses the EXACT same scoring as the results page by calling the results APIs directly
+ * Gets the Final Total directly from the results page without any calculation
  */
 export async function GET(request) {
     try {
@@ -12,9 +12,6 @@ export async function GET(request) {
         const round = parseInt(searchParams.get('round')) || 0;
         
         const { db } = await connectToDatabase();
-        
-        // Automatically check and store results for any past rounds that need it.
-        await checkAndStorePastRoundResults(db, round);
         
         const ladderCollection = db.collection(`${CURRENT_YEAR}_ladder`);
         
@@ -34,9 +31,9 @@ export async function GET(request) {
             });
         }
         
-        // If cache is missing or stale, calculate a new ladder using results page logic
-        console.log(`Calculating new ladder for round ${round} using results page final totals`);
-        const calculatedLadder = await calculateLadderUsingResultsPageFinalTotals(db, round);
+        // If cache is missing or stale, get Final Totals from results page and build ladder
+        console.log(`Getting Final Totals from results page for round ${round}`);
+        const calculatedLadder = await buildLadderFromResultsPageFinalTotals(round);
         
         const lastUpdated = new Date();
 
@@ -48,7 +45,7 @@ export async function GET(request) {
                     round: round,
                     standings: calculatedLadder,
                     lastUpdated: lastUpdated,
-                    calculatedFrom: 'results_page_final_totals'
+                    calculatedFrom: 'results_page_final_totals_direct'
                 } 
             },
             { upsert: true }
@@ -68,11 +65,11 @@ export async function GET(request) {
 }
 
 /**
- * Calculate ladder using the EXACT same final totals as the results page
- * This gets the "Final Total" directly from the results page logic
+ * Build ladder using Final Totals from results page - NO CALCULATION
+ * Just gets the Final Total values and uses them for ladder standings
  */
-async function calculateLadderUsingResultsPageFinalTotals(db, currentRound) {
-    console.log(`Calculating ladder from round 1 to ${currentRound} using results page final totals`);
+async function buildLadderFromResultsPageFinalTotals(currentRound) {
+    console.log(`Building ladder from results page Final Totals for round ${currentRound}`);
     
     const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
         userId, userName, played: 0, wins: 0, losses: 0, draws: 0,
@@ -80,32 +77,26 @@ async function calculateLadderUsingResultsPageFinalTotals(db, currentRound) {
     }));
 
     for (let round = 1; round <= Math.min(currentRound, 21); round++) {
-        console.log(`Processing round ${round} with results page final totals`);
+        console.log(`Getting Final Totals for round ${round} from results page`);
         
-        // Get the final totals for each user using the same logic as results page
-        const roundResults = await getRoundFinalTotals(round);
+        // Get the Final Totals that are already calculated on the results page
+        const finalTotals = await getFinalTotalsFromResultsPage(round);
         
-        if (!roundResults || Object.keys(roundResults).length === 0) {
-            console.log(`No results available for round ${round}, skipping`);
+        if (!finalTotals || Object.keys(finalTotals).length === 0) {
+            console.log(`No Final Totals available for round ${round}, skipping`);
             continue;
         }
         
         const fixtures = getFixturesForRound(round);
-        console.log(`Processing ${fixtures.length} fixtures for round ${round}`);
         
-        fixtures.forEach((fixture, fixtureIndex) => {
+        fixtures.forEach((fixture) => {
             const homeUserId = String(fixture.home);
             const awayUserId = String(fixture.away);
             
-            if (roundResults[homeUserId] === undefined || roundResults[awayUserId] === undefined) {
-                console.log(`Missing results for fixture ${fixtureIndex + 1}: ${homeUserId} vs ${awayUserId}`);
-                return;
-            }
+            const homeScore = finalTotals[homeUserId] || 0;
+            const awayScore = finalTotals[awayUserId] || 0;
             
-            const homeScore = roundResults[homeUserId];
-            const awayScore = roundResults[awayUserId];
-            
-            console.log(`Round ${round} Fixture ${fixtureIndex + 1}: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore})`);
+            console.log(`Round ${round}: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore})`);
             
             const homeLadder = ladder.find(entry => entry.userId === homeUserId);
             const awayLadder = ladder.find(entry => entry.userId === awayUserId);
@@ -122,18 +113,15 @@ async function calculateLadderUsingResultsPageFinalTotals(db, currentRound) {
                     homeLadder.wins++;
                     homeLadder.points += 4;
                     awayLadder.losses++;
-                    console.log(`  -> ${USER_NAMES[homeUserId]} WINS`);
                 } else if (awayScore > homeScore) {
                     awayLadder.wins++;
                     awayLadder.points += 4;
                     homeLadder.losses++;
-                    console.log(`  -> ${USER_NAMES[awayUserId]} WINS`);
                 } else {
                     homeLadder.draws++;
                     homeLadder.points += 2;
                     awayLadder.draws++;
                     awayLadder.points += 2;
-                    console.log(`  -> DRAW`);
                 }
             }
         });
@@ -143,76 +131,36 @@ async function calculateLadderUsingResultsPageFinalTotals(db, currentRound) {
         team.percentage = team.pointsAgainst === 0 
             ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
             : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
-            
-        console.log(`Final ladder entry for ${team.userName}: ${team.wins}W-${team.losses}L-${team.draws}D, ${team.points} pts, ${team.pointsFor} PF, ${team.pointsAgainst} PA`);
     });
 
     const sortedLadder = ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
     
-    console.log(`Ladder calculation complete for round ${currentRound} using results page final totals`);
+    console.log(`Ladder complete for round ${currentRound} using results page Final Totals`);
     return sortedLadder;
 }
 
 /**
- * Get the final totals for each user in a round using the EXACT same logic as results page
- * This calls the same APIs that the results page uses to get the "Final Total"
+ * Get the Final Totals that are stored by the results page
+ * This gets the exact same values that show as "Final Total" on the results page
  */
-async function getRoundFinalTotals(round) {
-    const results = {};
-    
-    console.log(`Getting final totals for round ${round} using results page logic`);
+async function getFinalTotalsFromResultsPage(round) {
+    console.log(`Getting stored Final Totals from results page for round ${round}`);
     
     try {
-        // Get final totals for all users using the same method as results page
-        for (const userId of Object.keys(USER_NAMES)) {
-            try {
-                console.log(`Getting final total for user ${userId} round ${round}`);
-                
-                // Get team score using round-results API (includes bench/reserve substitutions)
-                let teamScore = 0;
-                const teamResponse = await fetch(`${getBaseUrl()}/api/round-results?round=${round}&userId=${userId}`);
-                if (teamResponse.ok) {
-                    const teamData = await teamResponse.json();
-                    teamScore = teamData.total || 0;
-                    console.log(`User ${userId} team score: ${teamScore}`);
-                } else {
-                    console.warn(`Failed to get team results for user ${userId} round ${round}: ${teamResponse.status}`);
-                }
-
-                // Get dead cert score using tipping-results API
-                let deadCertScore = 0;
-                try {
-                    const tippingResponse = await fetch(`${getBaseUrl()}/api/tipping-results?round=${round}&userId=${userId}`);
-                    if (tippingResponse.ok) {
-                        const tippingData = await tippingResponse.json();
-                        deadCertScore = tippingData.deadCertScore || 0;
-                        console.log(`User ${userId} dead cert score: ${deadCertScore}`);
-                    } else {
-                        console.warn(`Failed to get tipping results for user ${userId} round ${round}: ${tippingResponse.status}`);
-                    }
-                } catch (tippingError) {
-                    console.error(`Error getting tipping results for user ${userId} round ${round}:`, tippingError);
-                    deadCertScore = 0;
-                }
-
-                // Final total = team score (with all substitutions) + dead cert score
-                // This is the EXACT same calculation as the results page "Final Total"
-                const finalTotal = teamScore + deadCertScore;
-                results[userId] = finalTotal;
-                
-                console.log(`User ${userId} Round ${round} FINAL TOTAL: Team=${teamScore} + DeadCert=${deadCertScore} = ${finalTotal}`);
-                
-            } catch (error) {
-                console.error(`Error calculating final total for user ${userId} round ${round}:`, error);
-                results[userId] = 0;
-            }
+        // Get all Final Totals for this round that were stored by the results page
+        const response = await fetch(`${getBaseUrl()}/api/final-totals?round=${round}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`Got Final Totals for round ${round}:`, data.finalTotals);
+            return data.finalTotals || {};
+        } else {
+            console.warn(`Failed to get Final Totals for round ${round}`);
+            return {};
         }
         
-        console.log(`Final round ${round} totals:`, results);
-        return results;
-        
     } catch (error) {
-        console.error(`Error in getRoundFinalTotals for round ${round}:`, error);
+        console.error(`Error in getFinalTotalsFromResultsPage for round ${round}:`, error);
         return {};
     }
 }
@@ -239,12 +187,12 @@ export async function POST(request) {
         const { db } = await connectToDatabase();
         
         if (forceRecalculate) {
-            console.log(`Force recalculating ladder for round ${round} using results page final totals`);
-            const freshLadder = await calculateLadderUsingResultsPageFinalTotals(db, round);
+            console.log(`Force recalculating ladder for round ${round} using results page Final Totals`);
+            const freshLadder = await buildLadderFromResultsPageFinalTotals(round);
             
             await db.collection(`${CURRENT_YEAR}_ladder`).updateOne(
                 { round: round },
-                { $set: { round, standings: freshLadder, lastUpdated: new Date(), calculatedFrom: 'forced_recalculation_final_totals' } },
+                { $set: { round, standings: freshLadder, lastUpdated: new Date(), calculatedFrom: 'forced_results_page_final_totals' } },
                 { upsert: true }
             );
             
@@ -265,87 +213,6 @@ export async function POST(request) {
     } catch (error) {
         console.error('API Error in POST /api/ladder:', error);
         return Response.json({ error: 'Failed to store ladder data' }, { status: 500 });
-    }
-}
-
-/**
- * Checks all past rounds and stores their results if they are over a week old and not yet stored.
- */
-async function checkAndStorePastRoundResults(db, currentRound) {
-    try {
-        for (let roundToCheck = 1; roundToCheck < currentRound; roundToCheck++) {
-            const existingResults = await db.collection(`${CURRENT_YEAR}_round_results`).findOne({ round: roundToCheck });
-            
-            if (existingResults) {
-                continue; // Already stored
-            }
-            
-            const roundEndDate = await getRoundEndDate(roundToCheck);
-            if (!roundEndDate) continue;
-            
-            const now = new Date();
-            const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-            const oneWeekAfterRoundEnd = new Date(roundEndDate.getTime() + ONE_WEEK_MS);
-            
-            if (now > oneWeekAfterRoundEnd) {
-                console.log(`Auto-storing results for round ${roundToCheck} using results page final totals`);
-                await autoStoreRoundResults(db, roundToCheck);
-            }
-        }
-    } catch (error) {
-        console.error(`Error checking auto-store for currentRound ${currentRound}:`, error);
-    }
-}
-
-/**
- * Fetches and stores the results for a specific round using results page final totals.
- */
-async function autoStoreRoundResults(db, round) {
-    try {
-        const results = await getRoundFinalTotals(round);
-        
-        if (Object.keys(results).length === 0) {
-            console.warn(`No results to auto-store for round ${round}`);
-            return;
-        }
-
-        await db.collection(`${CURRENT_YEAR}_round_results`).updateOne(
-            { round: round },
-            { $set: { round, results, lastUpdated: new Date(), source: 'auto_stored_final_totals' } },
-            { upsert: true }
-        );
-        
-        console.log(`Auto-stored results for round ${round} using final totals:`, results);
-        
-    } catch (error) {
-        console.error(`Error auto-storing results for round ${round}:`, error);
-    }
-}
-
-/**
- * Gets the end date for a round (estimated as 3 hours after the last game).
- */
-async function getRoundEndDate(round) {
-    try {
-        const baseUrl = getBaseUrl();
-        const response = await fetch(`${baseUrl}/api/tipping-data`);
-        if (!response.ok) return null;
-        
-        const fixtures = await response.json();
-        const roundFixtures = fixtures.filter(f => f.RoundNumber === round);
-        
-        if (roundFixtures.length === 0) return null;
-        
-        const lastFixture = roundFixtures.sort((a, b) => new Date(b.DateUtc) - new Date(a.DateUtc))[0];
-        
-        const roundEndDate = new Date(lastFixture.DateUtc);
-        roundEndDate.setHours(roundEndDate.getHours() + 3);
-        
-        return roundEndDate;
-        
-    } catch (error) {
-        console.error(`Error getting round end date for round ${round}:`, error);
-        return null;
     }
 }
 
