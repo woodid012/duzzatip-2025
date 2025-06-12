@@ -140,48 +140,68 @@ export default function LadderPage() {
   };
 
   // Calculate current round results for star/crab indicators
-  const calculateCurrentRoundResults = async (round) => {
-    try {
-      const results = {};
+  // Replace the calculateCurrentRoundResults function in your ladder page with this:
+
+// Calculate current round results for star/crab indicators using stored Final Totals
+const calculateCurrentRoundResults = async (round) => {
+  try {
+    console.log(`Getting stored Final Totals for round ${round} display`);
+    
+    // Get the stored Final Totals from the database (same source as ladder calculation)
+    const response = await fetch(`/api/final-totals?round=${round}`);
+    
+    if (response.ok) {
+      const data = await response.json();
       
-      // Get results for all users in this round (including dead certs)
-      for (const userId of Object.keys(USER_NAMES)) {
-        try {
-          // Get team score
-          const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
-          let teamScore = 0;
-          if (roundResultsRes.ok) {
-            const userData = await roundResultsRes.json();
-            teamScore = userData.total || 0;
-          }
-
-          // Get dead cert score
-          let deadCertScore = 0;
-          try {
-            const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
-            if (tippingRes.ok) {
-              const tippingData = await tippingRes.json();
-              deadCertScore = tippingData.deadCertScore || 0;
-            }
-          } catch (tippingError) {
-            // Silent fail for tipping results
-          }
-
-          // Total score = team score + dead cert score
-          results[userId] = teamScore + deadCertScore;
-          
-        } catch (error) {
-          results[userId] = 0;
-        }
+      if (data.finalTotals && Object.keys(data.finalTotals).length > 0) {
+        console.log(`Using stored Final Totals for round ${round} display:`, data.finalTotals);
+        setCurrentRoundResults(data.finalTotals);
+        return;
       }
-      
-      setCurrentRoundResults(results);
-      
-    } catch (error) {
-      console.error('Error calculating current round results:', error);
-      setCurrentRoundResults({});
     }
-  };
+    
+    // Fallback: if no stored Final Totals, calculate live (but this should rarely happen)
+    console.log(`No stored Final Totals found for round ${round}, calculating live as fallback`);
+    const results = {};
+    
+    // Get results for all users in this round (including dead certs)
+    for (const userId of Object.keys(USER_NAMES)) {
+      try {
+        // Get team score
+        const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
+        let teamScore = 0;
+        if (roundResultsRes.ok) {
+          const userData = await roundResultsRes.json();
+          teamScore = userData.total || 0;
+        }
+
+        // Get dead cert score
+        let deadCertScore = 0;
+        try {
+          const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
+          if (tippingRes.ok) {
+            const tippingData = await tippingRes.json();
+            deadCertScore = tippingData.deadCertScore || 0;
+          }
+        } catch (tippingError) {
+          // Silent fail for tipping results
+        }
+
+        // Total score = team score + dead cert score
+        results[userId] = teamScore + deadCertScore;
+        
+      } catch (error) {
+        results[userId] = 0;
+      }
+    }
+    
+    setCurrentRoundResults(results);
+    
+  } catch (error) {
+    console.error('Error calculating current round results:', error);
+    setCurrentRoundResults({});
+  }
+};
 
   // Load YTD star/crab totals
   const calculateYTDStarCrabs = async (upToRound) => {
@@ -470,115 +490,6 @@ export default function LadderPage() {
     }
   };
 
-  // TEMPORARY: Function to rebuild all stored results with proper team+dead cert scores
-  const rebuildAllStoredResults = async () => {
-    setIsRebuilding(true);
-    setRebuildProgress('Starting rebuild process...');
-    setRebuildComplete(false);
-    
-    try {
-      // Clear all existing cached ladder data first
-      setRebuildProgress('Clearing existing cached data...');
-      for (let round = 1; round <= 24; round++) {
-        try {
-          await fetch(`/api/ladder?round=${round}`, { method: 'DELETE' });
-        } catch (e) {
-          // Ignore delete errors
-        }
-      }
-      
-      // Rebuild results for rounds 1-24
-      for (let round = 1; round <= 24; round++) {
-        setRebuildProgress(`Processing Round ${round}...`);
-        
-        // Calculate fresh results for this round (team + dead certs)
-        const roundResults = {};
-        
-        for (const userId of Object.keys(USER_NAMES)) {
-          try {
-            // Get team score
-            let teamScore = 0;
-            const roundResultsRes = await fetch(`/api/round-results?round=${round}&userId=${userId}`);
-            if (roundResultsRes.ok) {
-              const userData = await roundResultsRes.json();
-              teamScore = userData.total || 0;
-            }
-
-            // Get dead cert score
-            let deadCertScore = 0;
-            try {
-              const tippingRes = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
-              if (tippingRes.ok) {
-                const tippingData = await tippingRes.json();
-                deadCertScore = tippingData.deadCertScore || 0;
-              }
-            } catch (tippingError) {
-              // Silent fail for tipping results
-            }
-
-            // Total score = team score + dead cert score
-            roundResults[userId] = teamScore + deadCertScore;
-            
-          } catch (error) {
-            console.error(`Error calculating results for user ${userId} round ${round}:`, error);
-            roundResults[userId] = 0;
-          }
-        }
-        
-        // Store the results using the store-round-results API
-        try {
-          const storeResponse = await fetch('/api/store-round-results', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              round: round,
-              results: roundResults,
-              source: 'manual_rebuild'
-            })
-          });
-          
-          if (storeResponse.ok) {
-            console.log(`Stored results for round ${round}:`, roundResults);
-          } else {
-            console.error(`Failed to store results for round ${round}`);
-          }
-        } catch (storeError) {
-          console.error(`Error storing results for round ${round}:`, storeError);
-        }
-        
-        // Small delay to avoid overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      setRebuildProgress('Rebuilding ladder cache...');
-      
-      // Force recalculation of ladder for current round
-      await fetch(`/api/ladder?round=${selectedRound}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          round: selectedRound,
-          forceRecalculate: true
-        })
-      });
-      
-      setRebuildProgress('Rebuild complete! Refreshing ladder...');
-      setRebuildComplete(true);
-      
-      // Refresh the current ladder
-      await calculateLadder(selectedRound);
-      
-    } catch (error) {
-      console.error('Error during rebuild:', error);
-      setRebuildProgress(`Error during rebuild: ${error.message}`);
-    } finally {
-      setIsRebuilding(false);
-    }
-  };
 
   // Refresh function
   const refreshLadder = () => {
@@ -612,48 +523,7 @@ export default function LadderPage() {
 
   return (
     <div className="w-full">
-      {/* TEMPORARY: Rebuild Storage Section - DELETE AFTER USE */}
-      {!rebuildComplete && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-yellow-800 mb-2">🔧 TEMPORARY: Storage Rebuild Tool</h3>
-          <p className="text-yellow-700 mb-4">
-            This will recalculate and store results for all rounds (1-24) with proper team scores + dead cert scores.
-            <br />
-            <strong>Only run this once, then delete this section from the code!</strong>
-          </p>
-          
-          {!isRebuilding ? (
-            <button
-              onClick={rebuildAllStoredResults}
-              className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-            >
-              🚀 Rebuild All Stored Results
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center">
-                <RefreshCw className="animate-spin h-4 w-4 mr-2" />
-                <span className="font-medium">Rebuilding storage...</span>
-              </div>
-              <div className="text-sm text-yellow-700">{rebuildProgress}</div>
-              <div className="w-full bg-yellow-200 rounded-full h-2">
-                <div className="bg-yellow-600 h-2 rounded-full transition-all duration-300" style={{width: '100%'}}></div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
       
-      {rebuildComplete && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <h3 className="text-lg font-semibold text-green-800 mb-2">✅ Rebuild Complete!</h3>
-          <p className="text-green-700">
-            All rounds have been recalculated with proper team + dead cert scores. 
-            <br />
-            <strong>You can now delete this rebuild section from the code.</strong>
-          </p>
-        </div>
-      )}
       {/* Mobile View */}
       <div className="block md:hidden">
         <MobileLadder 
