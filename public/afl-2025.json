@@ -1261,8 +1261,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 60,
+    "AwayTeamScore": 132
   },
   {
     "MatchNumber": 116,
