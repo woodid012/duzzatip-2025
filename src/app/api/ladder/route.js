@@ -4,7 +4,7 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 
 /**
  * GET handler for ladder data.
- * Gets the Final Total directly from the results page without any calculation
+ * Gets the Final Total directly from the database (stored by results page)
  */
 export async function GET(request) {
     try {
@@ -31,9 +31,9 @@ export async function GET(request) {
             });
         }
         
-        // If cache is missing or stale, get Final Totals from results page and build ladder
-        console.log(`Getting Final Totals from results page for round ${round}`);
-        const calculatedLadder = await buildLadderFromResultsPageFinalTotals(round);
+        // If cache is missing or stale, build ladder from Final Totals stored in database
+        console.log(`Building fresh ladder from stored Final Totals for round ${round}`);
+        const calculatedLadder = await buildLadderFromStoredFinalTotals(round, db);
         
         const lastUpdated = new Date();
 
@@ -45,7 +45,7 @@ export async function GET(request) {
                     round: round,
                     standings: calculatedLadder,
                     lastUpdated: lastUpdated,
-                    calculatedFrom: 'results_page_final_totals_direct'
+                    calculatedFrom: 'stored_final_totals_direct'
                 } 
             },
             { upsert: true }
@@ -65,27 +65,30 @@ export async function GET(request) {
 }
 
 /**
- * Build ladder using Final Totals from results page - NO CALCULATION
- * Just gets the Final Total values and uses them for ladder standings
+ * Build ladder using Final Totals stored directly in database by results page
+ * This gets the exact same values that show as "Final Total" on the results page
  */
-async function buildLadderFromResultsPageFinalTotals(currentRound) {
-    console.log(`Building ladder from results page Final Totals for round ${currentRound}`);
+async function buildLadderFromStoredFinalTotals(currentRound, db) {
+    console.log(`Building ladder from stored Final Totals for round ${currentRound}`);
     
     const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
         userId, userName, played: 0, wins: 0, losses: 0, draws: 0,
         pointsFor: 0, pointsAgainst: 0, percentage: 0, points: 0
     }));
 
+    // Process rounds 1 through currentRound (up to 21 for regular season)
     for (let round = 1; round <= Math.min(currentRound, 21); round++) {
-        console.log(`Getting Final Totals for round ${round} from results page`);
+        console.log(`Getting stored Final Totals for round ${round}`);
         
-        // Get the Final Totals that are already calculated on the results page
-        const finalTotals = await getFinalTotalsFromResultsPage(round);
+        // Get Final Totals directly from database (stored by results page)
+        const finalTotals = await getStoredFinalTotals(round, db);
         
         if (!finalTotals || Object.keys(finalTotals).length === 0) {
-            console.log(`No Final Totals available for round ${round}, skipping`);
+            console.log(`No stored Final Totals available for round ${round}, skipping`);
             continue;
         }
+        
+        console.log(`Using Final Totals for round ${round}:`, finalTotals);
         
         const fixtures = getFixturesForRound(round);
         
@@ -95,6 +98,12 @@ async function buildLadderFromResultsPageFinalTotals(currentRound) {
             
             const homeScore = finalTotals[homeUserId] || 0;
             const awayScore = finalTotals[awayUserId] || 0;
+            
+            // Skip if both scores are 0 (no data)
+            if (homeScore === 0 && awayScore === 0) {
+                console.log(`Round ${round}: No scores for ${USER_NAMES[homeUserId]} vs ${USER_NAMES[awayUserId]}, skipping`);
+                return;
+            }
             
             console.log(`Round ${round}: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore})`);
             
@@ -127,53 +136,59 @@ async function buildLadderFromResultsPageFinalTotals(currentRound) {
         });
     }
 
+    // Calculate percentages
     ladder.forEach(team => {
         team.percentage = team.pointsAgainst === 0 
             ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
             : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
     });
 
+    // Sort ladder by points, then percentage
     const sortedLadder = ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
     
-    console.log(`Ladder complete for round ${currentRound} using results page Final Totals`);
+    console.log(`Ladder complete for round ${currentRound} using stored Final Totals`);
     return sortedLadder;
 }
 
 /**
- * Get the Final Totals that are stored by the results page
- * This gets the exact same values that show as "Final Total" on the results page
+ * Get the Final Totals stored directly in database by the results page
+ * This avoids any API call issues and gets data directly from the same source
  */
-async function getFinalTotalsFromResultsPage(round) {
-    console.log(`Getting stored Final Totals from results page for round ${round}`);
+async function getStoredFinalTotals(round, db) {
+    console.log(`Getting stored Final Totals from database for round ${round}`);
     
     try {
-        // Get all Final Totals for this round that were stored by the results page
-        const response = await fetch(`${getBaseUrl()}/api/final-totals?round=${round}`);
+        const finalTotalsCollection = db.collection(`${CURRENT_YEAR}_final_totals`);
         
-        if (response.ok) {
-            const data = await response.json();
-            console.log(`Got Final Totals for round ${round}:`, data.finalTotals);
-            return data.finalTotals || {};
-        } else {
-            console.warn(`Failed to get Final Totals for round ${round}`);
+        // Get all Final Totals for this round
+        const results = await finalTotalsCollection
+            .find({ round: round })
+            .toArray();
+        
+        if (!results || results.length === 0) {
+            console.log(`No Final Totals found in database for round ${round}`);
             return {};
         }
         
+        // Convert to the expected format
+        const finalTotals = {};
+        results.forEach(result => {
+            if (result.userId && result.finalTotal !== undefined) {
+                finalTotals[result.userId] = result.finalTotal || 0;
+            }
+        });
+        
+        console.log(`Retrieved Final Totals from database for round ${round}:`, finalTotals);
+        return finalTotals;
+        
     } catch (error) {
-        console.error(`Error in getFinalTotalsFromResultsPage for round ${round}:`, error);
+        console.error(`Error getting stored Final Totals for round ${round}:`, error);
         return {};
     }
 }
 
 /**
- * Get the base URL for internal API calls
- */
-function getBaseUrl() {
-    return process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-}
-
-/**
- * POST handler to store/update ladder data (for manual overrides).
+ * POST handler to store/update ladder data (for manual overrides or force recalculation).
  */
 export async function POST(request) {
     try {
@@ -187,12 +202,12 @@ export async function POST(request) {
         const { db } = await connectToDatabase();
         
         if (forceRecalculate) {
-            console.log(`Force recalculating ladder for round ${round} using results page Final Totals`);
-            const freshLadder = await buildLadderFromResultsPageFinalTotals(round);
+            console.log(`Force recalculating ladder for round ${round} using stored Final Totals`);
+            const freshLadder = await buildLadderFromStoredFinalTotals(round, db);
             
             await db.collection(`${CURRENT_YEAR}_ladder`).updateOne(
                 { round: round },
-                { $set: { round, standings: freshLadder, lastUpdated: new Date(), calculatedFrom: 'forced_results_page_final_totals' } },
+                { $set: { round, standings: freshLadder, lastUpdated: new Date(), calculatedFrom: 'forced_stored_final_totals' } },
                 { upsert: true }
             );
             
