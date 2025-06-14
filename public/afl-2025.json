@@ -1283,8 +1283,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 96,
+    "AwayTeamScore": 107
   },
   {
     "MatchNumber": 118,
@@ -1294,8 +1294,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 56,
+    "AwayTeamScore": 151
   },
   {
     "MatchNumber": 119,
@@ -1305,8 +1305,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 67,
+    "AwayTeamScore": 73
   },
   {
     "MatchNumber": 120,
