@@ -1272,8 +1272,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 47,
+    "AwayTeamScore": 44
   },
   {
     "MatchNumber": 117,
