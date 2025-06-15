@@ -1316,8 +1316,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 93,
+    "AwayTeamScore": 68
   },
   {
     "MatchNumber": 121,
@@ -1327,8 +1327,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 52,
+    "AwayTeamScore": 86
   },
   {
     "MatchNumber": 122,
