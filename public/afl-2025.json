@@ -1338,8 +1338,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 104,
+    "AwayTeamScore": 63
   },
   {
     "MatchNumber": 123,
