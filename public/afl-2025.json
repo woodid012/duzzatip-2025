@@ -1360,8 +1360,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 73,
+    "AwayTeamScore": 84
   },
   {
     "MatchNumber": 125,
@@ -1371,8 +1371,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 52,
+    "AwayTeamScore": 71
   },
   {
     "MatchNumber": 126,
@@ -1382,8 +1382,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 108,
+    "AwayTeamScore": 74
   },
   {
     "MatchNumber": 127,
