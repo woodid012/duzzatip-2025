@@ -1393,8 +1393,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 106,
+    "AwayTeamScore": 99
   },
   {
     "MatchNumber": 128,
@@ -1404,8 +1404,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 135,
+    "AwayTeamScore": 56
   },
   {
     "MatchNumber": 134,
