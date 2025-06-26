@@ -29,7 +29,7 @@ export async function GET(request) {
         const isCacheStale = !cachedLadder || !cachedLadder.lastUpdated || (new Date() - new Date(cachedLadder.lastUpdated) > CACHE_MAX_AGE_MS);
         
         if (cachedLadder && cachedLadder.standings && !isCacheStale) {
-            console.log(`Returning fresh cached ladder for round ${round}`);
+            
             return Response.json({
                 standings: cachedLadder.standings,
                 lastUpdated: cachedLadder.lastUpdated,
@@ -38,7 +38,7 @@ export async function GET(request) {
         }
         
         // If cache is missing or stale, build ladder from Final Totals stored in database
-        console.log(`Building fresh ladder from stored Final Totals for round ${round}`);
+        
         const calculatedLadder = await buildLadderFromStoredFinalTotals(round, db);
         
         const lastUpdated = new Date();
@@ -125,7 +125,7 @@ async function handleGetRoundSummary(round, db) {
  * This gets the exact same values that show as "Final Total" on the results page
  */
 async function buildLadderFromStoredFinalTotals(currentRound, db) {
-    console.log(`Building ladder from stored Final Totals for round ${currentRound}`);
+    
     
     const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
         userId, userName, played: 0, wins: 0, losses: 0, draws: 0,
@@ -134,17 +134,17 @@ async function buildLadderFromStoredFinalTotals(currentRound, db) {
 
     // Process rounds 1 through currentRound (up to 21 for regular season)
     for (let round = 1; round <= Math.min(currentRound, 21); round++) {
-        console.log(`Getting stored Final Totals for round ${round}`);
+        
         
         // Get Final Totals directly from database (stored by results page)
         const finalTotals = await getStoredFinalTotals(round, db);
         
         if (!finalTotals || Object.keys(finalTotals).length === 0) {
-            console.log(`No stored Final Totals available for round ${round}, skipping`);
+            
             continue;
         }
         
-        console.log(`Using Final Totals for round ${round}:`, finalTotals);
+        
         
         const fixtures = getFixturesForRound(round);
         
@@ -157,11 +157,11 @@ async function buildLadderFromStoredFinalTotals(currentRound, db) {
             
             // Skip if both scores are 0 (no data)
             if (homeScore === 0 && awayScore === 0) {
-                console.log(`Round ${round}: No scores for ${USER_NAMES[homeUserId]} vs ${USER_NAMES[awayUserId]}, skipping`);
+                
                 return;
             }
             
-            console.log(`Round ${round}: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore})`);
+            
             
             const homeLadder = ladder.find(entry => entry.userId === homeUserId);
             const awayLadder = ladder.find(entry => entry.userId === awayUserId);
@@ -202,7 +202,7 @@ async function buildLadderFromStoredFinalTotals(currentRound, db) {
     // Sort ladder by points, then percentage
     const sortedLadder = ladder.sort((a, b) => b.points - a.points || b.percentage - a.percentage);
     
-    console.log(`Ladder complete for round ${currentRound} using stored Final Totals`);
+    
     return sortedLadder;
 }
 
@@ -211,7 +211,7 @@ async function buildLadderFromStoredFinalTotals(currentRound, db) {
  * This avoids any API call issues and gets data directly from the same source
  */
 async function getStoredFinalTotals(round, db) {
-    console.log(`Getting stored Final Totals from database for round ${round}`);
+    
     
     try {
         const finalTotalsCollection = db.collection(`${CURRENT_YEAR}_final_totals`);
@@ -222,7 +222,7 @@ async function getStoredFinalTotals(round, db) {
             .toArray();
         
         if (!results || results.length === 0) {
-            console.log(`No Final Totals found in database for round ${round}`);
+            
             return {};
         }
         
@@ -234,7 +234,7 @@ async function getStoredFinalTotals(round, db) {
             }
         });
         
-        console.log(`Retrieved Final Totals from database for round ${round}:`, finalTotals);
+        
         return finalTotals;
         
     } catch (error) {
@@ -259,7 +259,7 @@ export async function POST(request) {
         
         // Handle round summary calculation
         if (calculateRoundSummary) {
-            console.log(`Calculating round summary for round ${round}`);
+            
             
             const summaryResult = await calculateAndStoreRoundSummary(round, db, forceRecalculate);
             return Response.json(summaryResult);
@@ -267,7 +267,7 @@ export async function POST(request) {
         
         // Existing ladder recalculation logic
         if (forceRecalculate) {
-            console.log(`Force recalculating ladder for round ${round} using stored Final Totals`);
+            
             const freshLadder = await buildLadderFromStoredFinalTotals(round, db);
             
             await db.collection(`${CURRENT_YEAR}_ladder`).updateOne(
@@ -308,7 +308,7 @@ async function calculateAndStoreRoundSummary(round, db, forceRecalculate = false
         if (!forceRecalculate) {
             const existingCount = await collection.countDocuments({ round: round });
             if (existingCount > 0) {
-                console.log(`Round summary already exists for round ${round}, skipping calculation`);
+                
                 return { 
                     success: true, 
                     message: `Round summary already exists for round ${round}`,
@@ -327,7 +327,7 @@ async function calculateAndStoreRoundSummary(round, db, forceRecalculate = false
             };
         }
 
-        console.log(`Using Final Totals for round ${round} summary:`, finalTotals);
+        
 
         // Calculate round summary data
         const roundSummary = await calculateRoundSummaryData(round, finalTotals);
@@ -384,7 +384,7 @@ async function calculateAndStoreRoundSummary(round, db, forceRecalculate = false
             await collection.bulkWrite(bulkOps);
         }
 
-        console.log(`Stored round summary for round ${round}: ${Object.keys(roundSummary.userResults).length} users`);
+        
 
         return { 
             success: true,

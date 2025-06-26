@@ -40,7 +40,7 @@ export default function useTipping(initialUserId = '') {
   // But only for non-admin users - admin manages team selection locally
   useEffect(() => {
     if (initialUserId && initialUserId !== 'admin' && initialUserId !== selectedUserId) {
-      console.log(`useTipping: Updating selectedUserId from ${selectedUserId} to ${initialUserId}`);
+      
       setSelectedUserId(initialUserId);
       // Reset state when user changes
       setIsEditing(false);
@@ -49,7 +49,7 @@ export default function useTipping(initialUserId = '') {
       isInitializedRef.current = false;
     } else if (initialUserId === 'admin' && !selectedUserId) {
       // If admin is selected but no local user is set, initialize as empty
-      console.log('useTipping: Admin mode initialized, no specific team selected');
+      
       setSelectedUserId('');
     }
   }, [initialUserId, selectedUserId]);
@@ -98,7 +98,7 @@ export default function useTipping(initialUserId = '') {
         fixture => fixture.RoundNumber.toString() === localRound.toString()
       );
       setRoundFixtures(filtered);
-      console.log(`Loaded ${filtered.length} fixtures for round ${localRound}`);
+      
     }
   }, [fixtures, localRound]);
 
@@ -120,7 +120,7 @@ export default function useTipping(initialUserId = '') {
       try {
         setLoadingLocal(true);
         
-        console.log(`Loading tips for user ${selectedUserId}, round ${localRound}`);
+        
         
         const url = `/api/tipping-data?round=${localRound}&userId=${selectedUserId}`;
         const response = await fetch(url);
@@ -156,7 +156,7 @@ export default function useTipping(initialUserId = '') {
           ...tipsData
         };
 
-        console.log("Loaded tips:", combinedTips);
+        
         setTips(combinedTips);
         setEditedTips(combinedTips);
         setDataLoaded(true);
@@ -174,16 +174,13 @@ export default function useTipping(initialUserId = '') {
     
     // Cleanup function - make sure to clear isEditing when user/round changes
     return () => {
-      if (isEditing) {
-        console.log("Cleaning up editing state on user/round change");
-        setIsEditing(false);
-      }
+      
     };
   }, [localRound, selectedUserId, roundFixtures]);
 
   // Handle local round change
   const handleRoundChange = (newRound) => {
-    console.log(`Changing local round to ${newRound}`);
+    
     setLocalRound(newRound);
     // Reset editing state when changing rounds
     setIsEditing(false);
@@ -194,11 +191,10 @@ export default function useTipping(initialUserId = '') {
 
   // Handle team tip selection
   const handleTipSelect = (matchNumber, team) => {
-    console.log(`Setting tip for match ${matchNumber} to ${team} (isEditing: ${isEditing})`);
+    
     
     // Check if we can edit (admin can bypass lock, regular users cannot)
     if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
-      console.log("Can't edit - editing is locked");
       return;
     }
     
@@ -224,11 +220,10 @@ export default function useTipping(initialUserId = '') {
 
   // Toggle dead cert status
   const handleDeadCertToggle = (matchNumber) => {
-    console.log(`Toggling dead cert for match ${matchNumber} (isEditing: ${isEditing})`);
+    
     
     // Check if we can edit (admin can bypass lock, regular users cannot)
     if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
-      console.log("Can't edit - editing is locked");
       return;
     }
 
@@ -246,11 +241,11 @@ export default function useTipping(initialUserId = '') {
   const saveTips = async () => {
     // Check if we can save (admin can bypass lock, regular users cannot)
     if (!selectedUserId || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
-      console.log("Can't save - no user selected or round is locked");
+      
       return false;
     }
     
-    console.log("Saving tips...", editedTips);
+    
     
     try {
       setErrorLocal(null);
@@ -271,7 +266,7 @@ export default function useTipping(initialUserId = '') {
       if (!response.ok) throw new Error('Failed to save tips');
       
       // Update the base tips state to match edited tips
-      console.log("Tips saved successfully");
+      
       setTips({ ...editedTips });
       setIsEditing(false);
       
@@ -291,19 +286,15 @@ export default function useTipping(initialUserId = '') {
   };
 
   // Cancel editing
-  const cancelEditing = () => {
-    console.log("Canceling edits");
-    setEditedTips({ ...tips });
-    setIsEditing(false);
-  };
+  
 
   // Start editing
   const startEditing = () => {
-    console.log("Starting editing, isLocked:", isRoundLocked(localRound), "userId:", selectedUserId);
+    
     
     // Admin can always edit, or regular users if not locked and user is selected
     if ((selectedUserId === 'admin' || !isRoundLocked(localRound)) && selectedUserId) {
-      console.log("Setting isEditing to true");
+      
       // Ensure we're working with the latest data
       setEditedTips({ ...tips });
       setIsEditing(true);
@@ -311,8 +302,7 @@ export default function useTipping(initialUserId = '') {
   };
 
   // Change selected user - this is the key function for admin
-  const changeUser = (userId) => {
-    console.log(`Changing user from ${selectedUserId} to ${userId}`);
+  
     if (userId !== selectedUserId) {
       setSelectedUserId(userId);
       setIsEditing(false);

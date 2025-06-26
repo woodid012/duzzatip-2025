@@ -116,10 +116,7 @@ export async function PATCH(request) {
             return Response.json({ error: 'Missing required parameters' }, { status: 400 });
         }
         
-        console.log(`Processing ${type} transaction for user ${userId}:`, { 
-            players_in: players_in || [], 
-            players_out: players_out || [] 
-        });
+        
         
         const { db } = await connectToDatabase();
         const collection = db.collection(`${CURRENT_YEAR}_squads`);
@@ -131,7 +128,7 @@ export async function PATCH(request) {
             case 'initial':
                 // Add new players from initial draft
                 if (players_in && players_in.length > 0) {
-                    console.log(`Adding ${players_in.length} players from initial draft`);
+                    
                     players_in.forEach(player => {
                         if (!player.name) return;
                         
@@ -275,7 +272,7 @@ export async function PATCH(request) {
 
         // Execute all operations
         if (bulkOps.length > 0) {
-            console.log(`Executing ${bulkOps.length} database operations`);
+            
             await collection.bulkWrite(bulkOps, { ordered: false });
         } else {
             console.warn('No database operations to perform');
@@ -307,7 +304,7 @@ export async function PATCH(request) {
         
         await db.collection(`${CURRENT_YEAR}_squad_transactions`).insertOne(transactionData);
         
-        console.log(`Successfully completed ${type} transaction for user ${userId}`);
+        
         return Response.json({ success: true });
     } catch (error) {
         console.error('Database Error:', error);

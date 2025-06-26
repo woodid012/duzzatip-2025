@@ -10,7 +10,7 @@ export async function GET(request) {
             return Response.json({ error: 'Round parameter is required' }, { status: 400 });
         }
 
-        console.log(`Attempting to update stats for round ${round}`);
+        
         
         // Fetch stats from DFS Australia
         const statsData = await fetchDFSAustraliaStats();
@@ -26,7 +26,7 @@ export async function GET(request) {
             parseInt(record.round, 10) === round
         );
         
-        console.log(`Found ${roundStats.length} player stats for round ${round}`);
+        
         
         if (roundStats.length === 0) {
             return Response.json({ 
@@ -67,7 +67,7 @@ async function fetchDFSAustraliaStats() {
     const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
     
     try {
-        console.log('Downloading AFL stats from DFS Australia...');
+        
         
         // Prepare form data
         const formData = new URLSearchParams();
@@ -130,7 +130,7 @@ async function updateDatabase(statsData, round) {
         const processedData = statsData.map(record => {
             // Ensure we have a valid record to process
             if (!record || typeof record !== 'object') {
-                console.warn('Invalid record found:', record);
+                
                 return null;
             }
             
@@ -176,12 +176,12 @@ async function updateDatabase(statsData, round) {
             year: CURRENT_YEAR
         });
         
-        console.log(`Deleted existing data for round ${round}`);
+        
         
         // Insert the processed data
         const result = await collection.insertMany(processedData);
         
-        console.log(`Inserted ${result.insertedCount} records for round ${round}`);
+        
         
         return {
             insertedCount: result.insertedCount
