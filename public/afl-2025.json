@@ -1415,8 +1415,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 110,
+    "AwayTeamScore": 60
   },
   {
     "MatchNumber": 132,
