@@ -1426,8 +1426,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 96,
+    "AwayTeamScore": 105
   },
   {
     "MatchNumber": 131,
