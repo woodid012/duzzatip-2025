@@ -286,10 +286,7 @@ export default function useTipping(initialUserId = '') {
   };
 
   // Cancel editing
-  const cancelEditing = useCallback(() => {
-    setEditedTips({ ...tips });
-    setIsEditing(false);
-  }, [tips]);
+  
 
   // Start editing
   const startEditing = () => {
@@ -305,7 +302,7 @@ export default function useTipping(initialUserId = '') {
   };
 
   // Change selected user - this is the key function for admin
-  const changeUser = useCallback((userId) => {
+  
     if (userId !== selectedUserId) {
       setSelectedUserId(userId);
       setIsEditing(false);
@@ -317,7 +314,7 @@ export default function useTipping(initialUserId = '') {
       setTips({});
       setEditedTips({});
     }
-  }, [selectedUserId]);
+  };
 
   // Format round name nicely
   const formatRoundName = (round) => {
