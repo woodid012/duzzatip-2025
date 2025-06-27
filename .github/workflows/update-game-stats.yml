@@ -1,0 +1,27 @@
+name: Update Game Stats
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger Scheduled Updates API
+        env:
+          # Ensure this matches your deployed application's URL
+          # If not on Vercel, you might need to set this manually or use a different env var
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+        run: |
+          if [ -z "$VERCEL_URL" ]; then
+            echo "VERCEL_URL environment variable is not set. Cannot trigger API."
+            exit 1
+          fi
+          echo "Triggering scheduled updates at $VERCEL_URL/api/scheduled-updates"
+          curl -X GET "$VERCEL_URL/api/scheduled-updates"
