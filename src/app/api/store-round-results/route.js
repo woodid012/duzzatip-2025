@@ -85,7 +85,7 @@ export async function POST(request) {
             { upsert: true }
         );
         
-        
+        console.log(`Stored results for round ${round}: ${Object.keys(results).length} users`);
         
         // Also trigger ladder recalculation
         try {
@@ -154,7 +154,7 @@ export async function PUT(request) {
             }
         }
         
-        
+        console.log(`Calculating and storing results for round ${round}`);
         
         // Calculate current results using the existing results logic
         const calculatedResults = await calculateCurrentRoundResults(round);
@@ -222,7 +222,7 @@ async function calculateCurrentRoundResults(round) {
                     const userData = await response.json();
                     // Use the total score which includes team score + dead cert bonus
                     results[userId] = userData.total || 0;
-                    
+                    console.log(`Calculated score for user ${userId} round ${round}: ${userData.total}`);
                 } else {
                     console.warn(`Failed to get results for user ${userId} in round ${round}: ${response.status}`);
                     results[userId] = 0;
@@ -233,7 +233,7 @@ async function calculateCurrentRoundResults(round) {
             }
         }
         
-        
+        console.log(`Final calculated results for round ${round}:`, results);
         return results;
         
     } catch (error) {

@@ -14,7 +14,7 @@ export async function GET(request) {
       const fixturesData = await fs.readFile(fixturesPath, 'utf8');
       fixtures = JSON.parse(fixturesData);
     } catch (fileError) {
-      
+      console.warn('Static fixtures file not found, fetching from API');
       
       // Fallback to API if file doesn't exist
       const response = await fetch(`https://fixturedownload.com/feed/json/afl-${CURRENT_YEAR}`);
@@ -29,7 +29,7 @@ export async function GET(request) {
         await fs.writeFile(fixturesPath, JSON.stringify(fixtures, null, 2));
         console.log('Fixtures saved to static file');
       } catch (saveError) {
-        
+        console.warn('Failed to save fixtures to static file:', saveError);
       }
     }
 

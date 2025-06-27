@@ -88,13 +88,19 @@ export default function useResults() {
         // Check round end status using roundInfo from context
         const checkRoundEndStatus = () => {
           try {
-            
+            console.log('DEBUG ---- Round End Detection ----');
+            console.log('AppContext roundInfo:', roundInfo);
+            console.log('Current round from context:', currentRound);
+            console.log('Local round being checked:', localRound);
             
             let roundEndPassedReason = '';
             
             // For the current round, check the global context's roundInfo
+            console.log('Round info from global context:', roundInfo);
+            
             // Check if we can get the isRoundEnded flag directly
             if (roundInfo && typeof roundInfo.isRoundEnded === 'boolean') {
+              console.log(`Using isRoundEnded flag from context: ${roundInfo.isRoundEnded}`);
               setRoundEndPassed(roundInfo.isRoundEnded);
               roundEndPassedReason = 'Direct isRoundEnded flag';
               return;
@@ -106,11 +112,11 @@ export default function useResults() {
             if (localRound === currentRound) {
               // For current round, use the context's roundInfo directly
               targetRoundInfo = roundInfo;
-              
+              console.log('Using direct roundInfo for current round:', targetRoundInfo);
             } else if (appContext.getSpecificRoundInfo) {
               // For other rounds, try to get specific round info if available
               targetRoundInfo = appContext.getSpecificRoundInfo(localRound);
-              
+              console.log(`Retrieved specific round info for round ${localRound}:`, targetRoundInfo);
             }
             
             // Time-based check using round end time from the appropriate round info
@@ -119,16 +125,16 @@ export default function useResults() {
             // 1. Try direct roundEndTime from target round info
             if (targetRoundInfo && targetRoundInfo.roundEndTime) {
               roundEndTime = targetRoundInfo.roundEndTime;
-              
+              console.log('Found roundEndTime in targetRoundInfo:', roundEndTime);
             }
             // 2. Try roundEndDate (which might be a Date object)
             else if (targetRoundInfo && targetRoundInfo.roundEndDate) {
               roundEndTime = targetRoundInfo.roundEndDate;
-              
+              console.log('Found roundEndDate in targetRoundInfo:', roundEndTime);
             }
             // 3. If we're checking past rounds and can't get specific info, assume they ended
             else if (localRound < currentRound) {
-              
+              console.log(`Past round ${localRound} with no end time available, assuming ended`);
               setRoundEndPassed(true);
               roundEndPassedReason = `Past round (${localRound} < ${currentRound})`;
               return;
@@ -139,7 +145,10 @@ export default function useResults() {
               const roundEndDate = roundEndTime instanceof Date ? roundEndTime : new Date(roundEndTime);
               const now = new Date();
               
-              
+              console.log('Round end time/date from context:', roundEndTime);
+              console.log('Parsed round end date:', roundEndDate);
+              console.log('Current time:', now.toISOString());
+              console.log('Round has ended comparison result:', now > roundEndDate);
               
               // Check if we're past the round end time
               const hasEnded = now > roundEndDate;
@@ -155,7 +164,7 @@ export default function useResults() {
             // Last resort - see if there's any hint in round info about the round being completed
             if (roundInfo) {
               if (roundInfo.isCompleted || roundInfo.status === 'completed') {
-                
+                console.log('Round marked as completed in context');
                 setRoundEndPassed(true);
                 roundEndPassedReason = 'Round marked as completed';
                 return;
@@ -165,14 +174,14 @@ export default function useResults() {
             // If we got here, we couldn't determine from context, so use more general heuristics
             // Any round before the current round is considered completed
             if (localRound < currentRound) {
-              
+              console.log(`Round ${localRound} is before current round ${currentRound}, marking as completed`);
               setRoundEndPassed(true);
               roundEndPassedReason = `Past round (${localRound} < ${currentRound})`;
               return;
             }
             
             // Default fallback
-            
+            console.log('Could not determine if round has ended, defaulting to false');
             setRoundEndPassed(false);
             roundEndPassedReason = 'Default fallback - could not determine';
           } catch (err) {
@@ -180,7 +189,7 @@ export default function useResults() {
             
             // Fallback to safe choice - rounds before current round have ended
             if (localRound < currentRound) {
-              
+              console.log('Fallback: Round is before current round, marking as ended');
               setRoundEndPassed(true);
             } else {
               setRoundEndPassed(false);

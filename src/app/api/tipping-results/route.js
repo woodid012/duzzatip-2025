@@ -22,7 +22,7 @@ export async function GET(request) {
     try {
       fixturesData = await fs.readFile(fixturesPath, 'utf8');
     } catch (error) {
-      
+      console.error('Failed to read fixtures file:', error);
       throw new Error('Failed to read fixtures file');
     }
     

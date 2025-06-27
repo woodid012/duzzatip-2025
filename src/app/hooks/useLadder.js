@@ -48,7 +48,8 @@ export default function useLadder() {
         setDataSource('empty');
       }
       
-      
+      // Also get the current round results for context
+      await fetchCurrentRoundResults();
       
     } catch (err) {
       console.error('Error fetching ladder data:', err);
@@ -75,11 +76,6 @@ export default function useLadder() {
   useEffect(() => {
     fetchLadderData();
   }, [fetchLadderData]);
-
-  // Fetch current round results when currentRound changes
-  useEffect(() => {
-    fetchCurrentRoundResults();
-  }, [fetchCurrentRoundResults]);
 
   // Fetch current round results for additional context
   const fetchCurrentRoundResults = useCallback(async () => {
