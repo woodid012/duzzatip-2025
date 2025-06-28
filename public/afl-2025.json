@@ -1437,8 +1437,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 104,
+    "AwayTeamScore": 85
   },
   {
     "MatchNumber": 133,
@@ -1448,8 +1448,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 150,
+    "AwayTeamScore": 65
   },
   {
     "MatchNumber": 129,
@@ -1459,8 +1459,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 88,
+    "AwayTeamScore": 59
   },
   {
     "MatchNumber": 130,
