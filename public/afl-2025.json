@@ -1492,8 +1492,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 85,
+    "AwayTeamScore": 134
   },
   {
     "MatchNumber": 140,
