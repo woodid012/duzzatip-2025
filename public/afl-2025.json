@@ -1503,8 +1503,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 59,
+    "AwayTeamScore": 115
   },
   {
     "MatchNumber": 144,
@@ -1514,8 +1514,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 52,
+    "AwayTeamScore": 111
   },
   {
     "MatchNumber": 139,
