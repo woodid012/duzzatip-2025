@@ -1525,8 +1525,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 74,
+    "AwayTeamScore": 115
   },
   {
     "MatchNumber": 136,
@@ -1536,8 +1536,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 124,
+    "AwayTeamScore": 52
   },
   {
     "MatchNumber": 142,
@@ -1547,8 +1547,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 120,
+    "AwayTeamScore": 92
   },
   {
     "MatchNumber": 137,
@@ -1558,8 +1558,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 74,
+    "AwayTeamScore": 94
   },
   {
     "MatchNumber": 141,
