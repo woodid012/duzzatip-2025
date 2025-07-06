@@ -1569,8 +1569,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 94,
+    "AwayTeamScore": 83
   },
   {
     "MatchNumber": 143,
@@ -1580,8 +1580,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 90,
+    "AwayTeamScore": 77
   },
   {
     "MatchNumber": 148,
