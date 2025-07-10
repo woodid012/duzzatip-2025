@@ -1591,8 +1591,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 66,
+    "AwayTeamScore": 103
   },
   {
     "MatchNumber": 151,
