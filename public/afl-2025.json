@@ -1657,8 +1657,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 119,
+    "AwayTeamScore": 83
   },
   {
     "MatchNumber": 147,
@@ -1668,8 +1668,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 87,
+    "AwayTeamScore": 92
   },
   {
     "MatchNumber": 152,
@@ -1679,8 +1679,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 87,
+    "AwayTeamScore": 61
   },
   {
     "MatchNumber": 155,
