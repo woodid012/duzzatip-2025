@@ -1613,8 +1613,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 98,
+    "AwayTeamScore": 109
   },
   {
     "MatchNumber": 145,
@@ -1624,8 +1624,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 111,
+    "AwayTeamScore": 85
   },
   {
     "MatchNumber": 150,
@@ -1635,8 +1635,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 46,
+    "AwayTeamScore": 37
   },
   {
     "MatchNumber": 153,
@@ -1646,8 +1646,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 77,
+    "AwayTeamScore": 64
   },
   {
     "MatchNumber": 149,
