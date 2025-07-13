@@ -57,7 +57,16 @@ export async function GET(request) {
 
         const total = positions.reduce((sum, pos) => sum + pos.scoring.total, 0);
 
-        return Response.json({ total, positions });
+        // Fetch dead cert score
+        let deadCertScore = 0;
+        const tippingResults = await db.collection(`${CURRENT_YEAR}_tipping_results`)
+            .findOne({ round: round, userId: userId });
+        
+        if (tippingResults) {
+            deadCertScore = tippingResults.deadCertScore || 0;
+        }
+
+        return Response.json({ teamScore: total, deadCertScore, total: total + deadCertScore, positions });
 
     } catch (error) {
         console.error('API Error:', error);

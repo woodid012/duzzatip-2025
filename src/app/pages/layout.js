@@ -117,6 +117,11 @@ export default function PagesLayout({ children }) {
     { name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' },
   ];
 
+  const debugNavigationItems = [
+    { name: 'Round-by-Round', path: '/pages/round-by-round', id: 'round-by-round' },
+    { name: 'Update Stats', path: '/pages/update-stats', id: 'update-stats' },
+  ];
+
   // Check if the current page should show only the selected user's team
   const isSingleUserPage = pathname === '/pages/team-selection' || pathname === '/pages/tipping';
 
@@ -394,6 +399,24 @@ export default function PagesLayout({ children }) {
                       {item.name}
                     </Link>
                   ))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Debug</h3>
+                  <div className="flex flex-col gap-2">
+                    {debugNavigationItems.map((item) => (
+                      <Link 
+                        key={item.id}
+                        href={item.path}
+                        className={`block px-4 py-2 rounded-md transition-colors text-left text-sm ${
+                          pathname === item.path
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

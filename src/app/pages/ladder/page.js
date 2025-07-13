@@ -469,7 +469,7 @@ const calculateCurrentRoundResults = async (round) => {
 
   // Get team's current round score
   const getTeamCurrentRoundScore = (userId) => {
-    return currentRoundResults[userId] || 0;
+    return currentRoundResults[userId]?.total || 0;
   };
 
   // Helper functions for finals
@@ -653,12 +653,12 @@ function MobileLadder({
                       <span className="font-semibold text-black">{team.userName}</span>
                       
                       {/* Current round star/crab indicators */}
-                      {currentRoundResults[team.userId] && 
-                       currentRoundResults[team.userId] === highestScore && 
+                      {currentRoundResults[team.userId]?.total && 
+                       currentRoundResults[team.userId]?.total === highestScore && 
                        highestScore > 0 && 
                         <Star className="text-yellow-500" size={14} />}
-                      {currentRoundResults[team.userId] && 
-                       currentRoundResults[team.userId] === lowestScore && 
+                      {currentRoundResults[team.userId]?.total && 
+                       currentRoundResults[team.userId]?.total === lowestScore && 
                        lowestScore > 0 && highestScore !== lowestScore &&
                         <GiCrab className="text-red-500" size={14} />}
                     </div>
@@ -850,12 +850,12 @@ function DesktopLadder({
                       {team.userName}
                       
                       {/* Show current round star/crab if applicable */}
-                      {currentRoundResults[team.userId] && 
-                       currentRoundResults[team.userId] === highestScore && 
+                      {currentRoundResults[team.userId]?.total && 
+                       currentRoundResults[team.userId]?.total === highestScore && 
                        highestScore > 0 && 
                         <Star className="text-yellow-500" size={16} />}
-                      {currentRoundResults[team.userId] && 
-                       currentRoundResults[team.userId] === lowestScore && 
+                      {currentRoundResults[team.userId]?.total && 
+                       currentRoundResults[team.userId]?.total === lowestScore && 
                        lowestScore > 0 && highestScore !== lowestScore &&
                         <GiCrab className="text-red-500" size={16} />}
                     </div>

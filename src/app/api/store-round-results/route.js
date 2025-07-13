@@ -170,15 +170,14 @@ export async function PUT(request) {
         // Store the calculated results
         try {
             const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-            const storeResponse = await fetch(`${baseUrl}/api/store-round-results`, {
+            const storeResponse = await fetch(`${baseUrl}/api/final-totals`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     round: round,
-                    results: calculatedResults,
-                    source: 'calculated'
+                    allFinalTotals: calculatedResults,
                 })
             });
             
@@ -211,25 +210,39 @@ async function calculateCurrentRoundResults(round) {
     try {
         const results = {};
         
-        // Call the existing round-results API for each user to get their complete scores
-        // This uses your full scoring system including substitutions, bench players, etc.
         for (const userId of Object.keys(USER_NAMES)) {
             try {
                 const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-                const response = await fetch(`${baseUrl}/api/round-results?round=${round}&userId=${userId}`);
                 
-                if (response.ok) {
-                    const userData = await response.json();
-                    // Use the total score which includes team score + dead cert bonus
-                    results[userId] = userData.total || 0;
-                    console.log(`Calculated score for user ${userId} round ${round}: ${userData.total}`);
-                } else {
-                    console.warn(`Failed to get results for user ${userId} in round ${round}: ${response.status}`);
-                    results[userId] = 0;
+                // Get team score (which includes dead certs)
+                const roundResultsResponse = await fetch(`${baseUrl}/api/round-results?round=${round}&userId=${userId}`);
+                let teamScore = 0;
+                if (roundResultsResponse.ok) {
+                    const userData = await roundResultsResponse.json();
+                    teamScore = userData.total || 0; // This is the total score including dead certs
                 }
+
+                // Get dead cert score separately
+                const tippingResultsResponse = await fetch(`${baseUrl}/api/tipping-results?round=${round}&userId=${userId}`);
+                let deadCertScore = 0;
+                if (tippingResultsResponse.ok) {
+                    const tippingData = await tippingResultsResponse.json();
+                    deadCertScore = tippingData.deadCertScore || 0;
+                }
+
+                // Calculate actual team score (total - dead certs)
+                const actualTeamScore = teamScore - deadCertScore;
+
+                results[userId] = {
+                    teamScore: actualTeamScore,
+                    deadCertScore: deadCertScore,
+                    total: teamScore // This is the combined total
+                };
+                console.log(`Calculated scores for user ${userId} round ${round}: Team: ${actualTeamScore}, Certs: ${deadCertScore}, Total: ${teamScore}`);
+
             } catch (error) {
                 console.error(`Error getting results for user ${userId}:`, error);
-                results[userId] = 0;
+                results[userId] = { teamScore: 0, deadCertScore: 0, total: 0 };
             }
         }
         

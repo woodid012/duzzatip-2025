@@ -1,15 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUserContext } from '../layout';
+import { useAppContext } from '@/app/context/AppContext';
 
 function UpdateStatsPage() {
   const { selectedUserId } = useUserContext();
-  const [round, setRound] = useState(6); // Default to Round 6
+  const { currentRound } = useAppContext();
+  const [round, setRound] = useState(currentRound);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState('idle'); // 'idle', 'loading', 'success', 'error'
   const [result, setResult] = useState(null);
+
+  // Update round state if currentRound from context changes
+  useEffect(() => {
+    if (currentRound !== null) {
+      setRound(currentRound);
+    }
+  }, [currentRound]);
 
   const handleUpdateStats = async () => {
     if (!round) {

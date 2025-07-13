@@ -26,7 +26,9 @@ export async function GET(request) {
             return Response.json({
                 userId,
                 round,
-                finalTotal: result?.finalTotal || 0,
+                teamScore: result?.teamScore || 0,
+                deadCertScore: result?.deadCertScore || 0,
+                total: result?.total || 0,
                 lastUpdated: result?.lastUpdated || null
             });
         } else {
@@ -37,13 +39,17 @@ export async function GET(request) {
             
             const finalTotals = {};
             results.forEach(result => {
-                finalTotals[result.userId] = result.finalTotal || 0;
+                finalTotals[result.userId] = {
+                    teamScore: result.teamScore || 0,
+                    deadCertScore: result.deadCertScore || 0,
+                    total: result.total || 0,
+                };
             });
             
             // Ensure all users have a value (default to 0 if missing)
             Object.keys(USER_NAMES).forEach(userId => {
                 if (finalTotals[userId] === undefined) {
-                    finalTotals[userId] = 0;
+                    finalTotals[userId] = { teamScore: 0, deadCertScore: 0, total: 0 };
                 }
             });
             
@@ -66,7 +72,7 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const data = await request.json();
-        const { round, userId, finalTotal, allFinalTotals } = data;
+        const { round, userId, teamScore, deadCertScore, total, allFinalTotals } = data;
 
         if (!round) {
             return Response.json({ error: 'Round is required' }, { status: 400 });
@@ -76,7 +82,7 @@ export async function POST(request) {
         const collection = db.collection(`${CURRENT_YEAR}_final_totals`);
         const lastUpdated = new Date();
 
-        if (userId && finalTotal !== undefined) {
+        if (userId && total !== undefined) {
             // Store Final Total for single user
             await collection.updateOne(
                 { round: round, userId: userId },
@@ -84,7 +90,9 @@ export async function POST(request) {
                     $set: { 
                         round: round,
                         userId: userId,
-                        finalTotal: finalTotal,
+                        teamScore: teamScore || 0,
+                        deadCertScore: deadCertScore || 0,
+                        total: total,
                         lastUpdated: lastUpdated,
                         source: 'results_page'
                     } 
@@ -92,7 +100,7 @@ export async function POST(request) {
                 { upsert: true }
             );
             
-            console.log(`Stored Final Total for user ${userId} round ${round}: ${finalTotal}`);
+            console.log(`Stored Final Total for user ${userId} round ${round}: ${total} (Team: ${teamScore}, Certs: ${deadCertScore})`);
             
             return Response.json({ 
                 success: true,
@@ -101,14 +109,16 @@ export async function POST(request) {
             
         } else if (allFinalTotals) {
             // Store Final Totals for all users
-            const bulkOps = Object.entries(allFinalTotals).map(([userId, finalTotal]) => ({
+            const bulkOps = Object.entries(allFinalTotals).map(([userId, scores]) => ({
                 updateOne: {
                     filter: { round: round, userId: userId },
                     update: { 
                         $set: { 
                             round: round,
                             userId: userId,
-                            finalTotal: finalTotal,
+                            teamScore: scores.teamScore || 0,
+                            deadCertScore: scores.deadCertScore || 0,
+                            total: scores.total || 0,
                             lastUpdated: lastUpdated,
                             source: 'results_page'
                         } 
