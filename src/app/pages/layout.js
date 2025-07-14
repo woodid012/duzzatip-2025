@@ -120,6 +120,7 @@ export default function PagesLayout({ children }) {
   const debugNavigationItems = [
     { name: 'Round-by-Round', path: '/pages/round-by-round', id: 'round-by-round' },
     { name: 'Update Stats', path: '/pages/update-stats', id: 'update-stats' },
+    { name: 'New Ladder', path: '/pages/store-ladder', id: 'store-ladder' },
   ];
 
   // Check if the current page should show only the selected user's team

@@ -61,9 +61,11 @@ export function AppProvider({ children }) {
         
         const data = await response.json();
         const fixturesData = Array.isArray(data) ? data : data.fixtures;
-        
+        console.log('AppContext: Raw fixtures data from API:', data);
+
         // Process fixtures
         const processedFixtures = processFixtures(fixturesData);
+        console.log('AppContext: Processed fixtures data:', processedFixtures);
         setFixtures(processedFixtures);
         
         // CRITICAL CHANGE: Calculate round info immediately as first priority
@@ -72,6 +74,7 @@ export function AppProvider({ children }) {
         // Use normal round calculation logic
         const currentRoundInfo = calculateRoundInfo(processedFixtures);
         setCurrentRound(currentRoundInfo.currentRound);
+        console.log('AppContext: Calculated currentRound:', currentRoundInfo.currentRound);
         
         // Get detailed round info for the current round
         const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
@@ -83,6 +86,7 @@ export function AppProvider({ children }) {
           ...detailedRoundInfo,
           nextRoundInfo // Include next round info
         });
+        console.log('AppContext: Final roundInfo state:', { ...detailedRoundInfo, nextRoundInfo });
         
         setLoading(prev => ({ ...prev, fixtures: false }));
       } catch (err) {
