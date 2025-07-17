@@ -1690,8 +1690,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 56,
+    "AwayTeamScore": 104
   },
   {
     "MatchNumber": 159,
