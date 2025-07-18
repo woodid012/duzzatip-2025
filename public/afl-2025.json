@@ -1701,8 +1701,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 86,
+    "AwayTeamScore": 76
   },
   {
     "MatchNumber": 160,
