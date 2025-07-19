@@ -1712,8 +1712,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 87,
+    "AwayTeamScore": 49
   },
   {
     "MatchNumber": 158,
@@ -1723,8 +1723,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 84,
+    "AwayTeamScore": 53
   },
   {
     "MatchNumber": 156,
@@ -1734,8 +1734,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 78,
+    "AwayTeamScore": 70
   },
   {
     "MatchNumber": 162,
@@ -1745,8 +1745,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 56,
+    "AwayTeamScore": 105
   },
   {
     "MatchNumber": 154,
