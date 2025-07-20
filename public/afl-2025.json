@@ -1756,8 +1756,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 113,
+    "AwayTeamScore": 82
   },
   {
     "MatchNumber": 157,
@@ -1767,8 +1767,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 78,
+    "AwayTeamScore": 79
   },
   {
     "MatchNumber": 161,
@@ -1778,8 +1778,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 107,
+    "AwayTeamScore": 46
   },
   {
     "MatchNumber": 168,
