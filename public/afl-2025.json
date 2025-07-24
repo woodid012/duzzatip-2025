@@ -1789,8 +1789,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 85,
+    "AwayTeamScore": 61
   },
   {
     "MatchNumber": 166,
