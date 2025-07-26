@@ -1822,8 +1822,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 130,
+    "AwayTeamScore": 64
   },
   {
     "MatchNumber": 171,
@@ -1833,8 +1833,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 126,
+    "AwayTeamScore": 77
   },
   {
     "MatchNumber": 164,
@@ -1844,8 +1844,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 49,
+    "AwayTeamScore": 150
   },
   {
     "MatchNumber": 170,
@@ -1855,8 +1855,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 133,
+    "AwayTeamScore": 35
   },
   {
     "MatchNumber": 167,
