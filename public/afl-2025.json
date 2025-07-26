@@ -1800,8 +1800,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 50,
+    "AwayTeamScore": 143
   },
   {
     "MatchNumber": 163,
@@ -1811,8 +1811,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 102,
+    "AwayTeamScore": 58
   },
   {
     "MatchNumber": 169,
