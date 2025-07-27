@@ -1866,8 +1866,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 57,
+    "AwayTeamScore": 93
   },
   {
     "MatchNumber": 165,
@@ -1877,8 +1877,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 96,
+    "AwayTeamScore": 90
   },
   {
     "MatchNumber": 175,
