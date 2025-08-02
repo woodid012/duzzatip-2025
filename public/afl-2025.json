@@ -1910,8 +1910,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 139,
+    "AwayTeamScore": 56
   },
   {
     "MatchNumber": 177,
@@ -1921,8 +1921,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 107,
+    "AwayTeamScore": 23
   },
   {
     "MatchNumber": 178,
@@ -1932,8 +1932,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 68,
+    "AwayTeamScore": 54
   },
   {
     "MatchNumber": 176,
@@ -1943,8 +1943,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 65,
+    "AwayTeamScore": 92
   },
   {
     "MatchNumber": 173,
