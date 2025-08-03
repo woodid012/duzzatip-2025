@@ -1954,8 +1954,8 @@
     "HomeTeam": "St Kilda",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 78,
+    "AwayTeamScore": 69
   },
   {
     "MatchNumber": 172,
@@ -1965,8 +1965,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 153,
+    "AwayTeamScore": 65
   },
   {
     "MatchNumber": 180,
@@ -1976,8 +1976,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 94,
+    "AwayTeamScore": 67
   },
   {
     "MatchNumber": 186,
