@@ -1,4 +1,4 @@
-// src/app/pages/ladder-consolidated/page.js
+// src/app/pages/ladder/page.jsx
 
 'use client';
 
@@ -14,6 +14,8 @@ export default function LadderConsolidatedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState('');
 
   // Initialize selected round when currentRound is available
   useEffect(() => {
@@ -36,11 +38,17 @@ export default function LadderConsolidatedPage() {
 
       console.log(`Loading ladder data for round ${round}`);
 
-      // Calculate ladder by processing all rounds up to the selected round
-      const ladder = await calculateLadder(round);
-      setLadderData(ladder);
+      // Get ladder from our new simple API
+      const ladderResponse = await fetch(`/api/simple-ladder?round=${round}`);
+      if (!ladderResponse.ok) {
+        throw new Error('Failed to load ladder data');
+      }
 
-      // Get current round results for display
+      const ladderResult = await ladderResponse.json();
+      setLadderData(ladderResult.ladder || []);
+      setLastUpdated(ladderResult.lastUpdated ? new Date(ladderResult.lastUpdated) : null);
+
+      // Get current round results for display (still using consolidated for the round display)
       if (round > 0) {
         const roundResultsResponse = await fetch(`/api/consolidated-round-results?round=${round}`);
         if (roundResultsResponse.ok) {
@@ -49,7 +57,6 @@ export default function LadderConsolidatedPage() {
         }
       }
 
-      setLastUpdated(new Date());
     } catch (err) {
       console.error('Error loading ladder data:', err);
       setError(err.message);
@@ -58,74 +65,121 @@ export default function LadderConsolidatedPage() {
     }
   };
 
-  const calculateLadder = async (upToRound) => {
-    // Initialize ladder with all users
-    const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
-      userId,
-      userName,
-      played: 0,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      pointsFor: 0,
-      pointsAgainst: 0,
-      percentage: 0,
-      points: 0
-    }));
+  const handleFullRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setError(null);
+      setRefreshProgress('Starting refresh...');
 
-    // Process rounds 1 through upToRound (skip round 0 for ladder calculations)
-    for (let round = 1; round <= Math.min(upToRound, 21); round++) {
-      try {
-        console.log(`Processing round ${round} for ladder`);
+      console.log('Starting full refresh of rounds 1-21');
+
+      // Call our new API to refresh all rounds
+      const response = await fetch('/api/simple-ladder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshAll: true })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh ladder data');
+      }
+
+      const result = await response.json();
+      console.log('Refresh result:', result);
+
+      if (result.results) {
+        const message = `Processed: ${result.results.processed.length} rounds\n` +
+                       `Stored: ${result.results.stored.length} rounds\n` +
+                       `Failed: ${result.results.failed.length} rounds`;
         
-        const response = await fetch(`/api/consolidated-round-results?round=${round}`);
+        setRefreshProgress(message);
+        
+        if (result.results.failed.length > 0) {
+          console.warn(`Failed rounds: ${result.results.failed.join(', ')}`);
+        }
+      }
+
+      // Reload the ladder
+      await loadLadderData(selectedRound);
+
+      setRefreshProgress('Refresh complete!');
+      setTimeout(() => setRefreshProgress(''), 3000);
+
+    } catch (err) {
+      console.error('Error during refresh:', err);
+      setError(`Refresh failed: ${err.message}`);
+      setRefreshProgress('');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleQuickRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setError(null);
+      setRefreshProgress(`Refreshing round ${selectedRound}...`);
+
+      // Only refresh if it's a regular season round
+      if (selectedRound >= 1 && selectedRound <= 21) {
+        const response = await fetch('/api/simple-ladder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ round: selectedRound })
+        });
+
         if (!response.ok) {
-          console.warn(`Failed to get results for round ${round}`);
-          continue;
+          throw new Error('Failed to refresh round');
         }
 
-        const data = await response.json();
-        const results = data.results || {};
-
-        // Update ladder with this round's results
-        Object.values(results).forEach(result => {
-          const ladderEntry = ladder.find(entry => entry.userId === result.userId);
-          
-          if (ladderEntry && result.matchResult) {
-            ladderEntry.played += 1;
-            ladderEntry.pointsFor += result.pointsFor || 0;
-            ladderEntry.pointsAgainst += result.pointsAgainst || 0;
-
-            if (result.matchResult === 'W') {
-              ladderEntry.wins += 1;
-              ladderEntry.points += 4;
-            } else if (result.matchResult === 'L') {
-              ladderEntry.losses += 1;
-            } else if (result.matchResult === 'D') {
-              ladderEntry.draws += 1;
-              ladderEntry.points += 2;
-            }
-          }
-        });
-      } catch (error) {
-        console.warn(`Error processing round ${round}:`, error);
+        const result = await response.json();
+        console.log(`Round ${selectedRound} refresh result:`, result);
       }
+
+      // Reload the ladder
+      await loadLadderData(selectedRound);
+      setRefreshProgress('');
+
+    } catch (err) {
+      console.error('Error during quick refresh:', err);
+      setError(`Refresh failed: ${err.message}`);
+      setRefreshProgress('');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleClearData = async () => {
+    if (!confirm('This will clear all stored ladder data. Are you sure?')) {
+      return;
     }
 
-    // Calculate percentages
-    ladder.forEach(team => {
-      team.percentage = team.pointsAgainst === 0 
-        ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
-        : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
-    });
+    try {
+      setIsRefreshing(true);
+      setRefreshProgress('Clearing all data...');
 
-    // Sort ladder by points, then percentage
-    return ladder.sort((a, b) => {
-      if (b.points !== a.points) {
-        return b.points - a.points;
+      const response = await fetch('/api/simple-ladder', {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to clear data');
       }
-      return parseFloat(b.percentage) - parseFloat(a.percentage);
-    });
+
+      const result = await response.json();
+      alert(result.message);
+
+      // Reload
+      await loadLadderData(selectedRound);
+      setRefreshProgress('');
+
+    } catch (err) {
+      console.error('Error clearing data:', err);
+      setError(`Clear failed: ${err.message}`);
+      setRefreshProgress('');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleRoundChange = (e) => {
@@ -140,10 +194,6 @@ export default function LadderConsolidatedPage() {
       if (round === 24) return 'Grand Final';
     }
     return `Round ${round}`;
-  };
-
-  const getTeamCurrentRoundScore = (userId) => {
-    return roundResults[userId]?.totalScore || 0;
   };
 
   const getTeamCurrentRoundResult = (userId) => {
@@ -161,7 +211,7 @@ export default function LadderConsolidatedPage() {
     };
   };
 
-  if (loading) {
+  if (loading && !isRefreshing) {
     return (
       <div className="p-4 sm:p-6">
         <div className="flex items-center justify-center min-h-64">
@@ -174,7 +224,7 @@ export default function LadderConsolidatedPage() {
     );
   }
 
-  if (error) {
+  if (error && !isRefreshing) {
     return (
       <div className="p-4 sm:p-6">
         <div className="bg-red-50 border border-red-300 rounded-lg p-4">
@@ -204,12 +254,12 @@ export default function LadderConsolidatedPage() {
           </p>
           {lastUpdated && (
             <p className="text-sm text-gray-500">
-              Last updated: {lastUpdated.toLocaleTimeString()}
+              Last updated: {lastUpdated.toLocaleString()}
             </p>
           )}
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
             <label htmlFor="round-select" className="text-sm font-medium text-black">
               Round:
@@ -219,6 +269,7 @@ export default function LadderConsolidatedPage() {
               value={selectedRound || 0}
               onChange={handleRoundChange}
               className="p-2 border rounded text-sm text-black bg-white"
+              disabled={isRefreshing}
             >
               {[...Array(25)].map((_, i) => (
                 <option key={i} value={i}>
@@ -229,16 +280,44 @@ export default function LadderConsolidatedPage() {
           </div>
           
           <button
-            onClick={() => loadLadderData(selectedRound)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={handleQuickRefresh}
+            disabled={isRefreshing}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+            title="Refresh current round"
           >
-            Refresh
+            Quick Refresh
+          </button>
+          
+          <button
+            onClick={handleFullRefresh}
+            disabled={isRefreshing}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+            title="Refresh all rounds 1-21"
+          >
+            Full Refresh
+          </button>
+          
+          <button
+            onClick={handleClearData}
+            disabled={isRefreshing}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400"
+            title="Clear all stored data"
+          >
+            Clear Data
           </button>
         </div>
       </div>
 
+      {/* Refresh Progress */}
+      {refreshProgress && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h3 className="text-blue-800 font-semibold mb-2">Refresh Status</h3>
+          <pre className="text-blue-700 whitespace-pre-wrap">{refreshProgress}</pre>
+        </div>
+      )}
+
       {/* Opening Round Message */}
-      {selectedRound === 0 && (
+      {selectedRound === 0 && !isRefreshing && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <h3 className="text-blue-800 font-semibold mb-2">Opening Round</h3>
           <p className="text-blue-700">
@@ -248,198 +327,201 @@ export default function LadderConsolidatedPage() {
       )}
 
       {/* Desktop Ladder Table */}
-      <div className="hidden md:block">
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pos
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Team
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    P
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    W
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    L
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    D
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    PF
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    PA
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    %
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pts
-                  </th>
-                  {selectedRound > 0 && (
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {formatRoundName(selectedRound)}
+      {!isRefreshing && (
+        <div className="hidden md:block">
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Pos
                     </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {ladderData.map((team, index) => {
-                  const currentRoundResult = getTeamCurrentRoundResult(team.userId);
-                  const isTopFour = index < 4;
-                  
-                  return (
-                    <tr 
-                      key={team.userId} 
-                      className={`hover:bg-gray-50 ${isTopFour ? 'bg-green-50' : ''}`}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm font-bold ${isTopFour ? 'text-green-700' : 'text-gray-900'}`}>
-                          {index + 1}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{team.userName}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                        {team.played}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                        {team.wins}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                        {team.losses}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                        {team.draws}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                        {team.pointsFor}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                        {team.pointsAgainst}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                        {team.percentage}%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm font-bold text-gray-900">{team.points}</span>
-                      </td>
-                      {selectedRound > 0 && (
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {currentRoundResult ? (
-                            <div className="text-sm">
-                              <div className="flex items-center justify-center gap-1">
-                                <span className={`font-medium ${
-                                  currentRoundResult.matchResult === 'W' ? 'text-green-600' :
-                                  currentRoundResult.matchResult === 'L' ? 'text-red-600' : 'text-gray-600'
-                                }`}>
-                                  {currentRoundResult.matchResult}
-                                </span>
-                                <span className="text-gray-600">
-                                  {currentRoundResult.score}
-                                </span>
-                                {currentRoundResult.hasStar && <span className="text-yellow-500">⭐</span>}
-                                {currentRoundResult.hasCrab && <span className="text-red-500">🦀</span>}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                vs {currentRoundResult.opponent} ({currentRoundResult.opponentScore})
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Team
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      P
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      W
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      L
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      D
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PF
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PA
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      %
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Pts
+                    </th>
+                    {selectedRound > 0 && (
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {formatRoundName(selectedRound)}
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {ladderData.map((team, index) => {
+                    const currentRoundResult = getTeamCurrentRoundResult(team.userId);
+                    const isTopFour = index < 4;
+                    
+                    return (
+                      <tr 
+                        key={team.userId} 
+                        className={`hover:bg-gray-50 ${isTopFour ? 'bg-green-50' : ''}`}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className={`text-sm font-bold ${isTopFour ? 'text-green-700' : 'text-gray-900'}`}>
+                            {index + 1}
+                          </div>
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{team.userName}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          {team.played}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          {team.wins}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          {team.losses}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          {team.draws}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          {team.pointsFor}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          {team.pointsAgainst}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          {team.percentage}%
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-sm font-bold text-gray-900">{team.points}</span>
+                        </td>
+                        {selectedRound > 0 && (
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {currentRoundResult ? (
+                              <div className="text-sm">
+                                <div className="flex items-center justify-center gap-1">
+                                  <span className={`font-medium ${
+                                    currentRoundResult.matchResult === 'W' ? 'text-green-600' :
+                                    currentRoundResult.matchResult === 'L' ? 'text-red-600' : 'text-gray-600'
+                                  }`}>
+                                    {currentRoundResult.matchResult}
+                                  </span>
+                                  <span className="text-gray-600">
+                                    {currentRoundResult.score}
+                                  </span>
+                                  {currentRoundResult.hasStar && <span className="text-yellow-500">⭐</span>}
+                                  {currentRoundResult.hasCrab && <span className="text-red-500">🦀</span>}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  vs {currentRoundResult.opponent} ({currentRoundResult.opponentScore})
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-
+      )}
       {/* Mobile Ladder Cards */}
-      <div className="block md:hidden space-y-3">
-        {ladderData.map((team, index) => {
-          const currentRoundResult = getTeamCurrentRoundResult(team.userId);
-          const isTopFour = index < 4;
-          
-          return (
-            <div 
-              key={team.userId}
-              className={`rounded-lg p-4 shadow ${isTopFour ? 'bg-green-50 border-green-200' : 'bg-white'}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    isTopFour ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{team.userName}</div>
-                    <div className="text-sm text-gray-500">
-                      {team.played} games • {team.points} points
+      {!isRefreshing && (
+        <div className="block md:hidden space-y-3">
+          {ladderData.map((team, index) => {
+            const currentRoundResult = getTeamCurrentRoundResult(team.userId);
+            const isTopFour = index < 4;
+            
+            return (
+              <div 
+                key={team.userId}
+                className={`rounded-lg p-4 shadow ${isTopFour ? 'bg-green-50 border-green-200' : 'bg-white'}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      isTopFour ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">{team.userName}</div>
+                      <div className="text-sm text-gray-500">
+                        {team.played} games • {team.points} points
+                      </div>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-gray-900">{team.percentage}%</div>
+                    <div className="text-sm text-gray-500">{team.pointsFor}/{team.pointsAgainst}</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-gray-900">{team.percentage}%</div>
-                  <div className="text-sm text-gray-500">{team.pointsFor}/{team.pointsAgainst}</div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                <div>
-                  <div className="text-gray-500">W-L-D</div>
-                  <div className="font-medium">{team.wins}-{team.losses}-{team.draws}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500">Points</div>
-                  <div className="font-bold">{team.points}</div>
-                </div>
-                {selectedRound > 0 && currentRoundResult && (
+                
+                <div className="grid grid-cols-3 gap-4 text-center text-sm">
                   <div>
-                    <div className="text-gray-500">{formatRoundName(selectedRound)}</div>
-                    <div className="flex items-center justify-center gap-1">
-                      <span className={`font-medium ${
-                        currentRoundResult.matchResult === 'W' ? 'text-green-600' :
-                        currentRoundResult.matchResult === 'L' ? 'text-red-600' : 'text-gray-600'
-                      }`}>
-                        {currentRoundResult.matchResult} {currentRoundResult.score}
-                      </span>
-                      {currentRoundResult.hasStar && <span className="text-yellow-500">⭐</span>}
-                      {currentRoundResult.hasCrab && <span className="text-red-500">🦀</span>}
+                    <div className="text-gray-500">W-L-D</div>
+                    <div className="font-medium">{team.wins}-{team.losses}-{team.draws}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Points</div>
+                    <div className="font-bold">{team.points}</div>
+                  </div>
+                  {selectedRound > 0 && currentRoundResult && (
+                    <div>
+                      <div className="text-gray-500">{formatRoundName(selectedRound)}</div>
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={`font-medium ${
+                          currentRoundResult.matchResult === 'W' ? 'text-green-600' :
+                          currentRoundResult.matchResult === 'L' ? 'text-red-600' : 'text-gray-600'
+                        }`}>
+                          {currentRoundResult.matchResult} {currentRoundResult.score}
+                        </span>
+                        {currentRoundResult.hasStar && <span className="text-yellow-500">⭐</span>}
+                        {currentRoundResult.hasCrab && <span className="text-red-500">🦀</span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {selectedRound > 0 && currentRoundResult && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-sm text-gray-600 text-center">
+                      vs {currentRoundResult.opponent} ({currentRoundResult.opponentScore})
+                      {currentRoundResult.isHome ? ' (H)' : ' (A)'}
                     </div>
                   </div>
                 )}
               </div>
-              
-              {selectedRound > 0 && currentRoundResult && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <div className="text-sm text-gray-600 text-center">
-                    vs {currentRoundResult.opponent} ({currentRoundResult.opponentScore})
-                    {currentRoundResult.isHome ? ' (H)' : ' (A)'}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Finals Info */}
-      {selectedRound >= 21 && ladderData.length > 0 && (
+      {selectedRound >= 21 && ladderData.length > 0 && !isRefreshing && (
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="text-blue-800 font-semibold mb-2">Finals Qualification</h3>
           <div className="text-blue-700">

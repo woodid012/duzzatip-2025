@@ -34,6 +34,9 @@ export default function TeamSelectionPage() {
   // State for duplicate warnings
   const [duplicateWarnings, setDuplicateWarnings] = useState([]);
   
+  // State for fixture warnings (teams on bye)
+  const [fixtureWarnings, setFixtureWarnings] = useState([]);
+  
   // Admin override state - separate from the hook's isEditing
   const [adminEditMode, setAdminEditMode] = useState(false);
   
@@ -43,6 +46,112 @@ export default function TeamSelectionPage() {
       handleRoundChange(currentRound);
     }
   }, [currentRound, localRound, handleRoundChange]);
+
+  // Check for teams on bye (no fixtures for the round)
+  useEffect(() => {
+    const checkFixtures = async () => {
+      if (!teams || Object.keys(teams).length === 0) return;
+      
+      // Collect all unique team names from all players selected
+      const allTeamNames = new Set();
+      
+      if (selectedUserId && selectedUserId !== 'admin' && teams[selectedUserId]) {
+        // For single user, check their team selections
+        const userTeam = teams[selectedUserId];
+        Object.values(userTeam).forEach(data => {
+          if (data && data.player_name && squads[selectedUserId]) {
+            const player = squads[selectedUserId].players.find(p => p.name === data.player_name);
+            if (player && player.team) {
+              allTeamNames.add(player.team);
+            }
+          }
+        });
+      } else if (selectedUserId === 'admin') {
+        // For admin, check all teams
+        Object.entries(teams).forEach(([userId, userTeam]) => {
+          Object.values(userTeam).forEach(data => {
+            if (data && data.player_name && squads[userId]) {
+              const player = squads[userId].players.find(p => p.name === data.player_name);
+              if (player && player.team) {
+                allTeamNames.add(player.team);
+              }
+            }
+          });
+        });
+      }
+      
+      if (allTeamNames.size === 0) {
+        setFixtureWarnings([]);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/check-fixtures?round=${localRound}&teams=${Array.from(allTeamNames).join(',')}`);
+        if (response.ok) {
+          const data = await response.json();
+          const warnings = [];
+          
+          // Check which teams don't have fixtures
+          Object.entries(data.teamFixtureStatus).forEach(([teamName, status]) => {
+            if (!status.hasFixture) {
+              // Find which players are from this team
+              const playersOnBye = [];
+              
+              if (selectedUserId && selectedUserId !== 'admin' && teams[selectedUserId]) {
+                const userTeam = teams[selectedUserId];
+                Object.entries(userTeam).forEach(([position, playerData]) => {
+                  if (playerData && playerData.player_name && squads[selectedUserId]) {
+                    const player = squads[selectedUserId].players.find(p => p.name === playerData.player_name);
+                    if (player && player.team === teamName) {
+                      playersOnBye.push({
+                        userId: selectedUserId,
+                        userName: USER_NAMES[selectedUserId],
+                        position,
+                        playerName: playerData.player_name
+                      });
+                    }
+                  }
+                });
+              } else if (selectedUserId === 'admin') {
+                Object.entries(teams).forEach(([userId, userTeam]) => {
+                  Object.entries(userTeam).forEach(([position, playerData]) => {
+                    if (playerData && playerData.player_name && squads[userId]) {
+                      const player = squads[userId].players.find(p => p.name === playerData.player_name);
+                      if (player && player.team === teamName) {
+                        playersOnBye.push({
+                          userId,
+                          userName: USER_NAMES[userId],
+                          position,
+                          playerName: playerData.player_name
+                        });
+                      }
+                    }
+                  });
+                });
+              }
+              
+              if (playersOnBye.length > 0) {
+                warnings.push({
+                  teamName,
+                  players: playersOnBye
+                });
+              }
+            }
+          });
+          
+          setFixtureWarnings(warnings);
+        }
+      } catch (error) {
+        console.error('Error checking fixtures:', error);
+        setFixtureWarnings([]);
+      }
+    };
+    
+    // Only check fixtures if we have team data and squad data
+    if (teams && squads && Object.keys(squads).length > 0) {
+      checkFixtures();
+    }
+  }, [teams, squads, localRound, selectedUserId]);
 
   // Check for duplicate players in the team selections
   useEffect(() => {
@@ -155,10 +264,27 @@ export default function TeamSelectionPage() {
     cancelEditing();
   };
 
-  // Handle save with confirmation for duplicates
+  // Handle save with confirmation for duplicates and fixture warnings
   const handleSaveWithWarning = async () => {
+    const warnings = [];
+    
+    // Check for duplicates
     if (duplicateWarnings.length > 0) {
-      if (confirm(`Warning: You have ${duplicateWarnings.length} duplicate player selections. Do you want to save anyway?`)) {
+      warnings.push(`${duplicateWarnings.length} duplicate player selections`);
+    }
+    
+    // Check for fixture warnings (teams on bye)
+    if (fixtureWarnings.length > 0) {
+      const totalPlayersOnBye = fixtureWarnings.reduce((total, warning) => total + warning.players.length, 0);
+      warnings.push(`${totalPlayersOnBye} players from teams that have a BYE this round`);
+    }
+    
+    if (warnings.length > 0) {
+      const warningMessage = `Warning: You have ${warnings.join(' and ')}. ` +
+        (fixtureWarnings.length > 0 ? 'Players from teams on bye will score 0 points. ' : '') +
+        'Do you want to save anyway?';
+        
+      if (confirm(warningMessage)) {
         return await handleAdminSave();
       }
       return false;
@@ -351,6 +477,40 @@ export default function TeamSelectionPage() {
           </div>
         </div>
       </div>
+      
+      {/* Display warning for teams on bye */}
+      {fixtureWarnings.length > 0 && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <h3 className="text-md font-semibold text-red-800">Warning: Teams on BYE</h3>
+          </div>
+          
+          <div className="text-red-700">
+            <p className="mb-2">The following players are from teams that have a BYE in Round {localRound}:</p>
+            <div className="space-y-2">
+              {fixtureWarnings.map((warning, idx) => (
+                <div key={idx} className="bg-white p-3 rounded border border-red-200">
+                  <p className="font-semibold text-red-800 mb-1">{warning.teamName} (BYE)</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {warning.players.map((player, playerIdx) => (
+                      <li key={playerIdx}>
+                        <strong>{selectedUserId === 'admin' ? `${player.userName}: ` : ''}</strong>
+                        {player.playerName} ({player.position})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 font-medium bg-red-100 p-2 rounded">
+              ⚠️ Players from teams on BYE will score 0 points as they won't play this round.
+            </p>
+          </div>
+        </div>
+      )}
       
       {/* Display warning for duplicate players */}
       {duplicateWarnings.length > 0 && (

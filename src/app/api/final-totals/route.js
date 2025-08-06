@@ -28,7 +28,7 @@ export async function GET(request) {
                 round,
                 teamScore: result?.teamScore || 0,
                 deadCertScore: result?.deadCertScore || 0,
-                total: result?.total || 0,
+                finalTotal: result?.finalTotal || 0,  // Changed from 'total' to 'finalTotal'
                 lastUpdated: result?.lastUpdated || null
             });
         } else {
@@ -39,17 +39,14 @@ export async function GET(request) {
             
             const finalTotals = {};
             results.forEach(result => {
-                finalTotals[result.userId] = {
-                    teamScore: result.teamScore || 0,
-                    deadCertScore: result.deadCertScore || 0,
-                    total: result.total || 0,
-                };
+                // Return just the finalTotal value for each user (matching what ladder API expects)
+                finalTotals[result.userId] = result.finalTotal || 0;
             });
             
             // Ensure all users have a value (default to 0 if missing)
             Object.keys(USER_NAMES).forEach(userId => {
                 if (finalTotals[userId] === undefined) {
-                    finalTotals[userId] = { teamScore: 0, deadCertScore: 0, total: 0 };
+                    finalTotals[userId] = 0;
                 }
             });
             
@@ -92,7 +89,7 @@ export async function POST(request) {
                         userId: userId,
                         teamScore: teamScore || 0,
                         deadCertScore: deadCertScore || 0,
-                        total: total,
+                        finalTotal: total,  // Store as 'finalTotal' to match what ladder API expects
                         lastUpdated: lastUpdated,
                         source: 'results_page'
                     } 
@@ -109,23 +106,30 @@ export async function POST(request) {
             
         } else if (allFinalTotals) {
             // Store Final Totals for all users
-            const bulkOps = Object.entries(allFinalTotals).map(([userId, scores]) => ({
-                updateOne: {
-                    filter: { round: round, userId: userId },
-                    update: { 
-                        $set: { 
-                            round: round,
-                            userId: userId,
-                            teamScore: scores.teamScore || 0,
-                            deadCertScore: scores.deadCertScore || 0,
-                            total: scores.total || 0,
-                            lastUpdated: lastUpdated,
-                            source: 'results_page'
-                        } 
-                    },
-                    upsert: true
-                }
-            }));
+            const bulkOps = Object.entries(allFinalTotals).map(([userId, scores]) => {
+                // Handle both object format and direct number format
+                const finalTotal = typeof scores === 'number' ? scores : (scores.total || 0);
+                const teamScore = typeof scores === 'object' ? (scores.teamScore || 0) : 0;
+                const deadCertScore = typeof scores === 'object' ? (scores.deadCertScore || 0) : 0;
+                
+                return {
+                    updateOne: {
+                        filter: { round: round, userId: userId },
+                        update: { 
+                            $set: { 
+                                round: round,
+                                userId: userId,
+                                teamScore: teamScore,
+                                deadCertScore: deadCertScore,
+                                finalTotal: finalTotal,  // Store as 'finalTotal'
+                                lastUpdated: lastUpdated,
+                                source: 'results_page'
+                            } 
+                        },
+                        upsert: true
+                    }
+                };
+            });
             
             await collection.bulkWrite(bulkOps);
             
@@ -136,7 +140,7 @@ export async function POST(request) {
                 message: `Stored Final Totals for ${Object.keys(allFinalTotals).length} users`
             });
         } else {
-            return Response.json({ error: 'Either userId+finalTotal or allFinalTotals is required' }, { status: 400 });
+            return Response.json({ error: 'Either userId+total or allFinalTotals is required' }, { status: 400 });
         }
 
     } catch (error) {
