@@ -1987,8 +1987,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 110,
+    "AwayTeamScore": 46
   },
   {
     "MatchNumber": 181,
