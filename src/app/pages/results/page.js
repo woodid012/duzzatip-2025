@@ -158,35 +158,42 @@ export default function ResultsPage() {
       console.log(`Initializing hook with round ${displayedRound} to fetch player stats`);
       setLoadingStatus(`Loading player stats for round ${displayedRound}...`);
       
-      if (hookChangeRound) {
+      // For future finals rounds that haven't been played yet, skip player stats loading
+      if (isFinalRound(displayedRound) && displayedRound > currentRound) {
+        console.log(`Round ${displayedRound} is a future finals round, skipping player stats`);
+        setLoadingStates(prev => ({ ...prev, playerStats: false }));
+        // Trigger the next step immediately for future rounds
+        setLoadingStatus('Future round - using default scores...');
+      } else if (hookChangeRound) {
         hookChangeRound(displayedRound);
         setLoadingStates(prev => ({ ...prev, playerStats: false }));
       }
     }
-  }, [teamSelectionsLoaded, displayedRound, hookChangeRound, loadingStates.playerStats]);
+  }, [teamSelectionsLoaded, displayedRound, hookChangeRound, loadingStates.playerStats, currentRound]);
   
   // 5. STEP FIVE: When player stats are loaded, calculate scores and prepare display
   useEffect(() => {
     const loadFixturesAndScores = async () => {
+      // Handle future rounds that don't have data yet
+      const isFutureRound = displayedRound > currentRound;
+      const needsPlayerStats = !isFinalRound(displayedRound) || displayedRound <= currentRound;
+      
       if (displayedRound !== null && 
-          !resultsLoading && 
-          hookDataReady && 
-          teams && 
-          Object.keys(teams).length > 0 && 
-          teamSelectionsLoaded) {
-        console.log('Player stats loaded, calculating scores...');
-        setLoadingStatus('Stats loaded, calculating scores...');
+          teamSelectionsLoaded &&
+          ((needsPlayerStats && !resultsLoading && hookDataReady && teams && Object.keys(teams).length > 0) ||
+           (!needsPlayerStats && isFutureRound))) {
+        
+        console.log('Preparing display for round', displayedRound, 'Future round:', isFutureRound);
+        setLoadingStatus('Calculating scores and preparing display...');
         
         // Add a small delay to ensure all data is stable
         setTimeout(async () => {
           // Calculate team scores ONCE and store them
           const calculatedScores = {};
-          Object.keys(USER_NAMES).forEach(userId => {
-            try {
-              calculatedScores[userId] = getTeamScores(userId);
-            } catch (error) {
-              console.error(`Error calculating scores for user ${userId}:`, error);
-              // Fallback to empty scores
+          
+          if (isFutureRound) {
+            // For future rounds, use empty scores
+            Object.keys(USER_NAMES).forEach(userId => {
               calculatedScores[userId] = {
                 userId,
                 totalScore: 0,
@@ -197,8 +204,28 @@ export default function ResultsPage() {
                 benchScores: [],
                 substitutionsEnabled: { bench: false, reserve: false }
               };
-            }
-          });
+            });
+          } else {
+            // For played rounds, calculate actual scores
+            Object.keys(USER_NAMES).forEach(userId => {
+              try {
+                calculatedScores[userId] = getTeamScores(userId);
+              } catch (error) {
+                console.error(`Error calculating scores for user ${userId}:`, error);
+                // Fallback to empty scores
+                calculatedScores[userId] = {
+                  userId,
+                  totalScore: 0,
+                  teamOnly: 0,
+                  deadCert: 0,
+                  finalScore: 0,
+                  positionScores: [],
+                  benchScores: [],
+                  substitutionsEnabled: { bench: false, reserve: false }
+                };
+              }
+            });
+          }
           
           // Update team scores state
           setTeamScores(calculatedScores);
@@ -249,7 +276,7 @@ export default function ResultsPage() {
     };
     
     loadFixturesAndScores();
-  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores]);
+  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores, currentRound]);
 
   // Handle round change - keep it local, don't update global context
   const handleRoundChange = (e) => {
