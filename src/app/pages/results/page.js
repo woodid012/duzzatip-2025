@@ -1,3 +1,5 @@
+// src/app/pages/results/page.js
+
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -6,10 +8,13 @@ import { useAppContext } from '@/app/context/AppContext';
 import useResults from '@/app/hooks/useResults';
 import { USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
+import { calculateFinalsFixtures, isFinalRound, getFinalsRoundName } from '@/app/lib/finals_utils';
 import { useUserContext } from '../layout';
 
 // Import the modular components
-import { TeamScoreCard, WelcomeScreen, RoundSummary } from './components';
+import { TeamScoreCard, WelcomeScreen } from './components';
+// Import a new component we'll create for the enhanced round summary
+import EnhancedRoundSummary from './components/EnhancedRoundSummary';
 
 export default function ResultsPage() {
   // Get data from our app context
@@ -160,77 +165,91 @@ export default function ResultsPage() {
     }
   }, [teamSelectionsLoaded, displayedRound, hookChangeRound, loadingStates.playerStats]);
   
-// 5. STEP FIVE: When player stats are loaded, calculate scores and prepare display
-useEffect(() => {
-  if (displayedRound !== null && 
-      !resultsLoading && 
-      hookDataReady && 
-      teams && 
-      Object.keys(teams).length > 0 && 
-      teamSelectionsLoaded) {
-    console.log('Player stats loaded, calculating scores...');
-    setLoadingStatus('Stats loaded, calculating scores...');
-    
-    // Add a small delay to ensure all data is stable
-    setTimeout(() => {
-      // Calculate team scores ONCE and store them
-      const calculatedScores = {};
-      Object.keys(USER_NAMES).forEach(userId => {
-        try {
-          calculatedScores[userId] = getTeamScores(userId);
-        } catch (error) {
-          console.error(`Error calculating scores for user ${userId}:`, error);
-          // Fallback to empty scores
-          calculatedScores[userId] = {
-            userId,
-            totalScore: 0,
-            teamOnly: 0,
-            deadCert: 0,
-            finalScore: 0,
-            positionScores: [],
-            benchScores: [],
-            substitutionsEnabled: { bench: false, reserve: false }
-          };
-        }
-      });
-      
-      // Update team scores state
-      setTeamScores(calculatedScores);
-    
-      // Get fixtures for the displayed round
-      const roundFixtures = getFixturesForRound(displayedRound);
-      setFixtures(roundFixtures || []);
-      
-      // Prioritize the selected user's fixture if applicable
-      if (selectedUserId && roundFixtures && roundFixtures.length > 0) {
-        const userFixture = roundFixtures.find(fixture => 
-          fixture.home?.toString() === selectedUserId?.toString() || 
-          fixture.away?.toString() === selectedUserId?.toString()
-        );
+  // 5. STEP FIVE: When player stats are loaded, calculate scores and prepare display
+  useEffect(() => {
+    const loadFixturesAndScores = async () => {
+      if (displayedRound !== null && 
+          !resultsLoading && 
+          hookDataReady && 
+          teams && 
+          Object.keys(teams).length > 0 && 
+          teamSelectionsLoaded) {
+        console.log('Player stats loaded, calculating scores...');
+        setLoadingStatus('Stats loaded, calculating scores...');
         
-        if (userFixture) {
-          setOrderedFixtures([
-            userFixture,
-            ...roundFixtures.filter(fixture => fixture !== userFixture)
-          ]);
-        } else {
-          setOrderedFixtures(roundFixtures);
-        }
-      } else {
-        setOrderedFixtures(roundFixtures);
+        // Add a small delay to ensure all data is stable
+        setTimeout(async () => {
+          // Calculate team scores ONCE and store them
+          const calculatedScores = {};
+          Object.keys(USER_NAMES).forEach(userId => {
+            try {
+              calculatedScores[userId] = getTeamScores(userId);
+            } catch (error) {
+              console.error(`Error calculating scores for user ${userId}:`, error);
+              // Fallback to empty scores
+              calculatedScores[userId] = {
+                userId,
+                totalScore: 0,
+                teamOnly: 0,
+                deadCert: 0,
+                finalScore: 0,
+                positionScores: [],
+                benchScores: [],
+                substitutionsEnabled: { bench: false, reserve: false }
+              };
+            }
+          });
+          
+          // Update team scores state
+          setTeamScores(calculatedScores);
+          
+          // Get fixtures for the displayed round
+          let roundFixtures = [];
+          
+          if (isFinalRound(displayedRound)) {
+            // For finals rounds, calculate fixtures dynamically
+            console.log(`Calculating finals fixtures for round ${displayedRound}`);
+            roundFixtures = await calculateFinalsFixtures(displayedRound);
+          } else {
+            // For regular season, use static fixtures
+            roundFixtures = getFixturesForRound(displayedRound);
+          }
+          
+          setFixtures(roundFixtures || []);
+          
+          // Prioritize the selected user's fixture if applicable
+          if (selectedUserId && roundFixtures && roundFixtures.length > 0) {
+            const userFixture = roundFixtures.find(fixture => 
+              fixture.home?.toString() === selectedUserId?.toString() || 
+              fixture.away?.toString() === selectedUserId?.toString()
+            );
+            
+            if (userFixture) {
+              setOrderedFixtures([
+                userFixture,
+                ...roundFixtures.filter(fixture => fixture !== userFixture)
+              ]);
+            } else {
+              setOrderedFixtures(roundFixtures);
+            }
+          } else {
+            setOrderedFixtures(roundFixtures);
+          }
+          
+          setDisplayReady(true);
+          setLoadingStates(prev => ({ ...prev, display: true }));
+          setLoadingStatus('All data loaded, rendering page...');
+          
+          // Give a small delay to ensure everything is rendered properly
+          setTimeout(() => {
+            setPageReady(true);
+          }, 100);
+        }, 50);
       }
-      
-      setDisplayReady(true);
-      setLoadingStates(prev => ({ ...prev, display: true }));
-      setLoadingStatus('All data loaded, rendering page...');
-      
-      // Give a small delay to ensure everything is rendered properly
-      setTimeout(() => {
-        setPageReady(true);
-      }, 100);
-    }, 50);
-  }
-}, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores]);
+    };
+    
+    loadFixturesAndScores();
+  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores]);
 
   // Handle round change - keep it local, don't update global context
   const handleRoundChange = (e) => {
@@ -277,11 +296,8 @@ useEffect(() => {
   // Display round name
   const displayRoundName = (round) => {
     if (round === 0) return 'Opening Round';
-    if (round >= 22 && round <= 24) {
-      // Finals rounds
-      if (round === 22) return 'Qualifying Finals';
-      if (round === 23) return 'Preliminary Final';
-      if (round === 24) return 'Grand Final';
+    if (isFinalRound(round)) {
+      return getFinalsRoundName(round);
     }
     return `Round ${round}`;
   };
@@ -333,37 +349,37 @@ useEffect(() => {
   );
 
   const storeFinalTotalsForLadder = async (allTeamScores, round) => {
-  try {
-    // Extract just the Final Total values from the team scores
-    const finalTotals = {};
-    allTeamScores.forEach(team => {
-      finalTotals[team.userId] = team.totalScore || 0; // This should be the finalScore
-    });
-    
-    console.log(`Storing Final Totals for round ${round} for ladder:`, finalTotals);
-    
-    // Store these values so the ladder can use them
-    const response = await fetch('/api/final-totals', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        round: round,
-        allFinalTotals: finalTotals
-      })
-    });
-    
-    if (response.ok) {
-      console.log(`Successfully stored Final Totals for round ${round}`);
-    } else {
-      console.warn(`Failed to store Final Totals for round ${round}`);
+    try {
+      // Extract just the Final Total values from the team scores
+      const finalTotals = {};
+      allTeamScores.forEach(team => {
+        finalTotals[team.userId] = team.totalScore || 0; // This should be the finalScore
+      });
+      
+      console.log(`Storing Final Totals for round ${round} for ladder:`, finalTotals);
+      
+      // Store these values so the ladder can use them
+      const response = await fetch('/api/final-totals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          round: round,
+          allFinalTotals: finalTotals
+        })
+      });
+      
+      if (response.ok) {
+        console.log(`Successfully stored Final Totals for round ${round}`);
+      } else {
+        console.warn(`Failed to store Final Totals for round ${round}`);
+      }
+      
+    } catch (error) {
+      console.error(`Error storing Final Totals for round ${round}:`, error);
     }
-    
-  } catch (error) {
-    console.error(`Error storing Final Totals for round ${round}:`, error);
-  }
-};
+  };
 
   // Calculate all team scores using the stored scores
   const allTeamScores = Object.keys(USER_NAMES).map(userId => {
@@ -377,8 +393,9 @@ useEffect(() => {
   });
   
   if (displayedRound && allTeamScores.length > 0) {
-  storeFinalTotalsForLadder(allTeamScores, displayedRound);
-}
+    storeFinalTotalsForLadder(allTeamScores, displayedRound);
+  }
+  
   // Filter out any zero or undefined scores for comparison
   const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
   const highestScore = validScores.length > 0 
@@ -393,13 +410,15 @@ useEffect(() => {
   // Function to sort and arrange team cards
   const getTeamCardsOrder = () => {
     if (orderedFixtures && orderedFixtures.length > 0) {
-      // For regular rounds, generate team cards in matchup order
+      // For regular rounds and finals, generate team cards in matchup order
       return orderedFixtures.flatMap((fixture) => {
         const homeUserId = fixture.home?.toString();
         const awayUserId = fixture.away?.toString();
         
-        // Skip if not numeric IDs (e.g., 'TBD' placeholders in finals)
-        if (!homeUserId || !awayUserId || isNaN(Number(homeUserId)) || isNaN(Number(awayUserId))) {
+        // Skip if not numeric IDs or TBD placeholders
+        if (!homeUserId || !awayUserId || 
+            homeUserId === 'TBD' || awayUserId === 'TBD' ||
+            isNaN(Number(homeUserId)) || isNaN(Number(awayUserId))) {
           return [];
         }
         
@@ -442,7 +461,7 @@ useEffect(() => {
         >
           {[...Array(25)].map((_, i) => (
             <option key={i} value={i}>
-              {i === 0 ? 'Opening Round' : `Round ${i}`}
+              {displayRoundName(i)}
             </option>
           ))}
         </select>
@@ -458,11 +477,11 @@ useEffect(() => {
               id="round-select"
               value={displayedRound || ""}
               onChange={handleRoundChange}
-              className="p-2 border rounded w-24 text-sm text-black"
+              className="p-2 border rounded w-32 text-sm text-black"
             >
               {[...Array(25)].map((_, i) => (
                 <option key={i} value={i}>
-                  {i === 0 ? 'Opening' : i}
+                  {displayRoundName(i)}
                 </option>
               ))}
             </select>
@@ -473,14 +492,15 @@ useEffect(() => {
         </Link>
       </div>
 
-      {/* Round Summary Section */}
-      <RoundSummary 
+      {/* Enhanced Round Summary Section */}
+      <EnhancedRoundSummary 
         displayedRound={displayedRound}
         roundName={displayRoundName(displayedRound)}
         orderedFixtures={orderedFixtures}
         allTeamScores={allTeamScores}
         selectedUserId={selectedUserId}
         hasSubstitutions={hasSubstitutions}
+        isFinals={isFinalRound(displayedRound)}
       />
       
       {/* Mobile Team Cards Section - 2-column compact layout */}
