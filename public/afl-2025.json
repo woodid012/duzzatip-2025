@@ -35,7 +35,7 @@
   {
     "MatchNumber": 3,
     "RoundNumber": 0,
-    "DateUtc": "2025-08-22 14:00:00Z",
+    "DateUtc": "2025-08-27 09:20:00Z",
     "Location": "People First Stadium",
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Essendon",
@@ -1998,8 +1998,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 109,
+    "AwayTeamScore": 65
   },
   {
     "MatchNumber": 184,
@@ -2178,64 +2178,9 @@
     "AwayTeamScore": null
   },
   {
-    "MatchNumber": 199,
-    "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:00:00Z",
-    "Location": "ENGIE Stadium",
-    "HomeTeam": "GWS GIANTS",
-    "AwayTeam": "St Kilda",
-    "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
-  },
-  {
-    "MatchNumber": 200,
-    "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:00:00Z",
-    "Location": "Marvel Stadium",
-    "HomeTeam": "North Melbourne",
-    "AwayTeam": "Adelaide Crows",
-    "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
-  },
-  {
-    "MatchNumber": 201,
-    "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:00:00Z",
-    "Location": "Marvel Stadium",
-    "HomeTeam": "Western Bulldogs",
-    "AwayTeam": "Fremantle",
-    "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
-  },
-  {
-    "MatchNumber": 202,
-    "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:00:00Z",
-    "Location": "MCG",
-    "HomeTeam": "Collingwood",
-    "AwayTeam": "Melbourne",
-    "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
-  },
-  {
-    "MatchNumber": 203,
-    "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:00:00Z",
-    "Location": "MCG",
-    "HomeTeam": "Richmond",
-    "AwayTeam": "Geelong Cats",
-    "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
-  },
-  {
     "MatchNumber": 204,
     "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:00:00Z",
+    "DateUtc": "2025-08-21 09:30:00Z",
     "Location": "MCG",
     "HomeTeam": "Essendon",
     "AwayTeam": "Carlton",
@@ -2244,12 +2189,12 @@
     "AwayTeamScore": null
   },
   {
-    "MatchNumber": 205,
+    "MatchNumber": 202,
     "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:00:00Z",
-    "Location": "Gabba",
-    "HomeTeam": "Brisbane Lions",
-    "AwayTeam": "Hawthorn",
+    "DateUtc": "2025-08-22 09:10:00Z",
+    "Location": "MCG",
+    "HomeTeam": "Collingwood",
+    "AwayTeam": "Melbourne",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
@@ -2257,7 +2202,7 @@
   {
     "MatchNumber": 206,
     "RoundNumber": 24,
-    "DateUtc": "2025-08-22 14:30:00Z",
+    "DateUtc": "2025-08-22 10:10:00Z",
     "Location": "Adelaide Oval",
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Gold Coast SUNS",
@@ -2266,12 +2211,67 @@
     "AwayTeamScore": null
   },
   {
+    "MatchNumber": 200,
+    "RoundNumber": 24,
+    "DateUtc": "2025-08-23 03:20:00Z",
+    "Location": "Marvel Stadium",
+    "HomeTeam": "North Melbourne",
+    "AwayTeam": "Adelaide Crows",
+    "Group": null,
+    "HomeTeamScore": null,
+    "AwayTeamScore": null
+  },
+  {
+    "MatchNumber": 203,
+    "RoundNumber": 24,
+    "DateUtc": "2025-08-23 06:15:00Z",
+    "Location": "MCG",
+    "HomeTeam": "Richmond",
+    "AwayTeam": "Geelong Cats",
+    "Group": null,
+    "HomeTeamScore": null,
+    "AwayTeamScore": null
+  },
+  {
     "MatchNumber": 207,
     "RoundNumber": 24,
-    "DateUtc": "2025-08-22 16:00:00Z",
+    "DateUtc": "2025-08-23 09:35:00Z",
     "Location": "Optus Stadium",
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Sydney Swans",
+    "Group": null,
+    "HomeTeamScore": null,
+    "AwayTeamScore": null
+  },
+  {
+    "MatchNumber": 199,
+    "RoundNumber": 24,
+    "DateUtc": "2025-08-24 02:20:00Z",
+    "Location": "ENGIE Stadium",
+    "HomeTeam": "GWS GIANTS",
+    "AwayTeam": "St Kilda",
+    "Group": null,
+    "HomeTeamScore": null,
+    "AwayTeamScore": null
+  },
+  {
+    "MatchNumber": 201,
+    "RoundNumber": 24,
+    "DateUtc": "2025-08-24 05:15:00Z",
+    "Location": "Marvel Stadium",
+    "HomeTeam": "Western Bulldogs",
+    "AwayTeam": "Fremantle",
+    "Group": null,
+    "HomeTeamScore": null,
+    "AwayTeamScore": null
+  },
+  {
+    "MatchNumber": 205,
+    "RoundNumber": 24,
+    "DateUtc": "2025-08-24 09:20:00Z",
+    "Location": "Gabba",
+    "HomeTeam": "Brisbane Lions",
+    "AwayTeam": "Hawthorn",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
