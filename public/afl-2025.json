@@ -2053,8 +2053,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "North Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 133,
+    "AwayTeamScore": 79
   },
   {
     "MatchNumber": 185,
@@ -2064,8 +2064,8 @@
     "HomeTeam": "Melbourne",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 99,
+    "AwayTeamScore": 105
   },
   {
     "MatchNumber": 189,
@@ -2075,8 +2075,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 78,
+    "AwayTeamScore": 87
   },
   {
     "MatchNumber": 191,
