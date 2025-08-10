@@ -2009,8 +2009,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 52,
+    "AwayTeamScore": 56
   },
   {
     "MatchNumber": 187,
@@ -2020,8 +2020,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 90,
+    "AwayTeamScore": 92
   },
   {
     "MatchNumber": 183,
@@ -2031,8 +2031,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 74,
+    "AwayTeamScore": 93
   },
   {
     "MatchNumber": 188,
@@ -2042,8 +2042,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 86,
+    "AwayTeamScore": 92
   },
   {
     "MatchNumber": 182,
