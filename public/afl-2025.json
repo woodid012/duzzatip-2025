@@ -2086,8 +2086,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 75,
+    "AwayTeamScore": 77
   },
   {
     "MatchNumber": 198,
@@ -2097,8 +2097,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 44,
+    "AwayTeamScore": 101
   },
   {
     "MatchNumber": 195,
