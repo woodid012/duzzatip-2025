@@ -2108,8 +2108,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "GWS GIANTS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 76,
+    "AwayTeamScore": 111
   },
   {
     "MatchNumber": 193,
@@ -2119,8 +2119,8 @@
     "HomeTeam": "Carlton",
     "AwayTeam": "Port Adelaide",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 118,
+    "AwayTeamScore": 64
   },
   {
     "MatchNumber": 194,
@@ -2130,8 +2130,8 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 92,
+    "AwayTeamScore": 56
   },
   {
     "MatchNumber": 197,
@@ -2141,8 +2141,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 59,
+    "AwayTeamScore": 56
   },
   {
     "MatchNumber": 190,
