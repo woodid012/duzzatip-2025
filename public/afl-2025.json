@@ -2092,7 +2092,7 @@
   {
     "MatchNumber": 198,
     "RoundNumber": 23,
-    "DateUtc": "2025-08-15 10:20:00Z",
+    "DateUtc": "2025-08-15 10:35:00Z",
     "Location": "Optus Stadium",
     "HomeTeam": "Fremantle",
     "AwayTeam": "Brisbane Lions",
@@ -2152,8 +2152,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Richmond",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 135,
+    "AwayTeamScore": 87
   },
   {
     "MatchNumber": 196,
@@ -2163,8 +2163,8 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 68,
+    "AwayTeamScore": 111
   },
   {
     "MatchNumber": 192,
@@ -2174,8 +2174,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "West Coast Eagles",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 126,
+    "AwayTeamScore": 32
   },
   {
     "MatchNumber": 204,
