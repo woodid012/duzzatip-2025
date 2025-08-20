@@ -30,13 +30,22 @@ export default function Home() {
     }
   }, [pathname, router]);
 
-  const navigationItems = [
-    { name: 'Round Results', path: '/pages/results', id: 'results' },
-    { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
-    { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
-    { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
-    { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
-    { name: 'Squads', path: '/pages/squads', id: 'squads' },
+  const navigationGroups = [
+    [
+      { name: 'Round Results', path: '/pages/results', id: 'results' },
+    ],
+    [
+      { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
+      { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
+    ],
+    [
+      { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
+      { name: 'Tipping Ladder', path: '/pages/tipping-ladder', id: 'tipping-ladder' },
+      { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
+    ],
+    [
+      { name: 'Squads', path: '/pages/squads', id: 'squads' },
+    ],
   ];
 
   return (
@@ -58,18 +67,25 @@ export default function Home() {
           {/* Sidebar Navigation */}
           <div className="w-48 flex-shrink-0">
             <div className="bg-white rounded-lg shadow p-4">
-              {navigationItems.map((item) => (
-                <Link 
-                  key={item.id}
-                  href={item.path}
-                  className={`block px-4 py-2 mb-2 rounded-md transition-colors text-left ${
-                    pathname === item.path
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  {item.name}
-                </Link>
+              {navigationGroups.map((group, groupIndex) => (
+                <div key={groupIndex}>
+                  {group.map((item) => (
+                    <Link 
+                      key={item.id}
+                      href={item.path}
+                      className={`block px-4 py-2 mb-2 rounded-md transition-colors text-left ${
+                        pathname === item.path
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                  {groupIndex < navigationGroups.length - 1 && (
+                    <div className="border-t border-gray-200 my-1"></div>
+                  )}
+                </div>
               ))}
             </div>
           </div>

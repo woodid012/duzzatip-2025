@@ -107,14 +107,23 @@ export default function PagesLayout({ children }) {
     }
   };
 
-  const navigationItems = [
-    { name: 'Round Results', path: '/pages/results', id: 'results' },
-    { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
-    { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
-    { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
-    { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
-    { name: 'Squads', path: '/pages/squads', id: 'squads' },
-    { name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' },
+  const navigationGroups = [
+    [
+      { name: 'Round Results', path: '/pages/results', id: 'results' },
+    ],
+    [
+      { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
+      { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
+    ],
+    [
+      { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
+      { name: 'Tipping Ladder', path: '/pages/tipping-ladder', id: 'tipping-ladder' },
+      { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
+    ],
+    [
+      { name: 'Squads', path: '/pages/squads', id: 'squads' },
+      { name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' },
+    ],
   ];
 
   const debugNavigationItems = [
@@ -280,19 +289,26 @@ export default function PagesLayout({ children }) {
               
               <nav className="p-4">
                 <div className="space-y-2">
-                  {navigationItems.map((item) => (
-                    <Link 
-                      key={item.id}
-                      href={item.path}
-                      className={`block px-4 py-3 rounded-md transition-colors ${
-                        pathname === item.path
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                      onClick={() => setIsMobileNavOpen(false)}
-                    >
-                      {item.name}
-                    </Link>
+                  {navigationGroups.map((group, groupIndex) => (
+                    <div key={groupIndex}>
+                      {group.map((item) => (
+                        <Link 
+                          key={item.id}
+                          href={item.path}
+                          className={`block px-4 py-3 mb-2 rounded-md transition-colors ${
+                            pathname === item.path
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                          onClick={() => setIsMobileNavOpen(false)}
+                        >
+                          {item.name}
+                        </Link>
+                      ))}
+                      {groupIndex < navigationGroups.length - 1 && (
+                        <div className="border-t border-gray-200 my-1"></div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </nav>
@@ -387,18 +403,25 @@ export default function PagesLayout({ children }) {
             <div className="w-48 flex-shrink-0">
               <div className="bg-white rounded-lg shadow p-4">
                 <div className="flex flex-col gap-2">
-                  {navigationItems.map((item) => (
-                    <Link 
-                      key={item.id}
-                      href={item.path}
-                      className={`block px-4 py-2 rounded-md transition-colors text-left text-sm ${
-                        pathname === item.path
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      {item.name}
-                    </Link>
+                  {navigationGroups.map((group, groupIndex) => (
+                    <div key={groupIndex}>
+                      {group.map((item) => (
+                        <Link 
+                          key={item.id}
+                          href={item.path}
+                          className={`block px-4 py-2 mb-2 rounded-md transition-colors text-left text-sm ${
+                            pathname === item.path
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {item.name}
+                        </Link>
+                      ))}
+                      {groupIndex < navigationGroups.length - 1 && (
+                        <div className="border-t border-gray-200 my-1"></div>
+                      )}
+                    </div>
                   ))}
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-200">
