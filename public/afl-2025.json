@@ -2185,8 +2185,8 @@
     "HomeTeam": "Essendon",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 56,
+    "AwayTeamScore": 90
   },
   {
     "MatchNumber": 202,
