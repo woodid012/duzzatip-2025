@@ -2196,8 +2196,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Melbourne",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 82,
+    "AwayTeamScore": 76
   },
   {
     "MatchNumber": 206,
@@ -2207,8 +2207,8 @@
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 71,
+    "AwayTeamScore": 67
   },
   {
     "MatchNumber": 200,
