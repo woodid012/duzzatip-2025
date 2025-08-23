@@ -2218,8 +2218,8 @@
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 100,
+    "AwayTeamScore": 113
   },
   {
     "MatchNumber": 203,
@@ -2229,8 +2229,8 @@
     "HomeTeam": "Richmond",
     "AwayTeam": "Geelong Cats",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 64,
+    "AwayTeamScore": 103
   },
   {
     "MatchNumber": 207,
@@ -2240,8 +2240,8 @@
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Sydney Swans",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 51,
+    "AwayTeamScore": 118
   },
   {
     "MatchNumber": 199,
