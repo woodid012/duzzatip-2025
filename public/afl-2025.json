@@ -2251,8 +2251,8 @@
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "St Kilda",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 104,
+    "AwayTeamScore": 93
   },
   {
     "MatchNumber": 201,
@@ -2262,8 +2262,8 @@
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 97,
+    "AwayTeamScore": 112
   },
   {
     "MatchNumber": 205,
@@ -2273,8 +2273,8 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 89,
+    "AwayTeamScore": 79
   },
   {
     "MatchNumber": 208,
