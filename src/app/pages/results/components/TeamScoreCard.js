@@ -111,7 +111,7 @@ export default function TeamScoreCard({
 
             {/* Bench/Reserves */}
             <BenchSection 
-              benchScores={teamScores.benchScores} 
+              benchScores={teamScores.benchScores || []} 
               isRoundComplete={isRoundComplete} 
             />
           </>
@@ -208,7 +208,12 @@ function BenchSection({ benchScores, isRoundComplete }) {
   return (
     <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
       <h3 className="text-lg font-semibold border-b pb-2 text-black">Bench/Reserves</h3>
-      {benchScores.map((bench) => {
+      {(!benchScores || benchScores.length === 0) ? (
+        <div className="text-sm text-gray-600 italic">
+          No bench or reserve players selected
+        </div>
+      ) : (
+        benchScores.map((bench) => {
         // Determine bench player status and styling
         const didNotPlay = !bench.didPlay;
         const isBeingUsed = bench.isBeingUsed;
@@ -264,7 +269,8 @@ function BenchSection({ benchScores, isRoundComplete }) {
             </div>
           </div>
         );
-      })}
+        })
+      )}
     </div>
   );
 }

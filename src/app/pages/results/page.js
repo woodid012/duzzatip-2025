@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAppContext } from '@/app/context/AppContext';
-import useResults from '@/app/hooks/useResults';
+import useSimplifiedResults from '@/app/hooks/useSimplifiedResults';
 import { USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { calculateFinalsFixtures, isFinalRound, getFinalsRoundName } from '@/app/lib/finals_utils';
@@ -18,305 +18,59 @@ import EnhancedRoundSummary from './components/EnhancedRoundSummary';
 
 export default function ResultsPage() {
   // Get data from our app context
-  const { currentRound, roundInfo, loading: contextLoading } = useAppContext();
+  const { currentRound, roundInfo } = useAppContext();
   
   // Get the selected user from context
-  const { selectedUserId, setSelectedUserId } = useUserContext();
+  const { selectedUserId } = useUserContext();
   
-  // Keep the displayed round as null until we're ready
-  const [displayedRound, setDisplayedRound] = useState(null);
-  
-  // Progress tracking states
-  const [contextReady, setContextReady] = useState(false);
-  const [roundInitialized, setRoundInitialized] = useState(false);
-  const [teamSelectionsLoaded, setTeamSelectionsLoaded] = useState(false);
-  const [displayReady, setDisplayReady] = useState(false);
-  
-  // Track loading state of each step
-  const [loadingStates, setLoadingStates] = useState({
-    context: true,
-    round: true,
-    teamSelections: false,
-    playerStats: false,
-    display: false
-  });
-  
-  // Refs to prevent duplicate initializations
-  const didInitializeRound = useRef(false);
-  const didFetchTeamSelections = useRef(false);
-  
-  // Get results functionality from our hook
+  // Get results functionality from our simplified hook
   const {
-    teams,
-    loading: resultsLoading,
+    currentRound: displayedRound,
+    teamScores,
+    loading,
     error,
     roundEndPassed,
     calculateAllTeamScores,
     getTeamScores,
-    currentRound: hookRound,
-    changeRound: hookChangeRound,
-    roundInitialized: hookDataReady
-  } = useResults();
+    changeRound,
+    roundData,
+    loadingStage,
+    loadingMessage,
+    fixtures: hookFixtures
+  } = useSimplifiedResults();
 
-  // State for fixtures
-  const [fixtures, setFixtures] = useState([]);
+  // State for ordered fixtures (prioritizing selected user)
   const [orderedFixtures, setOrderedFixtures] = useState([]);
-  const [pageReady, setPageReady] = useState(false);
-
-  // Loading status message
-  const [loadingStatus, setLoadingStatus] = useState('Initializing...');
   
-  // Initialize empty team scores to prevent flashing
-  const [teamScores, setTeamScores] = useState(() => {
-    const initialScores = {};
-    Object.keys(USER_NAMES).forEach(userId => {
-      initialScores[userId] = {
-        userId,
-        totalScore: "", // Initialize as empty string
-        teamOnly: "",
-        deadCert: "",
-        finalScore: "",
-        positionScores: [],
-        benchScores: [],
-        substitutionsEnabled: { bench: false, reserve: false }
-      };
-    });
-    return initialScores;
-  });
-  
-  // 1. STEP ONE: Wait for context to be ready
+  // Update ordered fixtures when hook fixtures or selected user changes
   useEffect(() => {
-    if (!contextLoading.fixtures && 
-        currentRound !== undefined && 
-        currentRound !== null && 
-        roundInfo && !roundInfo.isError) {
-      console.log(`Context is ready, current round: ${currentRound}`);
-      setContextReady(true);
-      setLoadingStates(prev => ({ ...prev, context: false }));
-      setLoadingStatus('Context loaded, getting current round...');
-    }
-  }, [contextLoading.fixtures, currentRound, roundInfo]);
-  
-  // 2. STEP TWO: Set displayed round from context
-  useEffect(() => {
-    if (contextReady && !didInitializeRound.current) {
-      console.log(`Setting displayed round to ${currentRound} from global context`);
-      setDisplayedRound(currentRound);
-      didInitializeRound.current = true;
-      setRoundInitialized(true);
-      setLoadingStates(prev => ({ ...prev, round: false, teamSelections: true }));
-      setLoadingStatus('Current round set, loading team selections...');
-    }
-  }, [contextReady, currentRound]);
-  
-  // 3. STEP THREE: Load team selections for the current round
-  useEffect(() => {
-    const loadTeamSelections = async () => {
-      if (roundInitialized && 
-          displayedRound !== null && 
-          !didFetchTeamSelections.current &&
-          loadingStates.teamSelections) {
-        try {
-          console.log(`Loading team selections for round ${displayedRound}`);
-          setLoadingStatus(`Loading team selections for round ${displayedRound}...`);
-          
-          const response = await fetch(`/api/team-selection?round=${displayedRound}`);
-          if (response.ok) {
-            const data = await response.json();
-            console.log('Team selections loaded successfully');
-            didFetchTeamSelections.current = true;
-            setTeamSelectionsLoaded(true);
-            setLoadingStates(prev => ({ ...prev, teamSelections: false, playerStats: true }));
-            setLoadingStatus('Team selections loaded, now loading player stats...');
-          } else {
-            console.error('Failed to load team selections');
-            setLoadingStatus('Error loading team selections, continuing anyway...');
-            // Still mark as loaded to continue
-            didFetchTeamSelections.current = true;
-            setTeamSelectionsLoaded(true);
-            setLoadingStates(prev => ({ ...prev, teamSelections: false, playerStats: true }));
-          }
-        } catch (error) {
-          console.error('Error loading team selections:', error);
-          setLoadingStatus('Error loading team selections, continuing anyway...');
-          // Still mark as loaded to continue
-          didFetchTeamSelections.current = true;
-          setTeamSelectionsLoaded(true);
-          setLoadingStates(prev => ({ ...prev, teamSelections: false, playerStats: true }));
-        }
-      }
-    };
+    if (!hookFixtures || hookFixtures.length === 0) return;
     
-    loadTeamSelections();
-  }, [roundInitialized, displayedRound, loadingStates.teamSelections]);
-  
-  // 4. STEP FOUR: Load player stats after team selections are loaded
-  useEffect(() => {
-    if (teamSelectionsLoaded && 
-        displayedRound !== null && 
-        loadingStates.playerStats) {
-      console.log(`Initializing hook with round ${displayedRound} to fetch player stats`);
-      setLoadingStatus(`Loading player stats for round ${displayedRound}...`);
+    // Prioritize the selected user's fixture if applicable
+    if (selectedUserId && hookFixtures.length > 0) {
+      const userFixture = hookFixtures.find(fixture => 
+        fixture.home?.toString() === selectedUserId?.toString() || 
+        fixture.away?.toString() === selectedUserId?.toString()
+      );
       
-      // For future finals rounds that haven't been played yet, skip player stats loading
-      if (isFinalRound(displayedRound) && displayedRound > currentRound) {
-        console.log(`Round ${displayedRound} is a future finals round, skipping player stats`);
-        setLoadingStates(prev => ({ ...prev, playerStats: false }));
-        // Trigger the next step immediately for future rounds
-        setLoadingStatus('Future round - using default scores...');
-      } else if (hookChangeRound) {
-        hookChangeRound(displayedRound);
-        setLoadingStates(prev => ({ ...prev, playerStats: false }));
+      if (userFixture) {
+        setOrderedFixtures([
+          userFixture,
+          ...hookFixtures.filter(fixture => fixture !== userFixture)
+        ]);
+      } else {
+        setOrderedFixtures(hookFixtures);
       }
+    } else {
+      setOrderedFixtures(hookFixtures);
     }
-  }, [teamSelectionsLoaded, displayedRound, hookChangeRound, loadingStates.playerStats, currentRound]);
-  
-  // 5. STEP FIVE: When player stats are loaded, calculate scores and prepare display
-  useEffect(() => {
-    const loadFixturesAndScores = async () => {
-      // Handle future rounds that don't have data yet
-      const isFutureRound = displayedRound > currentRound;
-      const needsPlayerStats = !isFinalRound(displayedRound) || displayedRound <= currentRound;
-      
-      if (displayedRound !== null && 
-          teamSelectionsLoaded &&
-          ((needsPlayerStats && !resultsLoading && hookDataReady && teams && Object.keys(teams).length > 0) ||
-           (!needsPlayerStats && isFutureRound))) {
-        
-        console.log('Preparing display for round', displayedRound, 'Future round:', isFutureRound);
-        setLoadingStatus('Calculating scores and preparing display...');
-        
-        // Add a small delay to ensure all data is stable
-        setTimeout(async () => {
-          // Calculate team scores ONCE and store them
-          const calculatedScores = {};
-          
-          if (isFutureRound) {
-            // For future rounds, use empty scores
-            Object.keys(USER_NAMES).forEach(userId => {
-              calculatedScores[userId] = {
-                userId,
-                totalScore: 0,
-                teamOnly: 0,
-                deadCert: 0,
-                finalScore: 0,
-                positionScores: [],
-                benchScores: [],
-                substitutionsEnabled: { bench: false, reserve: false }
-              };
-            });
-          } else {
-            // For played rounds, calculate actual scores
-            Object.keys(USER_NAMES).forEach(userId => {
-              try {
-                calculatedScores[userId] = getTeamScores(userId);
-              } catch (error) {
-                console.error(`Error calculating scores for user ${userId}:`, error);
-                // Fallback to empty scores
-                calculatedScores[userId] = {
-                  userId,
-                  totalScore: 0,
-                  teamOnly: 0,
-                  deadCert: 0,
-                  finalScore: 0,
-                  positionScores: [],
-                  benchScores: [],
-                  substitutionsEnabled: { bench: false, reserve: false }
-                };
-              }
-            });
-          }
-          
-          // Update team scores state
-          setTeamScores(calculatedScores);
-          
-          // Get fixtures for the displayed round
-          let roundFixtures = [];
-          
-          if (isFinalRound(displayedRound)) {
-            // For finals rounds, calculate fixtures dynamically
-            console.log(`Calculating finals fixtures for round ${displayedRound}`);
-            roundFixtures = await calculateFinalsFixtures(displayedRound);
-          } else {
-            // For regular season, use static fixtures
-            roundFixtures = getFixturesForRound(displayedRound);
-          }
-          
-          setFixtures(roundFixtures || []);
-          
-          // Prioritize the selected user's fixture if applicable
-          if (selectedUserId && roundFixtures && roundFixtures.length > 0) {
-            const userFixture = roundFixtures.find(fixture => 
-              fixture.home?.toString() === selectedUserId?.toString() || 
-              fixture.away?.toString() === selectedUserId?.toString()
-            );
-            
-            if (userFixture) {
-              setOrderedFixtures([
-                userFixture,
-                ...roundFixtures.filter(fixture => fixture !== userFixture)
-              ]);
-            } else {
-              setOrderedFixtures(roundFixtures);
-            }
-          } else {
-            setOrderedFixtures(roundFixtures);
-          }
-          
-          setDisplayReady(true);
-          setLoadingStates(prev => ({ ...prev, display: true }));
-          setLoadingStatus('All data loaded, rendering page...');
-          
-          // Give a small delay to ensure everything is rendered properly
-          setTimeout(() => {
-            setPageReady(true);
-          }, 100);
-        }, 50);
-      }
-    };
-    
-    loadFixturesAndScores();
-  }, [displayedRound, resultsLoading, hookDataReady, teams, teamSelectionsLoaded, selectedUserId, getTeamScores, currentRound]);
+  }, [hookFixtures, selectedUserId]);
 
-  // Handle round change - keep it local, don't update global context
+  // Handle round change - simplified
   const handleRoundChange = (e) => {
     const newRound = Number(e.target.value);
     if (newRound !== displayedRound) {
-      console.log(`Changing to round ${newRound}`);
-      
-      // Reset team scores to empty immediately to prevent flashing
-      const emptyScores = {};
-      Object.keys(USER_NAMES).forEach(userId => {
-        emptyScores[userId] = {
-          userId,
-          totalScore: "",
-          teamOnly: "",
-          deadCert: "",
-          finalScore: "",
-          positionScores: [],
-          benchScores: [],
-          substitutionsEnabled: { bench: false, reserve: false }
-        };
-      });
-      setTeamScores(emptyScores);
-      
-      // Reset all states to load data for the new round
-      setDisplayedRound(newRound);
-      setPageReady(false);
-      setDisplayReady(false);
-      setTeamSelectionsLoaded(false);
-      didFetchTeamSelections.current = false;
-      
-      // Reset loading states
-      setLoadingStates({
-        context: false,
-        round: false,
-        teamSelections: true,
-        playerStats: false,
-        display: false
-      });
-      
-      setLoadingStatus(`Loading data for round ${newRound}...`);
+      changeRound(newRound);
     }
   };
 
@@ -337,8 +91,8 @@ export default function ResultsPage() {
     return now > roundEnd;
   };
 
-  // Show detailed loading UI
-  if (!pageReady) {
+  // Show progressive loading UI
+  if (loading) {
     return (
       <div className="p-8 text-center">
         <div role="status" className="flex flex-col items-center">
@@ -346,16 +100,46 @@ export default function ResultsPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span className="text-lg font-medium">Loading...</span>
-          <span className="text-sm text-gray-500 mt-2">
-            {loadingStatus}
-          </span>
-          <div className="mt-4 flex justify-center items-center space-x-2">
-            <div className={`h-2 w-2 rounded-full ${!loadingStates.context ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-            <div className={`h-2 w-2 rounded-full ${!loadingStates.round ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-            <div className={`h-2 w-2 rounded-full ${!loadingStates.teamSelections ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-            <div className={`h-2 w-2 rounded-full ${!loadingStates.playerStats ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-            <div className={`h-2 w-2 rounded-full ${loadingStates.display ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+          <span className="text-lg font-medium text-black">{loadingMessage || 'Loading...'}</span>
+          
+          {/* Progress indicators */}
+          <div className="mt-6 flex justify-center items-center space-x-4">
+            <div className="flex flex-col items-center">
+              <div className={`h-3 w-3 rounded-full transition-colors duration-300 ${
+                loadingStage === 'round' || loadingStage === 'fixtures' || loadingStage === 'results' || loadingStage === 'complete' 
+                  ? 'bg-blue-500' : 'bg-gray-300'
+              }`}></div>
+              <span className="text-xs mt-1 text-gray-600">Round</span>
+            </div>
+            <div className={`h-0.5 w-8 transition-colors duration-300 ${
+              loadingStage === 'fixtures' || loadingStage === 'results' || loadingStage === 'complete'
+                ? 'bg-blue-500' : 'bg-gray-300'
+            }`}></div>
+            <div className="flex flex-col items-center">
+              <div className={`h-3 w-3 rounded-full transition-colors duration-300 ${
+                loadingStage === 'fixtures' || loadingStage === 'results' || loadingStage === 'complete'
+                  ? 'bg-blue-500' : 'bg-gray-300'
+              }`}></div>
+              <span className="text-xs mt-1 text-gray-600">Fixtures</span>
+            </div>
+            <div className={`h-0.5 w-8 transition-colors duration-300 ${
+              loadingStage === 'results' || loadingStage === 'complete'
+                ? 'bg-blue-500' : 'bg-gray-300'
+            }`}></div>
+            <div className="flex flex-col items-center">
+              <div className={`h-3 w-3 rounded-full transition-colors duration-300 ${
+                loadingStage === 'results' || loadingStage === 'complete'
+                  ? 'bg-blue-500' : 'bg-gray-300'
+              }`}></div>
+              <span className="text-xs mt-1 text-gray-600">Results</span>
+            </div>
+          </div>
+          
+          {/* Stage-specific details */}
+          <div className="mt-4 text-sm text-gray-500">
+            {loadingStage === 'round' && 'Setting up round information...'}
+            {loadingStage === 'fixtures' && 'Loading match fixtures...'}
+            {loadingStage === 'results' && 'Calculating team scores and standings...'}
           </div>
         </div>
       </div>
@@ -408,16 +192,8 @@ export default function ResultsPage() {
     }
   };
 
-  // Calculate all team scores using the stored scores
-  const allTeamScores = Object.keys(USER_NAMES).map(userId => {
-    const teamScore = teamScores[userId];
-    return {
-      userId,
-      totalScore: teamScore.finalScore || 0, // Use finalScore which includes dead cert scores
-      teamOnly: teamScore.totalScore || 0,
-      deadCert: teamScore.deadCertScore || 0
-    };
-  });
+  // Calculate all team scores using the simplified data
+  const allTeamScores = calculateAllTeamScores();
   
   if (displayedRound && allTeamScores.length > 0) {
     storeFinalTotalsForLadder(allTeamScores, displayedRound);
@@ -536,10 +312,10 @@ export default function ResultsPage() {
           {getTeamCardsOrder().map(userId => {
             if (!userId || !USER_NAMES[userId]) return null;
             
-            const userTeamScores = teamScores[userId];
+            const userTeamScores = getTeamScores(userId);
             
             // Don't render if scores aren't calculated yet (prevents flashing)
-            if (!userTeamScores || userTeamScores.finalScore === "") {
+            if (!userTeamScores || loading) {
               return (
                 <div key={userId} className="bg-white rounded-lg shadow-md p-2">
                   <div className="flex items-center justify-between mb-2">
@@ -574,10 +350,10 @@ export default function ResultsPage() {
           {getTeamCardsOrder().map(userId => {
             if (!userId || !USER_NAMES[userId]) return null;
             
-            const userTeamScores = teamScores[userId];
+            const userTeamScores = getTeamScores(userId);
             
             // Don't render if scores aren't calculated yet (prevents flashing)
-            if (!userTeamScores || userTeamScores.finalScore === "") {
+            if (!userTeamScores || loading) {
               return (
                 <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -684,10 +460,14 @@ function MobileTeamScoreCard({
         </div>
 
         {/* Bench/Reserves - Very Compact */}
-        {teamScores.benchScores && teamScores.benchScores.length > 0 && (
-          <div className="bg-gray-50 p-2 rounded text-xs">
-            <h3 className="text-xs font-semibold mb-1 text-black">Bench/Reserves</h3>
-            {teamScores.benchScores.map((bench) => {
+        <div className="bg-gray-50 p-2 rounded text-xs">
+          <h3 className="text-xs font-semibold mb-1 text-black">Bench/Reserves</h3>
+          {(!teamScores.benchScores || teamScores.benchScores.length === 0) ? (
+            <div className="text-xs text-gray-600 italic">
+              No bench or reserve players selected
+            </div>
+          ) : (
+            teamScores.benchScores.map((bench) => {
               const showDNP = isRoundComplete && !bench.didPlay;
               const isBeingUsed = bench.isBeingUsed;
               
@@ -706,9 +486,9 @@ function MobileTeamScoreCard({
                   </div>
                 </div>
               );
-            })}
-          </div>
-        )}
+            })
+          )}
+        </div>
       </div>
     </div>
   );

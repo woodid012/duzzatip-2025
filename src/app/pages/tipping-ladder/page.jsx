@@ -36,183 +36,39 @@ export default function TippingLadderPage() {
 
       console.log(`Loading tipping ladder data for round ${round}`);
 
-      // Get year totals and detailed DC stats for all users (including finals)
-      const yearTotalsPromises = Object.keys(USER_NAMES).map(async (userId) => {
-        try {
-          // Get all rounds data to calculate DC stats (1-24 to include finals)
-          const allRoundsPromises = [];
-          for (let r = 1; r <= Math.max(24, round); r++) {
-            allRoundsPromises.push(
-              fetch(`/api/tipping-results?round=${r}&userId=${userId}`)
-                .then(res => res.ok ? res.json() : null)
-                .catch(() => null)
-            );
-          }
-          
-          const allRoundsData = await Promise.all(allRoundsPromises);
-          
-          let totalCorrectTips = 0;
-          let totalDCCount = 0;
-          let correctDCCount = 0;
-          let wrongDCCount = 0;
-          let netDCScore = 0;
-          
-          allRoundsData.forEach(roundData => {
-            if (!roundData) return;
-            
-            totalCorrectTips += roundData.correctTips || 0;
-            netDCScore += roundData.deadCertScore || 0;
-            
-            // Count DC stats from completed matches
-            if (roundData.completedMatches) {
-              roundData.completedMatches.forEach(match => {
-                if (match.deadCert) {
-                  totalDCCount++;
-                  if (match.correct) {
-                    correctDCCount++;
-                  } else {
-                    wrongDCCount++;
-                  }
-                }
-              });
-            }
-          });
-          
-          return {
-            userId,
-            correctTips: totalCorrectTips,
-            totalDCCount,
-            correctDCCount,
-            wrongDCCount,
-            netDCScore
-          };
-        } catch (err) {
-          console.warn(`Error fetching year totals for user ${userId}:`, err);
-          return {
-            userId,
-            correctTips: 0,
-            totalDCCount: 0,
-            correctDCCount: 0,
-            wrongDCCount: 0,
-            netDCScore: 0
-          };
-        }
-      });
+      // Use consolidated API for much faster loading
+      const response = await fetch(`/api/consolidated-tipping-ladder?upToRound=${Math.min(round, 24)}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load tipping ladder: ${response.status}`);
+      }
 
-      const yearTotals = await Promise.all(yearTotalsPromises);
+      const data = await response.json();
+      
+      // Transform data to match existing UI format
+      const transformedLadder = data.ladder.map(user => ({
+        userId: user.userId,
+        userName: user.userName,
+        yearCorrectTips: user.correctTips,
+        yearTotalDCCount: user.totalDCCount,
+        yearCorrectDCCount: user.correctDCCount,
+        yearWrongDCCount: user.wrongDCCount,
+        yearNetDCScore: user.netDCScore,
+        roundCorrectTips: data.roundResults[round]?.[user.userId]?.correctTips || 0,
+        roundTotalDCCount: 0, // Not calculated separately per round in new API
+        roundCorrectDCCount: 0,
+        roundWrongDCCount: 0,
+        roundNetDCScore: data.roundResults[round]?.[user.userId]?.deadCertScore || 0
+      }));
+      
+      setLadderData(transformedLadder);
+      setRoundResults(data.roundResults);
+      setLastUpdated(data.cached ? 
+        `Cached: ${new Date(data.cachedAt).toLocaleString()}` : 
+        new Date().toLocaleString()
+      );
 
-      // Get current round results for display
-      const roundResultsPromises = Object.keys(USER_NAMES).map(async (userId) => {
-        try {
-          const response = await fetch(`/api/tipping-results?round=${round}&userId=${userId}`);
-          if (!response.ok) {
-            return {
-              userId,
-              correctTips: 0,
-              totalDCCount: 0,
-              correctDCCount: 0,
-              wrongDCCount: 0,
-              netDCScore: 0
-            };
-          }
-          const data = await response.json();
-          
-          // Count DC stats from completed matches
-          let totalDCCount = 0;
-          let correctDCCount = 0;
-          let wrongDCCount = 0;
-          
-          if (data.completedMatches) {
-            data.completedMatches.forEach(match => {
-              if (match.deadCert) {
-                totalDCCount++;
-                if (match.correct) {
-                  correctDCCount++;
-                } else {
-                  wrongDCCount++;
-                }
-              }
-            });
-          }
-          
-          return {
-            userId,
-            correctTips: data.correctTips || 0,
-            totalDCCount,
-            correctDCCount,
-            wrongDCCount,
-            netDCScore: data.deadCertScore || 0
-          };
-        } catch (err) {
-          return {
-            userId,
-            correctTips: 0,
-            totalDCCount: 0,
-            correctDCCount: 0,
-            wrongDCCount: 0,
-            netDCScore: 0
-          };
-        }
-      });
-
-      const roundResults = await Promise.all(roundResultsPromises);
-
-      // Convert to lookup objects
-      const yearTotalsMap = {};
-      const roundResultsMap = {};
-
-      yearTotals.forEach(result => {
-        yearTotalsMap[result.userId] = result;
-      });
-
-      roundResults.forEach(result => {
-        roundResultsMap[result.userId] = result;
-      });
-
-      // Create ladder data
-      const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => {
-        const yearStats = yearTotalsMap[userId] || { 
-          correctTips: 0, 
-          totalDCCount: 0, 
-          correctDCCount: 0, 
-          wrongDCCount: 0, 
-          netDCScore: 0 
-        };
-        const roundStats = roundResultsMap[userId] || { 
-          correctTips: 0, 
-          totalDCCount: 0, 
-          correctDCCount: 0, 
-          wrongDCCount: 0, 
-          netDCScore: 0 
-        };
-
-        return {
-          userId,
-          userName,
-          yearCorrectTips: yearStats.correctTips,
-          yearTotalDCCount: yearStats.totalDCCount,
-          yearCorrectDCCount: yearStats.correctDCCount,
-          yearWrongDCCount: yearStats.wrongDCCount,
-          yearNetDCScore: yearStats.netDCScore,
-          roundCorrectTips: roundStats.correctTips,
-          roundTotalDCCount: roundStats.totalDCCount,
-          roundCorrectDCCount: roundStats.correctDCCount,
-          roundWrongDCCount: roundStats.wrongDCCount,
-          roundNetDCScore: roundStats.netDCScore
-        };
-      });
-
-      // Sort by correct tips first, then by net DC score as tiebreaker
-      ladder.sort((a, b) => {
-        if (b.yearCorrectTips !== a.yearCorrectTips) {
-          return b.yearCorrectTips - a.yearCorrectTips;
-        }
-        return b.yearNetDCScore - a.yearNetDCScore;
-      });
-
-      setLadderData(ladder);
-      setRoundResults(roundResultsMap);
-      setLastUpdated(new Date());
+      console.log(`Loaded tipping ladder (${data.cached ? 'cached' : 'fresh'}) with ${data.ladder.length} users`);
 
     } catch (err) {
       console.error('Error loading tipping ladder:', err);

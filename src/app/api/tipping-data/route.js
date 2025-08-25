@@ -155,6 +155,23 @@ export async function POST(request) {
       await collection.bulkWrite(bulkOps, { ordered: false });
     }
 
+    // Invalidate tipping ladder cache for this round and onwards
+    // Tips changing affects ladder calculations from this round forward
+    try {
+      const tippingLadderCache = db.collection(`${CURRENT_YEAR}_tipping_ladder_cache`);
+      
+      // Clear cache for rounds >= fromRound (when a specific round's tips change)
+      await tippingLadderCache.deleteMany({
+        year: CURRENT_YEAR,
+        upToRound: { $gte: parseInt(round) }
+      });
+      
+      console.log(`Invalidated tipping ladder cache from round ${round} onwards due to tip changes`);
+    } catch (cacheError) {
+      console.error('Error invalidating tipping ladder cache:', cacheError);
+      // Don't fail the tip save if cache invalidation fails
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error saving tips:', error);

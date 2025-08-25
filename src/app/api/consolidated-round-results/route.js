@@ -8,10 +8,16 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
-        const round = parseInt(searchParams.get('round'));
-
-        if (!round) {
+        const roundParam = searchParams.get('round');
+        
+        if (roundParam === null || roundParam === undefined) {
             return Response.json({ error: 'Round parameter is required' }, { status: 400 });
+        }
+        
+        const round = parseInt(roundParam);
+        
+        if (isNaN(round) || round < 0) {
+            return Response.json({ error: 'Round must be a valid number >= 0' }, { status: 400 });
         }
 
         console.log(`Getting consolidated results for round ${round}`);
@@ -115,7 +121,7 @@ export async function GET(request) {
 
         console.log(`Completed consolidated results for round ${round}`);
 
-        return Response.json({
+        const responseData = {
             round,
             results,
             summary: {
@@ -124,13 +130,69 @@ export async function GET(request) {
                 starWinners: starWinners.map(id => ({ userId: id, userName: USER_NAMES[id] })),
                 crabWinners: crabWinners.map(id => ({ userId: id, userName: USER_NAMES[id] })),
                 totalPlayers: Object.keys(results).length
+            },
+            fixtures: fixtures // Include fixtures in response for caching
+        };
+
+        // Auto-cache finals results (rounds 22, 23, 24)
+        if (round >= 22 && round <= 24) {
+            try {
+                // Cache asynchronously to not delay response
+                setTimeout(async () => {
+                    try {
+                        await fetch('/api/finals-cache', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                round,
+                                results,
+                                fixtures,
+                                winners: extractWinners(results, fixtures)
+                            })
+                        });
+                        console.log(`Auto-cached finals results for round ${round}`);
+                    } catch (cacheError) {
+                        console.error(`Error auto-caching round ${round}:`, cacheError);
+                    }
+                }, 100);
+            } catch (error) {
+                console.error(`Error setting up auto-cache for round ${round}:`, error);
             }
-        });
+        }
+
+        return Response.json(responseData);
 
     } catch (error) {
         console.error('API Error:', error);
         return Response.json({ error: 'Failed to fetch consolidated round results' }, { status: 500 });
     }
+}
+
+// Helper function to extract winners from results for caching
+function extractWinners(results, fixtures) {
+    const winners = {};
+    
+    if (fixtures && fixtures.length > 0) {
+        fixtures.forEach(fixture => {
+            const homeResult = results[fixture.home];
+            const awayResult = results[fixture.away];
+            
+            if (homeResult && awayResult) {
+                const homeScore = homeResult.totalScore || 0;
+                const awayScore = awayResult.totalScore || 0;
+                
+                if (homeScore > awayScore) {
+                    winners[`${fixture.home}_vs_${fixture.away}`] = fixture.home;
+                } else if (awayScore > homeScore) {
+                    winners[`${fixture.home}_vs_${fixture.away}`] = fixture.away;
+                }
+            }
+        });
+    }
+    
+    return winners;
 }
 
 // Use the exact same logic as your round-results API
@@ -195,6 +257,7 @@ async function getUserRoundResult(round, userId) {
             deadCertScore,
             totalScore,
             positions, // Simplified position scores only
+            benchScores: teamScoreData.benchScores || [], // Include bench and reserve players
             substitutionsUsed: teamScoreData.substitutionsUsed, // What substitutions were made
             hasStar: false, // Will be set later
             hasCrab: false, // Will be set later
@@ -420,27 +483,32 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
         };
     });
     
+    
     // Extract bench players with their backup positions
     const benchPlayers = Object.entries(teamMap)
-        .filter(([pos]) => pos === 'Bench')
+        .filter(([pos]) => pos && pos.toLowerCase().includes('bench'))
         .map(([pos, data]) => {
-            if (!data || !data.player_name || !data.backup_position) return null;
+            // Show ALL selected bench players, regardless of missing backup position
+            if (!data || !data.player_name) return null;
             
             const stats = statsMap[data.player_name];
             const hasPlayed = didPlayerPlay(stats);
             
-            if (!hasPlayed) return null;
-            
-            const backupPosType = data.backup_position.toUpperCase().replace(/\s+/g, '_');
-            const scoring = calculateScore(backupPosType, stats);
+            // Calculate score if player played and has backup position
+            let score = 0;
+            if (hasPlayed && data.backup_position) {
+                const backupPosType = data.backup_position.toUpperCase().replace(/\s+/g, '_');
+                const scoring = calculateScore(backupPosType, stats);
+                score = scoring?.total || 0;
+            }
             
             return {
                 position: pos,
                 playerName: data.player_name,
-                backupPosition: data.backup_position,
+                backupPosition: data.backup_position || 'Not Set',
                 stats,
-                score: scoring?.total || 0,
-                breakdown: scoring?.breakdown || '',
+                score,
+                breakdown: '',
                 hasPlayed
             };
         })
@@ -448,30 +516,43 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
     
     // Extract reserve players
     const reservePlayers = Object.entries(teamMap)
-        .filter(([pos]) => pos.startsWith('Reserve'))
+        .filter(([pos]) => pos && pos.toLowerCase().includes('reserve'))
         .map(([pos, data]) => {
+            // Show ALL selected reserve players
             if (!data || !data.player_name) return null;
             
             const stats = statsMap[data.player_name];
             const hasPlayed = didPlayerPlay(stats);
             
-            if (!hasPlayed) return null;
-            
-            const isReserveA = pos === 'Reserve A';
+            // Determine if Reserve A or Reserve B
+            const isReserveA = pos.toLowerCase().includes('a');
             const validPositions = isReserveA ? RESERVE_A_POSITIONS : RESERVE_B_POSITIONS;
             
             if (data.backup_position) {
                 validPositions.push(data.backup_position);
             }
             
+            // Calculate score for reserve players if they played
+            let score = 0;
+            if (hasPlayed) {
+                // Try calculating score for their natural positions
+                for (const posType of validPositions) {
+                    const scoring = calculateScore(posType.toUpperCase().replace(/\s+/g, '_'), stats);
+                    if (scoring && scoring.total > score) {
+                        score = scoring.total;
+                    }
+                }
+            }
+            
             return {
                 position: pos,
                 playerName: data.player_name,
-                backupPosition: data.backup_position,
+                backupPosition: data.backup_position || 'Not Set',
                 stats,
                 hasPlayed,
                 validPositions,
-                isReserveA
+                isReserveA,
+                score
             };
         })
         .filter(Boolean);
@@ -592,15 +673,45 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
     
     const totalScore = positionScores.reduce((sum, pos) => sum + pos.score, 0);
     
+    // Prepare bench and reserve data for display
+    const benchScores = benchPlayers.map(bench => ({
+        position: 'Bench',
+        playerName: bench.playerName,
+        score: bench.score,
+        backupPosition: bench.backupPosition,
+        isBeingUsed: usedBenchPlayers.has(bench.playerName),
+        didPlay: bench.hasPlayed,
+        replacingPlayerName: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.originalPlayer,
+        replacingPosition: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.position,
+        breakdown: ''
+    }));
+
+    const reserveScores = reservePlayers.map(reserve => ({
+        position: reserve.isReserveA ? 'Reserve A' : 'Reserve B',
+        playerName: reserve.playerName,
+        score: reserve.score,
+        backupPosition: reserve.backupPosition,
+        isBeingUsed: usedReservePlayers.has(reserve.playerName),
+        didPlay: reserve.hasPlayed,
+        replacingPlayerName: substitutionsUsed.find(s => s.replacementPlayer === reserve.playerName)?.originalPlayer,
+        replacingPosition: substitutionsUsed.find(s => s.replacementPlayer === reserve.playerName)?.position,
+        breakdown: ''
+    }));
+
     return {
         totalScore,
         positionScores: positionScores.map(pos => ({
             position: pos.position,
             playerName: pos.playerName,
+            originalPlayerName: pos.originalPlayerName,
             score: pos.score,
+            originalScore: pos.originalScore,
             isSubstitution: pos.isSubstitution,
-            substitutionType: pos.substitutionType
+            substitutionType: pos.substitutionType,
+            hasPlayed: pos.playerName && pos.score > 0,
+            noStats: !pos.playerName || pos.score === 0
         })),
+        benchScores: [...benchScores, ...reserveScores],
         substitutionsUsed
     };
 }

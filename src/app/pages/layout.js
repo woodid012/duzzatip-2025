@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState, createContext, useContext } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
-import logo from '@/app/assets/logo.png';
+import Logo from '@/app/components/Logo';
+import { getNavigationGroups, debugNavigationItems } from '@/app/lib/navigationConfig';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 
 // Create context for selected user and admin authentication
@@ -18,18 +18,6 @@ export const UserContext = createContext({
 // Custom hook to use the user context
 export const useUserContext = () => useContext(UserContext);
 
-const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }) => {
-  return (
-    <Image 
-      src={logo}
-      alt={alt}
-      width={width}
-      height={height}
-      className={`object-contain ${className}`}
-      priority
-    />
-  );
-};
 
 export default function PagesLayout({ children }) {
   const pathname = usePathname();
@@ -107,30 +95,7 @@ export default function PagesLayout({ children }) {
     }
   };
 
-  const navigationGroups = [
-    [
-      { name: 'Round Results', path: '/pages/results', id: 'results' },
-    ],
-    [
-      { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
-      { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
-    ],
-    [
-      { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
-      { name: 'Tipping Ladder', path: '/pages/tipping-ladder', id: 'tipping-ladder' },
-      { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
-    ],
-    [
-      { name: 'Squads', path: '/pages/squads', id: 'squads' },
-      { name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' },
-    ],
-  ];
-
-  const debugNavigationItems = [
-    { name: 'Round-by-Round', path: '/pages/round-by-round', id: 'round-by-round' },
-    { name: 'Update Stats', path: '/pages/update-stats', id: 'update-stats' },
-    { name: 'New Ladder', path: '/pages/store-ladder', id: 'store-ladder' },
-  ];
+  const navigationGroups = getNavigationGroups(true); // Include Squad Management
 
   // Check if the current page should show only the selected user's team
   const isSingleUserPage = pathname === '/pages/team-selection' || pathname === '/pages/tipping';

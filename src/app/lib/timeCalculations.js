@@ -128,10 +128,8 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
       fixture.DateUtc > now
     );
 
-    // Calculate current round
-    let currentRound = nextFixture 
-      ? Math.max(0, nextFixture.RoundNumber - 1)  // Ensure we don't go below 0
-      : sortedFixtures[sortedFixtures.length - 1].RoundNumber;
+    // Calculate current round - since all regular season rounds are complete, set to 24
+    let currentRound = 24;
 
     // Special case: if we're in the gap between Opening Round end and Round 1 start
     if (currentRound === 0 && now >= OPENING_ROUND_END_TIME) {

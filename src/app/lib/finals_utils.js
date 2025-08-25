@@ -24,22 +24,90 @@ export async function getLadderAtRound(round = 21) {
 }
 
 /**
- * Get finals results for completed finals matches
+ * Get finals results for completed finals matches (with caching)
  * @param {number} round - The finals round (22, 23, or 24)
  * @returns {Promise<Object>} Object containing match results
  */
 export async function getFinalsResults(round) {
   try {
+    // First try to get cached results
+    const cacheResponse = await fetch(`/api/finals-cache?round=${round}`);
+    if (cacheResponse.ok) {
+      const cacheData = await cacheResponse.json();
+      if (cacheData.cached) {
+        console.log(`Using cached finals results for round ${round}`);
+        return cacheData.results;
+      }
+    }
+
+    // If no cache, fetch from consolidated API
+    console.log(`Fetching fresh finals results for round ${round}`);
     const response = await fetch(`/api/consolidated-round-results?round=${round}`);
     if (!response.ok) {
       return null;
     }
     
     const data = await response.json();
-    return data.results || {};
+    const results = data.results || {};
+    
+    // Cache the results for future use
+    if (Object.keys(results).length > 0) {
+      await cacheFinalsResults(round, results, data.fixtures);
+    }
+    
+    return results;
   } catch (error) {
     console.error(`Error fetching finals results for round ${round}:`, error);
     return null;
+  }
+}
+
+/**
+ * Cache finals results for faster future access
+ * @param {number} round - The finals round
+ * @param {Object} results - The match results
+ * @param {Array} fixtures - The fixtures data
+ */
+async function cacheFinalsResults(round, results, fixtures = []) {
+  try {
+    // Extract winners for quick access
+    const winners = {};
+    
+    // For each fixture, determine the winner
+    if (fixtures && fixtures.length > 0) {
+      fixtures.forEach(fixture => {
+        const homeResult = results[fixture.home];
+        const awayResult = results[fixture.away];
+        
+        if (homeResult && awayResult) {
+          const homeScore = homeResult.totalScore || 0;
+          const awayScore = awayResult.totalScore || 0;
+          
+          if (homeScore > awayScore) {
+            winners[`${fixture.home}_vs_${fixture.away}`] = fixture.home;
+          } else if (awayScore > homeScore) {
+            winners[`${fixture.home}_vs_${fixture.away}`] = fixture.away;
+          }
+        }
+      });
+    }
+
+    await fetch('/api/finals-cache', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        round,
+        results,
+        fixtures,
+        winners
+      })
+    });
+    
+    console.log(`Cached finals results for round ${round}`);
+  } catch (error) {
+    console.error(`Error caching finals results for round ${round}:`, error);
   }
 }
 

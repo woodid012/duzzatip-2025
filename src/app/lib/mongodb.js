@@ -3,73 +3,176 @@ import { MongoClient, ServerApiVersion } from 'mongodb';
 
 const MONGODB_URI = "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
 
-// Global variable to store the client across hot reloads in development
-// and across Lambda function executions in production
-let cachedClient = null;
-let cachedDb = null;
-
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable');
 }
 
-/**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections growing exponentially
- * during API Route usage.
- */
-let globalWithMongo = global;
-if (!globalWithMongo._mongoClientPromise) {
-  globalWithMongo._mongoClientPromise = null;
+// Single global instance to prevent connection leaks
+class DatabaseConnection {
+  constructor() {
+    this.client = null;
+    this.db = null;
+    this.connecting = false;
+    this.connectionPromise = null;
+  }
+
+  async connect() {
+    // Return existing connection if available
+    if (this.client && this.db) {
+      try {
+        // Test connection health
+        await this.db.admin().ping();
+        return { client: this.client, db: this.db };
+      } catch (error) {
+        console.warn('Stale connection detected, reconnecting...', error.message);
+        this.client = null;
+        this.db = null;
+      }
+    }
+
+    // Wait for existing connection attempt
+    if (this.connecting && this.connectionPromise) {
+      return await this.connectionPromise;
+    }
+
+    // Start new connection
+    this.connecting = true;
+    this.connectionPromise = this._createConnection();
+    
+    try {
+      const result = await this.connectionPromise;
+      this.connecting = false;
+      return result;
+    } catch (error) {
+      this.connecting = false;
+      this.connectionPromise = null;
+      throw error;
+    }
+  }
+
+  async _createConnection() {
+    const client = new MongoClient(MONGODB_URI, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      },
+      maxPoolSize: 20,        // Increased for better concurrency
+      maxIdleTimeMS: 300000,  // 5 minutes
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      maxConnecting: 5,       // Limit concurrent connections
+      waitQueueTimeoutMS: 30000, // Queue timeout
+      // Additional optimizations
+      compressors: ['zlib'],  // Enable compression
+      readPreference: 'secondaryPreferred', // Use secondary for reads when possible
+      retryWrites: true,
+      retryReads: true
+    });
+
+    try {
+      await client.connect();
+      const db = client.db('afl_database');
+      
+      // Ensure indexes exist for better performance
+      await this._ensureIndexes(db);
+      
+      this.client = client;
+      this.db = db;
+      
+      // Connection event handlers
+      client.on('serverClosed', () => {
+        console.log('MongoDB server connection closed');
+        this.client = null;
+        this.db = null;
+      });
+      
+      client.on('error', (error) => {
+        console.error('MongoDB connection error:', error);
+        this.client = null;
+        this.db = null;
+      });
+      
+      console.log('MongoDB connection established with optimizations');
+      return { client: this.client, db: this.db };
+    } catch (error) {
+      console.error('Failed to connect to MongoDB:', error);
+      throw error;
+    }
+  }
+
+  async _ensureIndexes(db) {
+    try {
+      const currentYear = new Date().getFullYear();
+      
+      // Common indexes for better query performance
+      const indexPromises = [
+        // Tips collection
+        db.collection(`${currentYear}_tips`).createIndex(
+          { Round: 1, User: 1, Active: 1 },
+          { background: true, name: 'tips_round_user_active' }
+        ),
+        db.collection(`${currentYear}_tips`).createIndex(
+          { MatchNumber: 1, User: 1, Active: 1 },
+          { background: true, name: 'tips_match_user_active' }
+        ),
+        
+        // Team selection
+        db.collection(`${currentYear}_team_selection`).createIndex(
+          { Round: 1, User: 1, Active: 1 },
+          { background: true, name: 'team_round_user_active' }
+        ),
+        
+        // Game results
+        db.collection(`${currentYear}_game_results`).createIndex(
+          { round: 1 },
+          { background: true, name: 'game_results_round' }
+        ),
+        db.collection(`${currentYear}_game_results`).createIndex(
+          { player_name: 1, round: 1 },
+          { background: true, name: 'game_results_player_round' }
+        ),
+        
+        // Cache collections
+        db.collection(`${currentYear}_tipping_ladder_cache`).createIndex(
+          { year: 1, upToRound: 1 },
+          { background: true, name: 'cache_year_round' }
+        )
+      ];
+      
+      await Promise.allSettled(indexPromises);
+      console.log('Database indexes ensured');
+    } catch (error) {
+      console.warn('Failed to create some indexes:', error.message);
+      // Don't fail connection if indexes fail
+    }
+  }
+  
+  async close() {
+    if (this.client) {
+      await this.client.close();
+      this.client = null;
+      this.db = null;
+    }
+  }
 }
 
+// Global instance
+const dbConnection = new DatabaseConnection();
+
 export async function connectToDatabase() {
-  // If we have a cached connection, use it
-  if (cachedClient && cachedDb) {
-    return { client: cachedClient, db: cachedDb };
-  }
+  return await dbConnection.connect();
+}
 
-  // If we have a connection promise in progress, wait for it
-  if (globalWithMongo._mongoClientPromise) {
-    const client = await globalWithMongo._mongoClientPromise;
-    const db = client.db('afl_database');
-    cachedClient = client;
-    cachedDb = db;
-    return { client, db };
-  }
-
-  // Create a new client if we don't have one
-  const client = new MongoClient(MONGODB_URI, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    },
-    maxPoolSize: 10,       // Up to 10 connections per instance
-    maxIdleTimeMS: 300000, // Close idle connections after 5 minutes
-    connectTimeoutMS: 10000, // Connection timeout
-    socketTimeoutMS: 45000, // Socket timeout
+// Graceful shutdown
+if (typeof process !== 'undefined') {
+  process.on('SIGINT', async () => {
+    await dbConnection.close();
+    process.exit(0);
   });
-
-  // Store the client promise in the global object
-  globalWithMongo._mongoClientPromise = client.connect();
   
-  // Wait for the client to connect
-  const connectedClient = await globalWithMongo._mongoClientPromise;
-  const db = connectedClient.db('afl_database');
-  
-  // Cache the connected client and db
-  cachedClient = connectedClient;
-  cachedDb = db;
-  
-  console.log('New MongoDB connection established');
-  
-  // Add event handlers for monitoring
-  client.on('serverClosed', () => {
-    console.log('MongoDB server connection closed');
-    cachedClient = null;
-    cachedDb = null;
-    globalWithMongo._mongoClientPromise = null;
+  process.on('SIGTERM', async () => {
+    await dbConnection.close();
+    process.exit(0);
   });
-
-  return { client: connectedClient, db };
 }

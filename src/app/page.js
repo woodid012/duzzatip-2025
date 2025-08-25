@@ -1,23 +1,10 @@
 'use client'
 
 import React from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import logo from '@/app/assets/logo.png';
-
-const Logo = ({ width = 150, height = 50, alt = "Company Logo", className = "" }) => {
-  return (
-    <Image 
-      src={logo}
-      alt={alt}
-      width={width}
-      height={height}
-      className={`object-contain ${className}`}
-      priority
-    />
-  );
-};
+import Logo from '@/app/components/Logo';
+import { getNavigationGroups } from '@/app/lib/navigationConfig';
 
 export default function Home() {
   const pathname = usePathname();
@@ -30,23 +17,7 @@ export default function Home() {
     }
   }, [pathname, router]);
 
-  const navigationGroups = [
-    [
-      { name: 'Round Results', path: '/pages/results', id: 'results' },
-    ],
-    [
-      { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
-      { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
-    ],
-    [
-      { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
-      { name: 'Tipping Ladder', path: '/pages/tipping-ladder', id: 'tipping-ladder' },
-      { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
-    ],
-    [
-      { name: 'Squads', path: '/pages/squads', id: 'squads' },
-    ],
-  ];
+  const navigationGroups = getNavigationGroups();
 
   return (
     <div className="min-h-screen bg-gray-50">

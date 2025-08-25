@@ -66,7 +66,7 @@ function UpdateStatsPage() {
               className="p-2 border rounded w-32"
               disabled={loading}
             >
-              {[...Array(23)].map((_, i) => (
+              {[...Array(24)].map((_, i) => (
                 <option key={i+1} value={i+1}>
                   Round {i+1}
                 </option>
