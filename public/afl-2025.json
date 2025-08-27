@@ -40,8 +40,8 @@
     "HomeTeam": "Gold Coast SUNS",
     "AwayTeam": "Essendon",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 153,
+    "AwayTeamScore": 58
   },
   {
     "MatchNumber": 5,
@@ -2279,10 +2279,10 @@
   {
     "MatchNumber": 208,
     "RoundNumber": 25,
-    "DateUtc": "2025-09-05 14:00:00Z",
-    "Location": "TBA",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "DateUtc": "2025-09-04 09:40:00Z",
+    "Location": "Adelaide Oval",
+    "HomeTeam": "Adelaide Crows",
+    "AwayTeam": "Collingwood",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
@@ -2290,10 +2290,10 @@
   {
     "MatchNumber": 209,
     "RoundNumber": 25,
-    "DateUtc": "2025-09-05 14:00:00Z",
-    "Location": "TBA",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "DateUtc": "2025-09-05 09:40:00Z",
+    "Location": "MCG",
+    "HomeTeam": "Geelong Cats",
+    "AwayTeam": "Brisbane Lions",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
@@ -2301,10 +2301,10 @@
   {
     "MatchNumber": 210,
     "RoundNumber": 25,
-    "DateUtc": "2025-09-05 14:00:00Z",
-    "Location": "TBA",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "DateUtc": "2025-09-06 05:15:00Z",
+    "Location": "ENGIE Stadium",
+    "HomeTeam": "GWS GIANTS",
+    "AwayTeam": "Hawthorn",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
@@ -2312,10 +2312,10 @@
   {
     "MatchNumber": 211,
     "RoundNumber": 25,
-    "DateUtc": "2025-09-05 14:00:00Z",
-    "Location": "TBA",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "DateUtc": "2025-09-06 09:35:00Z",
+    "Location": "Optus Stadium",
+    "HomeTeam": "Fremantle",
+    "AwayTeam": "Gold Coast SUNS",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
