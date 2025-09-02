@@ -1,6 +1,6 @@
 'use client'
 
-import { LATEST_ROUND, OPENING_ROUND_END_TIME } from './constants';
+import { LATEST_ROUND } from './constants';
 
 // Test configuration
 const TEST_DATE = new Date('2025-05-06T19:00:00');
@@ -105,42 +105,39 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
     const now = currentDate || (USE_TEST_DATE ? TEST_DATE : new Date());
     console.log('Current date (Melbourne):', convertToMelbourneTime(now));
 
-    // Special handling for Opening Round
-    if (now < OPENING_ROUND_END_TIME) {
-      const round1Fixtures = fixtures.filter(fixture => fixture.RoundNumber === 1);
-      const round1LockoutTime = round1Fixtures.length 
-        ? round1Fixtures.sort((a, b) => a.DateUtc - b.DateUtc)[0].DateMelb
-        : null;
-      
-      return {
-        currentRound: 0,
-        currentRoundDisplay: 'Opening Round',
-        lockoutTime: convertToMelbourneTime(OPENING_ROUND_END_TIME),
-        roundEndTime: convertToMelbourneTime(OPENING_ROUND_END_TIME),
-        isLocked: false,
-        nextRoundLockout: round1LockoutTime,
-        isError: false
-      };
-    }
 
     // Find next fixture
     const nextFixture = sortedFixtures.find(fixture => 
       fixture.DateUtc > now
     );
 
-    // Calculate current round - since all regular season rounds are complete, set to 24
-    let currentRound = 24;
-
-    // Special case: if we're in the gap between Opening Round end and Round 1 start
-    if (currentRound === 0 && now >= OPENING_ROUND_END_TIME) {
-      const round1Fixtures = fixtures.filter(fixture => fixture.RoundNumber === 1);
-      if (round1Fixtures.length > 0) {
-        const firstRound1Game = round1Fixtures.sort((a, b) => a.DateUtc - b.DateUtc)[0];
-        // If we're before the first Round 1 game, but after Opening Round ended
-        if (now < firstRound1Game.DateUtc) {
-          currentRound = 1; // Show Round 1 for team selection/tipping
+    // Calculate current round based on fixtures and current time
+    let currentRound = LATEST_ROUND;
+    
+    if (nextFixture) {
+      // If there's a next fixture, current round is either that round or the previous one
+      const nextRound = nextFixture.RoundNumber;
+      
+      // Check if we're in the period where we should show the next round
+      const nextRoundFixtures = fixtures.filter(f => f.RoundNumber === nextRound);
+      if (nextRoundFixtures.length > 0) {
+        const firstGameOfNextRound = nextRoundFixtures.sort((a, b) => a.DateUtc - b.DateUtc)[0];
+        const advanceDate = new Date(firstGameOfNextRound.DateUtc);
+        advanceDate.setDate(advanceDate.getDate() - DAYS_BEFORE_ADVANCE);
+        
+        if (now >= advanceDate) {
+          currentRound = nextRound;
+        } else {
+          // Find the current/most recent completed round
+          const pastFixtures = sortedFixtures.filter(fixture => fixture.DateUtc <= now);
+          if (pastFixtures.length > 0) {
+            currentRound = Math.max(...pastFixtures.map(f => f.RoundNumber));
+          }
         }
       }
+    } else {
+      // No future fixtures, use the last round
+      currentRound = Math.max(...fixtures.map(f => f.RoundNumber));
     }
 
     // Get fixtures for current round
@@ -227,40 +224,6 @@ export function getRoundInfo(fixtures, roundNumber) {
   }
 
   try {
-    // Special case for Opening Round (Round 0)
-    if (roundNumber === 0) {
-      const now = USE_TEST_DATE ? TEST_DATE : new Date();
-      const isLocked = now >= OPENING_ROUND_END_TIME;
-      
-      // Get Round 1 info for lockout reference
-      const round1Fixtures = fixtures.filter(fixture => fixture.RoundNumber === 1);
-      let round1LockoutTime = null;
-      let round1LockoutDate = null;
-      
-      if (round1Fixtures.length > 0) {
-        const firstGameOfRound1 = round1Fixtures.sort((a, b) => a.DateUtc - b.DateUtc)[0];
-        round1LockoutTime = firstGameOfRound1?.DateMelb || null;
-        round1LockoutDate = firstGameOfRound1?.DateUtc || null;
-      }
-      
-      return {
-        currentRound: roundNumber,
-        currentRoundDisplay: 'Opening Round',
-        lockoutTime: convertToMelbourneTime(OPENING_ROUND_END_TIME),
-        lockoutDate: OPENING_ROUND_END_TIME,
-        roundEndTime: convertToMelbourneTime(OPENING_ROUND_END_TIME),
-        roundEndDate: OPENING_ROUND_END_TIME,
-        round1LockoutTime,
-        round1LockoutDate,
-        isError: false,
-        isLocked,
-        isRound1Started: now >= (round1LockoutDate || Infinity),
-        nextRoundLockoutTime: round1LockoutTime,
-        nextRoundLockoutDate: round1LockoutDate,
-        shouldAdvanceToNextRound: isLocked && round1LockoutDate && 
-          now >= new Date(round1LockoutDate.getTime() - (DAYS_BEFORE_ADVANCE * 24 * 60 * 60 * 1000))
-      };
-    }
     
     // Get the specific round info for the selected round
     const selectedRoundFixtures = fixtures.filter(

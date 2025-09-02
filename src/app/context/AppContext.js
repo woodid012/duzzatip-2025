@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useState, useContext, useEffect, useRef } from 'react';
-import { CURRENT_YEAR, OPENING_ROUND_END_TIME } from '@/app/lib/constants';
+import { CURRENT_YEAR } from '@/app/lib/constants';
 import { processFixtures, calculateRoundInfo, getRoundInfo } from '@/app/lib/timeCalculations';
 
 // In AppContext.js, add a simple caching mechanism
