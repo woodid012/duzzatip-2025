@@ -2284,8 +2284,8 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Collingwood",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 55,
+    "AwayTeamScore": 79
   },
   {
     "MatchNumber": 209,
