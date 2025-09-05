@@ -2295,8 +2295,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 112,
+    "AwayTeamScore": 74
   },
   {
     "MatchNumber": 210,
