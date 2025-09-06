@@ -2317,16 +2317,16 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Gold Coast SUNS",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 79,
+    "AwayTeamScore": 80
   },
   {
     "MatchNumber": 212,
     "RoundNumber": 26,
-    "DateUtc": "2025-09-12 14:00:00Z",
-    "Location": "TBA",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "DateUtc": "2025-09-12 09:40:00Z",
+    "Location": "Adelaide Oval",
+    "HomeTeam": "Adelaide Crows",
+    "AwayTeam": "Hawthorn",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
@@ -2334,10 +2334,10 @@
   {
     "MatchNumber": 213,
     "RoundNumber": 26,
-    "DateUtc": "2025-09-12 14:00:00Z",
-    "Location": "TBA",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "DateUtc": "2025-09-13 09:35:00Z",
+    "Location": "Gabba",
+    "HomeTeam": "Brisbane Lions",
+    "AwayTeam": "Gold Coast SUNS",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
