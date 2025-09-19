@@ -2350,8 +2350,8 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 115,
+    "AwayTeamScore": 85
   },
   {
     "MatchNumber": 215,
@@ -2369,7 +2369,7 @@
     "RoundNumber": 28,
     "DateUtc": "2025-09-27 04:30:00Z",
     "Location": "MCG",
-    "HomeTeam": "To be announced",
+    "HomeTeam": "Geelong Cats",
     "AwayTeam": "To be announced",
     "Group": null,
     "HomeTeamScore": null,
