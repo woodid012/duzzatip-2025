@@ -2361,8 +2361,8 @@
     "HomeTeam": "Collingwood",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 71,
+    "AwayTeamScore": 100
   },
   {
     "MatchNumber": 216,
@@ -2370,7 +2370,7 @@
     "DateUtc": "2025-09-27 04:30:00Z",
     "Location": "MCG",
     "HomeTeam": "Geelong Cats",
-    "AwayTeam": "To be announced",
+    "AwayTeam": "Brisbane Lions",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null
