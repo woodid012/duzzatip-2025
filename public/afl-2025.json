@@ -2372,7 +2372,7 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null
+    "HomeTeamScore": 75,
+    "AwayTeamScore": 122
   }
 ]
