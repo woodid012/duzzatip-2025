@@ -3,10 +3,6 @@ import { MongoClient, ServerApiVersion } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
-}
-
 // Single global instance to prevent connection leaks
 class DatabaseConnection {
   constructor() {
@@ -51,13 +47,17 @@ class DatabaseConnection {
   }
 
   async _createConnection() {
+    if (!MONGODB_URI) {
+      throw new Error('Please define the MONGODB_URI environment variable');
+    }
+
     const client = new MongoClient(MONGODB_URI, {
       serverApi: {
         version: ServerApiVersion.v1,
         strict: true,
         deprecationErrors: true,
       },
-      maxPoolSize: 20,        // Increased for better concurrency
+      maxPoolSize: 5,         // Keep low for serverless (Vercel)
       maxIdleTimeMS: 300000,  // 5 minutes
       connectTimeoutMS: 10000,
       socketTimeoutMS: 45000,
