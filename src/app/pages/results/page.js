@@ -91,6 +91,89 @@ export default function ResultsPage() {
     return now > roundEnd;
   };
 
+  // Calculate all team scores using the simplified data
+  // NOTE: All hooks must be called before any early returns
+  const allTeamScores = useMemo(() => calculateAllTeamScores(), [calculateAllTeamScores]);
+
+  // Store final totals for ladder (only when round or scores change, not on every render)
+  const storeFinalTotalsRef = useRef(null);
+  storeFinalTotalsRef.current = async (scores, round) => {
+    try {
+      const finalTotals = {};
+      scores.forEach(team => {
+        finalTotals[team.userId] = team.totalScore || 0;
+      });
+
+      console.log(`Storing Final Totals for round ${round} for ladder:`, finalTotals);
+
+      const response = await fetch('/api/final-totals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ round, allFinalTotals: finalTotals })
+      });
+
+      if (response.ok) {
+        console.log(`Successfully stored Final Totals for round ${round}`);
+      } else {
+        console.warn(`Failed to store Final Totals for round ${round}`);
+      }
+    } catch (err) {
+      console.error(`Error storing Final Totals for round ${round}:`, err);
+    }
+  };
+
+  useEffect(() => {
+    if (displayedRound && allTeamScores.length > 0) {
+      storeFinalTotalsRef.current(allTeamScores, displayedRound);
+    }
+  }, [displayedRound, allTeamScores]);
+
+  // Filter out any zero or undefined scores for comparison
+  const validScores = useMemo(() => allTeamScores.filter(s => (s?.totalScore || 0) > 0), [allTeamScores]);
+  const highestScore = validScores.length > 0
+    ? Math.max(...validScores.map(s => s?.totalScore || 0))
+    : 0;
+  const lowestScore = validScores.length > 0
+    ? Math.min(...validScores.map(s => s?.totalScore || 0))
+    : 0;
+
+  const hasSubstitutions = roundEndPassed;
+
+  // Function to sort and arrange team cards
+  const getTeamCardsOrder = () => {
+    if (orderedFixtures && orderedFixtures.length > 0) {
+      return orderedFixtures.flatMap((fixture) => {
+        const homeUserId = fixture.home?.toString();
+        const awayUserId = fixture.away?.toString();
+
+        if (!homeUserId || !awayUserId ||
+            homeUserId === 'TBD' || awayUserId === 'TBD' ||
+            isNaN(Number(homeUserId)) || isNaN(Number(awayUserId))) {
+          return [];
+        }
+
+        if (selectedUserId && (homeUserId === selectedUserId || awayUserId === selectedUserId)) {
+          if (homeUserId === selectedUserId) {
+            return [homeUserId, awayUserId];
+          } else {
+            return [awayUserId, homeUserId];
+          }
+        }
+
+        return [homeUserId, awayUserId];
+      });
+    } else {
+      return [...Object.keys(USER_NAMES)].sort((a, b) => {
+        if (a === selectedUserId) return -1;
+        if (b === selectedUserId) return 1;
+
+        const scoreA = allTeamScores.find(s => s?.userId === a)?.totalScore || 0;
+        const scoreB = allTeamScores.find(s => s?.userId === b)?.totalScore || 0;
+        return scoreB - scoreA;
+      });
+    }
+  };
+
   // Show progressive loading UI
   if (loading) {
     return (
@@ -159,102 +242,6 @@ export default function ResultsPage() {
     </div>
   );
 
-  const storeFinalTotalsForLadder = async (allTeamScores, round) => {
-    try {
-      // Extract just the Final Total values from the team scores
-      const finalTotals = {};
-      allTeamScores.forEach(team => {
-        finalTotals[team.userId] = team.totalScore || 0; // This should be the finalScore
-      });
-      
-      console.log(`Storing Final Totals for round ${round} for ladder:`, finalTotals);
-      
-      // Store these values so the ladder can use them
-      const response = await fetch('/api/final-totals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          round: round,
-          allFinalTotals: finalTotals
-        })
-      });
-      
-      if (response.ok) {
-        console.log(`Successfully stored Final Totals for round ${round}`);
-      } else {
-        console.warn(`Failed to store Final Totals for round ${round}`);
-      }
-      
-    } catch (error) {
-      console.error(`Error storing Final Totals for round ${round}:`, error);
-    }
-  };
-
-  // Calculate all team scores using the simplified data
-  const allTeamScores = useMemo(() => calculateAllTeamScores(), [calculateAllTeamScores]);
-
-  // Store final totals for ladder (only when round or scores change, not on every render)
-  useEffect(() => {
-    if (displayedRound && allTeamScores.length > 0) {
-      storeFinalTotalsForLadder(allTeamScores, displayedRound);
-    }
-  }, [displayedRound, allTeamScores]);
-
-  // Filter out any zero or undefined scores for comparison
-  const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
-  const highestScore = validScores.length > 0 
-    ? Math.max(...validScores.map(s => s?.totalScore || 0)) 
-    : 0;
-  const lowestScore = validScores.length > 0 
-    ? Math.min(...validScores.map(s => s?.totalScore || 0)) 
-    : 0;
-
-  const hasSubstitutions = roundEndPassed;
-
-  // Function to sort and arrange team cards
-  const getTeamCardsOrder = () => {
-    if (orderedFixtures && orderedFixtures.length > 0) {
-      // For regular rounds and finals, generate team cards in matchup order
-      return orderedFixtures.flatMap((fixture) => {
-        const homeUserId = fixture.home?.toString();
-        const awayUserId = fixture.away?.toString();
-        
-        // Skip if not numeric IDs or TBD placeholders
-        if (!homeUserId || !awayUserId || 
-            homeUserId === 'TBD' || awayUserId === 'TBD' ||
-            isNaN(Number(homeUserId)) || isNaN(Number(awayUserId))) {
-          return [];
-        }
-        
-        // If this is the selected user's fixture, prioritize their team card first
-        if (selectedUserId && (homeUserId === selectedUserId || awayUserId === selectedUserId)) {
-          if (homeUserId === selectedUserId) {
-            return [homeUserId, awayUserId];
-          } else {
-            return [awayUserId, homeUserId];
-          }
-        }
-        
-        // Otherwise return both cards in normal order
-        return [homeUserId, awayUserId];
-      });
-    } else {
-      // When no fixtures, display all team cards in default order, prioritizing selected user
-      return [...Object.keys(USER_NAMES)].sort((a, b) => {
-        // First prioritize the selected user
-        if (a === selectedUserId) return -1;
-        if (b === selectedUserId) return 1;
-        
-        // Then sort by score
-        const scoreA = allTeamScores.find(s => s?.userId === a)?.totalScore || 0;
-        const scoreB = allTeamScores.find(s => s?.userId === b)?.totalScore || 0;
-        return scoreB - scoreA; // Sort descending
-      });
-    }
-  };
-  
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       {/* Mobile-optimized header */}
