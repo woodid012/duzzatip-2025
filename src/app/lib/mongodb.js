@@ -63,9 +63,6 @@ class DatabaseConnection {
       socketTimeoutMS: 45000,
       maxConnecting: 5,       // Limit concurrent connections
       waitQueueTimeoutMS: 30000, // Queue timeout
-      // Additional optimizations
-      compressors: ['zlib'],  // Enable compression
-      readPreference: 'secondaryPreferred', // Use secondary for reads when possible
       retryWrites: true,
       retryReads: true
     });

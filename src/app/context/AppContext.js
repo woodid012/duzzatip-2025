@@ -116,29 +116,33 @@ export function AppProvider({ children }) {
   }, []);
 
   // Check for early round advancement periodically
+  const hasAdvancedRef = useRef(false);
   useEffect(() => {
     // Only run this if we have fixtures loaded
     if (fixtures.length === 0) return;
 
-    // Check if we should advance immediately
-    if (roundInfo.shouldAdvanceToNextRound) {
+    // Check if we should advance immediately (only once per round)
+    if (roundInfo.shouldAdvanceToNextRound && !hasAdvancedRef.current) {
+      hasAdvancedRef.current = true;
       advanceToAppropriateRound();
     }
-    
+
     // Set up an interval to check for round advancement
     const checkInterval = setInterval(() => {
+      hasAdvancedRef.current = false; // Allow advancement check again
       // Get fresh round info
       const currentRoundInfo = getSpecificRoundInfo(currentRound);
-      
+
       // Check if we should advance
       if (currentRoundInfo.shouldAdvanceToNextRound) {
+        hasAdvancedRef.current = true;
         advanceToAppropriateRound();
       }
     }, 60 * 60 * 1000); // Check every hour
-    
+
     // Clean up interval on unmount
     return () => clearInterval(checkInterval);
-  }, [fixtures, currentRound]); // Re-run when fixtures or currentRound changes (not roundInfo to avoid loops)
+  }, [fixtures]); // Only re-run when fixtures change, not currentRound
 
   // Load squad data
   const fetchSquads = async () => {
