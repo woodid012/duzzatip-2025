@@ -351,7 +351,7 @@ export function convertBetweenTimeZones(date, fromTimeZone, toTimeZone, formatSt
     'UTC': 0     // Universal Time Coordinated
   };
   
-  if (!timeZoneOffsets[fromTimeZone] !== undefined || !timeZoneOffsets[toTimeZone] !== undefined) {
+  if (timeZoneOffsets[fromTimeZone] === undefined || timeZoneOffsets[toTimeZone] === undefined) {
     console.error('Invalid time zone specified');
     return date;
   }

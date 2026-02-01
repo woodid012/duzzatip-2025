@@ -12,9 +12,12 @@ const fs = require('fs').promises;
 const axios = require('axios');
 
 // Configuration
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI environment variable is required');
+}
 const DB_NAME = 'afl_database';
-const CURRENT_YEAR = 2025; // Hardcode the year
+const CURRENT_YEAR = new Date().getFullYear();
 const COLLECTION_NAME = `${CURRENT_YEAR}_game_results`;
 
 // Save downloaded data for reference
@@ -127,14 +130,7 @@ function processStatsData(data) {
       return null;
     }
     
-    // Check if this is a BRI vs GEE game with Round 0
-    let roundNumber = parseInt(record.round, 10) || 0;
-    if (roundNumber === 0 && 
-        ((record.team === 'BRI' && record.opponent === 'GEE') || 
-         (record.team === 'GEE' && record.opponent === 'BRI'))) {
-      console.log(`Converting Round 0 to Round 3 for ${record.player} (${record.team} vs ${record.opponent})`);
-      roundNumber = 3;
-    }
+    const roundNumber = parseInt(record.round, 10) || 0;
     
     // Map the field names to match our MongoDB schema
     return {

@@ -1,8 +1,7 @@
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
-import path from 'path';
-import fs from 'fs/promises';
+import { getAflFixtures } from '@/app/lib/fixtureCache';
 
 export async function GET(request) {
   try {
@@ -15,18 +14,8 @@ export async function GET(request) {
       throw new Error('UserId is required');
     }
 
-    // Read local JSON file with fixtures
-    const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-    let fixturesData;
-    
-    try {
-      fixturesData = await fs.readFile(fixturesPath, 'utf8');
-    } catch (error) {
-      console.error('Failed to read fixtures file:', error);
-      throw new Error('Failed to read fixtures file');
-    }
-    
-    const fixtures = JSON.parse(fixturesData);
+    // Read fixtures (cached in memory)
+    const fixtures = await getAflFixtures();
     const { db } = await connectToDatabase();
 
     // If year parameter is provided, calculate totals for all rounds in the year

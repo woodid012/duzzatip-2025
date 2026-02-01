@@ -12,7 +12,12 @@ const fetchWithCache = async (url, expiry = 5 * 60 * 1000) => {
   if (cachedResponse && Date.now() - cachedResponse.timestamp < expiry) {
     return cachedResponse.data;
   }
-  
+
+  // Delete expired entry before re-fetching
+  if (cachedResponse) {
+    cache.delete(url);
+  }
+
   const response = await fetch(url);
   const data = await response.json();
   cache.set(url, { data, timestamp: Date.now() });
@@ -133,7 +138,7 @@ export function AppProvider({ children }) {
     
     // Clean up interval on unmount
     return () => clearInterval(checkInterval);
-  }, [fixtures, currentRound, roundInfo]); // Re-run when fixtures, currentRound, or roundInfo changes
+  }, [fixtures, currentRound]); // Re-run when fixtures or currentRound changes (not roundInfo to avoid loops)
 
   // Load squad data
   const fetchSquads = async () => {

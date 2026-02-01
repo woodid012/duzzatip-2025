@@ -373,9 +373,9 @@ export default function useResults() {
     if (localRound === null || !teams[userId] || !playerStats[userId] || loading) {
       return {
         userId,
-        totalScore: "",
-        deadCertScore: "",
-        finalScore: "",
+        totalScore: 0,
+        deadCertScore: 0,
+        finalScore: 0,
         positionScores: [],
         benchScores: [],
         substitutionsEnabled: { bench: false, reserve: false }

@@ -1,18 +1,15 @@
 import { promises as fs } from 'fs';
-import { join } from 'path';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
+import { getAflFixtures } from '@/app/lib/fixtureCache';
 
 export async function GET(request) {
   try {
-    // Get fixtures from local JSON file
-    const fixturesPath = join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-    
+    // Get fixtures (cached in memory)
     let fixtures;
     try {
-      const fixturesData = await fs.readFile(fixturesPath, 'utf8');
-      fixtures = JSON.parse(fixturesData);
+      fixtures = await getAflFixtures();
     } catch (fileError) {
       console.warn('Static fixtures file not found, fetching from API');
       

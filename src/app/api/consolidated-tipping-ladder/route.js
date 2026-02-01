@@ -1,7 +1,6 @@
 import { createApiHandler, getCollection } from '../../lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
-import path from 'path';
-import fs from 'fs/promises';
+import { getAflFixtures } from '@/app/lib/fixtureCache';
 
 // Efficiently calculate entire tipping ladder with minimal database queries
 export const GET = createApiHandler(async (request, db) => {
@@ -30,10 +29,8 @@ export const GET = createApiHandler(async (request, db) => {
       });
     }
 
-    // Get AFL fixtures data for match results
-    const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-    const fixturesData = await fs.readFile(fixturesPath, 'utf8');
-    const fixtures = JSON.parse(fixturesData);
+    // Get AFL fixtures data for match results (cached in memory)
+    const fixtures = await getAflFixtures();
 
     // Get all tips for all users and rounds in one query
     const allTips = await getCollection(db, 'tips')

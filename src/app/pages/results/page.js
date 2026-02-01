@@ -2,7 +2,7 @@
 
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useAppContext } from '@/app/context/AppContext';
 import useSimplifiedResults from '@/app/hooks/useSimplifiedResults';
@@ -193,12 +193,15 @@ export default function ResultsPage() {
   };
 
   // Calculate all team scores using the simplified data
-  const allTeamScores = calculateAllTeamScores();
-  
-  if (displayedRound && allTeamScores.length > 0) {
-    storeFinalTotalsForLadder(allTeamScores, displayedRound);
-  }
-  
+  const allTeamScores = useMemo(() => calculateAllTeamScores(), [calculateAllTeamScores]);
+
+  // Store final totals for ladder (only when round or scores change, not on every render)
+  useEffect(() => {
+    if (displayedRound && allTeamScores.length > 0) {
+      storeFinalTotalsForLadder(allTeamScores, displayedRound);
+    }
+  }, [displayedRound, allTeamScores]);
+
   // Filter out any zero or undefined scores for comparison
   const validScores = allTeamScores.filter(s => (s?.totalScore || 0) > 0);
   const highestScore = validScores.length > 0 

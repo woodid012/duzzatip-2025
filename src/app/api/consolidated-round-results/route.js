@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { POSITIONS } from '@/app/lib/scoring_rules';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
+import { getAflFixtures } from '@/app/lib/fixtureCache';
 
 export async function GET(request) {
     try {
@@ -29,12 +30,8 @@ export async function GET(request) {
             .find({ round: round })
             .toArray();
 
-        // Read and parse AFL fixtures once
-        const path = require('path');
-        const fs = require('fs/promises');
-        const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-        const fixturesData = await fs.readFile(fixturesPath, 'utf8');
-        const aflFixtures = JSON.parse(fixturesData);
+        // Read and parse AFL fixtures (cached in memory)
+        const aflFixtures = await getAflFixtures();
 
         // Get all user results in parallel
         const userIds = Object.keys(USER_NAMES);

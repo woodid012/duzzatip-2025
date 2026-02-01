@@ -1,7 +1,6 @@
 // src/app/api/check-fixtures/route.js
-import { promises as fs } from 'fs';
-import { join } from 'path';
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { getAflFixtures } from '@/app/lib/fixtureCache';
 
 // Map player team abbreviations to AFL fixture team names
 const TEAM_NAME_MAPPING = {
@@ -59,13 +58,10 @@ export async function GET(request) {
       return Response.json({ error: 'Round and teams parameters are required' }, { status: 400 });
     }
 
-    // Load fixtures from local JSON file
-    const fixturesPath = join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-    
+    // Load fixtures (cached in memory)
     let fixtures;
     try {
-      const fixturesData = await fs.readFile(fixturesPath, 'utf8');
-      fixtures = JSON.parse(fixturesData);
+      fixtures = await getAflFixtures();
     } catch (fileError) {
       console.warn('Static fixtures file not found, fetching from API');
       

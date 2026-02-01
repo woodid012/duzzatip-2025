@@ -3,6 +3,7 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
+import { getAflFixtures } from '@/app/lib/fixtureCache';
 
 /**
  * GET handler for ladder data.
@@ -209,63 +210,75 @@ async function buildLadderFromScratchCalculations(currentRound, db) {
         points: 0
     }));
 
-    // Process every round from 1 to currentRound using the consolidated-round-results API
-    for (let round = 1; round <= Math.min(currentRound, 21); round++) {
-        console.log(`Getting results for round ${round} using consolidated-round-results API`);
-        
-        try {
-            // Call the consolidated-round-results API
-            const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-            const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${round}`);
-            
-            if (!response.ok) {
-                console.warn(`Failed to get consolidated results for round ${round}: ${response.status}`);
+    // Fetch all rounds in parallel (batches of 5 to limit concurrency)
+    const maxRound = Math.min(currentRound, 21);
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    const BATCH_SIZE = 5;
+
+    for (let batchStart = 1; batchStart <= maxRound; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, maxRound);
+        const roundNumbers = [];
+        for (let r = batchStart; r <= batchEnd; r++) roundNumbers.push(r);
+
+        console.log(`Fetching rounds ${batchStart}-${batchEnd} in parallel`);
+
+        const batchResults = await Promise.all(roundNumbers.map(async (round) => {
+            try {
+                const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${round}`);
+                if (!response.ok) {
+                    console.warn(`Failed to get consolidated results for round ${round}: ${response.status}`);
+                    return { round, roundResults: null };
+                }
+                const data = await response.json();
+                return { round, roundResults: data.results || {} };
+            } catch (error) {
+                console.error(`Error fetching round ${round}:`, error);
+                return { round, roundResults: null };
+            }
+        }));
+
+        // Process each round's results sequentially (order matters for DB writes)
+        for (const { round, roundResults } of batchResults) {
+            if (!roundResults || Object.keys(roundResults).length === 0) {
+                console.log(`No results for round ${round}, skipping`);
                 continue;
             }
-            
-            const data = await response.json();
-            const roundResults = data.results || {};
-            
-            if (Object.keys(roundResults).length === 0) {
-                console.log(`No results returned for round ${round}, skipping`);
-                continue;
-            }
-            
+
             console.log(`Got consolidated results for round ${round}: ${Object.keys(roundResults).length} users`);
-            
+
             // Store the results we got from the API
             await storeRoundResultsFromAPI(round, roundResults, db);
             await storeFinalTotalsFromAPI(round, roundResults, db);
-            
+
             // Update ladder with this round's results
             const fixtures = getFixturesForRound(round);
-            
+
             fixtures.forEach((fixture) => {
                 const homeUserId = String(fixture.home);
                 const awayUserId = String(fixture.away);
-                
+
                 const homeResult = roundResults[homeUserId];
                 const awayResult = roundResults[awayUserId];
-                
+
                 if (!homeResult || !awayResult) {
                     console.log(`Round ${round}: Missing results for ${USER_NAMES[homeUserId]} vs ${USER_NAMES[awayUserId]}, skipping`);
                     return;
                 }
-                
+
                 const homeScore = homeResult.totalScore || 0;
                 const awayScore = awayResult.totalScore || 0;
-                
+
                 // Skip if both scores are 0
                 if (homeScore === 0 && awayScore === 0) {
                     console.log(`Round ${round}: No scores for ${USER_NAMES[homeUserId]} vs ${USER_NAMES[awayUserId]}, skipping`);
                     return;
                 }
-                
+
                 console.log(`Round ${round}: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore})`);
-                
+
                 const homeLadder = ladder.find(entry => entry.userId === homeUserId);
                 const awayLadder = ladder.find(entry => entry.userId === awayUserId);
-                
+
                 if (homeLadder && awayLadder) {
                     homeLadder.played++;
                     awayLadder.played++;
@@ -273,7 +286,7 @@ async function buildLadderFromScratchCalculations(currentRound, db) {
                     homeLadder.pointsAgainst += awayScore;
                     awayLadder.pointsFor += awayScore;
                     awayLadder.pointsAgainst += homeScore;
-                    
+
                     if (homeScore > awayScore) {
                         homeLadder.wins++;
                         homeLadder.points += 4;
@@ -290,18 +303,14 @@ async function buildLadderFromScratchCalculations(currentRound, db) {
                     }
                 }
             });
-            
-        } catch (error) {
-            console.error(`Error processing round ${round}:`, error);
-            continue;
         }
     }
 
     // Calculate percentages
     ladder.forEach(team => {
-        team.percentage = team.pointsAgainst === 0 
-            ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
-            : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+        team.percentage = team.pointsAgainst === 0
+            ? (team.pointsFor > 0 ? Number((team.pointsFor * 100).toFixed(2)) : 0)
+            : Number(((team.pointsFor / team.pointsAgainst) * 100).toFixed(2));
     });
 
     // Sort ladder by points, then percentage
@@ -381,9 +390,9 @@ async function buildLadderFromStoredFinalTotals(currentRound, db) {
 
     // Calculate percentages
     ladder.forEach(team => {
-        team.percentage = team.pointsAgainst === 0 
-            ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
-            : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+        team.percentage = team.pointsAgainst === 0
+            ? (team.pointsFor > 0 ? Number((team.pointsFor * 100).toFixed(2)) : 0)
+            : Number(((team.pointsFor / team.pointsAgainst) * 100).toFixed(2));
     });
 
     return ladder.sort((a, b) => b.points - a.points || parseFloat(b.percentage) - parseFloat(a.percentage));
@@ -508,13 +517,8 @@ async function calculateDeadCertScore(db, round, userId) {
     try {
         console.log(`Calculating dead cert score for user ${userId} round ${round}`);
         
-        // Get fixtures for this round
-        const path = require('path');
-        const fs = require('fs/promises');
-        
-        const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-        const fixturesData = await fs.readFile(fixturesPath, 'utf8');
-        const fixtures = JSON.parse(fixturesData);
+        // Get fixtures for this round (cached in memory)
+        const fixtures = await getAflFixtures();
         
         // Filter completed matches for the round
         const completedMatches = fixtures.filter(match => 
@@ -628,7 +632,7 @@ async function storeFinalTotalsFromAPI(round, roundResults, db) {
                         userId: userId,
                         teamScore: result.playerScore || 0,
                         deadCertScore: result.deadCertScore || 0,
-                        total: result.totalScore || 0,
+                        finalTotal: result.totalScore || 0,
                         lastUpdated: new Date(),
                         source: 'ladder_refresh_via_consolidated_api'
                     } 
@@ -662,8 +666,8 @@ async function getStoredFinalTotals(round, db) {
         
         const finalTotals = {};
         results.forEach(result => {
-            if (result.userId && result.total !== undefined) {
-                finalTotals[result.userId] = result.total || 0;
+            if (result.userId && result.finalTotal !== undefined) {
+                finalTotals[result.userId] = result.finalTotal || 0;
             }
         });
         
