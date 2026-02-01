@@ -12,6 +12,7 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
     { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
   ],
   [
+    { name: 'Draft', path: '/pages/draft', id: 'draft' },
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
     ...(includeSquadManagement ? [{ name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' }] : []),
   ],
@@ -19,6 +20,4 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
 
 export const debugNavigationItems = [
   { name: 'Round-by-Round', path: '/pages/round-by-round', id: 'round-by-round' },
-  { name: 'Update Stats', path: '/pages/update-stats', id: 'update-stats' },
-  { name: 'New Ladder', path: '/pages/store-ladder', id: 'store-ladder' },
 ];

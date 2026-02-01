@@ -22,28 +22,39 @@ export async function GET(request) {
 
         console.log(`Getting consolidated results for round ${round}`);
 
-        // Get all user results for this round using the same logic as your working APIs
-        const results = {};
-        const allTeamScores = [];
+        // Pre-fetch shared data once
+        const { db } = await connectToDatabase();
 
-        for (const userId of Object.keys(USER_NAMES)) {
+        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
+            .find({ round: round })
+            .toArray();
+
+        // Read and parse AFL fixtures once
+        const path = require('path');
+        const fs = require('fs/promises');
+        const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
+        const fixturesData = await fs.readFile(fixturesPath, 'utf8');
+        const aflFixtures = JSON.parse(fixturesData);
+
+        // Get all user results in parallel
+        const userIds = Object.keys(USER_NAMES);
+        const userResults = await Promise.all(userIds.map(async (userId) => {
             try {
                 console.log(`Processing user ${userId} (${USER_NAMES[userId]})`);
-                
-                // Use the same logic as your round-results API
-                const userResult = await getUserRoundResult(round, userId);
-                results[userId] = userResult;
-                allTeamScores.push({
-                    userId,
-                    totalScore: userResult.totalScore
-                });
-                
+                const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures);
                 console.log(`User ${userId} total score: ${userResult.totalScore}`);
+                return { userId, userResult, totalScore: userResult.totalScore };
             } catch (error) {
                 console.error(`Error processing user ${userId}:`, error);
-                results[userId] = createEmptyResult(userId);
-                allTeamScores.push({ userId, totalScore: 0 });
+                return { userId, userResult: createEmptyResult(userId), totalScore: 0 };
             }
+        }));
+
+        const results = {};
+        const allTeamScores = [];
+        for (const { userId, userResult, totalScore } of userResults) {
+            results[userId] = userResult;
+            allTeamScores.push({ userId, totalScore });
         }
 
         // Calculate stars and crabs
@@ -137,28 +148,26 @@ export async function GET(request) {
         // Auto-cache finals results (rounds 22, 23, 24)
         if (round >= 22 && round <= 24) {
             try {
-                // Cache asynchronously to not delay response
-                setTimeout(async () => {
-                    try {
-                        await fetch('/api/finals-cache', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                round,
-                                results,
-                                fixtures,
-                                winners: extractWinners(results, fixtures)
-                            })
-                        });
-                        console.log(`Auto-cached finals results for round ${round}`);
-                    } catch (cacheError) {
-                        console.error(`Error auto-caching round ${round}:`, cacheError);
-                    }
-                }, 100);
+                const { db } = await connectToDatabase();
+                const finalsCache = db.collection(`${CURRENT_YEAR}_finals_cache`);
+                await finalsCache.updateOne(
+                    { round: round, year: CURRENT_YEAR },
+                    {
+                        $set: {
+                            round,
+                            year: CURRENT_YEAR,
+                            results,
+                            fixtures,
+                            winners: extractWinners(results, fixtures),
+                            cachedAt: new Date(),
+                            updatedAt: new Date()
+                        }
+                    },
+                    { upsert: true }
+                );
+                console.log(`Auto-cached finals results for round ${round}`);
             } catch (error) {
-                console.error(`Error setting up auto-cache for round ${round}:`, error);
+                console.error(`Error auto-caching round ${round}:`, error);
             }
         }
 
@@ -196,22 +205,15 @@ function extractWinners(results, fixtures) {
 }
 
 // Use the exact same logic as your round-results API
-async function getUserRoundResult(round, userId) {
+async function getUserRoundResult(round, userId, db, playerStats, aflFixtures) {
     try {
-        const { db } = await connectToDatabase();
-
         // Get team selection - same as round-results API
         const teamSelection = await db.collection(`${CURRENT_YEAR}_team_selection`)
-            .find({ 
+            .find({
                 Round: round,
                 User: parseInt(userId),
-                Active: 1 
+                Active: 1
             })
-            .toArray();
-
-        // Get player stats - same as round-results API  
-        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
-            .find({ round: round })
             .toArray();
 
         if (!teamSelection || teamSelection.length === 0) {
@@ -224,26 +226,13 @@ async function getUserRoundResult(round, userId) {
         const playerScore = teamScoreData.totalScore;
         const positions = teamScoreData.positionScores;
 
-        // Fetch dead cert score - use the same logic as your tipping-results API
+        // Calculate dead cert score directly (no self-fetch)
         let deadCertScore = 0;
         try {
-            // First try the API approach (like your results page)
-            const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-            const tippingResponse = await fetch(`${baseUrl}/api/tipping-results?round=${round}&userId=${userId}`);
-            
-            if (tippingResponse.ok) {
-                const tippingData = await tippingResponse.json();
-                deadCertScore = tippingData.deadCertScore || 0;
-                console.log(`User ${userId} dead cert score from API: ${deadCertScore}`);
-            } else {
-                console.log(`Tipping results API failed for user ${userId} round ${round}:`, tippingResponse.status);
-                // Fallback: calculate directly like tipping-results API does
-                deadCertScore = await calculateDeadCertScore(db, round, userId);
-            }
+            deadCertScore = await calculateDeadCertScore(db, round, userId, aflFixtures);
+            console.log(`User ${userId} dead cert score: ${deadCertScore}`);
         } catch (tippingError) {
-            console.error(`Error fetching tipping results for user ${userId} round ${round}:`, tippingError);
-            // Fallback: calculate directly
-            deadCertScore = await calculateDeadCertScore(db, round, userId);
+            console.error(`Error calculating dead cert for user ${userId} round ${round}:`, tippingError);
         }
 
         const totalScore = playerScore + deadCertScore;
@@ -295,18 +284,12 @@ function createEmptyResult(userId) {
     };
 }
 
-// Fallback function to calculate dead cert score directly (same logic as tipping-results API)
-async function calculateDeadCertScore(db, round, userId) {
+// Calculate dead cert score directly (same logic as tipping-results API)
+async function calculateDeadCertScore(db, round, userId, aflFixtures) {
     try {
         console.log(`Calculating dead cert score directly for user ${userId} round ${round}`);
-        
-        // Get fixtures for this round (same as tipping-results API)
-        const path = require('path');
-        const fs = require('fs/promises');
-        
-        const fixturesPath = path.join(process.cwd(), 'public', `afl-${CURRENT_YEAR}.json`);
-        const fixturesData = await fs.readFile(fixturesPath, 'utf8');
-        const fixtures = JSON.parse(fixturesData);
+
+        const fixtures = aflFixtures;
         
         // Filter completed matches for the round
         const completedMatches = fixtures.filter(match => 

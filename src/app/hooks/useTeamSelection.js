@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 
@@ -20,7 +20,8 @@ export default function useTeamSelection() {
   const [isEditing, setIsEditing] = useState(false);
   const [loadingLocal, setLoadingLocal] = useState(true);
   const [errorLocal, setErrorLocal] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
+  const retryCountRef = useRef(0);
+  const squadsFetchedRef = useRef(false);
 
   // Initialize local round from global current round on first load
   useEffect(() => {
@@ -49,9 +50,6 @@ export default function useTeamSelection() {
 
   const fetchTeamSelections = useCallback(async (round) => {
     try {
-      // Add a small delay for API stability
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       // Ensure the round is a valid number
       const formattedRound = parseInt(round, 10);
       if (isNaN(formattedRound)) {
@@ -123,28 +121,28 @@ export default function useTeamSelection() {
     
     const loadData = async () => {
       try {
-        if (retryCount > 3) {
+        if (retryCountRef.current > 3) {
           // Stop retrying after 3 attempts
           setLoadingLocal(false);
           setErrorLocal('Failed to load data after multiple attempts');
           return;
         }
-        
+
         if (localRound === undefined || localRound === null) {
           return;
         }
-        
+
         setLoadingLocal(true);
         setErrorLocal(null);
-        
+
         console.log(`Loading team selection data for round ${localRound}`);
-        
+
         // Load team selections
         const teamsData = await fetchTeamSelections(localRound);
-        
+
         // Only update state if component is still mounted
         if (!isMounted) return;
-        
+
         if (teamsData && Object.keys(teamsData).length > 0) {
           console.log(`Loaded team data for round ${localRound}`);
           setTeams(teamsData);
@@ -155,42 +153,45 @@ export default function useTeamSelection() {
           setTeams({});
           setEditedTeams({});
         }
-        
+
         // Load squads if we don't have them yet
-        if (Object.keys(squads).length === 0) {
+        if (!squadsFetchedRef.current) {
+          squadsFetchedRef.current = true;
           const squadData = await fetchSquads();
           if (squadData && isMounted) {
             setSquads(squadData);
           }
         }
-        
+
         setLoadingLocal(false);
       } catch (err) {
         console.error('Error loading team selection data:', err);
-        
+
         if (isMounted) {
           setErrorLocal(`Failed to load team data: ${err.message}`);
           setLoadingLocal(false);
-          
+
           // Retry after a delay
+          retryCountRef.current += 1;
           setTimeout(() => {
-            if (isMounted) setRetryCount(prev => prev + 1);
+            if (isMounted) loadData();
           }, 1000);
         }
       }
     };
 
     loadData();
-    
+
     // Cleanup function
     return () => {
       isMounted = false;
     };
-  }, [localRound, fetchSquads, fetchTeamSelections, retryCount, squads]);
+  }, [localRound, fetchSquads, fetchTeamSelections]);
 
-  // Reset retry count when local round changes
+  // Reset refs when local round changes
   useEffect(() => {
-    setRetryCount(0);
+    retryCountRef.current = 0;
+    squadsFetchedRef.current = false;
   }, [localRound]);
 
   // Handle local round change

@@ -216,6 +216,17 @@ export default function TeamSelectionPage() {
   if (loading) return <div className="p-4">Loading teams...</div>;
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
 
+  if (!loading && !error && Object.keys(squads).length === 0) {
+    return (
+      <div className="text-center p-10">
+        <h2 className="text-2xl font-bold mb-4">No Squads Available</h2>
+        <p className="text-gray-600">
+          The draft hasn&apos;t happened yet. Squads will appear here once the draft is complete.
+        </p>
+      </div>
+    );
+  }
+
   // If no user is selected and not admin, show a message
   if (!selectedUserId) {
     return (
@@ -483,7 +494,6 @@ function TeamCard({
 }) {
   // State for toggling visibility on mobile
   const [isExpanded, setIsExpanded] = useState(true);
-  const [key, setKey] = useState(0);
 
   // Get display name for each position
   const getPositionDisplay = (position) => {
@@ -491,11 +501,6 @@ function TeamCard({
     if (position === 'Reserve B') return 'Reserve B - Off/Mid/Tackler';
     return position;
   };
-
-  // Force re-render when team changes
-  useEffect(() => {
-    setKey(prevKey => prevKey + 1);
-  }, [team]);
 
   // Copy from previous with UI feedback
   const handleCopyFromPrevious = () => {
@@ -522,7 +527,7 @@ function TeamCard({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4" key={`team-${userId}-${key}`}>
+    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg sm:text-xl font-bold text-black">{userName}</h2>
         <div className="flex items-center gap-2">
@@ -557,7 +562,7 @@ function TeamCard({
               isDuplicatePlayer(playerData.player_name, position) : false;
             
             return (
-              <div key={`${position}-${playerData?.player_name || 'empty'}-${key}`} className="flex flex-col gap-1">
+              <div key={position} className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-black">{displayPosition}</label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   {isEditing ? (
