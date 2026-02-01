@@ -83,13 +83,7 @@ export default function useTeamSelection() {
   }, []);
 
   // Determine if round is locked for editing
-  // MODIFIED: Changed this function to ensure rounds remain locked forever once they're locked
   const isRoundLocked = useCallback((roundNumber) => {
-    // If viewing opening round (0) and it's locked, it stays locked
-    if (roundNumber === 0 && roundInfo.isLocked) {
-      return true;
-    }
-    
     // If the round is less than the current round, it's always locked (historical round)
     if (roundNumber < currentRound) {
       return true;

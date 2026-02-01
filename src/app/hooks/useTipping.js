@@ -66,11 +66,6 @@ export default function useTipping(initialUserId = '') {
       return true;
     }
     
-    // For opening round (0), if it's locked, it stays locked
-    if (round === 0 && roundInfo.isLocked) {
-      return true;
-    }
-    
     // If we're viewing the current global round and it's locked
     if (roundInfo.isLocked && round === currentRound) {
       return true;
