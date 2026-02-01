@@ -30,14 +30,8 @@ export const GET = createApiHandler(async (request, db) => {
       });
     }
 
-    // Get AFL fixtures data for match results
-    let fixtures;
-    if (year !== CURRENT_YEAR) {
-      const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`);
-      fixtures = response.ok ? await response.json() : [];
-    } else {
-      fixtures = await getAflFixtures();
-    }
+    // Get AFL fixtures data for match results (uses local file first, falls back to external API)
+    const fixtures = await getAflFixtures(year);
 
     // Get all tips for all users and rounds in one query
     const allTips = await getCollectionForYear(db, 'tips', year)

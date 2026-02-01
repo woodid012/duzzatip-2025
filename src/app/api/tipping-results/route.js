@@ -16,14 +16,8 @@ export async function GET(request) {
       throw new Error('UserId is required');
     }
 
-    // Read fixtures
-    let fixtures;
-    if (collectionYear !== CURRENT_YEAR) {
-      const response = await fetch(`https://fixturedownload.com/feed/json/afl-${collectionYear}`);
-      fixtures = response.ok ? await response.json() : [];
-    } else {
-      fixtures = await getAflFixtures();
-    }
+    // Read fixtures (uses local file first, falls back to external API)
+    const fixtures = await getAflFixtures(collectionYear);
     const { db } = await connectToDatabase();
 
     // If year parameter is provided (for yearly totals), calculate totals for all rounds

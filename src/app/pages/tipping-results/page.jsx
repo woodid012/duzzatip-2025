@@ -5,7 +5,7 @@ import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 import { useAppContext } from '@/app/context/AppContext';
 
 const TippingResultsGrid = () => {
-  const { currentRound, roundInfo, getSpecificRoundInfo } = useAppContext();
+  const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear } = useAppContext();
   const [selectedRound, setSelectedRound] = useState(currentRound.toString());
   const [fixtures, setFixtures] = useState([]);
   const [allUserTips, setAllUserTips] = useState({});
@@ -64,19 +64,20 @@ const TippingResultsGrid = () => {
 
       try {
         // Load fixtures first
-        const fixturesResponse = await fetch(`/api/tipping-data`);
+        const fixturesResponse = await fetch(`/api/tipping-data?year=${selectedYear}`);
         if (!fixturesResponse.ok) throw new Error('Failed to load fixtures');
         const fixtureData = await fixturesResponse.json();
-        
-        const roundFixtures = fixtureData.filter(f => f.RoundNumber.toString() === selectedRound)
+
+        const fixturesArray = Array.isArray(fixtureData) ? fixtureData : fixtureData.fixtures || [];
+        const roundFixtures = fixturesArray.filter(f => f.RoundNumber.toString() === selectedRound)
           .sort((a, b) => a.MatchNumber - b.MatchNumber);
         setFixtures(roundFixtures);
 
         // Load tips for all users
-        const userTipsPromises = Object.keys(USER_NAMES).map(userId => 
+        const userTipsPromises = Object.keys(USER_NAMES).map(userId =>
           Promise.all([
-            fetch(`/api/tipping-results?round=${selectedRound}&userId=${userId}`).then(res => res.json()),
-            fetch(`/api/tipping-results?year=${CURRENT_YEAR}&userId=${userId}`).then(res => res.json())
+            fetch(`/api/tipping-results?round=${selectedRound}&userId=${userId}&year=${selectedYear}`).then(res => res.json()),
+            fetch(`/api/tipping-results?year=${selectedYear}&userId=${userId}`).then(res => res.json())
           ])
         );
 

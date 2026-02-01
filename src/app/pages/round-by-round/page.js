@@ -3,9 +3,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES } from '@/app/lib/constants';
 
 export default function RoundByRoundPage() {
+  const { selectedYear } = useAppContext();
   const [roundData, setRoundData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,7 +28,7 @@ export default function RoundByRoundPage() {
           try {
             console.log(`Fetching round ${round} data...`);
             
-            const res = await fetch(`/api/consolidated-round-results?round=${round}`);
+            const res = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
             if (!res.ok) {
               console.warn(`Could not fetch data for round ${round}: ${res.status}`);
               continue;

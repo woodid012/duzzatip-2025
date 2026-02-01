@@ -1,4 +1,3 @@
-import { promises as fs } from 'fs';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
@@ -10,39 +9,8 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const year = parseYearParam(searchParams);
 
-    // Get fixtures (cached in memory for current year, fetched from API for past years)
-    let fixtures;
-    try {
-      if (year !== CURRENT_YEAR) {
-        const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${year} fixtures: ${response.status}`);
-        }
-        fixtures = await response.json();
-      } else {
-        fixtures = await getAflFixtures();
-      }
-    } catch (fileError) {
-      console.warn('Static fixtures file not found, fetching from API');
-
-      // Fallback to API if file doesn't exist
-      const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch fixtures: ${response.status}`);
-      }
-      fixtures = await response.json();
-
-      // Try to save for next time (only for current year)
-      if (year === CURRENT_YEAR) {
-        try {
-          await fs.mkdir(join(process.cwd(), 'public'), { recursive: true });
-          await fs.writeFile(fixturesPath, JSON.stringify(fixtures, null, 2));
-          console.log('Fixtures saved to static file');
-        } catch (saveError) {
-          console.warn('Failed to save fixtures to static file:', saveError);
-        }
-      }
-    }
+    // Get fixtures (cached in memory, uses local file first, falls back to external API)
+    const fixtures = await getAflFixtures(year);
 
     // Get round from query params
     const round = searchParams.get('round');

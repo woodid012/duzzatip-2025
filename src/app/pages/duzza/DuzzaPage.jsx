@@ -6,7 +6,7 @@ import { USER_NAMES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import { POSITIONS } from '@/app/lib/scoring_rules';
 
 const DuzzaPage = () => {
-  const { currentRound } = useAppContext();
+  const { currentRound, selectedYear } = useAppContext();
   
   const [displayRound, setDisplayRound] = useState(currentRound || 1);
   const [selectedUserId, setSelectedUserId] = useState('4'); // Default to Le Mallards
@@ -25,7 +25,7 @@ const DuzzaPage = () => {
         setLoading(true);
         
         // Get user's squad
-        const squadRes = await fetch(`/api/squads`);
+        const squadRes = await fetch(`/api/squads?year=${selectedYear}`);
         if (!squadRes.ok) throw new Error('Failed to fetch squad data');
         const squadData = await squadRes.json();
         setSquadPlayers(squadData[selectedUserId]?.players || []);
@@ -35,7 +35,7 @@ const DuzzaPage = () => {
           const avgStatsMap = await fetchAverageStats(squadData[selectedUserId]?.players || []);
           setPlayerStats(avgStatsMap);
         } else {
-          const statsRes = await fetch(`/api/all-stats?round=${displayRound}`);
+          const statsRes = await fetch(`/api/all-stats?round=${displayRound}&year=${selectedYear}`);
           if (!statsRes.ok) throw new Error('Failed to fetch player stats');
           
           // Convert to map for easier lookup
@@ -72,7 +72,7 @@ const DuzzaPage = () => {
     
     for (const round of availableRounds) {
       try {
-        const roundRes = await fetch(`/api/all-stats?round=${round}`);
+        const roundRes = await fetch(`/api/all-stats?round=${round}&year=${selectedYear}`);
         if (!roundRes.ok) continue;
         
         const roundData = await roundRes.json();

@@ -92,9 +92,16 @@ export function AppProvider({ children }) {
         
         // CRITICAL CHANGE: Calculate round info immediately as first priority
         console.log('Calculating current round as first priority...');
-        
-        // Use normal round calculation logic
-        const currentRoundInfo = calculateRoundInfo(processedFixtures);
+
+        // For past years, default to round 1 (all rounds are complete, user can navigate)
+        // For current year, calculate based on fixture dates
+        let currentRoundInfo;
+        if (selectedYear !== CURRENT_YEAR) {
+          currentRoundInfo = { currentRound: 1, isError: false };
+          console.log('AppContext: Past year detected, defaulting to round 1');
+        } else {
+          currentRoundInfo = calculateRoundInfo(processedFixtures);
+        }
         setCurrentRound(currentRoundInfo.currentRound);
         console.log('AppContext: Calculated currentRound:', currentRoundInfo.currentRound);
         
@@ -129,6 +136,8 @@ export function AppProvider({ children }) {
       }
     };
 
+    // Reset user-changed-round flag when switching years
+    setUserChangedRound(false);
     fetchFixtures();
   }, [selectedYear]);
 

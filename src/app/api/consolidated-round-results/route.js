@@ -32,14 +32,8 @@ export async function GET(request) {
             .find({ round: round })
             .toArray();
 
-        // Read and parse AFL fixtures
-        let aflFixtures;
-        if (year !== CURRENT_YEAR) {
-            const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`);
-            aflFixtures = response.ok ? await response.json() : [];
-        } else {
-            aflFixtures = await getAflFixtures();
-        }
+        // Read and parse AFL fixtures (uses local file first, falls back to external API)
+        const aflFixtures = await getAflFixtures(year);
 
         // Get all user results in parallel
         const userIds = Object.keys(USER_NAMES);

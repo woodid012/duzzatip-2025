@@ -7,7 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES } from '@/app/lib/constants';
 
 export default function LadderConsolidatedPage() {
-  const { currentRound } = useAppContext();
+  const { currentRound, selectedYear } = useAppContext();
   const [selectedRound, setSelectedRound] = useState(currentRound);
   const [ladderData, setLadderData] = useState([]);
   const [roundResults, setRoundResults] = useState({});
@@ -29,7 +29,7 @@ export default function LadderConsolidatedPage() {
     if (selectedRound !== undefined && selectedRound !== null) {
       loadLadderData(selectedRound);
     }
-  }, [selectedRound]);
+  }, [selectedRound, selectedYear]);
 
   const loadLadderData = async (round) => {
     try {
@@ -39,7 +39,7 @@ export default function LadderConsolidatedPage() {
       console.log(`Loading ladder data for round ${round}`);
 
       // Get ladder from our new simple API
-      const ladderResponse = await fetch(`/api/simple-ladder?round=${round}`);
+      const ladderResponse = await fetch(`/api/simple-ladder?round=${round}&year=${selectedYear}`);
       if (!ladderResponse.ok) {
         throw new Error('Failed to load ladder data');
       }
@@ -50,7 +50,7 @@ export default function LadderConsolidatedPage() {
 
       // Get current round results for display (still using consolidated for the round display)
       if (round > 0) {
-        const roundResultsResponse = await fetch(`/api/consolidated-round-results?round=${round}`);
+        const roundResultsResponse = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
         if (roundResultsResponse.ok) {
           const data = await roundResultsResponse.json();
           setRoundResults(data.results || {});

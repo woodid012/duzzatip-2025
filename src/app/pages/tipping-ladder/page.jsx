@@ -7,7 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function TippingLadderPage() {
-  const { currentRound } = useAppContext();
+  const { currentRound, selectedYear } = useAppContext();
   const [selectedRound, setSelectedRound] = useState(currentRound);
   const [ladderData, setLadderData] = useState([]);
   const [roundResults, setRoundResults] = useState({});
@@ -22,12 +22,12 @@ export default function TippingLadderPage() {
     }
   }, [currentRound, selectedRound]);
 
-  // Load tipping ladder data when round changes
+  // Load tipping ladder data when round or year changes
   useEffect(() => {
     if (selectedRound !== undefined && selectedRound !== null) {
       loadTippingLadder(selectedRound);
     }
-  }, [selectedRound]);
+  }, [selectedRound, selectedYear]);
 
   const loadTippingLadder = async (round) => {
     try {
@@ -37,7 +37,7 @@ export default function TippingLadderPage() {
       console.log(`Loading tipping ladder data for round ${round}`);
 
       // Use consolidated API for much faster loading
-      const response = await fetch(`/api/consolidated-tipping-ladder?upToRound=${Math.min(round, 24)}`);
+      const response = await fetch(`/api/consolidated-tipping-ladder?upToRound=${Math.min(round, 24)}&year=${selectedYear}`);
       
       if (!response.ok) {
         throw new Error(`Failed to load tipping ladder: ${response.status}`);
@@ -122,7 +122,7 @@ export default function TippingLadderPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-black">Tipping Ladder {CURRENT_YEAR}</h1>
+          <h1 className="text-2xl font-bold text-black">Tipping Ladder {selectedYear}</h1>
           <p className="text-gray-600">
             Season standings after {formatRoundName(selectedRound)}
           </p>
