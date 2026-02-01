@@ -124,7 +124,7 @@ const TippingResultsGrid = () => {
     };
 
     loadAllResults();
-  }, [selectedRound]);
+  }, [selectedRound, selectedYear]);
 
   const displayRound = (round) => {
     return round === '0' ? 'Opening Round' : `Round ${round}`;

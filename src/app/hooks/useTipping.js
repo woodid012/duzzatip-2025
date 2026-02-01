@@ -174,7 +174,7 @@ export default function useTipping(initialUserId = '') {
         setIsEditing(false);
       }
     };
-  }, [localRound, selectedUserId, roundFixtures]);
+  }, [localRound, selectedUserId, roundFixtures, selectedYear]);
 
   // Handle local round change
   const handleRoundChange = (newRound) => {

@@ -115,7 +115,7 @@ export default function RoundByRoundPage() {
     };
 
     fetchAllRoundData();
-  }, []);
+  }, [selectedYear]);
 
   if (loading) {
     return (

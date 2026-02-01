@@ -56,8 +56,8 @@ export default function useResults() {
       return;
     }
 
-    // Skip if we've already loaded this round's data
-    if (loadedRoundRef.current === localRound) {
+    // Skip if we've already loaded this round's data for this year
+    if (loadedRoundRef.current === `${selectedYear}-${localRound}`) {
       return;
     }
     
@@ -279,7 +279,7 @@ export default function useResults() {
         setPlayerStats(allStats);
         
         // Mark this round as loaded
-        loadedRoundRef.current = localRound;
+        loadedRoundRef.current = `${selectedYear}-${localRound}`;
         setRoundInitialized(true);
       } catch (err) {
         console.error('Error fetching results data:', err);

@@ -19,6 +19,11 @@ export default function useSimplifiedResults() {
   // Cache for round data to prevent refetching
   const [roundCache] = useState(new Map());
 
+  // Clear cache when year changes
+  useEffect(() => {
+    roundCache.clear();
+  }, [selectedYear, roundCache]);
+
   // Initialize round from context
   useEffect(() => {
     if (currentRound !== undefined && displayRound === null) {
@@ -97,7 +102,7 @@ export default function useSimplifiedResults() {
       setLoadingStage('error');
       setLoadingMessage(`Error loading round ${round}`);
     }
-  }, [roundCache]);
+  }, [roundCache, selectedYear]);
 
   // Load data when round changes
   useEffect(() => {

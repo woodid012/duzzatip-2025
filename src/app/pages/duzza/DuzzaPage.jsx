@@ -55,7 +55,7 @@ const DuzzaPage = () => {
     };
     
     fetchData();
-  }, [displayRound, selectedUserId]);
+  }, [displayRound, selectedUserId, selectedYear]);
   
   // Update reserve suggestions when data changes
   useEffect(() => {

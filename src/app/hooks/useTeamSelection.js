@@ -48,7 +48,7 @@ export default function useTeamSelection() {
       console.error('Error fetching squads:', err);
       return null;
     }
-  }, []);
+  }, [selectedYear]);
 
   const fetchTeamSelections = useCallback(async (round) => {
     try {
@@ -82,7 +82,7 @@ export default function useTeamSelection() {
       // Return empty object as fallback
       return {};
     }
-  }, []);
+  }, [selectedYear]);
 
   // Determine if round is locked for editing
   const isRoundLocked = useCallback((roundNumber) => {
@@ -184,11 +184,11 @@ export default function useTeamSelection() {
     };
   }, [localRound, fetchSquads, fetchTeamSelections]);
 
-  // Reset refs when local round changes
+  // Reset refs when local round or year changes
   useEffect(() => {
     retryCountRef.current = 0;
     squadsFetchedRef.current = false;
-  }, [localRound]);
+  }, [localRound, selectedYear]);
 
   // Handle local round change
   const handleRoundChange = useCallback((newRound) => {
