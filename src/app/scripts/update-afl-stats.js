@@ -15,7 +15,10 @@ const fs = require('fs').promises;
 const axios = require('axios');
 
 // Configuration
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI environment variable is required');
+}
 const DB_NAME = 'afl_database';
 const CURRENT_YEAR = new Date().getFullYear();
 const COLLECTION_NAME = `${CURRENT_YEAR}_game_results`;
@@ -207,14 +210,7 @@ function processStatsData(data) {
       return null;
     }
     
-    // Check if this is a BRI vs GEE game with Round 0
-    let roundNumber = parseInt(record.round, 10) || 0;
-    if (roundNumber === 0 && 
-        ((record.team === 'BRI' && record.opponent === 'GEE') || 
-         (record.team === 'GEE' && record.opponent === 'BRI'))) {
-      console.log(`Converting Round 0 to Round 3 for ${record.player} (${record.team} vs ${record.opponent})`);
-      roundNumber = 3;
-    }
+    const roundNumber = parseInt(record.round, 10) || 0;
     
     // Map the field names to match our MongoDB schema
     return {
@@ -314,8 +310,6 @@ async function main() {
     
     if (gamesToUpdate.length === 0) {
       console.log('No games to update at this time');
-      // Create a temporary output file for GitHub Actions to read
-      await fs.writeFile('/tmp/script_output.txt', 'PROCESSED_FIXTURES=false');
       return;
     }
     
@@ -361,16 +355,10 @@ async function main() {
     processedFixtures = true;
     console.log('PROCESSED_FIXTURES=true');
     
-    // Create a temporary output file for GitHub Actions to read
-    await fs.writeFile('/tmp/script_output.txt', 'PROCESSED_FIXTURES=true');
-    
   } catch (error) {
     console.error('Error in main process:', error);
     console.log('PROCESSED_FIXTURES=false');
-    
-    // Create a temporary output file for GitHub Actions to read
-    await fs.writeFile('/tmp/script_output.txt', 'PROCESSED_FIXTURES=false');
-    
+
     process.exit(1);
   } finally {
     // Close database connection

@@ -49,9 +49,9 @@ jobs:
         id: update-script
         run: |
           cd src/app/scripts
-          node update-afl-stats.js
-          # Set output variable based on script output
-          if grep -q "PROCESSED_FIXTURES=true" <<< "$(cat /tmp/script_output.txt 2>/dev/null || echo '')"; then
+          SCRIPT_OUTPUT=$(node update-afl-stats.js 2>&1) || true
+          echo "$SCRIPT_OUTPUT"
+          if echo "$SCRIPT_OUTPUT" | grep -q "PROCESSED_FIXTURES=true"; then
             echo "CHANGES_MADE=true" >> $GITHUB_OUTPUT
           else
             echo "CHANGES_MADE=false" >> $GITHUB_OUTPUT
