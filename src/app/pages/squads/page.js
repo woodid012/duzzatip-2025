@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 
 const SQUAD_SIZE = 18;
 
 export default function Squads() {
+  const { selectedYear, isPastYear } = useAppContext();
   const [squads, setSquads] = useState({});
   const [editedSquads, setEditedSquads] = useState({});
   const [players, setPlayers] = useState({});
@@ -19,7 +21,7 @@ export default function Squads() {
   useEffect(() => {
     const fetchSquads = async () => {
       try {
-        const squadsRes = await fetch('/api/squads');
+        const squadsRes = await fetch(`/api/squads?year=${selectedYear}`);
         if (!squadsRes.ok) throw new Error('Failed to fetch squads');
         
         const squadsData = await squadsRes.json();
@@ -44,7 +46,7 @@ export default function Squads() {
     };
 
     fetchSquads();
-  }, []);
+  }, [selectedYear]);
 
   // Then, fetch players after squads are loaded
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function Squads() {
       const fetchPlayers = async () => {
         setLoadingPlayers(true);
         try {
-          const playersRes = await fetch('/api/players');
+          const playersRes = await fetch(`/api/players?year=${selectedYear}`);
           if (!playersRes.ok) throw new Error('Failed to fetch players');
           
           const playersData = await playersRes.json();
@@ -66,7 +68,7 @@ export default function Squads() {
 
       fetchPlayers();
     }
-  }, [loadingSquads, error]);
+  }, [loadingSquads, error, selectedYear]);
 
   const handlePlayerChange = (userId, playerIndex, newPlayerName) => {
     if (userId !== selectedUserId) return; // Only allow changes for selected user
@@ -149,39 +151,41 @@ export default function Squads() {
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-black">DuzzaTip Squads {CURRENT_YEAR}</h1>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          {isEditing ? (
-            <>
-              <button 
-                onClick={handleSave}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-green-600 text-white rounded hover:bg-green-700 text-lg sm:text-base"
+        <h1 className="text-2xl font-bold text-black">DuzzaTip Squads {selectedYear}</h1>
+        {!isPastYear && (
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-green-600 text-white rounded hover:bg-green-700 text-lg sm:text-base"
+                >
+                  Save Changes
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-lg sm:text-base"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <select
+                onChange={(e) => handleEditStart(e.target.value)}
+                value=""
+                className="w-full sm:w-auto px-4 py-3 sm:py-2 border rounded text-lg sm:text-base"
+                disabled={loadingPlayers}
               >
-                Save Changes
-              </button>
-              <button 
-                onClick={handleCancel}
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-lg sm:text-base"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <select
-              onChange={(e) => handleEditStart(e.target.value)}
-              value=""
-              className="w-full sm:w-auto px-4 py-3 sm:py-2 border rounded text-lg sm:text-base"
-              disabled={loadingPlayers}
-            >
-              <option value="">Select User to Edit</option>
-              {['1', '2', '3', '4', '5', '6', '7', '8'].map(userId => (
-                <option key={userId} value={userId}>
-                  {USER_NAMES[userId] || `User ${userId}`}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+                <option value="">Select User to Edit</option>
+                {['1', '2', '3', '4', '5', '6', '7', '8'].map(userId => (
+                  <option key={userId} value={userId}>
+                    {USER_NAMES[userId] || `User ${userId}`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

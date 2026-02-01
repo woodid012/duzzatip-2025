@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import { USER_NAMES } from '@/app/lib/constants';
 import { User, ArrowRightLeft, UserPlus, UserMinus, Calendar, Edit, X, Save, RefreshCw } from 'lucide-react';
 
 export default function SquadManagementPage() {
+  const { selectedYear, isPastYear } = useAppContext();
   const { selectedUserId } = useUserContext();
   const [isEditing, setIsEditing] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState(null);
@@ -30,7 +32,7 @@ export default function SquadManagementPage() {
     
     try {
       // Get updated squad data
-      const squadRes = await fetch('/api/squads');
+      const squadRes = await fetch(`/api/squads?year=${selectedYear}`);
       if (!squadRes.ok) throw new Error('Failed to fetch updated squad');
       const squadData = await squadRes.json();
       
@@ -80,7 +82,7 @@ export default function SquadManagementPage() {
         setLoading(true);
         
         // Get all squads
-        const squadRes = await fetch('/api/squads');
+        const squadRes = await fetch(`/api/squads?year=${selectedYear}`);
         if (!squadRes.ok) throw new Error('Failed to fetch squad');
         const squadData = await squadRes.json();
         
@@ -123,7 +125,7 @@ export default function SquadManagementPage() {
         }
         
         // Fetch available players
-        const playersRes = await fetch('/api/players');
+        const playersRes = await fetch(`/api/players?year=${selectedYear}`);
         if (!playersRes.ok) throw new Error('Failed to fetch players');
         const playersData = await playersRes.json();
         
@@ -141,7 +143,7 @@ export default function SquadManagementPage() {
     };
     
     fetchSquadData();
-  }, [selectedUserId]);
+  }, [selectedUserId, selectedYear]);
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -428,38 +430,40 @@ export default function SquadManagementPage() {
     <div className="p-4 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-3">
         <h1 className="text-2xl font-bold">{USER_NAMES[selectedUserId]} - Squad</h1>
-        <div className="flex gap-2">
-          {isEditing && (
-            <button
-              onClick={() => {
-                setIsEditing(!isEditing);
-                setEditingPlayer(null);
-                setTransactionType('');
-                setNewPlayerName('');
-                setNewPlayerTeam('');
-              }}
-              className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-red-500 text-white"
-            >
-              <X className="h-4 w-4" />
-              Done
-            </button>
-          )}
-          {!isEditing && (
-            <button
-              onClick={() => {
-                setIsEditing(true);
-                setEditingPlayer(null);
-                setTransactionType('');
-                setNewPlayerName('');
-                setNewPlayerTeam('');
-              }}
-              className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-blue-500 text-white"
-            >
-              <Edit className="h-4 w-4" />
-              Edit
-            </button>
-          )}
-        </div>
+        {!isPastYear && (
+          <div className="flex gap-2">
+            {isEditing && (
+              <button
+                onClick={() => {
+                  setIsEditing(!isEditing);
+                  setEditingPlayer(null);
+                  setTransactionType('');
+                  setNewPlayerName('');
+                  setNewPlayerTeam('');
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-red-500 text-white"
+              >
+                <X className="h-4 w-4" />
+                Done
+              </button>
+            )}
+            {!isEditing && (
+              <button
+                onClick={() => {
+                  setIsEditing(true);
+                  setEditingPlayer(null);
+                  setTransactionType('');
+                  setNewPlayerName('');
+                  setNewPlayerTeam('');
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-blue-500 text-white"
+              >
+                <Edit className="h-4 w-4" />
+                Edit
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Draft & Trade Action Buttons - Now positioned at the top left */}

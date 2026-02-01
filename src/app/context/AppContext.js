@@ -52,14 +52,31 @@ export function AppProvider({ children }) {
   const [error, setError] = useState(null);
   const [userChangedRound, setUserChangedRound] = useState(false);
 
+  // Year selection state - shared across the app
+  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+  const isPastYear = selectedYear !== CURRENT_YEAR;
+
+  // Initialize selectedYear from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedYear = localStorage.getItem('selectedYear');
+      if (savedYear) {
+        const parsedYear = parseInt(savedYear);
+        if (parsedYear >= 2025 && parsedYear <= CURRENT_YEAR) {
+          setSelectedYear(parsedYear);
+        }
+      }
+    }
+  }, []);
+
   // This effect loads global data like fixtures and round info
   useEffect(() => {
     const fetchFixtures = async () => {
       try {
         setLoading(prev => ({ ...prev, fixtures: true }));
-        
+
         // Use internal API to avoid CORS issues with external API
-        const response = await fetch(`/api/tipping-data`);
+        const response = await fetch(`/api/tipping-data?year=${selectedYear}`);
         if (!response.ok) {
           throw new Error(`Failed to load fixtures: ${response.status}`);
         }
@@ -113,7 +130,7 @@ export function AppProvider({ children }) {
     };
 
     fetchFixtures();
-  }, []);
+  }, [selectedYear]);
 
   // Check for early round advancement periodically
   const hasAdvancedRef = useRef(false);
@@ -149,7 +166,7 @@ export function AppProvider({ children }) {
     try {
       setLoading(prev => ({ ...prev, squads: true }));
       
-      const response = await fetch('/api/squads');
+      const response = await fetch(`/api/squads?year=${selectedYear}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch squads');
@@ -175,7 +192,7 @@ export function AppProvider({ children }) {
       
       const targetRound = round;
       
-      const response = await fetch(`/api/team-selection?round=${targetRound}`);
+      const response = await fetch(`/api/team-selection?round=${targetRound}&year=${selectedYear}`);
       if (!response.ok) {
         throw new Error('Failed to fetch team selections');
       }
@@ -281,13 +298,16 @@ export function AppProvider({ children }) {
     teamSelections,
     loading,
     error,
-    
+    selectedYear,
+    isPastYear,
+
     // Actions
     changeRound,
     advanceToAppropriateRound,
     fetchSquads,
     fetchTeamSelections,
-    getSpecificRoundInfo
+    getSpecificRoundInfo,
+    setSelectedYear,
   };
 
   return (

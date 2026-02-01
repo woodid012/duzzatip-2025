@@ -13,6 +13,9 @@ export const UserContext = createContext({
   selectedUserId: '',
   setSelectedUserId: () => {},
   isAdminAuthenticated: false,
+  selectedYear: CURRENT_YEAR,
+  setSelectedYear: () => {},
+  isPastYear: false,
 });
 
 // Custom hook to use the user context
@@ -26,16 +29,19 @@ export default function PagesLayout({ children }) {
   
   // State for selected user - initialize from localStorage if available
   const [selectedUserId, setSelectedUserId] = useState('');
-  
+
   // Admin authentication state
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
-  
+
   // Mobile navigation state
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  
-  // Load selectedUserId from localStorage on initial render
+
+  // Year selection state - from AppContext
+  const { selectedYear, setSelectedYear, isPastYear } = useAppContext();
+
+  // Load selectedUserId and selectedYear from localStorage on initial render
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedUserId = localStorage.getItem('selectedUserId');
@@ -56,6 +62,13 @@ export default function PagesLayout({ children }) {
       localStorage.setItem('selectedUserId', selectedUserId);
     }
   }, [selectedUserId]);
+
+  // Save selectedYear to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedYear) {
+      localStorage.setItem('selectedYear', selectedYear.toString());
+    }
+  }, [selectedYear]);
 
   // Redirect to results page if at root
   useEffect(() => {
@@ -104,11 +117,14 @@ export default function PagesLayout({ children }) {
   const showRoundInfo = !loading.fixtures && roundInfo && roundInfo.currentRound !== undefined;
 
   return (
-    <UserContext.Provider value={{ 
-      selectedUserId, 
-      setSelectedUserId, 
+    <UserContext.Provider value={{
+      selectedUserId,
+      setSelectedUserId,
       isAdminAuthenticated,
-      setIsAdminAuthenticated
+      setIsAdminAuthenticated,
+      selectedYear,
+      setSelectedYear,
+      isPastYear,
     }}>
       <div className="min-h-screen bg-gray-50">
         {/* Admin Password Modal */}
@@ -179,7 +195,7 @@ export default function PagesLayout({ children }) {
               <Logo width={40} height={40} className="rounded" />
             </div>
             
-            {/* User selector - mobile optimized */}
+            {/* User selector + year toggle - mobile optimized */}
             <div className="flex-1 max-w-xs ml-3">
               <select
                 value={selectedUserId}
@@ -194,7 +210,24 @@ export default function PagesLayout({ children }) {
                 ))}
                 <option value="admin">Admin</option>
               </select>
-              
+
+              {/* Year toggle */}
+              <div className="flex items-center gap-1 mt-1">
+                {[2025, CURRENT_YEAR].map((yr) => (
+                  <button
+                    key={yr}
+                    onClick={() => setSelectedYear(yr)}
+                    className={`px-2 py-0.5 text-xs rounded font-medium transition-colors ${
+                      selectedYear === yr
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {yr}
+                  </button>
+                ))}
+              </div>
+
               {/* Admin indicator */}
               {selectedUserId === 'admin' && isAdminAuthenticated && (
                 <div className="text-xs text-amber-600 font-medium mt-1">
@@ -204,8 +237,15 @@ export default function PagesLayout({ children }) {
             </div>
           </div>
           
+          {/* Past year banner - mobile */}
+          {isPastYear && (
+            <div className="px-3 py-1.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800 font-medium text-center">
+              Viewing {selectedYear} season (read-only)
+            </div>
+          )}
+
           {/* Mobile round info */}
-          {showRoundInfo && (
+          {showRoundInfo && !isPastYear && (
             <div className="px-3 pb-3 text-xs space-y-1 border-t bg-gray-50">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Season {CURRENT_YEAR}</span>
@@ -291,14 +331,33 @@ export default function PagesLayout({ children }) {
               
               {/* Competition Info Bar */}
               <div className="flex flex-wrap justify-between items-center px-4 text-sm text-gray-600">
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-wrap gap-4 items-center">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">Season:</span>
-                    <span>{CURRENT_YEAR}</span>
+                    <div className="flex items-center gap-1">
+                      {[2025, CURRENT_YEAR].map((yr) => (
+                        <button
+                          key={yr}
+                          onClick={() => setSelectedYear(yr)}
+                          className={`px-2 py-0.5 text-xs rounded font-medium transition-colors ${
+                            selectedYear === yr
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {yr}
+                        </button>
+                      ))}
+                    </div>
+                    {isPastYear && (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                        Read-only
+                      </span>
+                    )}
                   </div>
                   
-                  {/* Only show round info when it's fully loaded */}
-                  {showRoundInfo ? (
+                  {/* Only show round info when it's fully loaded and not viewing past year */}
+                  {!isPastYear && (showRoundInfo ? (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">Current Round:</span>
                       <span>{roundInfo.currentRoundDisplay}</span>
@@ -308,10 +367,10 @@ export default function PagesLayout({ children }) {
                       <span className="font-semibold">Round:</span>
                       <span className="animate-pulse">Loading...</span>
                     </div>
-                  )}
+                  ))}
                   
                   <div className="flex items-center gap-2 text-sm">
-                    {showRoundInfo && roundInfo.lockoutTime && (
+                    {!isPastYear && showRoundInfo && roundInfo.lockoutTime && (
                       <div className="flex gap-1 items-center">
                         <span className="text-gray-600">Lockout:</span>
                         <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
@@ -320,10 +379,10 @@ export default function PagesLayout({ children }) {
                         )}
                       </div>
                     )}
-                    {showRoundInfo && roundInfo.lockoutTime && roundInfo.roundEndTime && (
+                    {!isPastYear && showRoundInfo && roundInfo.lockoutTime && roundInfo.roundEndTime && (
                       <span className="text-gray-400 mx-1">|</span>
                     )}
-                    {showRoundInfo && roundInfo.roundEndTime && (
+                    {!isPastYear && showRoundInfo && roundInfo.roundEndTime && (
                       <div className="flex gap-1 items-center">
                         <span className="text-gray-600">Round Ends:</span>
                         <span className="font-medium text-black">{roundInfo.roundEndTime}</span>

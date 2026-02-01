@@ -5,7 +5,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function useTipping(initialUserId = '') {
-  const { currentRound, roundInfo, fixtures, changeRound } = useAppContext();
+  const { currentRound, roundInfo, fixtures, changeRound, selectedYear, isPastYear } = useAppContext();
   
   // Use refs to maintain state between renders
   const isInitializedRef = useRef(false);
@@ -117,7 +117,7 @@ export default function useTipping(initialUserId = '') {
         
         console.log(`Loading tips for user ${selectedUserId}, round ${localRound}`);
         
-        const url = `/api/tipping-data?round=${localRound}&userId=${selectedUserId}`;
+        const url = `/api/tipping-data?round=${localRound}&userId=${selectedUserId}&year=${selectedYear}`;
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -340,7 +340,8 @@ export default function useTipping(initialUserId = '') {
     lastEditedTime,
     localRound,
     isRoundLocked: isRoundLocked(localRound),
-    
+    isPastYear,
+
     // Display helpers
     formatRoundName,
     

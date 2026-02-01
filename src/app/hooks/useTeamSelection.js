@@ -5,9 +5,11 @@ import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function useTeamSelection() {
-  const { 
-    currentRound, 
-    roundInfo
+  const {
+    currentRound,
+    roundInfo,
+    selectedYear,
+    isPastYear,
   } = useAppContext();
   
   // Local round state - initialized from global current round but can be changed independently
@@ -33,8 +35,8 @@ export default function useTeamSelection() {
   // Create stable fetch functions using useCallback
   const fetchSquads = useCallback(async () => {
     try {
-      const response = await fetch('/api/squads');
-      
+      const response = await fetch(`/api/squads?year=${selectedYear}`);
+
       if (!response.ok) {
         console.warn('Squad fetch response not OK:', response.status);
         return null;
@@ -62,7 +64,7 @@ export default function useTeamSelection() {
       // Clear error before making request
       setErrorLocal(null);
       
-      const response = await fetch(`/api/team-selection?round=${formattedRound}`);
+      const response = await fetch(`/api/team-selection?round=${formattedRound}&year=${selectedYear}`);
       
       if (!response.ok) {
         console.warn(`Team selection fetch response not OK: ${response.status}`);
@@ -295,7 +297,7 @@ export default function useTeamSelection() {
       setErrorLocal(null);
       
       // Fetch the previous round data - use round 0 for Opening Round
-      const prevRoundRes = await fetch(`/api/team-selection?round=${previousRound}`);
+      const prevRoundRes = await fetch(`/api/team-selection?round=${previousRound}&year=${selectedYear}`);
       
       if (!prevRoundRes.ok) {
         throw new Error(`Failed to fetch round ${previousRound} data`);
@@ -440,7 +442,8 @@ const saveTeamSelections = useCallback(async () => {
     error: errorLocal,
     localRound,
     isRoundLocked: isRoundLocked(localRound),
-    
+    isPastYear,
+
     // Actions
     handleRoundChange,
     handlePlayerChange,

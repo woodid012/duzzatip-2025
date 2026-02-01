@@ -24,6 +24,7 @@ export default function TeamSelectionPage() {
     error,
     localRound,
     isRoundLocked,
+    isPastYear,
     handleRoundChange,
     handlePlayerChange,
     handleBackupPositionChange,
@@ -254,8 +255,8 @@ export default function TeamSelectionPage() {
   // Determine if we're in edit mode (either regular editing or admin edit mode)
   const inEditMode = isEditing || adminEditMode;
   
-  // Check if editing is allowed (admin can always edit, regular users only if not locked)
-  const canEdit = isAdmin || !isRoundLocked;
+  // Check if editing is allowed (admin can always edit, regular users only if not locked, nobody can edit past years)
+  const canEdit = !isPastYear && (isAdmin || !isRoundLocked);
   
   // For TeamCard props - admin should never be locked when in edit mode
   const isTeamCardLocked = isAdmin ? false : isRoundLocked;

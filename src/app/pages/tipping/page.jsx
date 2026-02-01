@@ -43,6 +43,7 @@ export default function TippingPage() {
     lastEditedTime,
     localRound,
     isRoundLocked,
+    isPastYear,
     formatRoundName,
     handleRoundChange,
     handleTipSelect,
@@ -135,12 +136,13 @@ export default function TippingPage() {
     <>
       {/* MOBILE VIEW - Visible only on small screens */}
       <div className="block md:hidden">
-        <MobileTippingView 
+        <MobileTippingView
           currentTeamDisplayName={currentTeamDisplayName}
           isAdmin={isAdmin}
           currentTeamBeingEdited={currentTeamBeingEdited}
           roundInfo={roundInfo}
           isRoundLocked={isRoundLocked}
+          isPastYear={isPastYear}
           localRound={localRound}
           formatRoundName={formatRoundName}
           lastEditedTime={lastEditedTime}
@@ -164,12 +166,13 @@ export default function TippingPage() {
 
       {/* DESKTOP VIEW - Hidden on small screens */}
       <div className="hidden md:block">
-        <DesktopTippingView 
+        <DesktopTippingView
           currentTeamDisplayName={currentTeamDisplayName}
           isAdmin={isAdmin}
           currentTeamBeingEdited={currentTeamBeingEdited}
           roundInfo={roundInfo}
           isRoundLocked={isRoundLocked}
+          isPastYear={isPastYear}
           localRound={localRound}
           formatRoundName={formatRoundName}
           lastEditedTime={lastEditedTime}
@@ -201,6 +204,7 @@ function MobileTippingView({
   currentTeamBeingEdited,
   roundInfo,
   isRoundLocked,
+  isPastYear,
   localRound,
   formatRoundName,
   lastEditedTime,
@@ -284,18 +288,18 @@ function MobileTippingView({
         )}
 
         {/* Action Buttons */}
-        {currentTeamBeingEdited && (
+        {currentTeamBeingEdited && !isPastYear && (
           <div className="flex gap-2">
             {isEditing ? (
               <>
-                <button 
+                <button
                   onClick={saveTips}
                   type="button"
                   className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm font-medium"
                 >
                   Save Tips
                 </button>
-                <button 
+                <button
                   onClick={cancelEditing}
                   type="button"
                   className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm"
@@ -304,13 +308,13 @@ function MobileTippingView({
                 </button>
               </>
             ) : (
-              <button 
+              <button
                 onClick={handleEditClick}
                 type="button"
                 disabled={isRoundLocked && !isAdmin}
                 className={`flex-1 px-3 py-2 rounded text-sm font-medium ${
                   isRoundLocked && !isAdmin
-                    ? 'bg-gray-400 cursor-not-allowed text-white' 
+                    ? 'bg-gray-400 cursor-not-allowed text-white'
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
                 }`}
               >
@@ -485,6 +489,7 @@ function DesktopTippingView({
   currentTeamBeingEdited,
   roundInfo,
   isRoundLocked,
+  isPastYear,
   localRound,
   formatRoundName,
   lastEditedTime,
@@ -572,18 +577,18 @@ function DesktopTippingView({
               {error}
             </span>
           )}
-          {/* Only show edit buttons if we have a team selected (either admin with team or regular user) */}
-          {currentTeamBeingEdited && (
+          {/* Only show edit buttons if we have a team selected and not viewing a past year */}
+          {currentTeamBeingEdited && !isPastYear && (
             isEditing ? (
               <>
-                <button 
+                <button
                   onClick={saveTips}
                   type="button"
                   className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
                 >
                   Save Changes
                 </button>
-                <button 
+                <button
                   onClick={cancelEditing}
                   type="button"
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
@@ -592,13 +597,13 @@ function DesktopTippingView({
                 </button>
               </>
             ) : (
-              <button 
+              <button
                 onClick={handleEditClick}
                 type="button"
                 disabled={isRoundLocked && !isAdmin}
                 className={`px-4 py-2 rounded ${
                   isRoundLocked && !isAdmin
-                    ? 'bg-gray-400 cursor-not-allowed' 
+                    ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-blue-500 hover:bg-blue-600'
                 } text-white`}
               >

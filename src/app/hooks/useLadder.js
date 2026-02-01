@@ -5,7 +5,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES } from '@/app/lib/constants';
 
 export default function useLadder() {
-  const { currentRound, changeRound } = useAppContext();
+  const { currentRound, changeRound, selectedYear } = useAppContext();
   
   const [ladder, setLadder] = useState([]);
   const [currentRoundResults, setCurrentRoundResults] = useState({});
@@ -25,7 +25,7 @@ export default function useLadder() {
       console.log(`Fetching ladder data for round ${currentRound}`);
       
       // Get ladder data (now includes auto-storage logic)
-      const ladderResponse = await fetch(`/api/ladder?round=${currentRound}`);
+      const ladderResponse = await fetch(`/api/ladder?round=${currentRound}&year=${selectedYear}`);
       
       if (!ladderResponse.ok) {
         throw new Error('Failed to fetch ladder data');
@@ -80,7 +80,7 @@ export default function useLadder() {
   // Fetch current round results for additional context
   const fetchCurrentRoundResults = useCallback(async () => {
     try {
-      const resultsResponse = await fetch(`/api/store-round-results?round=${currentRound}`);
+      const resultsResponse = await fetch(`/api/store-round-results?round=${currentRound}&year=${selectedYear}`);
       
       if (resultsResponse.ok) {
         const resultsData = await resultsResponse.json();
@@ -107,7 +107,7 @@ export default function useLadder() {
       // Get live results for all users
       const userPromises = Object.keys(USER_NAMES).map(async (userId) => {
         try {
-          const response = await fetch(`/api/round-results?round=${currentRound}&userId=${userId}`);
+          const response = await fetch(`/api/round-results?round=${currentRound}&userId=${userId}&year=${selectedYear}`);
           if (response.ok) {
             const userData = await response.json();
             return { userId, score: userData.total || 0 };

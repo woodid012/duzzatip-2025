@@ -1,7 +1,9 @@
-import { createApiHandler, getCollection, createSuccessResponse } from '../../lib/apiUtils';
+import { createApiHandler, getCollection, getCollectionForYear, parseYearParam, createSuccessResponse } from '../../lib/apiUtils';
 
 export const GET = createApiHandler(async (request, db) => {
-    const playersCollection = getCollection(db, 'players');
+    const { searchParams } = new URL(request.url);
+    const year = parseYearParam(searchParams);
+    const playersCollection = getCollectionForYear(db, 'players', year);
     
     const players = await playersCollection
         .find({}, {

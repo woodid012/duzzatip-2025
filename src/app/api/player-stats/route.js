@@ -1,5 +1,6 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { parseYearParam } from '@/app/lib/apiUtils';
 
 
 export async function GET(request) {
@@ -7,6 +8,7 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const round = parseInt(searchParams.get('round'));
         const playerNames = searchParams.get('players'); // Now expects a comma-separated list
+        const year = parseYearParam(searchParams);
 
         if (round === null || round === undefined || !playerNames) {
             return Response.json({ error: 'Round and players are required' }, { status: 400 });
@@ -15,12 +17,12 @@ export async function GET(request) {
         const playerNamesList = playerNames.split(',').map(name => name.trim());
 
         const { db } = await connectToDatabase();
-        
-        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
-            .find({ 
+
+        const playerStats = await db.collection(`${year}_game_results`)
+            .find({
                 player_name: { $in: playerNamesList },
                 round: round,
-                year: CURRENT_YEAR 
+                year: year
             }, {
                 projection: {
                     player_name: 1,

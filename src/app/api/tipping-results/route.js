@@ -2,39 +2,47 @@ import { CURRENT_YEAR } from '@/app/lib/constants';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
+import { parseYearParam } from '@/app/lib/apiUtils';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const round = searchParams.get('round');
     const userId = searchParams.get('userId');
-    const year = searchParams.get('year');
+    const yearParam = searchParams.get('year');
+    const collectionYear = parseYearParam(searchParams);
 
     if (!userId) {
       throw new Error('UserId is required');
     }
 
-    // Read fixtures (cached in memory)
-    const fixtures = await getAflFixtures();
+    // Read fixtures
+    let fixtures;
+    if (collectionYear !== CURRENT_YEAR) {
+      const response = await fetch(`https://fixturedownload.com/feed/json/afl-${collectionYear}`);
+      fixtures = response.ok ? await response.json() : [];
+    } else {
+      fixtures = await getAflFixtures();
+    }
     const { db } = await connectToDatabase();
 
-    // If year parameter is provided, calculate totals for all rounds in the year
-    if (year) {
+    // If year parameter is provided (for yearly totals), calculate totals for all rounds
+    if (yearParam) {
       // Find all rounds that have completed matches
       const completedRounds = findCompletedRounds(fixtures);
-      
+
       // Initialize variables to accumulate totals
       let totalCorrectTips = 0;
       let totalDeadCertScore = 0;
-      
+
       // Process each completed round
       for (const roundNumber of completedRounds) {
         // Get tips for this round
-        const tips = await db.collection(`${CURRENT_YEAR}_tips`)
-          .find({ 
+        const tips = await db.collection(`${collectionYear}_tips`)
+          .find({
             Round: parseInt(roundNumber),
             User: parseInt(userId),
-            Active: 1 
+            Active: 1
           }).toArray();
         
         // Get round fixtures
@@ -87,11 +95,11 @@ export async function GET(request) {
     };
 
     // Then get tips from database
-    const tips = await db.collection(`${CURRENT_YEAR}_tips`)
-      .find({ 
+    const tips = await db.collection(`${collectionYear}_tips`)
+      .find({
         Round: parseInt(round),
         User: parseInt(userId),
-        Active: 1 
+        Active: 1
       }).toArray();
 
     // Get all matches for this round (including those without scores yet)

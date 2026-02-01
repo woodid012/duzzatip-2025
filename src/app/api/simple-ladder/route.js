@@ -3,6 +3,7 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
+import { parseYearParam } from '@/app/lib/apiUtils';
 
 /**
  * GET - Retrieve ladder data from stored round results
@@ -11,7 +12,8 @@ export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const upToRound = parseInt(searchParams.get('round')) || 21;
-        
+        const year = parseYearParam(searchParams);
+
         const { db } = await connectToDatabase();
         
         console.log(`Building ladder up to round ${upToRound}`);
@@ -35,7 +37,7 @@ export async function GET(request) {
         
         for (let round = 1; round <= maxRound; round++) {
             // Get stored results for this round
-            const storedResults = await db.collection(`${CURRENT_YEAR}_simple_round_results`)
+            const storedResults = await db.collection(`${year}_simple_round_results`)
                 .findOne({ round: round });
             
             if (!storedResults || !storedResults.results) {
@@ -109,7 +111,7 @@ export async function GET(request) {
         });
         
         // Get last update time
-        const lastUpdate = await db.collection(`${CURRENT_YEAR}_simple_round_results`)
+        const lastUpdate = await db.collection(`${year}_simple_round_results`)
             .findOne({}, { sort: { lastUpdated: -1 } });
         
         return Response.json({
@@ -282,10 +284,10 @@ export async function DELETE(request) {
             // Delete specific round
             await db.collection(`${CURRENT_YEAR}_simple_round_results`)
                 .deleteOne({ round: parseInt(round) });
-            
-            return Response.json({ 
-                success: true, 
-                message: `Cleared round ${round}` 
+
+            return Response.json({
+                success: true,
+                message: `Cleared round ${round}`
             });
         } else {
             // Delete all rounds

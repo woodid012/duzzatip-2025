@@ -6,7 +6,7 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { calculateFinalsFixtures, isFinalRound } from '@/app/lib/finals_utils';
 
 export default function useSimplifiedResults() {
-  const { currentRound, roundInfo } = useAppContext();
+  const { currentRound, roundInfo, selectedYear } = useAppContext();
   const [displayRound, setDisplayRound] = useState(null);
   const [roundData, setRoundData] = useState(null);
   const [fixtures, setFixtures] = useState([]);
@@ -73,7 +73,7 @@ export default function useSimplifiedResults() {
 
       console.log(`Loading consolidated results for round ${round}`);
       
-      const response = await fetch(`/api/consolidated-round-results?round=${round}`);
+      const response = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
       
       if (!response.ok) {
         throw new Error(`Failed to load round data: ${response.status}`);

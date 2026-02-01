@@ -9,7 +9,7 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 export default function useResults() {
   // Get context info immediately
   const appContext = useAppContext();
-  const { currentRound, roundInfo, loading: contextLoading } = appContext;
+  const { currentRound, roundInfo, loading: contextLoading, selectedYear } = appContext;
   
   // Reference to track if we've already loaded data for this round
   const loadedRoundRef = useRef(null);
@@ -68,7 +68,7 @@ export default function useResults() {
         console.log(`Fetching data for round: ${localRound}`);
         
         // Fetch squads to get player team information
-        const squadsRes = await fetch('/api/squads');
+        const squadsRes = await fetch(`/api/squads?year=${selectedYear}`);
         if (squadsRes.ok) {
           const squadsData = await squadsRes.json();
           
@@ -201,14 +201,14 @@ export default function useResults() {
         checkRoundEndStatus();
         
         // Fetch teams and player stats for the correct round
-        const teamsRes = await fetch(`/api/team-selection?round=${localRound}`);
+        const teamsRes = await fetch(`/api/team-selection?round=${localRound}&year=${selectedYear}`);
         if (!teamsRes.ok) throw new Error('Failed to fetch teams');
         const teamsData = await teamsRes.json();
         setTeams(teamsData);
     
         // Fetch dead cert scores for all users (1-8)
         const deadCertPromises = Array.from({ length: 8 }, (_, i) => i + 1).map(userId => 
-          fetch(`/api/tipping-results?round=${localRound}&userId=${userId}`)
+          fetch(`/api/tipping-results?round=${localRound}&userId=${userId}&year=${selectedYear}`)
             .then(res => res.json())
             .catch(() => ({ deadCertScore: 0 })) // Default value if fetch fails
         );
@@ -232,7 +232,7 @@ export default function useResults() {
           if (playerNames.length === 0) continue;
 
           // Make a single API call for all players in the team
-          const res = await fetch(`/api/player-stats?round=${localRound}&players=${encodeURIComponent(playerNames.join(','))}`);
+          const res = await fetch(`/api/player-stats?round=${localRound}&players=${encodeURIComponent(playerNames.join(','))}&year=${selectedYear}`);
           if (!res.ok) throw new Error('Failed to fetch player stats');
           const statsData = await res.json();
     

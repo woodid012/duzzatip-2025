@@ -2,6 +2,7 @@
 
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
+import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
 
 /**
  * GET handler - Returns the Final Total values stored by the results page
@@ -11,16 +12,17 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const round = parseInt(searchParams.get('round'));
         const userId = searchParams.get('userId');
+        const year = parseYearParam(searchParams);
 
         if (!round) {
             return Response.json({ error: 'Round is required' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
-        
+
         if (userId) {
             // Get Final Total for specific user
-            const result = await db.collection(`${CURRENT_YEAR}_final_totals`)
+            const result = await db.collection(`${year}_final_totals`)
                 .findOne({ round: round, userId: userId });
             
             return Response.json({
@@ -33,7 +35,7 @@ export async function GET(request) {
             });
         } else {
             // Get Final Totals for all users in this round
-            const results = await db.collection(`${CURRENT_YEAR}_final_totals`)
+            const results = await db.collection(`${year}_final_totals`)
                 .find({ round: round })
                 .toArray();
             
@@ -70,6 +72,10 @@ export async function POST(request) {
     try {
         const data = await request.json();
         const { round, userId, teamScore, deadCertScore, total, allFinalTotals } = data;
+
+        // Block writes for past years
+        const blocked = blockWritesForPastYear(data.year || CURRENT_YEAR);
+        if (blocked) return blocked;
 
         if (!round) {
             return Response.json({ error: 'Round is required' }, { status: 400 });

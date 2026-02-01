@@ -1,12 +1,14 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { POSITIONS } from '@/app/lib/scoring_rules';
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { parseYearParam } from '@/app/lib/apiUtils';
 
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const round = parseInt(searchParams.get('round'));
         const userId = parseInt(searchParams.get('userId'));
+        const year = parseYearParam(searchParams);
 
         if (!round || !userId) {
             return Response.json({ error: 'Round and userId are required' }, { status: 400 });
@@ -14,15 +16,15 @@ export async function GET(request) {
 
         const { db } = await connectToDatabase();
 
-        const teamSelection = await db.collection(`${CURRENT_YEAR}_team_selection`)
-            .find({ 
+        const teamSelection = await db.collection(`${year}_team_selection`)
+            .find({
                 Round: round,
                 User: userId,
-                Active: 1 
+                Active: 1
             })
             .toArray();
 
-        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
+        const playerStats = await db.collection(`${year}_game_results`)
             .find({ round: round })
             .toArray();
 
@@ -59,7 +61,7 @@ export async function GET(request) {
 
         // Fetch dead cert score
         let deadCertScore = 0;
-        const tippingResults = await db.collection(`${CURRENT_YEAR}_tipping_results`)
+        const tippingResults = await db.collection(`${year}_tipping_results`)
             .findOne({ round: round, userId: userId });
         
         if (tippingResults) {

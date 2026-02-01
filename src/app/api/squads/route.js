@@ -1,13 +1,17 @@
 // src/app/api/squads/route.js
 import { connectToDatabase } from '../../lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
 
-export async function GET() {
+export async function GET(request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const year = parseYearParam(searchParams);
+
         const { db } = await connectToDatabase();
 
-        // Get current squads with acquisition information
-        const squads = await db.collection(`${CURRENT_YEAR}_squads`)
+        // Get squads with acquisition information
+        const squads = await db.collection(`${year}_squads`)
             .aggregate([
                 { 
                     $match: { Active: 1 }
@@ -54,7 +58,12 @@ export async function GET() {
 // Keep the existing POST method mostly the same, but add acquisition tracking
 export async function POST(request) {
     try {
-        const { updatedSquads, acquisition_type = 'initial' } = await request.json();
+        const body = await request.json();
+        const { updatedSquads, acquisition_type = 'initial' } = body;
+
+        // Block writes for past years
+        const blocked = blockWritesForPastYear(body.year || CURRENT_YEAR);
+        if (blocked) return blocked;
         const { db } = await connectToDatabase();
         const collection = db.collection(`${CURRENT_YEAR}_squads`);
 

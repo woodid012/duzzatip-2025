@@ -5,40 +5,48 @@ import { POSITIONS } from '@/app/lib/scoring_rules';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
+import { parseYearParam } from '@/app/lib/apiUtils';
 
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const roundParam = searchParams.get('round');
-        
+        const year = parseYearParam(searchParams);
+
         if (roundParam === null || roundParam === undefined) {
             return Response.json({ error: 'Round parameter is required' }, { status: 400 });
         }
-        
+
         const round = parseInt(roundParam);
-        
+
         if (isNaN(round) || round < 0) {
             return Response.json({ error: 'Round must be a valid number >= 0' }, { status: 400 });
         }
 
-        console.log(`Getting consolidated results for round ${round}`);
+        console.log(`Getting consolidated results for round ${round} (year ${year})`);
 
         // Pre-fetch shared data once
         const { db } = await connectToDatabase();
 
-        const playerStats = await db.collection(`${CURRENT_YEAR}_game_results`)
+        const playerStats = await db.collection(`${year}_game_results`)
             .find({ round: round })
             .toArray();
 
-        // Read and parse AFL fixtures (cached in memory)
-        const aflFixtures = await getAflFixtures();
+        // Read and parse AFL fixtures
+        let aflFixtures;
+        if (year !== CURRENT_YEAR) {
+            const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`);
+            aflFixtures = response.ok ? await response.json() : [];
+        } else {
+            aflFixtures = await getAflFixtures();
+        }
 
         // Get all user results in parallel
         const userIds = Object.keys(USER_NAMES);
         const userResults = await Promise.all(userIds.map(async (userId) => {
             try {
                 console.log(`Processing user ${userId} (${USER_NAMES[userId]})`);
-                const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures);
+                const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures, year);
                 console.log(`User ${userId} total score: ${userResult.totalScore}`);
                 return { userId, userResult, totalScore: userResult.totalScore };
             } catch (error) {
@@ -142,10 +150,9 @@ export async function GET(request) {
             fixtures: fixtures // Include fixtures in response for caching
         };
 
-        // Auto-cache finals results (rounds 22, 23, 24)
-        if (round >= 22 && round <= 24) {
+        // Auto-cache finals results (rounds 22, 23, 24) - only for current year
+        if (round >= 22 && round <= 24 && year === CURRENT_YEAR) {
             try {
-                const { db } = await connectToDatabase();
                 const finalsCache = db.collection(`${CURRENT_YEAR}_finals_cache`);
                 await finalsCache.updateOne(
                     { round: round, year: CURRENT_YEAR },
@@ -202,10 +209,10 @@ function extractWinners(results, fixtures) {
 }
 
 // Use the exact same logic as your round-results API
-async function getUserRoundResult(round, userId, db, playerStats, aflFixtures) {
+async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, year = CURRENT_YEAR) {
     try {
         // Get team selection - same as round-results API
-        const teamSelection = await db.collection(`${CURRENT_YEAR}_team_selection`)
+        const teamSelection = await db.collection(`${year}_team_selection`)
             .find({
                 Round: round,
                 User: parseInt(userId),
@@ -226,7 +233,7 @@ async function getUserRoundResult(round, userId, db, playerStats, aflFixtures) {
         // Calculate dead cert score directly (no self-fetch)
         let deadCertScore = 0;
         try {
-            deadCertScore = await calculateDeadCertScore(db, round, userId, aflFixtures);
+            deadCertScore = await calculateDeadCertScore(db, round, userId, aflFixtures, year);
             console.log(`User ${userId} dead cert score: ${deadCertScore}`);
         } catch (tippingError) {
             console.error(`Error calculating dead cert for user ${userId} round ${round}:`, tippingError);
@@ -282,7 +289,7 @@ function createEmptyResult(userId) {
 }
 
 // Calculate dead cert score directly (same logic as tipping-results API)
-async function calculateDeadCertScore(db, round, userId, aflFixtures) {
+async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CURRENT_YEAR) {
     try {
         console.log(`Calculating dead cert score directly for user ${userId} round ${round}`);
 
@@ -301,11 +308,11 @@ async function calculateDeadCertScore(db, round, userId, aflFixtures) {
         }
 
         // Get tips from database
-        const tips = await db.collection(`${CURRENT_YEAR}_tips`)
-            .find({ 
+        const tips = await db.collection(`${year}_tips`)
+            .find({
                 Round: parseInt(round),
                 User: parseInt(userId),
-                Active: 1 
+                Active: 1
             }).toArray();
 
         console.log(`Found ${tips.length} tips for user ${userId} round ${round}`);

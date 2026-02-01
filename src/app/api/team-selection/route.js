@@ -1,19 +1,21 @@
 import { connectToDatabase } from '../../lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
 
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const round = searchParams.get('round');
+        const year = parseYearParam(searchParams);
 
         if (!round) {
             return Response.json({ error: 'Round is required' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
-        
+
         // Use aggregation pipeline for better performance
-        const teamSelection = await db.collection(`${CURRENT_YEAR}_team_selection`)
+        const teamSelection = await db.collection(`${year}_team_selection`)
             .aggregate([
                 { 
                     $match: { 
@@ -66,7 +68,12 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
-        const { round, team_selection } = await request.json();
+        const { round, team_selection, year: bodyYear } = await request.json();
+
+        // Block writes for past years
+        const blocked = blockWritesForPastYear(bodyYear || CURRENT_YEAR);
+        if (blocked) return blocked;
+
         const { db } = await connectToDatabase();
         const collection = db.collection(`${CURRENT_YEAR}_team_selection`);
 

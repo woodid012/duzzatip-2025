@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
+import { parseYearParam } from '@/app/lib/apiUtils';
 
 /**
  * GET handler for ladder data.
@@ -14,15 +15,16 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const round = parseInt(searchParams.get('round')) || 0;
         const getRoundSummary = searchParams.get('getRoundSummary') === 'true';
-        
+        const year = parseYearParam(searchParams);
+
         const { db } = await connectToDatabase();
-        
+
         // Handle round summary requests
         if (getRoundSummary) {
-            return await handleGetRoundSummary(round, db);
+            return await handleGetRoundSummary(round, db, year);
         }
-        
-        const ladderCollection = db.collection(`${CURRENT_YEAR}_ladder`);
+
+        const ladderCollection = db.collection(`${year}_ladder`);
         
         // Check for cached ladder in database
         const cachedLadder = await ladderCollection.findOne({ round: round });
@@ -51,23 +53,25 @@ export async function GET(request) {
         
         // If cache is missing, stale, or from wrong source, build fresh ladder
         console.log(`Building fresh ladder for round ${round} (cache invalid or missing)`);
-        const calculatedLadder = await buildLadderFromStoredFinalTotals(round, db);
-        
+        const calculatedLadder = await buildLadderFromStoredFinalTotals(round, db, year);
+
         const lastUpdated = new Date();
 
-        // Save the newly calculated ladder to database
-        await ladderCollection.updateOne(
-            { round: round },
-            { 
-                $set: { 
-                    round: round,
-                    standings: calculatedLadder,
-                    lastUpdated: lastUpdated,
-                    calculatedFrom: 'stored_final_totals_auto'
-                } 
-            },
-            { upsert: true }
-        );
+        // Save the newly calculated ladder to database (only for current year)
+        if (year === CURRENT_YEAR) {
+            await ladderCollection.updateOne(
+                { round: round },
+                {
+                    $set: {
+                        round: round,
+                        standings: calculatedLadder,
+                        lastUpdated: lastUpdated,
+                        calculatedFrom: 'stored_final_totals_auto'
+                    }
+                },
+                { upsert: true }
+            );
+        }
         
         return Response.json({
             standings: calculatedLadder,
@@ -323,8 +327,8 @@ async function buildLadderFromScratchCalculations(currentRound, db) {
 /**
  * Build ladder using stored Final Totals (for regular GET requests)
  */
-async function buildLadderFromStoredFinalTotals(currentRound, db) {
-    console.log(`Building ladder from stored Final Totals for round ${currentRound}`);
+async function buildLadderFromStoredFinalTotals(currentRound, db, year = CURRENT_YEAR) {
+    console.log(`Building ladder from stored Final Totals for round ${currentRound} (year ${year})`);
     
     const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
         userId,
@@ -341,15 +345,15 @@ async function buildLadderFromStoredFinalTotals(currentRound, db) {
 
     // Process rounds 1 through currentRound
     for (let round = 1; round <= Math.min(currentRound, 21); round++) {
-        const finalTotals = await getStoredFinalTotals(round, db);
-        
+        const finalTotals = await getStoredFinalTotals(round, db, year);
+
         if (!finalTotals || Object.keys(finalTotals).length === 0) {
             console.log(`No stored Final Totals available for round ${round}, skipping`);
             continue;
         }
-        
+
         const fixtures = getFixturesForRound(round);
-        
+
         fixtures.forEach((fixture) => {
             const homeUserId = String(fixture.home);
             const awayUserId = String(fixture.away);
@@ -654,9 +658,9 @@ async function storeFinalTotalsFromAPI(round, roundResults, db) {
 /**
  * Get Final Totals stored in database
  */
-async function getStoredFinalTotals(round, db) {
+async function getStoredFinalTotals(round, db, year = CURRENT_YEAR) {
     try {
-        const results = await db.collection(`${CURRENT_YEAR}_final_totals`)
+        const results = await db.collection(`${year}_final_totals`)
             .find({ round: round })
             .toArray();
         
@@ -682,13 +686,13 @@ async function getStoredFinalTotals(round, db) {
 /**
  * Handle GET requests for round summary data
  */
-async function handleGetRoundSummary(round, db) {
+async function handleGetRoundSummary(round, db, year = CURRENT_YEAR) {
     try {
         if (!round) {
             return Response.json({ error: 'Round is required for summary request' }, { status: 400 });
         }
 
-        const results = await db.collection(`${CURRENT_YEAR}_round_summaries`)
+        const results = await db.collection(`${year}_round_summaries`)
             .find({ round: round })
             .toArray();
         

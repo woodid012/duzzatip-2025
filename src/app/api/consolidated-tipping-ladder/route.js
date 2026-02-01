@@ -1,4 +1,4 @@
-import { createApiHandler, getCollection } from '../../lib/apiUtils';
+import { createApiHandler, getCollection, getCollectionForYear, parseYearParam } from '../../lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 
@@ -6,15 +6,16 @@ import { getAflFixtures } from '@/app/lib/fixtureCache';
 export const GET = createApiHandler(async (request, db) => {
   const { searchParams } = new URL(request.url);
   const upToRound = parseInt(searchParams.get('upToRound')) || 24;
-  
+  const year = parseYearParam(searchParams);
+
   try {
-    console.log(`Calculating consolidated tipping ladder up to round ${upToRound}`);
+    console.log(`Calculating consolidated tipping ladder up to round ${upToRound} (year ${year})`);
 
     // First check cache directly from database
-    const cachedLadder = await getCollection(db, 'tipping_ladder_cache')
-      .findOne({ 
-        upToRound: upToRound, 
-        year: CURRENT_YEAR 
+    const cachedLadder = await getCollectionForYear(db, 'tipping_ladder_cache', year)
+      .findOne({
+        upToRound: upToRound,
+        year: year
       });
 
     if (cachedLadder) {
@@ -29,11 +30,17 @@ export const GET = createApiHandler(async (request, db) => {
       });
     }
 
-    // Get AFL fixtures data for match results (cached in memory)
-    const fixtures = await getAflFixtures();
+    // Get AFL fixtures data for match results
+    let fixtures;
+    if (year !== CURRENT_YEAR) {
+      const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`);
+      fixtures = response.ok ? await response.json() : [];
+    } else {
+      fixtures = await getAflFixtures();
+    }
 
     // Get all tips for all users and rounds in one query
-    const allTips = await getCollection(db, 'tips')
+    const allTips = await getCollectionForYear(db, 'tips', year)
       .find({
         Round: { $lte: upToRound },
         Active: 1,
@@ -185,14 +192,14 @@ export const GET = createApiHandler(async (request, db) => {
 
     // Cache the results directly to database
     try {
-      const tippingLadderCache = getCollection(db, 'tipping_ladder_cache');
-      
+      const tippingLadderCache = getCollectionForYear(db, 'tipping_ladder_cache', year);
+
       await tippingLadderCache.updateOne(
-        { upToRound: upToRound, year: CURRENT_YEAR },
+        { upToRound: upToRound, year: year },
         {
           $set: {
             upToRound,
-            year: CURRENT_YEAR,
+            year: year,
             ladder: ladderData,
             roundResults: roundResults || {},
             cachedAt: new Date(),
