@@ -70,7 +70,7 @@ export default function useLadder() {
     } finally {
       setLoading(false);
     }
-  }, [currentRound]);
+  }, [currentRound, selectedYear]);
 
   // Load ladder data for the current round
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function useLadder() {
       console.warn('Could not fetch current round results:', error);
       setCurrentRoundResults({});
     }
-  }, [currentRound]);
+  }, [currentRound, selectedYear]);
 
   // Fetch live current round results
   const fetchLiveCurrentRoundResults = useCallback(async () => {
@@ -129,7 +129,7 @@ export default function useLadder() {
     }
     
     return results;
-  }, [currentRound]);
+  }, [currentRound, selectedYear]);
 
   // Get team's current round score
   const getTeamCurrentRoundScore = useCallback((userId) => {

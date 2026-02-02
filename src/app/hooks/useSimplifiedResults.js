@@ -62,7 +62,7 @@ export default function useSimplifiedResults() {
       let fixturesData = [];
       if (isFinalRound(round)) {
         // For finals rounds, calculate fixtures dynamically
-        fixturesData = await calculateFinalsFixtures(round);
+        fixturesData = await calculateFinalsFixtures(round, selectedYear);
       } else {
         // For regular season, use static fixtures
         fixturesData = getFixturesForRound(round);

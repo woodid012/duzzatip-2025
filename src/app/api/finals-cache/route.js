@@ -1,22 +1,22 @@
-import { createApiHandler, getCollection } from '../../lib/apiUtils';
-import { CURRENT_YEAR } from '@/app/lib/constants';
+import { createApiHandler, getCollectionForYear, parseYearParam } from '../../lib/apiUtils';
 
 // Cache finals results for faster fixture calculation
 export const GET = createApiHandler(async (request, db) => {
   const { searchParams } = new URL(request.url);
   const round = parseInt(searchParams.get('round'));
-  
+  const year = parseYearParam(searchParams);
+
   if (!round || round < 22) {
     return Response.json({ error: 'Round must be 22 or higher for finals' }, { status: 400 });
   }
 
   try {
     // Get cached finals result for this round
-    const cachedResult = await getCollection(db, 'finals_cache')
-      .findOne({ round: round, year: CURRENT_YEAR });
+    const cachedResult = await getCollectionForYear(db, 'finals_cache', year)
+      .findOne({ round: round, year: year });
 
     if (cachedResult) {
-      console.log(`Found cached finals result for round ${round}`);
+      console.log(`Found cached finals result for round ${round} (year ${year})`);
       return Response.json({
         round,
         cached: true,
@@ -41,8 +41,9 @@ export const GET = createApiHandler(async (request, db) => {
 
 export const POST = createApiHandler(async (request, db) => {
   const body = await request.json();
-  const { round, results, fixtures, winners } = body;
-  
+  const { round, results, fixtures, winners, year: bodyYear } = body;
+  const year = (bodyYear && bodyYear >= 2020 && bodyYear <= 2100) ? bodyYear : new Date().getFullYear();
+
   if (!round || round < 22) {
     return Response.json({ error: 'Round must be 22 or higher for finals' }, { status: 400 });
   }
@@ -52,15 +53,15 @@ export const POST = createApiHandler(async (request, db) => {
   }
 
   try {
-    const finalsCache = getCollection(db, 'finals_cache');
-    
+    const finalsCache = getCollectionForYear(db, 'finals_cache', year);
+
     // Upsert the cached finals result
     await finalsCache.updateOne(
-      { round: round, year: CURRENT_YEAR },
+      { round: round, year: year },
       {
         $set: {
           round,
-          year: CURRENT_YEAR,
+          year: year,
           results,
           fixtures,
           winners,
@@ -71,7 +72,7 @@ export const POST = createApiHandler(async (request, db) => {
       { upsert: true }
     );
 
-    console.log(`Cached finals results for round ${round}`);
+    console.log(`Cached finals results for round ${round} (year ${year})`);
 
     return Response.json({
       success: true,

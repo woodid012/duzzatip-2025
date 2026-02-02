@@ -93,12 +93,15 @@ export function AppProvider({ children }) {
         // CRITICAL CHANGE: Calculate round info immediately as first priority
         console.log('Calculating current round as first priority...');
 
-        // For past years, default to round 1 (all rounds are complete, user can navigate)
+        // For past years, default to the last round (season is complete)
         // For current year, calculate based on fixture dates
         let currentRoundInfo;
         if (selectedYear !== CURRENT_YEAR) {
-          currentRoundInfo = { currentRound: 1, isError: false };
-          console.log('AppContext: Past year detected, defaulting to round 1');
+          const maxRound = processedFixtures.length > 0
+            ? Math.max(...processedFixtures.map(f => f.RoundNumber))
+            : 1;
+          currentRoundInfo = { currentRound: maxRound, isError: false };
+          console.log(`AppContext: Past year detected, defaulting to last round (${maxRound})`);
         } else {
           currentRoundInfo = calculateRoundInfo(processedFixtures);
         }

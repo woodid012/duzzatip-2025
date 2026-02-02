@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES } from '@/app/lib/constants';
+import { calculateFinalsFixtures, getFinalsResults } from '@/app/lib/finals_utils';
 
 export default function LadderConsolidatedPage() {
   const { currentRound, selectedYear } = useAppContext();
@@ -16,13 +17,184 @@ export default function LadderConsolidatedPage() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState('');
+  const [finalsStandings, setFinalsStandings] = useState([]);
 
-  // Initialize selected round when currentRound is available
+  // Track the previous year so we can detect year changes
+  const [prevYear, setPrevYear] = useState(selectedYear);
+
+  // Initialize selected round when currentRound is available, or reset on year change
   useEffect(() => {
-    if (currentRound !== undefined && selectedRound === undefined) {
+    if (selectedYear !== prevYear) {
+      // Year changed — sync to the new currentRound
+      setPrevYear(selectedYear);
+      if (currentRound !== undefined) {
+        setSelectedRound(currentRound);
+      }
+    } else if (currentRound !== undefined && selectedRound === undefined) {
       setSelectedRound(currentRound);
     }
-  }, [currentRound, selectedRound]);
+  }, [currentRound, selectedRound, selectedYear, prevYear]);
+
+  // Calculate finals standings when viewing round 21+
+  useEffect(() => {
+    if (selectedRound < 21 || ladderData.length < 8) {
+      setFinalsStandings([]);
+      return;
+    }
+
+    async function buildFinalsStandings() {
+      try {
+        const standings = [];
+
+        // Positions 5-8: non-finalists in reverse ladder order (8th gets 1st pick)
+        for (let pos = 8; pos >= 5; pos--) {
+          const team = ladderData[pos - 1];
+          if (team) {
+            standings.push({
+              pick: standings.length + 1,
+              team: team.userName,
+              userId: team.userId,
+              finished: `${pos}th`,
+            });
+          }
+        }
+
+        // Get SF fixtures and results (round 22)
+        let sf1Result = null;
+        let sf2Result = null;
+        const sfResults = await getFinalsResults(22, selectedYear);
+        if (sfResults && Object.keys(sfResults).length > 0) {
+          const sfFixtures = await calculateFinalsFixtures(22, selectedYear);
+          if (sfFixtures.length >= 2) {
+            const homeScore0 = sfFixtures[0].home !== 'TBD' ? (sfResults[sfFixtures[0].home]?.totalScore || 0) : 0;
+            const awayScore0 = sfFixtures[0].away !== 'TBD' ? (sfResults[sfFixtures[0].away]?.totalScore || 0) : 0;
+            const homeScore1 = sfFixtures[1].home !== 'TBD' ? (sfResults[sfFixtures[1].home]?.totalScore || 0) : 0;
+            const awayScore1 = sfFixtures[1].away !== 'TBD' ? (sfResults[sfFixtures[1].away]?.totalScore || 0) : 0;
+
+            if (homeScore0 > 0 || awayScore0 > 0) {
+              sf1Result = {
+                winner: homeScore0 > awayScore0 ? sfFixtures[0].home : sfFixtures[0].away,
+                loser: homeScore0 > awayScore0 ? sfFixtures[0].away : sfFixtures[0].home,
+              };
+            }
+            if (homeScore1 > 0 || awayScore1 > 0) {
+              sf2Result = {
+                winner: homeScore1 > awayScore1 ? sfFixtures[1].home : sfFixtures[1].away,
+                loser: homeScore1 > awayScore1 ? sfFixtures[1].away : sfFixtures[1].home,
+              };
+            }
+          }
+        }
+
+        // Position 4: SF losers
+        if (sf2Result) {
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[sf2Result.loser] || 'Unknown',
+            userId: sf2Result.loser,
+            finished: 'SF Loser',
+          });
+        }
+        if (sf1Result) {
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[sf1Result.loser] || 'Unknown',
+            userId: sf1Result.loser,
+            finished: 'SF Loser',
+          });
+        }
+
+        // Get PF results (round 23)
+        let pfResult = null;
+        const prelimResults = await getFinalsResults(23, selectedYear);
+        if (prelimResults && Object.keys(prelimResults).length > 0) {
+          const pfFixtures = await calculateFinalsFixtures(23, selectedYear);
+          if (pfFixtures.length >= 1 && !pfFixtures[0].pending) {
+            const homeScore = pfFixtures[0].home !== 'TBD' ? (prelimResults[pfFixtures[0].home]?.totalScore || 0) : 0;
+            const awayScore = pfFixtures[0].away !== 'TBD' ? (prelimResults[pfFixtures[0].away]?.totalScore || 0) : 0;
+            if (homeScore > 0 || awayScore > 0) {
+              pfResult = {
+                winner: homeScore > awayScore ? pfFixtures[0].home : pfFixtures[0].away,
+                loser: homeScore > awayScore ? pfFixtures[0].away : pfFixtures[0].home,
+              };
+            }
+          }
+        }
+
+        // Position 3: PF loser
+        if (pfResult) {
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[pfResult.loser] || 'Unknown',
+            userId: pfResult.loser,
+            finished: 'PF Loser',
+          });
+        }
+
+        // Get GF results (round 24)
+        let gfResult = null;
+        const gfResults = await getFinalsResults(24, selectedYear);
+        if (gfResults && Object.keys(gfResults).length > 0) {
+          const gfFixtures = await calculateFinalsFixtures(24, selectedYear);
+          if (gfFixtures.length >= 1 && !gfFixtures[0].pending) {
+            const homeScore = gfFixtures[0].home !== 'TBD' ? (gfResults[gfFixtures[0].home]?.totalScore || 0) : 0;
+            const awayScore = gfFixtures[0].away !== 'TBD' ? (gfResults[gfFixtures[0].away]?.totalScore || 0) : 0;
+            if (homeScore > 0 || awayScore > 0) {
+              gfResult = {
+                winner: homeScore > awayScore ? gfFixtures[0].home : gfFixtures[0].away,
+                loser: homeScore > awayScore ? gfFixtures[0].away : gfFixtures[0].home,
+              };
+            }
+          }
+        }
+
+        // Positions 1-2: GF result or TBD grand finalists
+        if (gfResult) {
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[gfResult.loser] || 'Unknown',
+            userId: gfResult.loser,
+            finished: 'Runner Up',
+          });
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[gfResult.winner] || 'Unknown',
+            userId: gfResult.winner,
+            finished: 'Champion',
+          });
+        } else if (sf1Result && pfResult) {
+          // We know both grand finalists but no result yet
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[sf1Result.winner] || 'Unknown',
+            userId: sf1Result.winner,
+            finished: 'Grand Finalist (TBD)',
+          });
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[pfResult.winner] || 'Unknown',
+            userId: pfResult.winner,
+            finished: 'Grand Finalist (TBD)',
+          });
+        } else if (sf1Result) {
+          // Only SF1 winner known for GF so far
+          standings.push({
+            pick: standings.length + 1,
+            team: USER_NAMES[sf1Result.winner] || 'Unknown',
+            userId: sf1Result.winner,
+            finished: 'Grand Finalist (TBD)',
+          });
+        }
+
+        setFinalsStandings(standings);
+      } catch (err) {
+        console.error('Error building finals standings:', err);
+        setFinalsStandings([]);
+      }
+    }
+
+    buildFinalsStandings();
+  }, [selectedRound, ladderData, selectedYear]);
 
   // Load ladder data when round changes
   useEffect(() => {
@@ -535,6 +707,41 @@ export default function LadderConsolidatedPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Final Standings & Draft Order */}
+      {finalsStandings.length > 0 && !isRefreshing && (
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="text-blue-800 font-semibold mb-3">Final Standings & Draft Order</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-blue-200">
+                  <th className="text-left py-2 pr-4 text-blue-800 font-medium">Draft Pick</th>
+                  <th className="text-left py-2 pr-4 text-blue-800 font-medium">Team</th>
+                  <th className="text-left py-2 text-blue-800 font-medium">Finished</th>
+                </tr>
+              </thead>
+              <tbody className="text-blue-700">
+                {finalsStandings.map((entry) => (
+                  <tr key={entry.pick} className="border-b border-blue-100 last:border-b-0">
+                    <td className="py-2 pr-4 font-bold">{entry.pick}</td>
+                    <td className="py-2 pr-4">{entry.team}</td>
+                    <td className="py-2">
+                      <span className={
+                        entry.finished === 'Champion' ? 'font-bold text-yellow-600' :
+                        entry.finished === 'Runner Up' ? 'font-semibold text-blue-800' :
+                        ''
+                      }>
+                        {entry.finished}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

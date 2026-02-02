@@ -6,15 +6,17 @@ import { getFixturesForRound } from './fixture_constants';
 /**
  * Get the complete ladder at a specific round
  * @param {number} round - The round to get ladder for (typically 21)
+ * @param {number|null} year - The year to get ladder for
  * @returns {Promise<Array>} Array of teams with their ladder positions
  */
-export async function getLadderAtRound(round = 21) {
+export async function getLadderAtRound(round = 21, year = null) {
   try {
-    const response = await fetch(`/api/simple-ladder?round=${round}`);
+    const yearParam = year ? `&year=${year}` : '';
+    const response = await fetch(`/api/simple-ladder?round=${round}${yearParam}`);
     if (!response.ok) {
       throw new Error('Failed to fetch ladder data');
     }
-    
+
     const data = await response.json();
     return data.ladder || [];
   } catch (error) {
@@ -26,12 +28,14 @@ export async function getLadderAtRound(round = 21) {
 /**
  * Get finals results for completed finals matches (with caching)
  * @param {number} round - The finals round (22, 23, or 24)
+ * @param {number|null} year - The year to get results for
  * @returns {Promise<Object>} Object containing match results
  */
-export async function getFinalsResults(round) {
+export async function getFinalsResults(round, year = null) {
   try {
+    const yearParam = year ? `&year=${year}` : '';
     // First try to get cached results
-    const cacheResponse = await fetch(`/api/finals-cache?round=${round}`);
+    const cacheResponse = await fetch(`/api/finals-cache?round=${round}${yearParam}`);
     if (cacheResponse.ok) {
       const cacheData = await cacheResponse.json();
       if (cacheData.cached) {
@@ -42,19 +46,19 @@ export async function getFinalsResults(round) {
 
     // If no cache, fetch from consolidated API
     console.log(`Fetching fresh finals results for round ${round}`);
-    const response = await fetch(`/api/consolidated-round-results?round=${round}`);
+    const response = await fetch(`/api/consolidated-round-results?round=${round}${yearParam}`);
     if (!response.ok) {
       return null;
     }
-    
+
     const data = await response.json();
     const results = data.results || {};
-    
+
     // Cache the results for future use
     if (Object.keys(results).length > 0) {
-      await cacheFinalsResults(round, results, data.fixtures);
+      await cacheFinalsResults(round, results, data.fixtures, year);
     }
-    
+
     return results;
   } catch (error) {
     console.error(`Error fetching finals results for round ${round}:`, error);
@@ -68,21 +72,21 @@ export async function getFinalsResults(round) {
  * @param {Object} results - The match results
  * @param {Array} fixtures - The fixtures data
  */
-async function cacheFinalsResults(round, results, fixtures = []) {
+async function cacheFinalsResults(round, results, fixtures = [], year = null) {
   try {
     // Extract winners for quick access
     const winners = {};
-    
+
     // For each fixture, determine the winner
     if (fixtures && fixtures.length > 0) {
       fixtures.forEach(fixture => {
         const homeResult = results[fixture.home];
         const awayResult = results[fixture.away];
-        
+
         if (homeResult && awayResult) {
           const homeScore = homeResult.totalScore || 0;
           const awayScore = awayResult.totalScore || 0;
-          
+
           if (homeScore > awayScore) {
             winners[`${fixture.home}_vs_${fixture.away}`] = fixture.home;
           } else if (awayScore > homeScore) {
@@ -101,7 +105,8 @@ async function cacheFinalsResults(round, results, fixtures = []) {
         round,
         results,
         fixtures,
-        winners
+        winners,
+        year
       })
     });
     
@@ -142,11 +147,12 @@ function determineMatchWinner(fixture, results) {
 /**
  * Calculate and resolve finals fixtures based on ladder and previous results
  * @param {number} currentRound - The current round number
+ * @param {number|null} year - The year to calculate for
  * @returns {Promise<Array>} Array of resolved fixtures for the current round
  */
-export async function calculateFinalsFixtures(currentRound) {
+export async function calculateFinalsFixtures(currentRound, year = null) {
   // Get the complete ladder from end of regular season
-  const ladder = await getLadderAtRound(21);
+  const ladder = await getLadderAtRound(21, year);
   
   if (ladder.length < 4) {
     console.error('Not enough teams for finals');
@@ -180,8 +186,8 @@ export async function calculateFinalsFixtures(currentRound) {
   
   if (currentRound === 23) {
     // Preliminary Final - need results from Round 22
-    const semiFinalResults = await getFinalsResults(22);
-    
+    const semiFinalResults = await getFinalsResults(22, year);
+
     if (!semiFinalResults) {
       return fixtures.map(fixture => ({
         ...fixture,
@@ -192,9 +198,9 @@ export async function calculateFinalsFixtures(currentRound) {
         pending: true
       }));
     }
-    
+
     // Get the semi final fixtures with teams
-    const semiFixtures = await calculateFinalsFixtures(22);
+    const semiFixtures = await calculateFinalsFixtures(22, year);
     
     // Determine winners and losers
     const sf1Result = determineMatchWinner(semiFixtures[0], semiFinalResults);
@@ -222,9 +228,9 @@ export async function calculateFinalsFixtures(currentRound) {
   
   if (currentRound === 24) {
     // Grand Final - need results from Round 22 and 23
-    const semiFinalResults = await getFinalsResults(22);
-    const prelimResults = await getFinalsResults(23);
-    
+    const semiFinalResults = await getFinalsResults(22, year);
+    const prelimResults = await getFinalsResults(23, year);
+
     if (!semiFinalResults) {
       return fixtures.map(fixture => ({
         ...fixture,
@@ -235,9 +241,9 @@ export async function calculateFinalsFixtures(currentRound) {
         pending: true
       }));
     }
-    
+
     // Get the semi final fixtures with teams
-    const semiFixtures = await calculateFinalsFixtures(22);
+    const semiFixtures = await calculateFinalsFixtures(22, year);
     
     // Determine SF1 winner
     const sf1Result = determineMatchWinner(semiFixtures[0], semiFinalResults);
@@ -266,7 +272,7 @@ export async function calculateFinalsFixtures(currentRound) {
     }
     
     // Get preliminary final fixture
-    const prelimFixtures = await calculateFinalsFixtures(23);
+    const prelimFixtures = await calculateFinalsFixtures(23, year);
     const pfResult = determineMatchWinner(prelimFixtures[0], prelimResults);
     
     if (!pfResult.winner) {
