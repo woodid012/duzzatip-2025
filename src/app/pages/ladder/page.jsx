@@ -18,6 +18,8 @@ export default function LadderConsolidatedPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState('');
   const [finalsStandings, setFinalsStandings] = useState([]);
+  const [savingStandings, setSavingStandings] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   // Track the previous year so we can detect year changes
   const [prevYear, setPrevYear] = useState(selectedYear);
@@ -86,20 +88,13 @@ export default function LadderConsolidatedPage() {
           }
         }
 
-        // Position 4: SF losers
+        // Position 5: SF2 loser (Elimination Final - eliminated here)
+        // SF1 loser goes to PF, handled below
         if (sf2Result) {
           standings.push({
             pick: standings.length + 1,
             team: USER_NAMES[sf2Result.loser] || 'Unknown',
             userId: sf2Result.loser,
-            finished: 'SF Loser',
-          });
-        }
-        if (sf1Result) {
-          standings.push({
-            pick: standings.length + 1,
-            team: USER_NAMES[sf1Result.loser] || 'Unknown',
-            userId: sf1Result.loser,
             finished: 'SF Loser',
           });
         }
@@ -356,6 +351,33 @@ export default function LadderConsolidatedPage() {
 
   const handleRoundChange = (e) => {
     setSelectedRound(Number(e.target.value));
+  };
+
+  const handleSaveStandings = async () => {
+    if (finalsStandings.length !== 8) return;
+    try {
+      setSavingStandings(true);
+      setSaveMessage('');
+      const res = await fetch('/api/final-standings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          standings: finalsStandings,
+          year: selectedYear,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveMessage(`Error: ${data.error}`);
+      } else {
+        setSaveMessage('Draft order saved!');
+        setTimeout(() => setSaveMessage(''), 3000);
+      }
+    } catch (err) {
+      setSaveMessage(`Error: ${err.message}`);
+    } finally {
+      setSavingStandings(false);
+    }
   };
 
   const formatRoundName = (round) => {
@@ -742,6 +764,23 @@ export default function LadderConsolidatedPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleSaveStandings}
+              disabled={finalsStandings.length !== 8 || savingStandings}
+              className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {savingStandings ? 'Saving...' : 'Save Draft Order'}
+            </button>
+            {finalsStandings.length !== 8 && (
+              <span className="text-xs text-blue-600">All 8 positions must be determined to save</span>
+            )}
+            {saveMessage && (
+              <span className={`text-sm ${saveMessage.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                {saveMessage}
+              </span>
+            )}
           </div>
         </div>
       )}

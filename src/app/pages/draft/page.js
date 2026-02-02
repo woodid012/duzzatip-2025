@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUserContext } from '../layout';
 import { USER_NAMES } from '@/app/lib/constants';
-import { ROUNDS_PER_DRAFT, USERS_PER_DRAFT, TOTAL_PICKS, DRAFT_ORDER } from '@/app/lib/draft_constants';
+import { ROUNDS_PER_DRAFT, USERS_PER_DRAFT, TOTAL_PICKS } from '@/app/lib/draft_constants';
 
 // Color palette for 8 users
 const USER_COLORS = {
@@ -466,7 +466,7 @@ export default function DraftPage() {
           <thead>
             <tr>
               <th className="p-1 md:p-2 bg-gray-100 border text-left w-12">Rd</th>
-              {DRAFT_ORDER.map(userId => (
+              {(draftState?.draftOrder || []).map(userId => (
                 <th
                   key={userId}
                   className={`p-1 md:p-2 border text-center ${USER_HEADER_COLORS[userId]}`}
@@ -484,7 +484,7 @@ export default function DraftPage() {
                 <td className="p-1 md:p-2 bg-gray-50 border font-medium text-center">
                   {row.round}
                 </td>
-                {DRAFT_ORDER.map(userId => {
+                {(draftState?.draftOrder || []).map(userId => {
                   const cell = row.picks[userId];
                   if (!cell) return <td key={userId} className="border p-1" />;
 

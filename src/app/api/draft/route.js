@@ -1,8 +1,15 @@
 import { connectToDatabase } from '../../lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
-import { getDraftPickOrder, TOTAL_PICKS, DRAFT_ORDER, ROUNDS_PER_DRAFT, USERS_PER_DRAFT } from '@/app/lib/draft_constants';
+import { getDraftPickOrderForArray, TOTAL_PICKS, DRAFT_ORDER, ROUNDS_PER_DRAFT, USERS_PER_DRAFT, loadDraftOrderFromDB } from '@/app/lib/draft_constants';
 
 const COLLECTION_NAME = `${CURRENT_YEAR}_draft_picks`;
+
+// Resolve draft order: load from previous year's final standings, fall back to hardcoded
+async function resolveDraftOrder(db) {
+  const previousYear = CURRENT_YEAR - 1;
+  const dbOrder = await loadDraftOrderFromDB(db, previousYear);
+  return dbOrder || DRAFT_ORDER;
+}
 
 // GET — Returns full draft state
 export async function GET() {
@@ -10,12 +17,13 @@ export async function GET() {
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
+    const draftOrder = await resolveDraftOrder(db);
     const picks = await collection
       .find({ Active: 1 })
       .sort({ pick_number: 1 })
       .toArray();
 
-    const pickOrder = getDraftPickOrder();
+    const pickOrder = getDraftPickOrderForArray(draftOrder);
     const nextPickNumber = picks.length + 1;
 
     let status = 'not_started';
@@ -37,7 +45,7 @@ export async function GET() {
         timestamp: p.timestamp,
       })),
       pickOrder,
-      draftOrder: DRAFT_ORDER,
+      draftOrder,
       nextPickNumber,
       nextPick,
       status,
@@ -63,6 +71,8 @@ export async function POST(request) {
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
+    const draftOrder = await resolveDraftOrder(db);
+
     // Get current picks
     const existingPicks = await collection
       .find({ Active: 1 })
@@ -77,7 +87,7 @@ export async function POST(request) {
     }
 
     // Validate it's this user's turn
-    const pickOrder = getDraftPickOrder();
+    const pickOrder = getDraftPickOrderForArray(draftOrder);
     const expectedPick = pickOrder[nextPickNumber - 1];
     if (expectedPick.userId !== parseInt(userId)) {
       return Response.json({
@@ -131,7 +141,7 @@ export async function POST(request) {
         timestamp: p.timestamp,
       })),
       pickOrder,
-      draftOrder: DRAFT_ORDER,
+      draftOrder,
       nextPickNumber: newNextPickNumber,
       nextPick: newNextPick,
       status: newNextPickNumber > TOTAL_PICKS ? 'completed' : 'in_progress',
@@ -208,12 +218,13 @@ export async function PATCH(request) {
     }
 
     // Return updated state
+    const draftOrder = await resolveDraftOrder(db);
     const updatedPicks = await collection
       .find({ Active: 1 })
       .sort({ pick_number: 1 })
       .toArray();
 
-    const pickOrder = getDraftPickOrder();
+    const pickOrder = getDraftPickOrderForArray(draftOrder);
     const nextPickNumber = updatedPicks.length + 1;
     const nextPick = nextPickNumber <= TOTAL_PICKS ? pickOrder[nextPickNumber - 1] : null;
 
@@ -235,7 +246,7 @@ export async function PATCH(request) {
         timestamp: p.timestamp,
       })),
       pickOrder,
-      draftOrder: DRAFT_ORDER,
+      draftOrder,
       nextPickNumber,
       nextPick,
       status,
