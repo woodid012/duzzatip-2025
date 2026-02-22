@@ -19,7 +19,7 @@ export async function GET() {
 
     const draftOrder = await resolveDraftOrder(db);
     const picks = await collection
-      .find({ Active: 1, _type: { $exists: false } })
+      .find({ Active: 1 })
       .sort({ pick_number: 1 })
       .toArray();
 
@@ -73,51 +73,33 @@ export async function POST(request) {
 
     const draftOrder = await resolveDraftOrder(db);
 
-    const pickOrder = getDraftPickOrderForArray(draftOrder);
+    // Get current picks
+    const existingPicks = await collection
+      .find({ Active: 1 })
+      .sort({ pick_number: 1 })
+      .toArray();
 
-    // Atomically claim the next pick number using a counter document
-    const counterResult = await collection.findOneAndUpdate(
-      { _type: 'counter' },
-      { $inc: { next_pick: 1 } },
-      { upsert: true, returnDocument: 'after' }
-    );
-    const nextPickNumber = counterResult.next_pick;
+    const nextPickNumber = existingPicks.length + 1;
 
     // Check draft is not completed
     if (nextPickNumber > TOTAL_PICKS) {
-      // Roll back the counter
-      await collection.findOneAndUpdate(
-        { _type: 'counter' },
-        { $inc: { next_pick: -1 } }
-      );
       return Response.json({ error: 'Draft is already completed' }, { status: 400 });
     }
 
     // Validate it's this user's turn
+    const pickOrder = getDraftPickOrderForArray(draftOrder);
     const expectedPick = pickOrder[nextPickNumber - 1];
     if (expectedPick.userId !== parseInt(userId)) {
-      // Roll back the counter
-      await collection.findOneAndUpdate(
-        { _type: 'counter' },
-        { $inc: { next_pick: -1 } }
-      );
       return Response.json({
         error: `It is not user ${userId}'s turn. Expected user ${expectedPick.userId} (pick #${nextPickNumber})`,
       }, { status: 400 });
     }
 
     // Check player not already picked
-    const alreadyPicked = await collection.findOne({
-      player_name: { $regex: new RegExp(`^${playerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-      Active: 1,
-      _type: { $exists: false },
-    });
+    const alreadyPicked = existingPicks.find(
+      p => p.player_name.toLowerCase() === playerName.toLowerCase()
+    );
     if (alreadyPicked) {
-      // Roll back the counter
-      await collection.findOneAndUpdate(
-        { _type: 'counter' },
-        { $inc: { next_pick: -1 } }
-      );
       return Response.json({
         error: `${playerName} was already picked (pick #${alreadyPicked.pick_number})`,
       }, { status: 400 });
@@ -141,7 +123,7 @@ export async function POST(request) {
 
     // Return updated state
     const updatedPicks = await collection
-      .find({ Active: 1, _type: { $exists: false } })
+      .find({ Active: 1 })
       .sort({ pick_number: 1 })
       .toArray();
 
@@ -190,16 +172,9 @@ export async function PATCH(request) {
         }
 
         // Delete this pick and all subsequent picks (since they may have been influenced)
-        const deactivated = await collection.updateMany(
-          { pick_number: { $gte: parseInt(pickNumber) }, Active: 1, _type: { $exists: false } },
+        await collection.updateMany(
+          { pick_number: { $gte: parseInt(pickNumber) }, Active: 1 },
           { $set: { Active: 0 } }
-        );
-        // Reset counter to match remaining active picks
-        const remainingCount = await collection.countDocuments({ Active: 1, _type: { $exists: false } });
-        await collection.updateOne(
-          { _type: 'counter' },
-          { $set: { next_pick: remainingCount + 1 } },
-          { upsert: true }
         );
         break;
       }
@@ -230,12 +205,11 @@ export async function PATCH(request) {
       }
 
       case 'reset': {
-        // Mark all picks as inactive and reset counter
+        // Mark all picks as inactive
         await collection.updateMany(
-          { Active: 1, _type: { $exists: false } },
+          { Active: 1 },
           { $set: { Active: 0 } }
         );
-        await collection.deleteOne({ _type: 'counter' });
         break;
       }
 
@@ -246,7 +220,7 @@ export async function PATCH(request) {
     // Return updated state
     const draftOrder = await resolveDraftOrder(db);
     const updatedPicks = await collection
-      .find({ Active: 1, _type: { $exists: false } })
+      .find({ Active: 1 })
       .sort({ pick_number: 1 })
       .toArray();
 
@@ -290,7 +264,7 @@ export async function PATCH(request) {
 async function populateSquadsFromDraft(db) {
   try {
     const draftPicks = await db.collection(COLLECTION_NAME)
-      .find({ Active: 1, _type: { $exists: false } })
+      .find({ Active: 1 })
       .sort({ pick_number: 1 })
       .toArray();
 
