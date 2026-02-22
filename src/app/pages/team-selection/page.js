@@ -7,6 +7,8 @@ import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTeamSelection from '@/app/hooks/useTeamSelection';
 import { USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
+import { useToast } from '@/app/components/Toast';
+import SearchableSelect from '@/app/components/SearchableSelect';
 
 export default function TeamSelectionPage() {
   // Get just the current round from the app context for initial display
@@ -33,6 +35,8 @@ export default function TeamSelectionPage() {
     startEditing,
     copyFromPreviousRound
   } = useTeamSelection();
+
+  const { addToast } = useToast();
 
   // State for duplicate warnings
   const [duplicateWarnings, setDuplicateWarnings] = useState([]);
@@ -140,15 +144,21 @@ export default function TeamSelectionPage() {
   };
 
   const handleAdminSave = async () => {
+    let success;
     if (selectedUserId === 'admin') {
-      const success = await saveTeamSelections();
+      success = await saveTeamSelections();
       if (success) {
         setAdminEditMode(false);
       }
-      return success;
     } else {
-      return await saveTeamSelections();
+      success = await saveTeamSelections();
     }
+    if (success) {
+      addToast('Team selection saved!', 'success');
+    } else {
+      addToast('Failed to save team selection', 'error');
+    }
+    return success;
   };
 
   const handleAdminCancel = () => {
@@ -158,18 +168,27 @@ export default function TeamSelectionPage() {
     cancelEditing();
   };
 
-  // Handle save with confirmation for duplicates
+  // Handle save with confirmation for duplicates and overwrites
   const handleSaveWithWarning = async () => {
     const warnings = [];
-    
+
     // Check for duplicates
     if (duplicateWarnings.length > 0) {
       warnings.push(`${duplicateWarnings.length} duplicate player selections`);
     }
-    
+
+    // Check if overwriting an existing selection
+    const userId = selectedUserId === 'admin' ? null : selectedUserId;
+    const hasExisting = userId && teams[userId] && Object.keys(teams[userId]).some(
+      k => k !== '_lastUpdated' && teams[userId][k]?.player_name
+    );
+    if (hasExisting) {
+      warnings.push('overwriting existing team selection');
+    }
+
     if (warnings.length > 0) {
-      const warningMessage = `Warning: You have ${warnings.join(' and ')}. Do you want to save anyway?`;
-        
+      const warningMessage = `Warning: You are ${warnings.join(' and ')}. Do you want to save anyway?`;
+
       if (confirm(warningMessage)) {
         return await handleAdminSave();
       }
@@ -214,8 +233,44 @@ export default function TeamSelectionPage() {
     return new Date(Math.max(...updateTimes));
   };
 
-  if (loading) return <div className="p-4">Loading teams...</div>;
-  if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
+  if (loading) return (
+    <div className="p-4 sm:p-6 w-full mx-auto">
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <div className="h-7 w-48 bg-gray-200 rounded animate-pulse mb-2"></div>
+          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+        <div className="flex gap-2">
+          <div className="h-10 w-24 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+      </div>
+      <div className="bg-white rounded-lg shadow-md p-4">
+        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse mb-4"></div>
+        {[...Array(9)].map((_, i) => (
+          <div key={i} className="mb-3">
+            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-1"></div>
+            <div className="h-10 w-full bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  if (error) return (
+    <div className="p-4 sm:p-6">
+      <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+        <h3 className="font-bold text-lg mb-2 text-red-800">Couldn&apos;t load team selections</h3>
+        <p className="text-red-700 mb-3">{error}</p>
+        <p className="text-red-600 text-sm mb-4">Check your internet connection and try again.</p>
+        <button
+          onClick={() => handleRoundChange(localRound)}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    </div>
+  );
 
   if (!loading && !error && Object.keys(squads).length === 0) {
     return (
@@ -568,23 +623,16 @@ function TeamCard({
                 <div className="flex flex-col sm:flex-row gap-2">
                   {isEditing ? (
                     <>
-                      <select
+                      <SearchableSelect
                         value={playerData?.player_name || ''}
-                        onChange={(e) => onPlayerChange(userId, position, e.target.value)}
-                        className={`w-full p-2 text-sm border rounded bg-white text-black ${
-                          isDuplicate ? 'border-red-500 bg-red-50' : ''
-                        }`}
-                        disabled={isLocked}
-                      >
-                        <option value="">Select Player</option>
-                        {squad
+                        onChange={(val) => onPlayerChange(userId, position, val)}
+                        options={squad
                           .sort((a, b) => a.name.localeCompare(b.name))
-                          .map(p => (
-                            <option key={p.name} value={p.name}>
-                              {p.name} ({p.team})
-                            </option>
-                          ))}
-                      </select>
+                          .map(p => ({ value: p.name, label: `${p.name} (${p.team})` }))}
+                        placeholder="Select Player"
+                        disabled={isLocked}
+                        className={`w-full ${isDuplicate ? '[&>button]:border-red-500 [&>button]:bg-red-50' : ''}`}
+                      />
                       {position === 'Bench' && (
                         <select
                           value={playerData?.backup_position || ''}

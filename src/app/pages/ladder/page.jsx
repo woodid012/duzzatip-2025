@@ -380,6 +380,17 @@ export default function LadderConsolidatedPage() {
     }
   };
 
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin} min ago`;
+    const diffHrs = Math.floor(diffMin / 60);
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  };
+
   const formatRoundName = (round) => {
     if (round === 0) return "Opening Round";
     if (round >= 22 && round <= 24) {
@@ -408,11 +419,31 @@ export default function LadderConsolidatedPage() {
   if (loading && !isRefreshing) {
     return (
       <div className="p-4 sm:p-6">
-        <div className="flex items-center justify-center min-h-64">
-          <div className="text-center">
-            <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent mx-auto mb-4"></div>
-            <div className="text-lg font-medium">Loading ladder...</div>
+        {/* Skeleton header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <div className="h-7 w-40 bg-gray-200 rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-56 bg-gray-200 rounded animate-pulse"></div>
           </div>
+          <div className="flex gap-2">
+            <div className="h-10 w-24 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        </div>
+        {/* Skeleton table */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="h-10 bg-gray-100 animate-pulse"></div>
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-6 py-4 border-b">
+              <div className="h-5 w-6 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-5 w-40 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-5 w-8 bg-gray-200 rounded animate-pulse ml-auto"></div>
+              <div className="h-5 w-8 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-5 w-8 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-5 w-12 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-5 w-12 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -448,7 +479,7 @@ export default function LadderConsolidatedPage() {
           </p>
           {lastUpdated && (
             <p className="text-sm text-gray-500">
-              Last updated: {lastUpdated.toLocaleString()}
+              Updated {formatTimeAgo(lastUpdated)}
             </p>
           )}
         </div>

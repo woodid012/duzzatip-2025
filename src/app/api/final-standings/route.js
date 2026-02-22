@@ -1,4 +1,4 @@
-import { createApiHandler, getCollectionForYear, parseYearParam } from '../../lib/apiUtils';
+import { createApiHandler, getCollectionForYear, parseYearParam, blockWritesForPastYear } from '../../lib/apiUtils';
 
 // GET — Retrieve saved final standings for a year
 export const GET = createApiHandler(async (request, db) => {
@@ -29,6 +29,9 @@ export const POST = createApiHandler(async (request, db) => {
   const { standings, year: bodyYear } = body;
 
   const year = (bodyYear && bodyYear >= 2020 && bodyYear <= 2100) ? bodyYear : new Date().getFullYear();
+
+  const blocked = blockWritesForPastYear(year);
+  if (blocked) return blocked;
 
   if (!standings || !Array.isArray(standings) || standings.length === 0) {
     return Response.json({ error: 'standings array is required' }, { status: 400 });

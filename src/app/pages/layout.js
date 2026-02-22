@@ -7,6 +7,8 @@ import { useAppContext } from '@/app/context/AppContext';
 import Logo from '@/app/components/Logo';
 import { getNavigationGroups, debugNavigationItems } from '@/app/lib/navigationConfig';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
+import { ToastProvider } from '@/app/components/Toast';
+import RoundStatus from '@/app/components/RoundStatus';
 
 // Create context for selected user and admin authentication
 export const UserContext = createContext({
@@ -110,6 +112,12 @@ export default function PagesLayout({ children }) {
 
   const navigationGroups = getNavigationGroups(true); // Include Squad Management
 
+  // Get current page name for mobile header
+  const currentPageName = navigationGroups
+    .flat()
+    .concat(debugNavigationItems)
+    .find(item => item.path === pathname)?.name || '';
+
   // Check if the current page should show only the selected user's team
   const isSingleUserPage = pathname === '/pages/team-selection' || pathname === '/pages/tipping';
 
@@ -117,6 +125,7 @@ export default function PagesLayout({ children }) {
   const showRoundInfo = !loading.fixtures && roundInfo && roundInfo.currentRound !== undefined;
 
   return (
+    <ToastProvider>
     <UserContext.Provider value={{
       selectedUserId,
       setSelectedUserId,
@@ -182,8 +191,8 @@ export default function PagesLayout({ children }) {
         {/* Mobile Header */}
         <div className="md:hidden bg-white shadow-sm">
           <div className="flex items-center justify-between p-3">
-            {/* Logo and hamburger */}
-            <div className="flex items-center gap-3">
+            {/* Hamburger and page name */}
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
                 className="p-2 rounded-md hover:bg-gray-100"
@@ -192,7 +201,9 @@ export default function PagesLayout({ children }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <Logo width={40} height={40} className="rounded" />
+              <span className="font-semibold text-sm text-gray-900 truncate">
+                {currentPageName || 'DuzzaTip'}
+              </span>
             </div>
             
             {/* User selector + year toggle - mobile optimized */}
@@ -293,25 +304,28 @@ export default function PagesLayout({ children }) {
               </div>
               
               <nav className="p-4">
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {navigationGroups.map((group, groupIndex) => (
                     <div key={groupIndex}>
                       {group.map((item) => (
-                        <Link 
+                        <Link
                           key={item.id}
                           href={item.path}
-                          className={`block px-4 py-3 mb-2 rounded-md transition-colors ${
+                          className={`flex items-center gap-3 px-4 py-3 mb-1 rounded-md transition-colors ${
                             pathname === item.path
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-blue-600 text-white font-medium'
                               : 'text-gray-700 hover:bg-gray-100'
                           }`}
                           onClick={() => setIsMobileNavOpen(false)}
                         >
-                          {item.name}
+                          {pathname === item.path && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0"></span>
+                          )}
+                          <span>{item.name}</span>
                         </Link>
                       ))}
                       {groupIndex < navigationGroups.length - 1 && (
-                        <div className="border-t border-gray-200 my-1"></div>
+                        <div className="border-t border-gray-200 my-2"></div>
                       )}
                     </div>
                   ))}
@@ -419,6 +433,9 @@ export default function PagesLayout({ children }) {
           </div>
         </div>
 
+        {/* Round Status Banner */}
+        <RoundStatus />
+
         {/* Main Content Area */}
         <div className="w-full">
           {/* Desktop Layout with Sidebar */}
@@ -516,5 +533,6 @@ export default function PagesLayout({ children }) {
         </div>
       </div>
     </UserContext.Provider>
+    </ToastProvider>
   );
 }

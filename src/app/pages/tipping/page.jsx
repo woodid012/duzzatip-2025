@@ -5,6 +5,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTipping from '@/app/hooks/useTipping';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+import { useToast } from '@/app/components/Toast';
 
 export default function TippingPage() {
   // Get data from our app context
@@ -94,6 +95,18 @@ export default function TippingPage() {
     return false;
   };
 
+  const { addToast } = useToast();
+
+  // Wrap saveTips to show toast
+  const handleSaveTips = async () => {
+    const result = await saveTips();
+    if (result) {
+      addToast('Tips saved!', 'success');
+    } else {
+      addToast('Failed to save tips', 'error');
+    }
+  };
+
   // Check if user is admin
   const isAdmin = selectedUserId === 'admin';
 
@@ -114,8 +127,27 @@ export default function TippingPage() {
 
   if (loading && !dataLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Loading fixtures...</div>
+      <div className="p-4 md:p-8">
+        {/* Skeleton header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <div className="h-7 w-48 bg-gray-200 rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div className="h-10 w-24 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+        {/* Skeleton fixtures */}
+        <div className="space-y-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white rounded-lg p-4 shadow">
+              <div className="h-3 w-32 bg-gray-200 rounded animate-pulse mb-3"></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-14 bg-gray-200 rounded-lg animate-pulse"></div>
+                <div className="h-14 bg-gray-200 rounded-lg animate-pulse"></div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -151,7 +183,7 @@ export default function TippingPage() {
           error={error}
           isEditing={isEditing}
           handleEditClick={handleEditClick}
-          saveTips={saveTips}
+          saveTips={handleSaveTips}
           cancelEditing={cancelEditing}
           handleRoundChange={handleRoundChange}
           hookSelectedUserId={hookSelectedUserId}
@@ -181,7 +213,7 @@ export default function TippingPage() {
           error={error}
           isEditing={isEditing}
           handleEditClick={handleEditClick}
-          saveTips={saveTips}
+          saveTips={handleSaveTips}
           cancelEditing={cancelEditing}
           handleRoundChange={handleRoundChange}
           hookSelectedUserId={hookSelectedUserId}
@@ -283,7 +315,7 @@ function MobileTippingView({
         )}
         {error && (
           <div className="bg-red-50 text-red-700 p-2 rounded text-xs mb-2">
-            {error}
+            {error} — check your connection and try again.
           </div>
         )}
 
