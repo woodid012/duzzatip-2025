@@ -4,6 +4,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { useUserContext } from '../layout';
 import { USER_NAMES } from '@/app/lib/constants';
 import { ROUNDS_PER_DRAFT, USERS_PER_DRAFT, TOTAL_PICKS } from '@/app/lib/draft_constants';
+import { INJURIES, INJURY_CONFIG } from '@/app/lib/injuries_2026';
+
+function InjuryBadge({ playerName }) {
+  const inj = INJURIES[playerName];
+  const cfg = inj ? INJURY_CONFIG[inj.status] : INJURY_CONFIG.HEALTHY;
+  const label = inj ? `${cfg.label}: ${inj.detail}` : 'Fit';
+  return (
+    <span
+      title={label}
+      className={`inline-flex items-center gap-1 text-xs px-1 py-0.5 rounded border font-medium whitespace-nowrap ${cfg.badge}`}
+    >
+      <span className={`inline-block w-2 h-2 rounded-full ${cfg.dot}`} />
+      {inj ? cfg.label : 'Fit'}
+    </span>
+  );
+}
 
 // Color palette for 8 users
 const USER_COLORS = {
@@ -317,12 +333,26 @@ export default function DraftPage() {
               className="p-2 border rounded text-sm text-black bg-white flex-1"
             >
               <option value="">Select a player...</option>
-              {filteredPlayers.map(p => (
-                <option key={p.id || `${p.name}-${p.teamName}`} value={`${p.name}||${p.teamName}`}>
-                  {p.name} ({p.teamName})
-                </option>
-              ))}
+              {filteredPlayers.map(p => {
+                const inj = INJURIES[p.name];
+                const injLabel = inj ? ` ⚠ ${INJURY_CONFIG[inj.status].label}` : ' ✓';
+                return (
+                  <option key={p.id || `${p.name}-${p.teamName}`} value={`${p.name}||${p.teamName}`}>
+                    {p.name} ({p.teamName}){injLabel}
+                  </option>
+                );
+              })}
             </select>
+
+            {/* Injury warning for selected player */}
+            {selectedPlayer && (
+              <div className="flex items-center gap-2">
+                <InjuryBadge playerName={selectedPlayer.name} />
+                {INJURIES[selectedPlayer.name] && (
+                  <span className="text-xs text-gray-600">{INJURIES[selectedPlayer.name].detail}</span>
+                )}
+              </div>
+            )}
 
             {/* Submit button */}
             <button
@@ -430,11 +460,15 @@ export default function DraftPage() {
                 {(editTeamName ? (players[editTeamName] || []) : allPlayers)
                   .filter(p => !pickedPlayerNames.has(p.name.toLowerCase()) || p.name === editingPick.playerName)
                   .sort((a, b) => a.name.localeCompare(b.name))
-                  .map(p => (
-                    <option key={p.id || p.name} value={p.name}>
-                      {p.name} {!editTeamName ? `(${p.teamName})` : ''}
-                    </option>
-                  ))}
+                  .map(p => {
+                    const inj = INJURIES[p.name];
+                    const injLabel = inj ? ` ⚠ ${INJURY_CONFIG[inj.status].label}` : ' ✓';
+                    return (
+                      <option key={p.id || p.name} value={p.name}>
+                        {p.name} {!editTeamName ? `(${p.teamName})` : ''}{injLabel}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
             <div className="flex justify-end gap-2">
@@ -520,6 +554,9 @@ export default function DraftPage() {
                             {pick.playerName}
                           </div>
                           <div className="text-gray-500 text-xs truncate">{pick.teamName}</div>
+                          <div className="mt-0.5">
+                            <InjuryBadge playerName={pick.playerName} />
+                          </div>
                         </div>
                       ) : isNext ? (
                         <div className="text-center text-green-700 font-medium text-xs">
@@ -558,6 +595,7 @@ export default function DraftPage() {
                 <span className="font-mono w-8 text-right">#{pick.pickNumber}</span>
                 <span className="font-medium">{pick.playerName}</span>
                 <span className="text-gray-500">({pick.teamName})</span>
+                <InjuryBadge playerName={pick.playerName} />
                 <span className="text-gray-400 ml-auto">{USER_NAMES[pick.userId]}</span>
               </div>
             ))}
