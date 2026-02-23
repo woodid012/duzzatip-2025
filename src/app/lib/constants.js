@@ -90,7 +90,7 @@ export const USER_NAMES = {
   3: "Miguel's Marauders",
   4: "Le Mallards",
   5: "Rands Ruffians",
-  6: "Balls Deep Briz",
+  6: "Nightmare of Milky Briz",
   7: "Honour String",
   8: "pinga jinga jim"
 };
