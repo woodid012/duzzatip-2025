@@ -85,12 +85,12 @@ export const BACKUP_POSITIONS = [
 ];
 
 export const USER_NAMES = {
-  1: "flailing feathers",
-  2: "Garvs Garden Gnomes",
-  3: "Miguel's Marauders",
-  4: "Le Mallards",
+  1: "Feathers and noodle soup",
+  2: "Sharky's Bite",
+  3: "Miguel's Midnight Menace",
+  4: "Le Quack Attack",
   5: "Randy's Ruckin Roalercoaster",
   6: "Nightmare of Milky Briz",
-  7: "Honour String",
-  8: "pinga jinga jim"
+  7: "String Theory FC",
+  8: "pinga jinga reloaded"
 };
