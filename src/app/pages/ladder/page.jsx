@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
-import { USER_NAMES } from '@/app/lib/constants';
+import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 import { calculateFinalsFixtures, getFinalsResults } from '@/app/lib/finals_utils';
 
 export default function LadderConsolidatedPage() {
@@ -612,7 +612,10 @@ export default function LadderConsolidatedPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{team.userName}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{TEAM_LOGOS[team.userId]}</span>
+                            <span className="text-sm font-medium text-gray-900">{team.userName}</span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                           {team.played}
@@ -693,7 +696,10 @@ export default function LadderConsolidatedPage() {
                       {index + 1}
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">{team.userName}</div>
+                      <div className="flex items-center gap-1">
+                        <span>{TEAM_LOGOS[team.userId]}</span>
+                        <span className="font-medium text-gray-900">{team.userName}</span>
+                      </div>
                       <div className="text-sm text-gray-500">
                         {team.played} games • {team.points} points
                       </div>
@@ -755,6 +761,7 @@ export default function LadderConsolidatedPage() {
               {ladderData.slice(0, 4).map((team, index) => (
                 <div key={team.userId} className="flex items-center gap-2">
                   <span className="font-medium">{index + 1}.</span>
+                  <span>{TEAM_LOGOS[team.userId]}</span>
                   <span>{team.userName}</span>
                   <span className="text-sm">({team.points} pts)</span>
                 </div>
@@ -781,7 +788,10 @@ export default function LadderConsolidatedPage() {
                 {finalsStandings.map((entry) => (
                   <tr key={entry.pick} className="border-b border-blue-100 last:border-b-0">
                     <td className="py-2 pr-4 font-bold">{entry.pick}</td>
-                    <td className="py-2 pr-4">{entry.team}</td>
+                    <td className="py-2 pr-4">
+                      <span className="mr-1">{TEAM_LOGOS[entry.userId]}</span>
+                      {entry.team}
+                    </td>
                     <td className="py-2">
                       <span className={
                         entry.finished === 'Champion' ? 'font-bold text-yellow-600' :
