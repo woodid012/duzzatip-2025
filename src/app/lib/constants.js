@@ -91,6 +91,6 @@ export const USER_NAMES = {
   4: "Le Quack Attack",
   5: "Randy's Ruckin Roalercoaster",
   6: "Nightmare of Milky Briz",
-  7: "String Theory FC",
+  7: "String Theory",
   8: "Pinga Jinga Pillbox"
 };
