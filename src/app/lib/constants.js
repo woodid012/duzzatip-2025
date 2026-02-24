@@ -92,5 +92,5 @@ export const USER_NAMES = {
   5: "Randy's Ruckin Roalercoaster",
   6: "Nightmare of Milky Briz",
   7: "String Theory FC",
-  8: "pinga jinga reloaded"
+  8: "Pinga Jinga Pillbox"
 };
