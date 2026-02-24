@@ -116,10 +116,8 @@ export async function POST(request) {
       Active: 1,
     });
 
-    // If this was the final pick, auto-populate squads
-    if (nextPickNumber === TOTAL_PICKS) {
-      await populateSquadsFromDraft(db);
-    }
+    // Sync squads from draft after every pick
+    await populateSquadsFromDraft(db);
 
     // Return updated state
     const updatedPicks = await collection
@@ -217,6 +215,9 @@ export async function PATCH(request) {
         return Response.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
 
+    // Sync squads from draft after admin action
+    await populateSquadsFromDraft(db);
+
     // Return updated state
     const draftOrder = await resolveDraftOrder(db);
     const updatedPicks = await collection
@@ -260,7 +261,7 @@ export async function PATCH(request) {
   }
 }
 
-// Auto-populate squads when draft completes
+// Sync squads from current draft picks — runs after every pick and admin action
 async function populateSquadsFromDraft(db) {
   try {
     const draftPicks = await db.collection(COLLECTION_NAME)
@@ -270,35 +271,38 @@ async function populateSquadsFromDraft(db) {
 
     const squadsCollection = db.collection(`${CURRENT_YEAR}_squads`);
 
-    const bulkOps = [];
-    for (const pick of draftPicks) {
-      bulkOps.push({
-        updateOne: {
-          filter: {
+    // Deactivate all initial-draft entries so deletions/edits are reflected
+    await squadsCollection.updateMany(
+      { acquisition_type: 'initial' },
+      { $set: { Active: 0 } }
+    );
+
+    if (draftPicks.length === 0) return;
+
+    // Re-insert/reactivate from current draft picks
+    const bulkOps = draftPicks.map(pick => ({
+      updateOne: {
+        filter: {
+          user_id: pick.user_id,
+          player_name: pick.player_name,
+        },
+        update: {
+          $set: {
             user_id: pick.user_id,
             player_name: pick.player_name,
             team: pick.team_name,
+            Active: 1,
+            acquisition_type: 'initial',
+            acquisition_date: pick.timestamp || new Date(),
           },
-          update: {
-            $set: {
-              user_id: pick.user_id,
-              player_name: pick.player_name,
-              team: pick.team_name,
-              Active: 1,
-              acquisition_type: 'initial',
-              acquisition_date: new Date(),
-            },
-          },
-          upsert: true,
         },
-      });
-    }
+        upsert: true,
+      },
+    }));
 
-    if (bulkOps.length > 0) {
-      await squadsCollection.bulkWrite(bulkOps, { ordered: false });
-      console.log(`Draft complete: populated ${bulkOps.length} squad entries`);
-    }
+    await squadsCollection.bulkWrite(bulkOps, { ordered: false });
+    console.log(`Draft sync: ${draftPicks.length} picks synced to squads`);
   } catch (error) {
-    console.error('Error populating squads from draft:', error);
+    console.error('Error syncing squads from draft:', error);
   }
 }
