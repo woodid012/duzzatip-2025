@@ -94,3 +94,14 @@ export const USER_NAMES = {
   7: "String Theory",
   8: "Pinga Jinga Pillbox"
 };
+
+export const TEAM_LOGOS = {
+  1: "🍜🪶",
+  2: "🦈🩸",
+  3: "🪖💣",
+  4: "🦆⚡",
+  5: "🎢😵",
+  6: "🌙🥛",
+  7: "🧵🌀",
+  8: "💊🕺"
+};

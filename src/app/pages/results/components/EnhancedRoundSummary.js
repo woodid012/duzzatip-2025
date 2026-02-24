@@ -2,7 +2,7 @@
 
 'use client'
 
-import { USER_NAMES } from '@/app/lib/constants';
+import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 
 // Component for displaying round summary and fixtures
 export default function EnhancedRoundSummary({ 
@@ -89,6 +89,7 @@ function OpeningRoundSummary({ allTeamScores, selectedUserId }) {
               isTopFour ? 'bg-green-50 border-green-200' : 'bg-white'
             } rounded-lg shadow-md p-3`}>
               <div className="text-center font-medium">
+                <div className="text-2xl mb-1">{TEAM_LOGOS[userId]}</div>
                 {userName}
                 {userId === selectedUserId && (
                   <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
@@ -150,7 +151,8 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
             </div>
             <div className="flex justify-between items-center">
               <div className="text-center flex-1">
-                <div className={`font-medium ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
+                <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.home]}</div>
+                <div className={`font-medium text-sm ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.home] || fixture.home}
                 </div>
                 <div className="text-2xl font-bold">
@@ -159,7 +161,8 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
               </div>
               <div className="text-center text-gray-500 px-2">vs</div>
               <div className="text-center flex-1">
-                <div className={`font-medium ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
+                <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.away]}</div>
+                <div className={`font-medium text-sm ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.away] || fixture.away}
                 </div>
                 <div className="text-2xl font-bold">
@@ -239,12 +242,13 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
         </div>
         <div className="flex justify-between items-center">
           <div className={`text-center flex-1 ${homeWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}>
-            <div className={`font-medium ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
+            <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.home]}</div>
+            <div className={`font-medium text-sm ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
               {fixture.homeName || USER_NAMES[fixture.home] || fixture.home}
               {fixture.homePosition && (
                 <span className="text-xs text-gray-500 ml-1">
-                  ({fixture.homePosition === 1 ? '1st' : 
-                    fixture.homePosition === 2 ? '2nd' : 
+                  ({fixture.homePosition === 1 ? '1st' :
+                    fixture.homePosition === 2 ? '2nd' :
                     fixture.homePosition === 3 ? '3rd' : '4th'})
                 </span>
               )}
@@ -256,12 +260,13 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
           </div>
           <div className="text-center text-gray-500 px-2">vs</div>
           <div className={`text-center flex-1 ${awayWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}>
-            <div className={`font-medium ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
+            <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.away]}</div>
+            <div className={`font-medium text-sm ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
               {fixture.awayName || USER_NAMES[fixture.away] || fixture.away}
               {fixture.awayPosition && (
                 <span className="text-xs text-gray-500 ml-1">
-                  ({fixture.awayPosition === 1 ? '1st' : 
-                    fixture.awayPosition === 2 ? '2nd' : 
+                  ({fixture.awayPosition === 1 ? '1st' :
+                    fixture.awayPosition === 2 ? '2nd' :
                     fixture.awayPosition === 3 ? '3rd' : '4th'})
                 </span>
               )}
