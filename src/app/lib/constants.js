@@ -87,7 +87,7 @@ export const BACKUP_POSITIONS = [
 export const USER_NAMES = {
   1: "Feathers and noodle soup",
   2: "Sharky's Bite",
-  3: "Miguel's Midnight Menace",
+  3: "Full Metal Jacket Miguel",
   4: "Le Quack Attack",
   5: "Randy's Ruckin Roalercoaster",
   6: "Nightmare of Milky Briz",
