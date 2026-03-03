@@ -182,7 +182,7 @@ async function loadPlayerStats(db, names) {
       byPlayer[d.player_name].push(d);
     }
     for (const [name, games] of Object.entries(byPlayer)) {
-      if (games.length >= 1) stats[name] = { source: `${YEAR}(${games.length}g)`, avg: calcAvgStats(games) };
+      if (games.length >= 1) stats[name] = { source: `${YEAR}(${games.length}g)`, avg: calcAvgStats(games), games };
     }
   } catch (_) {}
 
@@ -191,7 +191,7 @@ async function loadPlayerStats(db, names) {
   if (need2025.length > 0) {
     try {
       const docs2025 = await db.collection("2025_game_results")
-        .find({ player_name: { $in: need2025 } })
+        .find({ player_name: { $in: need2025 } }, { projection: { player_name: 1, kicks: 1, handballs: 1, marks: 1, tackles: 1, hitouts: 1, goals: 1, behinds: 1, _id: 0 } })
         .toArray();
       const byPlayer = {};
       for (const d of docs2025) {
@@ -199,7 +199,7 @@ async function loadPlayerStats(db, names) {
         byPlayer[d.player_name].push(d);
       }
       for (const [name, games] of Object.entries(byPlayer)) {
-        if (games.length >= 3) stats[name] = { source: `2025(${games.length}g)`, avg: calcAvgStats(games) };
+        if (games.length >= 3) stats[name] = { source: `2025(${games.length}g)`, avg: calcAvgStats(games), games };
       }
     } catch (_) {}
   }
@@ -317,6 +317,56 @@ function findOptimalLineup(squadPlayers, excluded = new Set()) {
     : (pool.filter(p => !used.has(p.name)).sort((a, b) => resBScore(b) - resBScore(a))[0] || null);
 
   return { lineup: assigned, bench, benchBackup, reserveA: resA, reserveB: resB };
+}
+
+// ── Bench backup optimisation (variance-based) ────────────────────────────────
+// Score a single game at a given position using the position's scoring formula.
+function scoreGame(game, pos) {
+  const s = {
+    kicks:     Number(game.kicks)     || 0,
+    handballs: Number(game.handballs) || 0,
+    marks:     Number(game.marks)     || 0,
+    tackles:   Number(game.tackles)   || 0,
+    hitouts:   Number(game.hitouts)   || 0,
+    goals:     Number(game.goals)     || 0,
+    behinds:   Number(game.behinds)   || 0,
+  };
+  return SCORE_FNS[pos](s);
+}
+
+// E[max(bench, main) − main] over all game-pair combinations for a given position.
+// This is the "option value" of the bench backing up that position.
+function expectedBenchGain(benchGames, mainGames, pos) {
+  if (!benchGames?.length || !mainGames?.length) return 0;
+  let totalGain = 0, count = 0;
+  for (const bg of benchGames) {
+    const bs = scoreGame(bg, pos);
+    for (const mg of mainGames) {
+      totalGain += Math.max(bs - scoreGame(mg, pos), 0);
+      count++;
+    }
+  }
+  return count > 0 ? Math.round((totalGain / count) * 10) / 10 : 0;
+}
+
+// Returns { pos, gain } — the backup position that maximises expected bench gain.
+// Falls back to the bench player's own best position if no game data is available.
+function findBestBenchBackup(lineup, bench, statsMap) {
+  if (!bench) return { pos: MAIN_POSITIONS[0], gain: 0 };
+  const benchGames = statsMap[bench.name]?.games || [];
+  if (!benchGames.length) {
+    // No game data — fall back to bench player's best scoring position
+    return { pos: bench.bestPos || MAIN_POSITIONS[0], gain: 0 };
+  }
+  let bestPos = null, bestGain = -Infinity;
+  for (const pos of MAIN_POSITIONS) {
+    const mainPlayer = lineup[pos];
+    if (!mainPlayer) continue;
+    const mainGames = statsMap[mainPlayer.name]?.games || [];
+    const gain = expectedBenchGain(benchGames, mainGames, pos);
+    if (gain > bestGain) { bestGain = gain; bestPos = pos; }
+  }
+  return { pos: bestPos || bench.bestPos || MAIN_POSITIONS[0], gain: bestGain };
 }
 
 // ── AFL team selections (Footywire) ───────────────────────────────────────────
@@ -518,7 +568,10 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   }
   lines.push(`📋 *YOUR TEAM* — _~${totalPts}pts projected_`);
   for (const l of teamLines) lines.push(l);
-  if (result.bench)    lines.push(`🪑 *Bench* — ${dn(result.bench.name)} → ${POS_SHORT[result.benchBackup] || "?"}`);
+  if (result.bench) {
+    const gainStr = result.benchExpectedGain > 0 ? ` _(+${result.benchExpectedGain}pts exp)_` : "";
+    lines.push(`🪑 *Bench* — ${dn(result.bench.name)} → ${POS_SHORT[result.benchBackup] || "?"}${gainStr}`);
+  }
   if (result.reserveA) lines.push(`🅰 *Res A* — ${dn(result.reserveA.name)}`);
   if (result.reserveB) lines.push(`🅱 *Res B* — ${dn(result.reserveB.name)}`);
   lines.push("");
@@ -704,7 +757,13 @@ async function handler(request) {
   }
 
   // ── Lineup + tips ──
-  const result         = findOptimalLineup(squad, autoExcluded);
+  const result = findOptimalLineup(squad, autoExcluded);
+  // Override bench backup with variance-based expected gain optimisation
+  if (result.bench) {
+    const { pos: bestBackup, gain: benchGain } = findBestBenchBackup(result.lineup, result.bench, statsMap);
+    result.benchBackup     = bestBackup;
+    result.benchExpectedGain = benchGain;
+  }
   const squiggleTips   = await fetchSquiggleTips(round);
   const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips);
 
