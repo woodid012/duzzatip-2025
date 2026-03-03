@@ -99,8 +99,63 @@ Make sure these are set in the Vercel dashboard:
 - `TELEGRAM_BOT_TOKEN` — bot token for @woodenduck_bot
 - `NOTIFY_SECRET` — any strong random string, used to auth openclaw's requests
 
+---
+
+## DuzzaTip Scoring System (so you can reason about lineup choices)
+
+### The 9-slot roster
+| Slot | Abbr | Covers |
+|------|------|--------|
+| Full Forward | FF | Main slot |
+| Tall Forward | TF | Main slot |
+| Offensive | OFF | Main slot |
+| Midfielder | MID | Main slot |
+| Tackler | TAK | Main slot |
+| Ruck | RUC | Main slot |
+| Bench | — | Backs up 1 specified position (always plays) |
+| Reserve A | ResA | Covers FF/TF/RUC — only activates if that player DNP |
+| Reserve B | ResB | Covers OFF/MID/TAK — only activates if that player DNP |
+
+### Scoring formulas (avg stats per game → fantasy points)
+```
+FF  = Goals × 9 + Behinds × 1
+TF  = Goals × 6 + Marks × 2
+OFF = Goals × 7 + Kicks × 1
+MID = min(Disposals, 30) × 1 + max(0, Disposals−30) × 3
+      (Disposals = Kicks + Handballs; capped at 30, extras worth 3x)
+TAK = Tackles × 4 + Handballs × 1
+RUC = Hitouts + Marks (if total ≤ 18)
+    = Hitouts + regularMarks + bonusMarks × 3 (if total > 18)
+      (regularMarks = max(0, 18 − Hitouts), bonusMarks = remaining marks)
+```
+
+### Optimal lineup algorithm (greedy max-margin)
+The system assigns positions one at a time, always filling the position where
+the best available player has the BIGGEST advantage over the second-best player.
+This ensures star players lock in their most impactful position first.
+
+Example: If your best goal-kicker scores 35 as FF but only 20 as OFF, and
+the next-best FF scorer is 22, the margin is 13. That FF spot is assigned first.
+
+### What makes a good Reserve pick
+- **Reserve A** (FF/TF/RUC backup): pick a player who scores well as a forward or ruck.
+  They only play if the main FF, TF, or RUC player is DNP (did not play / unnamed).
+- **Reserve B** (OFF/MID/TAK backup): pick a high-disposal mid or tackling player.
+  They only play if the main OFF, MID, or TAK player is DNP.
+
+### Player evaluation tips
+- **FF specialists**: high goal kickers (5+ goals avg = ~45 FF pts)
+- **TF specialists**: tall forwards who also mark a lot (7-10 marks + 2-3 goals)
+- **OFF specialists**: forwards with high kick counts but moderate goals
+- **MID monsters**: 30+ disposals; every disposal over 30 is worth 3x
+- **TAK beasts**: 8+ tackles/game is elite; handballs are bonus
+- **RUC dominants**: 40+ hitouts or strong marking rucks with 18+ combined get bonus
+
+---
+
 ## What the user might ask you to do
 - "Trigger my DuzzaTip brief now" → POST to the force URL above
 - "Check if teams are out" → GET the probe URL
 - "What round is it?" → probe response includes round + lockout info
 - "Did my team get saved?" → trigger response includes savedTeam/savedTips
+- "Send me the player stats / position report" → run `node player-stats-report.js` on the local machine (or ask user to run `npm run stats`). This sends a Telegram breakdown of top players per position based on 2025 season data, plus squad rankings.
