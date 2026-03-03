@@ -8,6 +8,12 @@
     "start": "next start",
     "lint": "next lint",
     "draft": "node draft-assistant.js",
+    "weekly": "node weekly-assistant.js",
+    "team": "node weekly-assistant.js --team",
+    "tips": "node weekly-assistant.js --tips",
+    "notify": "node lockout-notify.js",
+    "notify:force": "node lockout-notify.js --force",
+    "notify:dry": "node lockout-notify.js --dry-run",
     "test": "jest"
   },
   "dependencies": {
