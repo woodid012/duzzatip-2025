@@ -20,7 +20,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 const MY_USER   = 4;
 const YEAR_2025 = 2025;
 const MIN_GAMES = 5;
-const MIN_TOG   = 50;
+// Note: timeOnGroundPercentage is not populated in 2025_game_results, so no TOG filter
 
 // ===== Scoring formulas =====
 const SCORE_FNS = {
@@ -101,9 +101,9 @@ async function sendTelegram(text) {
 
 // ===== Build data =====
 async function buildPositionData(db) {
-  // Load 2025 game results
+  // Load 2025 game results (no TOG filter — field not populated in 2025 collection)
   const docs = await db.collection(`${YEAR_2025}_game_results`)
-    .find({ timeOnGroundPercentage: { $gte: MIN_TOG } })
+    .find({})
     .toArray();
 
   // Group by player
@@ -141,7 +141,7 @@ function buildTextReport({ players, squadNames, squadSet }, { posFilter, topN, s
   // Header
   messages.push([
     `🏉 DuzzaTip — 2025 Player Scores by Position`,
-    `📊 ${players.length} players (min ${MIN_GAMES}g, TOG≥${MIN_TOG}%)`,
+    `📊 ${players.length} players analysed (min ${MIN_GAMES}g, 2025 season)`,
     ``,
     `Positions: FF TF OFF MID TAK RUC`,
     `Reserve A covers: FF/TF/RUC`,
@@ -236,6 +236,7 @@ async function handle(request) {
     const json = {
       generatedAt:   new Date().toISOString(),
       dataYear:      YEAR_2025,
+      minGames:      MIN_GAMES,
       totalPlayers:  data.players.length,
       squadSize:     data.squadNames.length,
       squadPlayers:  data.players

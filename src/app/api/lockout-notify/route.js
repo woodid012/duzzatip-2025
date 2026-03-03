@@ -172,6 +172,8 @@ function scoreAllPositions(avg) {
 }
 async function loadPlayerStats(db, names) {
   const stats = {};
+
+  // 1. Try current-year in-season data
   try {
     const docs = await db.collection(`${YEAR}_game_results`).find({ player_name: { $in: names } }).toArray();
     const byPlayer = {};
@@ -180,9 +182,28 @@ async function loadPlayerStats(db, names) {
       byPlayer[d.player_name].push(d);
     }
     for (const [name, games] of Object.entries(byPlayer)) {
-      if (games.length >= 1) stats[name] = { source: `2026(${games.length}g)`, avg: calcAvgStats(games) };
+      if (games.length >= 1) stats[name] = { source: `${YEAR}(${games.length}g)`, avg: calcAvgStats(games) };
     }
   } catch (_) {}
+
+  // 2. Fall back to 2025 data for players with no current-year stats (pre-season or new players)
+  const need2025 = names.filter(n => !stats[n]);
+  if (need2025.length > 0) {
+    try {
+      const docs2025 = await db.collection("2025_game_results")
+        .find({ player_name: { $in: need2025 } })
+        .toArray();
+      const byPlayer = {};
+      for (const d of docs2025) {
+        if (!byPlayer[d.player_name]) byPlayer[d.player_name] = [];
+        byPlayer[d.player_name].push(d);
+      }
+      for (const [name, games] of Object.entries(byPlayer)) {
+        if (games.length >= 3) stats[name] = { source: `2025(${games.length}g)`, avg: calcAvgStats(games) };
+      }
+    } catch (_) {}
+  }
+
   return stats;
 }
 
@@ -453,7 +474,8 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     const pts = p.scores[pos] ? Math.round(p.scores[pos]) : "?";
     if (typeof pts === "number") totalPts += pts;
     const injTag = injSeverity(p.name) >= 1 ? ` ⚠` : "";
-    teamLines.push(`*${POS_SHORT[pos]}* — ${dn(p.name)} _(${pts}pts)_${injTag}`);
+    const srcTag = p.statsSource ? ` _[${p.statsSource}]_` : "";
+    teamLines.push(`*${POS_SHORT[pos]}* — ${dn(p.name)} _(${pts}pts)_${injTag}${srcTag}`);
   }
   lines.push(`📋 *YOUR TEAM* — _~${totalPts}pts projected_`);
   for (const l of teamLines) lines.push(l);
@@ -588,9 +610,9 @@ async function handler(request) {
       name: p.player_name,
       team: p.team,
       scores,
+      statsSource: s?.source || null,
       bestPos: best?.[0] || null,
       bestScore: best?.[1] || 0,
-      // fallback ordering (when scores are missing): preserve squad order
       squadIndex: idx,
     };
   });
