@@ -9,7 +9,7 @@ import { useToast } from '@/app/components/Toast';
 
 export default function TippingPage() {
   // Get data from our app context
-  const { currentRound, roundInfo } = useAppContext();
+  const { currentRound, roundInfo, getSpecificRoundInfo } = useAppContext();
   
   // Get selected user context
   const { selectedUserId } = useUserContext();
@@ -165,6 +165,11 @@ export default function TippingPage() {
     );
   }
 
+  // Use the displayed round's lockout, not the global currentRound's lockout
+  const localRoundInfo = localRound !== undefined
+    ? { ...roundInfo, lockoutTime: getSpecificRoundInfo(localRound)?.lockoutTime ?? roundInfo.lockoutTime }
+    : roundInfo;
+
   return (
     <>
       {/* MOBILE VIEW - Visible only on small screens */}
@@ -173,7 +178,7 @@ export default function TippingPage() {
           currentTeamDisplayName={currentTeamDisplayName}
           isAdmin={isAdmin}
           currentTeamBeingEdited={currentTeamBeingEdited}
-          roundInfo={roundInfo}
+          roundInfo={localRoundInfo}
           isRoundLocked={isRoundLocked}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
@@ -204,7 +209,7 @@ export default function TippingPage() {
           currentTeamDisplayName={currentTeamDisplayName}
           isAdmin={isAdmin}
           currentTeamBeingEdited={currentTeamBeingEdited}
-          roundInfo={roundInfo}
+          roundInfo={localRoundInfo}
           isRoundLocked={isRoundLocked}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}

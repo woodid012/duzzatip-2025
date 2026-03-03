@@ -3,7 +3,7 @@
 export const CURRENT_YEAR = new Date().getFullYear();
 
 // Initial values
-export const LATEST_ROUND = 1;
+export const LATEST_ROUND = 0;
 export const IS_ROUND_ACTIVE = false;
 export const ROUND_LOCKOUT_TIME = null;
 
