@@ -207,6 +207,45 @@ async function loadPlayerStats(db, names) {
   return stats;
 }
 
+// ── 2025 position scores via stats-report ─────────────────────────────────────
+// Maps stats-report short keys → lockout-notify full position names
+const SHORT_TO_FULL = {
+  FF:  "Full Forward",
+  TF:  "Tall Forward",
+  OFF: "Offensive",
+  MID: "Midfielder",
+  TAK: "Tackler",
+  RUC: "Ruck",
+};
+
+// Fetches squad 2025 position scores from the stats-report endpoint.
+// Returns a map keyed by lowercase player name → { scores: {<full pos>: pts}, games }.
+async function fetchSquad2025Scores() {
+  const secret = process.env.NOTIFY_SECRET;
+  if (!secret) return {};
+  try {
+    const url = `https://duzzatip.vercel.app/api/stats-report?token=${encodeURIComponent(secret)}`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!res.ok) return {};
+    const data = await res.json();
+    const byName = {};
+    for (const p of (data.squadPlayers || [])) {
+      const key = (p.name || "").toLowerCase().trim();
+      const scores = {};
+      for (const [short, full] of Object.entries(SHORT_TO_FULL)) {
+        if (p.scores?.[short] != null) scores[full] = p.scores[short];
+      }
+      byName[key] = { scores, games: p.games ?? 0 };
+    }
+    return byName;
+  } catch (_) {
+    return {};
+  }
+}
+
 // ── Optimal lineup ─────────────────────────────────────────────────────────────
 function findOptimalLineup(squadPlayers, excluded = new Set()) {
   // If we have no scores (common early season), fall back to squad order so we still fill all 9 slots.
@@ -616,6 +655,37 @@ async function handler(request) {
       squadIndex: idx,
     };
   });
+
+  // ── Blend 2025 position scores when pre-season or data missing ──
+  // Fetch 2025 scores if preteams=1 OR any squad player has no 2026 stats yet
+  const need2025 = preteams || squad.some(p => Object.keys(p.scores).length === 0);
+  if (need2025) {
+    const scores2025ByName = await fetchSquad2025Scores();
+    const BLEND_MAX = 10; // after 10 2026 games, fully trust 2026 data
+    for (const p of squad) {
+      const entry25 = scores2025ByName[(p.name || "").toLowerCase().trim()];
+      if (!entry25) continue;
+      // How many 2026 games does this player have? (parsed from statsSource "2026(5g)")
+      const games2026 = (() => {
+        const m = (statsMap[p.name]?.source || "").match(/2026\((\d+)g\)/);
+        return m ? parseInt(m[1]) : 0;
+      })();
+      const w = Math.min(games2026, BLEND_MAX) / BLEND_MAX; // 0 = pure 2025, 1 = pure 2026
+      const blended = {};
+      for (const pos of MAIN_POSITIONS) {
+        const s26 = p.scores[pos] ?? 0;
+        const s25 = entry25.scores[pos] ?? 0;
+        blended[pos] = Math.round((w * s26 + (1 - w) * s25) * 10) / 10;
+      }
+      p.scores = blended;
+      p.statsSource = w === 0 ? `2025(${entry25.games}g)`
+        : w >= 1             ? p.statsSource
+        :                      `blend(${games2026}+${entry25.games}g)`;
+      const best = Object.entries(blended).sort((a, b) => b[1] - a[1])[0];
+      p.bestPos   = best?.[0] || null;
+      p.bestScore = best?.[1] || 0;
+    }
+  }
 
   // ── Team selections + bye ──
   const roundFixtures = getRoundFixtures(fixtures, round);
