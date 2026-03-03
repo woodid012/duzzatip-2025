@@ -353,8 +353,9 @@ function buildTipSuggestions(roundFixtures, squiggleTips) {
       confidence: Math.round(Math.max(homePct, 100 - homePct)),
     };
   });
-  const sorted = [...tips].sort((a, b) => b.confidence - a.confidence);
-  if (sorted.length > 0) sorted[0].suggestDC = true;
+  for (const t of tips) {
+    if (t.confidence >= 75) t.suggestDC = true;
+  }
   return tips;
 }
 
@@ -432,58 +433,70 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   const lines = [];
   const hrs  = Math.floor(Math.abs(lockout.minsUntil) / 60);
   const mins = Math.abs(lockout.minsUntil) % 60;
-  const timeStr = lockout.locked ? `LOCKED` : `${lockout.melbTime} (${hrs}h ${mins}m away)`;
+  const timeStr = lockout.locked ? `LOCKED` : `${lockout.melbTime} (${hrs}h ${mins}m)`;
 
   lines.push(`🦆⚡ *DuzzaTip Rd${round} — Pre-Lockout Brief*`);
-  lines.push(`⏰ Lockout: ${timeStr}`);
+  lines.push(`⏰ ${timeStr}`);
   if (dry) lines.push(`_(dry-run — nothing saved)_`);
   lines.push("");
 
-  lines.push(`📋 *YOUR TEAM*`);
+  // ── Team ──
   let totalPts = 0;
+  const teamLines = [];
   for (const pos of MAIN_POSITIONS) {
     const p = result.lineup[pos];
-    if (!p) { lines.push(`  ${POS_SHORT[pos].padEnd(5)} (no player)`); continue; }
+    if (!p) { teamLines.push(`*${POS_SHORT[pos]}* — (no player)`); continue; }
     const pts = p.scores[pos] ? Math.round(p.scores[pos]) : "?";
     if (typeof pts === "number") totalPts += pts;
-    lines.push(`  ${POS_SHORT[pos].padEnd(5)} ${dn(p.name).padEnd(24)} ${pts}pts${injSeverity(p.name) >= 1 ? injNote(p.name) : ""}`);
+    const injTag = injSeverity(p.name) >= 1 ? ` ⚠` : "";
+    teamLines.push(`*${POS_SHORT[pos]}* — ${dn(p.name)} _(${pts}pts)_${injTag}`);
   }
-  if (result.bench)    lines.push(`  BNCH  ${dn(result.bench.name).padEnd(24)} → backs up ${POS_SHORT[result.benchBackup] || "?"}`);
-  if (result.reserveA) lines.push(`  ResA  ${dn(result.reserveA.name).padEnd(24)} (${RESERVE_A_COVERS.map(p => POS_SHORT[p]).join("/")})`);
-  if (result.reserveB) lines.push(`  ResB  ${dn(result.reserveB.name).padEnd(24)} (${RESERVE_B_COVERS.map(p => POS_SHORT[p]).join("/")})`);
-  lines.push(`  📊 Projected: ~${totalPts} pts/round`);
+  lines.push(`📋 *YOUR TEAM* — _~${totalPts}pts projected_`);
+  for (const l of teamLines) lines.push(l);
+  if (result.bench)    lines.push(`🪑 *Bench* — ${dn(result.bench.name)} → ${POS_SHORT[result.benchBackup] || "?"}`);
+  if (result.reserveA) lines.push(`🅰 *Res A* — ${dn(result.reserveA.name)}`);
+  if (result.reserveB) lines.push(`🅱 *Res B* — ${dn(result.reserveB.name)}`);
   lines.push("");
 
+  // ── Alerts ──
   const alerts = [];
-  for (const p of (byePlayers || [])) alerts.push(`🚫 *BYE*: ${dn(p.name)} (${p.team})`);
+  for (const p of (byePlayers || [])) alerts.push(`🚫 *BYE* ${dn(p.name)} (${p.team})`);
   if (selectionStatus) {
     for (const [name, sel] of selectionStatus.entries()) {
       if (autoExcluded.has(name) && !(byePlayers || []).some(p => p.name === name)) {
         const inj = INJURIES[name];
-        alerts.push(`✗ *OUT*: ${dn(name)}${inj ? ` — ${inj.detail}` : ""}`);
+        alerts.push(`✗ *OUT* ${dn(name)}${inj ? ` — ${inj.detail}` : ""}`);
       } else if (sel === "emergency") {
-        alerts.push(`⚡ *EMERG*: ${dn(name)} — named emergency`);
+        alerts.push(`⚡ *EMERG* ${dn(name)} — named emergency`);
       }
     }
     const allInLineup = [...Object.values(result.lineup), result.bench, result.reserveA, result.reserveB].filter(Boolean);
     for (const p of allInLineup) {
       if (injSeverity(p.name) >= 1 && !autoExcluded.has(p.name)) {
-        alerts.push(`⚠ *DOUBT*: ${dn(p.name)} — ${INJURIES[p.name].detail}`);
+        alerts.push(`⚠ *DOUBT* ${dn(p.name)} — ${INJURIES[p.name].detail}`);
       }
     }
   }
   if (alerts.length > 0) {
     lines.push(`⚠️ *ALERTS*`);
-    for (const a of alerts) lines.push(`  ${a}`);
+    for (const a of alerts) lines.push(a);
     lines.push("");
   }
 
+  // ── Tips ──
   if (tipSuggestions?.length) {
     lines.push(`🏈 *TIPS — Round ${round}*`);
-    for (const t of tipSuggestions) {
-      lines.push(`  ${t.favourite}  ${t.confidence}%${t.suggestDC ? " 💀DC" : ""}  — ${t.homeTeam} v ${t.awayTeam}  (${formatGameTime(t.dateUtc)})`);
-    }
     lines.push("");
+    for (const t of tipSuggestions) {
+      const dc = t.suggestDC ? " 💀 *DC*" : "";
+      const home = t.favourite === t.homeTeam;
+      const matchup = home
+        ? `*${t.homeTeam}* v ${t.awayTeam}`
+        : `${t.homeTeam} v *${t.awayTeam}*`;
+      lines.push(`${matchup}  ${t.confidence}%${dc}`);
+      lines.push(`_${formatGameTime(t.dateUtc)}_`);
+      lines.push("");
+    }
   }
 
   lines.push(dry ? `_(dry-run: nothing saved)_` :

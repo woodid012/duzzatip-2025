@@ -132,6 +132,9 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
           const pastFixtures = sortedFixtures.filter(fixture => fixture.DateUtc <= now);
           if (pastFixtures.length > 0) {
             currentRound = Math.max(...pastFixtures.map(f => f.RoundNumber));
+          } else {
+            // No past fixtures at all — pre-season, show the first upcoming round
+            currentRound = nextRound;
           }
         }
       }

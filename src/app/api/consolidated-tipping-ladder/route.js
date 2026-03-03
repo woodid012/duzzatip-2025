@@ -72,7 +72,7 @@ export const GET = createApiHandler(async (request, db) => {
       let netDCScore = 0;
       
       // Process each round
-      for (let round = 1; round <= upToRound; round++) {
+      for (let round = 0; round <= upToRound; round++) {
         const roundTips = userTips[round] || [];
         
         // Get completed matches for this round
