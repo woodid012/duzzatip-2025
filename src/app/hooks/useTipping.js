@@ -54,36 +54,22 @@ export default function useTipping(initialUserId = '') {
     }
   }, [initialUserId, selectedUserId]);
 
-  // Determine if round is locked for editing
+  // Tips are always submittable — only truly historical rounds (past rounds) are locked.
+  // A round being "time-locked" (game started) does NOT block tip submission.
+  // Use isLateSubmission to show a warning banner instead.
   const isRoundLocked = (round) => {
-    // Admin can always edit any round
-    if (selectedUserId === 'admin') {
-      return false;
-    }
-    
-    // Any round before the current round is always locked (historical round)
-    if (round < currentRound) {
-      return true;
-    }
-    
-    // If we're viewing the current global round and it's locked
-    if (roundInfo.isLocked && round === currentRound) {
-      return true;
-    }
-    
-    // If this is a future round, check if its lockout time has passed
-    if (round > currentRound && roundInfo.nextRoundInfo) {
-      const now = new Date();
-      const lockoutDate = new Date(roundInfo.nextRoundInfo.lockoutDate);
-      
-      // If the future round's lockout time has passed
-      if (now > lockoutDate) {
-        return true;
-      }
-    }
-    
-    // Otherwise this specific round is not locked
+    if (selectedUserId === 'admin') return false;
+    // Only lock rounds that have fully passed (previous rounds)
+    if (round < currentRound) return true;
     return false;
+  }
+
+  // True when the round's lockout time has passed but it's still the current round.
+  // Used to show a "late submission" warning rather than blocking editing.
+  const isLateSubmission = (round) => {
+    if (selectedUserId === 'admin') return false;
+    if (round !== currentRound) return false;
+    return !!roundInfo.isLocked;
   }
 
   // Load fixtures for the selected local round
@@ -340,6 +326,7 @@ export default function useTipping(initialUserId = '') {
     lastEditedTime,
     localRound,
     isRoundLocked: isRoundLocked(localRound),
+    isLateSubmission: isLateSubmission(localRound),
     isPastYear,
 
     // Display helpers

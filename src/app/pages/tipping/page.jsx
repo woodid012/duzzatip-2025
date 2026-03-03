@@ -44,6 +44,7 @@ export default function TippingPage() {
     lastEditedTime,
     localRound,
     isRoundLocked,
+    isLateSubmission,
     isPastYear,
     formatRoundName,
     handleRoundChange,
@@ -271,28 +272,23 @@ function MobileTippingView({
         {/* Round Info */}
         <div className="text-xs space-y-1 mb-3">
           <div>
-            {isRoundLocked && !isAdmin ? (
-              <>
-                <span className="text-red-600 font-medium">
-                  {formatRoundName(localRound)} is locked 
-                </span>
-              </>
-            ) : (
-              <span className="text-green-600 font-medium">
-                Showing {formatRoundName(localRound)}
-                {isAdmin && isRoundLocked && (
-                  <span className="ml-1 text-orange-500">(Admin Override)</span>
-                )}
-              </span>
-            )}
+            <span className={isLateSubmission && !isAdmin ? "text-orange-600 font-medium" : "text-green-600 font-medium"}>
+              Showing {formatRoundName(localRound)}
+              {isLateSubmission && !isAdmin && (
+                <span className="ml-1">⚠️ Late submission</span>
+              )}
+              {isAdmin && isRoundLocked && (
+                <span className="ml-1 text-orange-500">(Admin Override)</span>
+              )}
+            </span>
           </div>
           
           {roundInfo.lockoutTime && (
             <div>
               <span className="text-gray-600">Lockout:</span>
               <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
-              {isRoundLocked && !isAdmin && (
-                <span className="text-red-600 ml-1">(Locked)</span>
+              {isLateSubmission && !isAdmin && (
+                <span className="text-orange-500 ml-1">(Late)</span>
               )}
             </div>
           )}
@@ -350,7 +346,7 @@ function MobileTippingView({
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
                 }`}
               >
-                {isRoundLocked && !isAdmin ? 'Locked' : 'Edit Tips'}
+                {isLateSubmission && !isAdmin ? 'Edit Tips (Late)' : 'Edit Tips'}
               </button>
             )}
           </div>
@@ -639,7 +635,7 @@ function DesktopTippingView({
                     : 'bg-blue-500 hover:bg-blue-600'
                 } text-white`}
               >
-                {isRoundLocked && !isAdmin ? 'Locked' : 'Edit Tips'}
+                {isLateSubmission && !isAdmin ? 'Edit Tips (Late)' : 'Edit Tips'}
               </button>
             )
           )}

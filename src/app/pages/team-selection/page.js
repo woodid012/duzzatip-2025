@@ -26,6 +26,7 @@ export default function TeamSelectionPage() {
     error,
     localRound,
     isRoundLocked,
+    isForFunOnly,
     isPastYear,
     handleRoundChange,
     handlePlayerChange,
@@ -334,24 +335,17 @@ export default function TeamSelectionPage() {
           {/* Show which round we're displaying with improved formatting - matching tipping page style */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
-              {isRoundLocked && !isAdmin ? (
-                <>
-                  <span className="text-red-600">
-                    {formatRoundName(currentRound)} is locked 
-                  </span>
-                  <span className="text-gray-600 ml-1">
-                    - Showing {formatRoundName(localRound)}
-                  </span>
-                </>
-              ) : (
-                <span className="text-green-600">
-                  Showing {formatRoundName(localRound)}
+              <span className={isForFunOnly && !isAdmin ? "text-orange-600" : "text-green-600"}>
+                Showing {formatRoundName(localRound)}
+              </span>
+              {isForFunOnly && !isAdmin && (
+                <span className="ml-2 text-orange-500">
+                  🎉 Round locked — for fun only
                 </span>
               )}
-              
-              {isAdmin && isRoundLocked && (
+              {isAdmin && isForFunOnly && (
                 <span className="ml-2 text-orange-500 font-medium">
-                  (Normally locked, admin override enabled)
+                  (Normally for-fun-only, admin override)
                 </span>
               )}
             </div>

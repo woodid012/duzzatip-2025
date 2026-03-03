@@ -84,32 +84,19 @@ export default function useTeamSelection() {
     }
   }, [selectedYear]);
 
-  // Determine if round is locked for editing
+  // Determine if round is locked for editing.
+  // Only truly historical rounds (before currentRound) are hard-locked.
+  // Current round after lockout = "for fun only" (use isForFunOnly), not blocked.
   const isRoundLocked = useCallback((roundNumber) => {
-    // If the round is less than the current round, it's always locked (historical round)
-    if (roundNumber < currentRound) {
-      return true;
-    }
-    
-    // If this is the current round and it's locked by time
-    if (roundInfo.isLocked && roundNumber === currentRound) {
-      return true;
-    }
-    
-    // Get lockout time for the specific round if available
-    if (roundInfo.nextRoundLockoutDate && roundNumber > currentRound) {
-      const now = new Date();
-      const lockoutDate = new Date(roundInfo.nextRoundLockoutDate);
-      
-      // If the future round's lockout time has passed
-      if (now > lockoutDate) {
-        return true;
-      }
-    }
-    
-    // Otherwise this specific round is not locked
+    if (roundNumber < currentRound) return true;
     return false;
-  }, [roundInfo.isLocked, roundInfo.nextRoundLockoutDate, currentRound]);
+  }, [currentRound]);
+
+  // True when the game has started but it's still the current round.
+  // Team selection is allowed but flagged as "for fun only — won't affect scoring".
+  const isForFunOnly = useCallback((roundNumber) => {
+    return roundNumber === currentRound && !!roundInfo.isLocked;
+  }, [roundInfo.isLocked, currentRound]);
 
   // Load data when local round changes
   useEffect(() => {
@@ -442,6 +429,7 @@ const saveTeamSelections = useCallback(async () => {
     error: errorLocal,
     localRound,
     isRoundLocked: isRoundLocked(localRound),
+    isForFunOnly: isForFunOnly(localRound),
     isPastYear,
 
     // Actions
