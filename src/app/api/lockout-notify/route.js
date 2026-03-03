@@ -15,6 +15,10 @@
  *   ?probe=1    — just check if teams are announced (no compute, no send)
  */
 
+// This endpoint is time-sensitive; disable caching.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { connectToDatabase } from "@/app/lib/mongodb";
 import { INJURIES } from "@/app/lib/injuries_2026";
 import fs from "fs";
