@@ -8,6 +8,7 @@ export default function useTeamSelection() {
   const {
     currentRound,
     roundInfo,
+    fixtures,
     selectedYear,
     isPastYear,
   } = useAppContext();
@@ -85,12 +86,17 @@ export default function useTeamSelection() {
   }, [selectedYear]);
 
   // Determine if round is locked for editing.
-  // Only truly historical rounds (before currentRound) are hard-locked.
-  // Current round after lockout = "for fun only" (use isForFunOnly), not blocked.
+  // Only truly historical rounds (before currentRound) are hard-locked,
+  // AND only if the round's first game has actually started (guards against
+  // currentRound being prematurely advanced before fixtures begin).
   const isRoundLocked = useCallback((roundNumber) => {
-    if (roundNumber < currentRound) return true;
-    return false;
-  }, [currentRound]);
+    if (roundNumber >= currentRound) return false;
+    // Verify the round's first game has actually occurred
+    const roundFixtures = fixtures.filter(f => f.RoundNumber === roundNumber);
+    if (roundFixtures.length === 0) return false;
+    const firstGame = roundFixtures.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
+    return new Date() >= new Date(firstGame.DateUtc);
+  }, [currentRound, fixtures]);
 
   // True when the game has started but it's still the current round.
   // Team selection is allowed but flagged as "for fun only — won't affect scoring".

@@ -57,11 +57,15 @@ export default function useTipping(initialUserId = '') {
   // Tips are always submittable — only truly historical rounds (past rounds) are locked.
   // A round being "time-locked" (game started) does NOT block tip submission.
   // Use isLateSubmission to show a warning banner instead.
+  // Also guards against currentRound being prematurely advanced (e.g. LATEST_ROUND fallback).
   const isRoundLocked = (round) => {
     if (selectedUserId === 'admin') return false;
-    // Only lock rounds that have fully passed (previous rounds)
-    if (round < currentRound) return true;
-    return false;
+    if (round >= currentRound) return false;
+    // Verify the round's first game has actually occurred before locking
+    const roundFixs = fixtures.filter(f => f.RoundNumber === round);
+    if (roundFixs.length === 0) return false;
+    const firstGame = roundFixs.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
+    return new Date() >= new Date(firstGame.DateUtc);
   }
 
   // True when the round's lockout time has passed but it's still the current round.
