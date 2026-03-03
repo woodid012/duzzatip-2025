@@ -79,7 +79,7 @@ function loadFixtures() {
 }
 function getCurrentRound(fixtures) {
   const now = new Date();
-  const upcoming = fixtures.filter(f => f.RoundNumber > 0 && new Date(f.DateUtc) > now);
+  const upcoming = fixtures.filter(f => f.RoundNumber >= 0 && new Date(f.DateUtc) > now);
   if (!upcoming.length) return Math.max(...fixtures.map(f => f.RoundNumber));
   return upcoming[0].RoundNumber;
 }
@@ -498,6 +498,9 @@ async function handler(request) {
   const force    = searchParams.get("force") === "1";
   const dry      = searchParams.get("dry")   === "1";
   const probe    = searchParams.get("probe") === "1";
+  // preteams=1: allow lineup generation before Footywire team selections are announced.
+  // Still excludes bye players and long-term injuries (MONTHS/SEASON), but does NOT exclude "out" based on team selection.
+  const preteams = searchParams.get("preteams") === "1";
   const roundArg = searchParams.get("round") ? parseInt(searchParams.get("round")) : null;
 
   const fixtures = loadFixtures();
@@ -547,12 +550,13 @@ async function handler(request) {
 
   const { selections: fwSelections, teamsFound } = await fetchAFLTeamSelections();
   const selectionStatus = fwSelections ? buildSelectionStatus(squad, fwSelections) : null;
+  const effectiveSelectionStatus = preteams ? null : selectionStatus;
 
   // ── Auto-exclude ──
   const autoExcluded = new Set();
   for (const p of squad) {
     if (!teamIsPlaying(p.team, playingTeams)) autoExcluded.add(p.name);
-    else if (injSeverity(p.name) >= 3 || selectionStatus?.get(p.name) === "out") autoExcluded.add(p.name);
+    else if (injSeverity(p.name) >= 3 || effectiveSelectionStatus?.get(p.name) === "out") autoExcluded.add(p.name);
   }
 
   // ── Lineup + tips ──
@@ -572,7 +576,7 @@ async function handler(request) {
   }
 
   // ── Send ──
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
