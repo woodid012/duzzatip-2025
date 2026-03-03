@@ -101,18 +101,23 @@ async function sendTelegram(text) {
 
 // ===== Build data =====
 async function buildPositionData(db) {
-  // Load 2025 game results (no TOG filter — field not populated in 2025 collection)
+  const debug = {};
+
+  // Load 2025 game results — projection to only fetch needed fields (reduces data size)
   const docs = await db.collection(`${YEAR_2025}_game_results`)
-    .find({})
+    .find({}, { projection: { player_name: 1, team_name: 1, kicks: 1, handballs: 1, marks: 1, tackles: 1, hitouts: 1, goals: 1, behinds: 1, _id: 0 } })
     .toArray();
+  debug.rawDocs = docs.length;
 
   // Group by player
   const byPlayer = {};
   for (const d of docs) {
     const name = d.player_name;
+    if (!name) continue;
     if (!byPlayer[name]) byPlayer[name] = { name, team: d.team_name, games: [] };
     byPlayer[name].games.push(d);
   }
+  debug.uniquePlayers = Object.keys(byPlayer).length;
 
   // Build scored player list
   const players = [];
@@ -122,6 +127,7 @@ async function buildPositionData(db) {
     const scores = scoreAll(avg);
     players.push({ name: data.name, team: data.team, games: data.games.length, scores, best: bestPos(scores) });
   }
+  debug.qualifiedPlayers = players.length;
 
   // Load squad
   const squadDocs = await db.collection('2026_squads')
@@ -129,8 +135,9 @@ async function buildPositionData(db) {
     .toArray();
   const squadNames = squadDocs.map(d => d.player_name).filter(Boolean);
   const squadSet   = new Set(squadNames.map(n => n.toLowerCase()));
+  debug.squadDocs = squadDocs.length;
 
-  return { players, squadNames, squadSet };
+  return { players, squadNames, squadSet, debug };
 }
 
 // ===== Format text report =====
@@ -283,7 +290,7 @@ async function handle(request) {
       });
     }
 
-    return NextResponse.json({ ...json, sent });
+    return NextResponse.json({ ...json, sent, debug: data.debug });
   } catch (err) {
     console.error('stats-report error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
