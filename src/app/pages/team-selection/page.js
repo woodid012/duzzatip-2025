@@ -12,7 +12,7 @@ import SearchableSelect from '@/app/components/SearchableSelect';
 
 export default function TeamSelectionPage() {
   // Get just the current round from the app context for initial display
-  const { currentRound, roundInfo } = useAppContext();
+  const { currentRound, roundInfo, getSpecificRoundInfo } = useAppContext();
   
   // Get selected user context
   const { selectedUserId } = useUserContext();
@@ -350,16 +350,20 @@ export default function TeamSelectionPage() {
               )}
             </div>
             
-            {/* Lockout time with formatting that matches tipping page */}
-            {roundInfo && roundInfo.lockoutTime && (
-              <div className="text-sm">
-                <span className="text-gray-600">Lockout:</span>
-                <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
-                {isRoundLocked && !isAdmin && (
-                  <span className="text-red-600 ml-1">(Locked)</span>
-                )}
-              </div>
-            )}
+            {/* Lockout time — use local round's info so it always shows the displayed round's lockout */}
+            {(() => {
+              const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
+              if (!localInfo || !localInfo.lockoutTime) return null;
+              return (
+                <div className="text-sm">
+                  <span className="text-gray-600">Lockout:</span>
+                  <span className="font-medium text-black ml-1">{localInfo.lockoutTime}</span>
+                  {isRoundLocked && localInfo.isLocked && !isAdmin && (
+                    <span className="text-red-600 ml-1">(Locked)</span>
+                  )}
+                </div>
+              );
+            })()}
             
             {/* Last update info, matching tipping page style exactly */}
             {lastUpdatedTime && (
