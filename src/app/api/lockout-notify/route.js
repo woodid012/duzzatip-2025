@@ -758,11 +758,40 @@ async function handler(request) {
 
   // ── Lineup + tips ──
   const result = findOptimalLineup(squad, autoExcluded);
-  // Override bench backup with variance-based expected gain optimisation
-  if (result.bench) {
-    const { pos: bestBackup, gain: benchGain } = findBestBenchBackup(result.lineup, result.bench, statsMap);
-    result.benchBackup     = bestBackup;
-    result.benchExpectedGain = benchGain;
+
+  // ── Variance-based bench player + backup selection ──
+  // Re-pick bench from all remaining eligible players (not just the one findOptimalLineup chose).
+  // For each candidate × each backup position, compute E[max(bench,main)−main].
+  // Pick the (player, position) pair with the highest expected gain, then re-pick ResA/ResB.
+  {
+    const mainAssigned = new Set(Object.values(result.lineup).filter(Boolean).map(p => p.name));
+    const remainingPool = squad.filter(p => !autoExcluded.has(p.name) && !mainAssigned.has(p.name));
+
+    let bestBench = null, bestBackup = null, bestGain = -Infinity;
+    for (const candidate of remainingPool) {
+      const candidateGames = statsMap[candidate.name]?.games || [];
+      for (const pos of MAIN_POSITIONS) {
+        const mainPlayer = result.lineup[pos];
+        if (!mainPlayer) continue;
+        const mainGames = statsMap[mainPlayer.name]?.games || [];
+        const gain = expectedBenchGain(candidateGames, mainGames, pos);
+        if (gain > bestGain) { bestGain = gain; bestBench = candidate; bestBackup = pos; }
+      }
+    }
+
+    if (bestBench) {
+      result.bench            = bestBench;
+      result.benchBackup      = bestBackup;
+      result.benchExpectedGain = Math.round(bestGain * 10) / 10;
+
+      // Re-pick ResA / ResB from players not used as bench
+      const afterBench = remainingPool.filter(p => p.name !== bestBench.name);
+      const resAScore  = p => Math.max(...RESERVE_A_COVERS.map(pos => p.scores[pos] || 0));
+      const resBScore  = p => Math.max(...RESERVE_B_COVERS.map(pos => p.scores[pos] || 0));
+      result.reserveA = [...afterBench].sort((a, b) => resAScore(b) - resAScore(a))[0] || null;
+      const afterResA  = afterBench.filter(p => p.name !== result.reserveA?.name);
+      result.reserveB = [...afterResA].sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
+    }
   }
   const squiggleTips   = await fetchSquiggleTips(round);
   const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips);
