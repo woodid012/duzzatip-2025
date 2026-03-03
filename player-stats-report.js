@@ -27,7 +27,7 @@ const TELEGRAM_CHAT_ID = "8600335192";
 
 const args = process.argv.slice(2);
 const SEND       = !args.includes("--no-send");
-const SQUAD_ONLY = args.includes("--squad-only");
+const SQUAD_ONLY = !args.includes("--league"); // default: squad only; --league shows all players
 
 // ===== Scoring formulas =====
 const SCORE_FNS = {

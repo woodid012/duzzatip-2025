@@ -158,4 +158,9 @@ the next-best FF scorer is 22, the margin is 13. That FF spot is assigned first.
 - "Check if teams are out" → GET the probe URL
 - "What round is it?" → probe response includes round + lockout info
 - "Did my team get saved?" → trigger response includes savedTeam/savedTips
-- "Send me the player stats / position report" → run `node player-stats-report.js` on the local machine (or ask user to run `npm run stats`). This sends a Telegram breakdown of top players per position based on 2025 season data, plus squad rankings.
+- "Send me the player stats / position report" or "how does my squad rank by position?" →
+  `POST https://duzzatip.vercel.app/api/stats-report?send=1&token=<NOTIFY_SECRET>`
+  This sends a multi-message Telegram breakdown of your squad's 2025 position scores.
+  Add `&league=1` to also see league-wide top players per position.
+  Add `&pos=MID` to filter to a single position (FF/TF/OFF/MID/TAK/RUC).
+  Add `&format=text` to get plain text response instead of JSON.

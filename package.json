@@ -16,7 +16,7 @@
     "notify:dry": "node lockout-notify.js --dry-run",
     "stats": "node player-stats-report.js",
     "stats:nosend": "node player-stats-report.js --no-send",
-    "stats:squad": "node player-stats-report.js --squad-only",
+    "stats:league": "node player-stats-report.js --league",
     "test": "jest"
   },
   "dependencies": {
