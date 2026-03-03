@@ -175,6 +175,7 @@ export default function TippingPage() {
           currentTeamBeingEdited={currentTeamBeingEdited}
           roundInfo={roundInfo}
           isRoundLocked={isRoundLocked}
+          isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
           localRound={localRound}
           formatRoundName={formatRoundName}
@@ -205,6 +206,7 @@ export default function TippingPage() {
           currentTeamBeingEdited={currentTeamBeingEdited}
           roundInfo={roundInfo}
           isRoundLocked={isRoundLocked}
+          isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
           localRound={localRound}
           formatRoundName={formatRoundName}
@@ -237,6 +239,7 @@ function MobileTippingView({
   currentTeamBeingEdited,
   roundInfo,
   isRoundLocked,
+  isLateSubmission,
   isPastYear,
   localRound,
   formatRoundName,
@@ -517,6 +520,7 @@ function DesktopTippingView({
   currentTeamBeingEdited,
   roundInfo,
   isRoundLocked,
+  isLateSubmission,
   isPastYear,
   localRound,
   formatRoundName,
@@ -552,35 +556,25 @@ function DesktopTippingView({
           {/* Show round info */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
-              {isRoundLocked && !isAdmin ? (
-                <>
-                  <span className="text-red-600">
-                    {formatRoundName(localRound)} is locked 
-                  </span>
-                  <span className="text-gray-600 ml-1">
-                    - Showing {formatRoundName(localRound)}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-green-600">
-                    Showing {formatRoundName(localRound)}
-                  </span>
-                  {isAdmin && isRoundLocked && (
-                    <span className="ml-2 text-orange-500 font-medium">
-                      (Normally locked, admin override enabled)
-                    </span>
-                  )}
-                </>
+              <span className={isLateSubmission && !isAdmin ? "text-orange-600" : "text-green-600"}>
+                Showing {formatRoundName(localRound)}
+              </span>
+              {isLateSubmission && !isAdmin && (
+                <span className="ml-2 text-orange-500">⚠️ Late submission</span>
+              )}
+              {isAdmin && isRoundLocked && (
+                <span className="ml-2 text-orange-500 font-medium">
+                  (Admin Override)
+                </span>
               )}
             </div>
-            
+
             {roundInfo.lockoutTime && (
               <div className="text-sm">
                 <span className="text-gray-600">Lockout:</span>
                 <span className="font-medium text-black ml-1">{roundInfo.lockoutTime}</span>
-                {isRoundLocked && !isAdmin && (
-                  <span className="text-red-600 ml-1">(Locked)</span>
+                {isLateSubmission && !isAdmin && (
+                  <span className="text-orange-500 ml-1">(Late)</span>
                 )}
               </div>
             )}
