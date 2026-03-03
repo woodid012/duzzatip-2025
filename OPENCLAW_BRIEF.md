@@ -61,6 +61,15 @@ or as a query param: `?token=<NOTIFY_SECRET>`
 }
 ```
 
+### Pre-teams dry run (before Footywire selections are announced)
+```
+GET /api/lockout-notify?dry=1&force=1&preteams=1&round=0&token=<NOTIFY_SECRET>
+```
+- `preteams=1` — skips Footywire selection check; still excludes bye players and MONTHS/SEASON injuries
+- `round=0` — Opening Round (use the actual round number for later rounds)
+- Returns a `preview` field with the full Telegram message text
+- Nothing is saved or sent when `dry=1`
+
 ## Your monitoring job
 
 ### When to poll
@@ -89,6 +98,8 @@ POST https://duzzatip.vercel.app/api/lockout-notify?force=1&token=<NOTIFY_SECRET
 A Telegram message from @woodenduck_bot with:
 - Round + lockout countdown
 - 9-slot team (FF/TF/OFF/MID/TAK/RUC/Bench/Res A/Res B) + projected pts
+- Each player tagged with data source: `[2025(23g)]`, `[2026(5g)]`, or `[blend(5+23g)]`
+- Bench line shows expected pts gain: `🪑 Bench — Bontempelli, M → MID (+7.4pts exp)`
 - Alerts: 🚫 bye players, ✗ not named, ⚡ emergencies, ⚠ injury doubts
 - All round tips with win% and 💀DC suggestion
 - "✅ Team + tips saved" confirmation
@@ -137,6 +148,31 @@ This ensures star players lock in their most impactful position first.
 Example: If your best goal-kicker scores 35 as FF but only 20 as OFF, and
 the next-best FF scorer is 22, the margin is 13. That FF spot is assigned first.
 
+### Bench selection algorithm (variance-based expected gain)
+After the 6 main positions are filled, the bench player AND their backup position
+are chosen together by maximising:
+
+```
+E[max(bench_score, main_score) − main_score]
+```
+
+computed over all game-pair combinations from historical data. This means:
+- A volatile MID (boom-bust) is a better backup target than a consistent RUC
+- A bench player who outscores the main on bad days is worth more than a raw high scorer
+- The `+X.Xpts exp` shown in Telegram is the average expected bonus per round
+
+Reserve A and Reserve B are re-picked from what remains after bench is chosen.
+
+### 2025 → 2026 score blending
+Before the 2026 season has enough data, player scores are blended:
+```
+w = min(games_played_2026, 10) / 10
+blended_score = w × score_2026 + (1−w) × score_2025
+```
+- **Opening Round**: w=0 → pure 2025 role-fit scores
+- **After 10 rounds**: w=1 → fully trusts 2026 data
+- Source shown per player: `[2025(23g)]`, `[blend(3+23g)]`, `[2026(10g)]`
+
 ### What makes a good Reserve pick
 - **Reserve A** (FF/TF/RUC backup): pick a player who scores well as a forward or ruck.
   They only play if the main FF, TF, or RUC player is DNP (did not play / unnamed).
@@ -158,6 +194,10 @@ the next-best FF scorer is 22, the margin is 13. That FF spot is assigned first.
 - "Check if teams are out" → GET the probe URL
 - "What round is it?" → probe response includes round + lockout info
 - "Did my team get saved?" → trigger response includes savedTeam/savedTips
+- "Give me a pre-teams lineup preview" →
+  `GET /api/lockout-notify?dry=1&force=1&preteams=1&round=<N>&token=<NOTIFY_SECRET>`
+  Returns JSON with `preview` field containing the full lineup based on 2025 role-fit scores.
+  Nothing is saved or sent to Telegram.
 - "Send me the player stats / position report" or "how does my squad rank by position?" →
   `POST https://duzzatip.vercel.app/api/stats-report?send=1&token=<NOTIFY_SECRET>`
   This sends a multi-message Telegram breakdown of your squad's 2025 position scores.
