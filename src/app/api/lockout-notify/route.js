@@ -184,30 +184,53 @@ async function loadPlayerStats(db, names) {
 
 // ── Optimal lineup ─────────────────────────────────────────────────────────────
 function findOptimalLineup(squadPlayers, excluded = new Set()) {
-  const pool = squadPlayers.filter(p => !excluded.has(p.name) && Object.keys(p.scores).length > 0);
+  // If we have no scores (common early season), fall back to squad order so we still fill all 9 slots.
+  const eligible = squadPlayers.filter(p => !excluded.has(p.name));
+  const scoredPool = eligible.filter(p => Object.keys(p.scores).length > 0);
+  const useFallback = scoredPool.length === 0;
+
+  const pool = useFallback
+    ? eligible
+    : scoredPool;
+
   const assigned = {}, used = new Set(), remaining = [...MAIN_POSITIONS];
 
   while (remaining.length > 0) {
     let bestPos = null, bestPlayer = null, bestMargin = -Infinity;
-    for (const pos of remaining) {
-      const candidates = pool.filter(p => !used.has(p.name)).sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0));
-      if (!candidates.length) continue;
-      const margin = (candidates[0].scores[pos] || 0) - (candidates[1]?.scores[pos] || 0);
-      if (margin > bestMargin) { bestMargin = margin; bestPos = pos; bestPlayer = candidates[0]; }
+
+    if (useFallback) {
+      // Just fill in order across positions.
+      bestPos = remaining[0];
+      bestPlayer = pool.find(p => !used.has(p.name)) || null;
+      if (!bestPlayer) break;
+    } else {
+      for (const pos of remaining) {
+        const candidates = pool
+          .filter(p => !used.has(p.name))
+          .sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0));
+        if (!candidates.length) continue;
+        const margin = (candidates[0].scores[pos] || 0) - (candidates[1]?.scores[pos] || 0);
+        if (margin > bestMargin) { bestMargin = margin; bestPos = pos; bestPlayer = candidates[0]; }
+      }
+      if (!bestPos) break;
     }
-    if (!bestPos) break;
+
     assigned[bestPos] = bestPlayer; used.add(bestPlayer.name);
     remaining.splice(remaining.indexOf(bestPos), 1);
   }
   for (const pos of MAIN_POSITIONS) {
     if (!assigned[pos]) {
-      const best = pool.filter(p => !used.has(p.name)).sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0))[0];
+      const best = useFallback
+        ? pool.find(p => !used.has(p.name))
+        : pool.filter(p => !used.has(p.name)).sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0))[0];
       if (best) { assigned[pos] = best; used.add(best.name); }
     }
   }
 
-  const bench = pool.filter(p => !used.has(p.name))
-    .sort((a, b) => Math.max(...Object.values(b.scores)) - Math.max(...Object.values(a.scores)))[0] || null;
+  const bench = useFallback
+    ? (pool.find(p => !used.has(p.name)) || null)
+    : (pool.filter(p => !used.has(p.name))
+        .sort((a, b) => Math.max(...Object.values(b.scores)) - Math.max(...Object.values(a.scores)))[0] || null);
   if (bench) used.add(bench.name);
 
   let benchBackup = MAIN_POSITIONS[0];
@@ -219,11 +242,15 @@ function findOptimalLineup(squadPlayers, excluded = new Set()) {
   }
 
   const resAScore = p => Math.max(...RESERVE_A_COVERS.map(pos => p.scores[pos] || 0));
-  const resA = pool.filter(p => !used.has(p.name)).sort((a, b) => resAScore(b) - resAScore(a))[0] || null;
+  const resA = useFallback
+    ? (pool.find(p => !used.has(p.name)) || null)
+    : (pool.filter(p => !used.has(p.name)).sort((a, b) => resAScore(b) - resAScore(a))[0] || null);
   if (resA) used.add(resA.name);
 
   const resBScore = p => Math.max(...RESERVE_B_COVERS.map(pos => p.scores[pos] || 0));
-  const resB = pool.filter(p => !used.has(p.name)).sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
+  const resB = useFallback
+    ? (pool.find(p => !used.has(p.name)) || null)
+    : (pool.filter(p => !used.has(p.name)).sort((a, b) => resBScore(b) - resBScore(a))[0] || null);
 
   return { lineup: assigned, bench, benchBackup, reserveA: resA, reserveB: resB };
 }
@@ -536,11 +563,19 @@ async function handler(request) {
 
   // ── Stats ──
   const statsMap = await loadPlayerStats(db, squadDocs.map(p => p.player_name));
-  const squad = squadDocs.map(p => {
+  const squad = squadDocs.map((p, idx) => {
     const s = statsMap[p.player_name];
     const scores = s ? scoreAllPositions(s.avg) : {};
     const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-    return { name: p.player_name, team: p.team, scores, bestPos: best?.[0] || null, bestScore: best?.[1] || 0 };
+    return {
+      name: p.player_name,
+      team: p.team,
+      scores,
+      bestPos: best?.[0] || null,
+      bestScore: best?.[1] || 0,
+      // fallback ordering (when scores are missing): preserve squad order
+      squadIndex: idx,
+    };
   });
 
   // ── Team selections + bye ──
