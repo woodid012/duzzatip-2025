@@ -8,6 +8,7 @@ function UpdateStatsPage() {
   const { selectedUserId } = useUserContext();
   const { currentRound } = useAppContext();
   const [round, setRound] = useState(currentRound);
+  const [source, setSource] = useState(''); // '' = auto, 'afl', 'dfs'
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState('idle'); // 'idle', 'loading', 'success', 'error'
@@ -20,6 +21,38 @@ function UpdateStatsPage() {
     }
   }, [currentRound]);
 
+  // Auto-refresh stats on page visit (10-min cooldown via ifStale)
+  const [autoRefreshDone, setAutoRefreshDone] = useState(false);
+  useEffect(() => {
+    if (!currentRound || autoRefreshDone) return;
+    setAutoRefreshDone(true);
+
+    (async () => {
+      try {
+        setStatus('loading');
+        setMessage(`Checking for fresh Round ${currentRound} stats...`);
+        const res = await fetch(`/api/update-round-stats?round=${currentRound}&ifStale=1`);
+        const data = await res.json();
+
+        if (data.skipped) {
+          setStatus('success');
+          setMessage(`Round ${currentRound} stats already fresh (updated ${data.ageMinutes}m ago)`);
+        } else if (res.ok) {
+          setStatus('success');
+          setMessage(`Round ${currentRound} auto-refreshed from ${(data.source || '?').toUpperCase()}`);
+          setResult(data.stats || null);
+        } else {
+          setStatus('error');
+          setMessage(`Auto-refresh failed: ${data.error || 'Unknown error'}`);
+        }
+      } catch {
+        // Silent fail for auto-refresh — user can still click the button
+        setStatus('idle');
+        setMessage('');
+      }
+    })();
+  }, [currentRound, autoRefreshDone]);
+
   const handleUpdateStats = async () => {
     if (!round) {
       setMessage('Please select a round');
@@ -30,14 +63,17 @@ function UpdateStatsPage() {
     try {
       setLoading(true);
       setStatus('loading');
-      setMessage(`Fetching and updating stats for Round ${round}...`);
+      const sourceLabel = source ? source.toUpperCase() : 'AFL API (with DFS fallback)';
+      setMessage(`Fetching stats for Round ${round} from ${sourceLabel}...`);
 
-      const response = await fetch(`/api/update-round-stats?round=${round}`);
+      const params = new URLSearchParams({ round });
+      if (source) params.set('source', source);
+      const response = await fetch(`/api/update-round-stats?${params}`);
       const data = await response.json();
 
       if (response.ok) {
         setStatus('success');
-        setMessage(`Success! Updated stats for Round ${round}`);
+        setMessage(`Round ${round} updated from ${(data.source || '?').toUpperCase()}`);
         setResult(data.stats);
       } else {
         setStatus('error');
@@ -73,12 +109,23 @@ function UpdateStatsPage() {
               ))}
             </select>
             
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="p-2 border rounded w-40"
+              disabled={loading}
+            >
+              <option value="">Auto (AFL → DFS)</option>
+              <option value="afl">AFL API only</option>
+              <option value="dfs">DFS Australia only</option>
+            </select>
+
             <button
               onClick={handleUpdateStats}
               disabled={loading}
               className={`px-4 py-2 rounded ${
-                loading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
+                loading
+                  ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
               }`}
             >
@@ -111,7 +158,7 @@ function UpdateStatsPage() {
         
         <div className="mt-6 text-sm text-gray-600">
           <p className="mb-2">
-            This tool fetches the latest AFL player stats from DFS Australia and updates your database.
+            Fetches player stats and saves them to the database. <strong>Auto</strong> tries the AFL API first (live stats), then falls back to DFS Australia.
           </p>
           <p>
             Note: This will replace all existing data for the selected round.
