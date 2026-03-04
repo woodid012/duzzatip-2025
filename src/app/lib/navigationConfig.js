@@ -13,6 +13,7 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
   ],
   [
     { name: 'Draft', path: '/pages/draft', id: 'draft' },
+    { name: 'Injuries', path: '/pages/injuries', id: 'injuries' },
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
     ...(includeSquadManagement ? [{ name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' }] : []),
   ],
