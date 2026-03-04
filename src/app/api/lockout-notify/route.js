@@ -480,16 +480,68 @@ function buildSelectionStatus(squadPlayers, fwSelections) {
 async function fetchSquiggleTips(round) {
   try {
     const res = await fetch(`https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`, {
-      headers: { "User-Agent": "DuzzaTip-Notify/1.0" },
+      headers: { "User-Agent": "DuzzaTip-Notify/1.0 (afl fantasy assistant)" },
       signal: AbortSignal.timeout(8000),
     });
     const data = await res.json();
     return data?.tips?.length ? data.tips : null;
   } catch (_) { return null; }
 }
-function buildTipSuggestions(roundFixtures, squiggleTips) {
+
+async function fetchSportsbetOdds() {
+  try {
+    const { load } = await import("cheerio");
+    const res = await fetch("https://www.sportsbet.com.au/betting/australian-rules", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-AU,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const $ = load(html);
+    const odds = {};
+
+    // Try data-automation-id patterns
+    $("[data-automation-id]").each((_, el) => {
+      const id = $(el).attr("data-automation-id") || "";
+      if (id.includes("price") || id.includes("participant")) {
+        const text = $(el).text().trim();
+        const price = parseFloat(text);
+        if (!isNaN(price) && price > 1) {
+          const name = $(el).closest("[data-automation-id*='event']").find("[data-automation-id*='name']").first().text().trim();
+          if (name) odds[name] = price;
+        }
+      }
+    });
+
+    // Fallback: JSON embedded in script tags
+    if (Object.keys(odds).length === 0) {
+      $("script").each((_, el) => {
+        const txt = $(el).html() || "";
+        const match = txt.match(/"name"\s*:\s*"([^"]+)"[^}]+"win"\s*:\s*(\d+\.?\d*)/g);
+        if (match) {
+          match.forEach(m => {
+            const nm = m.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
+            const price = parseFloat(m.match(/"win"\s*:\s*(\d+\.?\d*)/)?.[1]);
+            if (nm && !isNaN(price) && price > 1) odds[nm] = price;
+          });
+        }
+      });
+    }
+
+    return Object.keys(odds).length > 0 ? odds : null;
+  } catch (_) { return null; }
+}
+
+function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
   const tips = roundFixtures.map(f => {
-    let homePct = 50;
+    let homePct = 50, source = "default";
+    let homeOdds = null, awayOdds = null;
+
+    // Squiggle (win probability 0-100 for home team per tipster)
     if (squiggleTips) {
       const candidates = squiggleTips.filter(t =>
         (t.hteam?.toLowerCase().includes(f.HomeTeam.split(" ")[0].toLowerCase()) ||
@@ -497,13 +549,40 @@ function buildTipSuggestions(roundFixtures, squiggleTips) {
         (t.ateam?.toLowerCase().includes(f.AwayTeam.split(" ")[0].toLowerCase()) ||
          f.AwayTeam.toLowerCase().includes((t.ateam || "").split(" ")[0].toLowerCase()))
       );
-      if (candidates.length > 0)
+      if (candidates.length > 0) {
         homePct = candidates.reduce((a, t) => a + (parseFloat(t.confidence) || 50), 0) / candidates.length;
+        source = `Squiggle(${candidates.length})`;
+      }
     }
+
+    // Sportsbet (decimal odds → implied probability)
+    if (sportsbetOdds) {
+      const homeKey = Object.keys(sportsbetOdds).find(k =>
+        f.HomeTeam.toLowerCase().includes(k.toLowerCase().split(" ")[0]) ||
+        k.toLowerCase().includes(f.HomeTeam.toLowerCase().split(" ")[0])
+      );
+      const awayKey = Object.keys(sportsbetOdds).find(k =>
+        f.AwayTeam.toLowerCase().includes(k.toLowerCase().split(" ")[0]) ||
+        k.toLowerCase().includes(f.AwayTeam.toLowerCase().split(" ")[0])
+      );
+      if (homeKey && awayKey) {
+        homeOdds = sportsbetOdds[homeKey];
+        awayOdds = sportsbetOdds[awayKey];
+        // Override with implied probability from market odds
+        const hProb = 1 / homeOdds;
+        const aProb = 1 / awayOdds;
+        homePct = Math.round((hProb / (hProb + aProb)) * 100);
+        source = `Sportsbet`;
+      }
+    }
+
+    const favourite = homePct >= 50 ? f.HomeTeam : f.AwayTeam;
+    const confidence = Math.round(Math.max(homePct, 100 - homePct));
+    const favOdds = favourite === f.HomeTeam ? homeOdds : awayOdds;
+
     return {
       matchNumber: f.MatchNumber, homeTeam: f.HomeTeam, awayTeam: f.AwayTeam,
-      dateUtc: f.DateUtc, favourite: homePct >= 50 ? f.HomeTeam : f.AwayTeam,
-      confidence: Math.round(Math.max(homePct, 100 - homePct)),
+      dateUtc: f.DateUtc, favourite, confidence, homeOdds, awayOdds, favOdds, source,
     };
   });
   for (const t of tips) {
@@ -650,7 +729,10 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
       const matchup = home
         ? `*${t.homeTeam}* v ${t.awayTeam}`
         : `${t.homeTeam} v *${t.awayTeam}*`;
-      lines.push(`${matchup}  ${t.confidence}%${dc}`);
+      const oddsStr = t.homeOdds && t.awayOdds
+        ? `  _($${t.homeOdds.toFixed(2)} / $${t.awayOdds.toFixed(2)})_`
+        : "";
+      lines.push(`${matchup}  ${t.confidence}%${dc}${oddsStr}`);
       lines.push(`_${formatGameTime(t.dateUtc)}_`);
       lines.push("");
     }
@@ -833,8 +915,11 @@ async function handler(request) {
       result.reserveB = [...afterResA].sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
     }
   }
-  const squiggleTips   = await fetchSquiggleTips(round);
-  const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips);
+  const [squiggleTips, sportsbetOdds] = await Promise.all([
+    fetchSquiggleTips(round),
+    fetchSportsbetOdds(),
+  ]);
+  const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds);
 
   // ── Save ──
   let savedTeam = false, savedTips = false;
@@ -863,7 +948,7 @@ async function handler(request) {
     byePlayers: byePlayers.map(p => p.name),
     savedTeam, savedTips, sent,
     lineup: Object.fromEntries(MAIN_POSITIONS.map(pos => [pos, result.lineup[pos]?.name || null])),
-    tips: tipSuggestions.map(t => ({ match: `${t.homeTeam} v ${t.awayTeam}`, tip: t.favourite, confidence: t.confidence, dc: !!t.suggestDC })),
+    tips: tipSuggestions.map(t => ({ match: `${t.homeTeam} v ${t.awayTeam}`, tip: t.favourite, confidence: t.confidence, dc: !!t.suggestDC, homeOdds: t.homeOdds, awayOdds: t.awayOdds, source: t.source })),
     preview: dry ? message : undefined,
   });
 }
