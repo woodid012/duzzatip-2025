@@ -57,13 +57,26 @@ function dn(name) {
 function normName(n) {
   return (n || "").toLowerCase().replace(/'/g, " ").replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
 }
-function injSeverity(name) {
-  const inj = INJURIES[name];
+// ── Injuries (MongoDB-first, static fallback) ────────────────────────────────
+async function loadInjuries(db) {
+  try {
+    const doc = await db.collection("injuries").findOne({ _id: `injuries_${YEAR}` });
+    if (doc?.players && Object.keys(doc.players).length > 0) {
+      console.log(`[injuries] Loaded ${Object.keys(doc.players).length} from MongoDB (updated ${doc.updated?.toISOString()})`);
+      return doc.players;
+    }
+  } catch (_) {}
+  console.log(`[injuries] Falling back to static INJURIES (${Object.keys(INJURIES).length} players)`);
+  return INJURIES;
+}
+
+function injSeverity(name, injuries) {
+  const inj = injuries[name];
   if (!inj) return 0;
   return { SEASON: 4, MONTHS: 3, WEEKS: 2, DOUBT: 1, MANAGED: 0 }[inj.status] ?? 0;
 }
-function injNote(name) {
-  const inj = INJURIES[name];
+function injNote(name, injuries) {
+  const inj = injuries[name];
   if (!inj) return "";
   const labels = { SEASON: "OUT SEASON", MONTHS: "OUT MONTHS", WEEKS: "OUT WEEKS", DOUBT: "DOUBT", MANAGED: "managed" };
   return ` [${labels[inj.status]}: ${inj.detail}]`;
@@ -569,7 +582,7 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries }) {
   const lines = [];
   const hrs  = Math.floor(Math.abs(lockout.minsUntil) / 60);
   const mins = Math.abs(lockout.minsUntil) % 60;
@@ -588,7 +601,7 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     if (!p) { teamLines.push(`*${POS_SHORT[pos]}* — (no player)`); continue; }
     const pts = p.scores[pos] ? Math.round(p.scores[pos]) : "?";
     if (typeof pts === "number") totalPts += pts;
-    const injTag = injSeverity(p.name) >= 1 ? ` ⚠` : "";
+    const injTag = injSeverity(p.name, injuries) >= 1 ? ` ⚠` : "";
     const srcTag = p.statsSource ? ` _[${p.statsSource}]_` : "";
     teamLines.push(`*${POS_SHORT[pos]}* — ${dn(p.name)} _(${pts}pts)_${injTag}${srcTag}`);
   }
@@ -608,7 +621,7 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   if (selectionStatus) {
     for (const [name, sel] of selectionStatus.entries()) {
       if (autoExcluded.has(name) && !(byePlayers || []).some(p => p.name === name)) {
-        const inj = INJURIES[name];
+        const inj = injuries[name];
         alerts.push(`✗ *OUT* ${dn(name)}${inj ? ` — ${inj.detail}` : ""}`);
       } else if (sel === "emergency") {
         alerts.push(`⚡ *EMERG* ${dn(name)} — named emergency`);
@@ -616,8 +629,8 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     }
     const allInLineup = [...Object.values(result.lineup), result.bench, result.reserveA, result.reserveB].filter(Boolean);
     for (const p of allInLineup) {
-      if (injSeverity(p.name) >= 1 && !autoExcluded.has(p.name)) {
-        alerts.push(`⚠ *DOUBT* ${dn(p.name)} — ${INJURIES[p.name].detail}`);
+      if (injSeverity(p.name, injuries) >= 1 && !autoExcluded.has(p.name)) {
+        alerts.push(`⚠ *DOUBT* ${dn(p.name)} — ${injuries[p.name].detail}`);
       }
     }
   }
@@ -702,6 +715,7 @@ async function handler(request) {
   }
 
   const { db } = await connectToDatabase();
+  const injuries = await loadInjuries(db);
 
   // ── Time gate ──
   if (!force && !dry) {
@@ -779,7 +793,7 @@ async function handler(request) {
   const autoExcluded = new Set();
   for (const p of squad) {
     if (!teamIsPlaying(p.team, playingTeams)) autoExcluded.add(p.name);
-    else if (injSeverity(p.name) >= 3 || effectiveSelectionStatus?.get(p.name) === "out") autoExcluded.add(p.name);
+    else if (injSeverity(p.name, injuries) >= 3 || effectiveSelectionStatus?.get(p.name) === "out") autoExcluded.add(p.name);
   }
 
   // ── Lineup + tips ──
@@ -834,7 +848,7 @@ async function handler(request) {
   }
 
   // ── Send ──
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }

@@ -1,0 +1,23 @@
+name: Update Injuries
+on:
+  schedule:
+    # Wednesday + Thursday 9am AEST (UTC+11 during AEDT, UTC+10 during AEST)
+    # Using 23:00 UTC = 9am AEST next day (conservative for non-DST)
+    - cron: '00 23 * * 2'   # Wed 9am Melbourne (23:00 UTC Tuesday)
+    - cron: '00 23 * * 3'   # Thu 9am Melbourne (23:00 UTC Wednesday)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-injuries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scrape AFL injury list and update MongoDB
+        run: |
+          RESPONSE=$(curl -sf "https://duzzatip.vercel.app/api/update-injuries?token=${{ secrets.NOTIFY_SECRET }}" 2>&1) || true
+          echo "$RESPONSE"
+          if echo "$RESPONSE" | grep -q '"ok":true'; then
+            echo "✅ Injuries updated successfully"
+          else
+            echo "⚠️ Update may have failed — check response above"
+            exit 1
+          fi
