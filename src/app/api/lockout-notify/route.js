@@ -104,8 +104,8 @@ function getRoundFixtures(fixtures, round) {
   return fixtures.filter(f => f.RoundNumber === round).sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc));
 }
 
-// ── Bye detection ──────────────────────────────────────────────────────────────
-const FW_TEAM_ALIASES = {
+// ── Team aliases & bye detection ──────────────────────────────────────────────
+const TEAM_ALIASES = {
   "adelaide-crows":    ["ADE", "Adelaide", "Adelaide Crows"],
   "brisbane-lions":    ["BRL", "BL", "Brisbane", "Brisbane Lions"],
   "carlton":           ["CAR", "Carlton", "Carlton Blues"],
@@ -125,12 +125,12 @@ const FW_TEAM_ALIASES = {
   "west-coast-eagles": ["WCE", "West Coast", "West Coast Eagles"],
   "western-bulldogs":  ["WBD", "WB", "Western Bulldogs"],
 };
-function findFWSlug(dbTeam) {
+function findTeamSlug(dbTeam) {
   const dbT = (dbTeam || "").toLowerCase().trim();
-  for (const [slug, aliases] of Object.entries(FW_TEAM_ALIASES)) {
+  for (const [slug, aliases] of Object.entries(TEAM_ALIASES)) {
     if (aliases.some(a => a.toLowerCase() === dbT)) return slug;
   }
-  for (const [slug, aliases] of Object.entries(FW_TEAM_ALIASES)) {
+  for (const [slug, aliases] of Object.entries(TEAM_ALIASES)) {
     if (aliases.some(a => dbT.includes(a.toLowerCase()) || a.toLowerCase().includes(dbT))) return slug;
     if (slug.replace(/-/g, " ").includes(dbT) || dbT.includes(slug.replace(/-/g, " "))) return slug;
   }
@@ -147,9 +147,9 @@ function teamIsPlaying(dbTeam, playingTeams) {
   for (const t of playingTeams) {
     if (t.toLowerCase().includes(dbT) || dbT.includes(t.toLowerCase().split(" ")[0])) return true;
   }
-  const slug = findFWSlug(dbTeam);
+  const slug = findTeamSlug(dbTeam);
   if (slug) {
-    const aliases = FW_TEAM_ALIASES[slug] || [];
+    const aliases = TEAM_ALIASES[slug] || [];
     for (const t of playingTeams) {
       if (aliases.some(a => t.toLowerCase().includes(a.toLowerCase()) || a.toLowerCase().includes(t.toLowerCase().split(" ")[0]))) return true;
     }
@@ -369,55 +369,81 @@ function findBestBenchBackup(lineup, bench, statsMap) {
   return { pos: bestPos || bench.bestPos || MAIN_POSITIONS[0], gain: bestGain };
 }
 
-// ── AFL team selections (Footywire) ───────────────────────────────────────────
-async function fetchAFLTeamSelections() {
-  try {
-    const res = await fetch("https://www.footywire.com/afl/footy/afl_team_selections", {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-      },
-      signal: AbortSignal.timeout(12000),
-    });
-    const html = await res.text();
+// ── AFL team selections (AFL.com.au API) ──────────────────────────────────────
+const AFL_COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
 
-    // Count pp- links as a proxy for "are teams announced?"
-    const ppCount = (html.match(/href="pp-/g) || []).length;
+async function getAFLToken() {
+  const res = await fetch("https://api.afl.com.au/cfs/afl/WMCTok", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Origin": "https://www.afl.com.au" },
+    body: "{}",
+    signal: AbortSignal.timeout(8000),
+  });
+  const data = await res.json();
+  return data.token;
+}
+
+function aflTeamNameToSlug(aflName) {
+  const n = (aflName || "").toLowerCase().trim();
+  for (const [slug, aliases] of Object.entries(TEAM_ALIASES)) {
+    if (aliases.some(a => a.toLowerCase() === n)) return slug;
+    if (slug.replace(/-/g, " ").includes(n) || n.includes(slug.replace(/-/g, " "))) return slug;
+  }
+  return null;
+}
+
+async function fetchAFLTeamSelections(roundNumber) {
+  try {
+    const token = await getAFLToken();
+    const headers = { "x-media-mis-token": token };
+
+    // Fetch matches for the round
+    const matchesRes = await fetch(
+      `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${roundNumber}&pageSize=20`,
+      { headers, signal: AbortSignal.timeout(10000) }
+    );
+    const matchesData = await matchesRes.json();
+    const matches = matchesData.matches || [];
 
     const result = {};
-    const bTagRe = /<b>([^<]{1,60})<\/b>/g;
-    const bTags  = [];
-    let m;
-    while ((m = bTagRe.exec(html)) !== null) bTags.push({ pos: m.index, text: m[1].trim() });
+    let ppCount = 0;
+    let teamsFound = 0;
 
-    const POS_LABELS = new Set(["FB", "HB", "C", "HF", "FF", "Fol", "Ruck", "BP", "CP"]);
-    const markers = bTags
-      .filter(b => /^interchange$|^emergenc|^ins$|^outs$/i.test(b.text) || POS_LABELS.has(b.text))
-      .map(b => ({
-        pos: b.pos,
-        kind: /^interchange$/i.test(b.text) ? "interchange"
-            : /^emergenc/i.test(b.text)     ? "emergencies"
-            : /^ins$/i.test(b.text)          ? "interchange"
-            : /^outs$/i.test(b.text)         ? "outs"
-            : "starting18",
-      }));
+    // Fetch roster for each match
+    await Promise.all(matches.map(async (match) => {
+      const providerId = match.providerId;
+      if (!providerId) return;
+      try {
+        const rosterRes = await fetch(
+          `https://api.afl.com.au/cfs/afl/matchRoster/full/${providerId}`,
+          { headers, signal: AbortSignal.timeout(10000) }
+        );
+        if (!rosterRes.ok) return; // 404 = teams not yet announced
+        const roster = await rosterRes.json();
 
-    const playerLinkRe = /href="(pp-([a-z0-9-]+)--([a-z0-9-]+))"/g;
-    while ((m = playerLinkRe.exec(html)) !== null) {
-      const teamSlug = m[2], playerSlug = m[3];
-      const fullName = playerSlug.split("-").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
-      if (!result[teamSlug]) result[teamSlug] = { named22: [], emergencies: [] };
-      let section = "starting18";
-      for (const marker of markers) { if (marker.pos < m.index) section = marker.kind; }
-      if (section === "interchange" || section === "starting18") result[teamSlug].named22.push(fullName);
-      else if (section === "emergencies") result[teamSlug].emergencies.push(fullName);
-    }
-    for (const d of Object.values(result)) {
-      d.named22 = [...new Set(d.named22)];
-      d.emergencies = [...new Set(d.emergencies)];
-    }
+        for (const side of ["homeTeam", "awayTeam"]) {
+          const teamData = roster[side];
+          if (!teamData) continue;
+          const teamName = teamData.teamName?.teamName || match[side.replace("Team", "")]?.team?.name || "";
+          const slug = aflTeamNameToSlug(teamName);
+          if (!slug) continue;
 
-    const teamsFound = Object.keys(result).length;
+          const named22 = [];
+          const emergencies = [];
+          for (const player of (teamData.positions || [])) {
+            const name = `${player.givenName} ${player.surname}`;
+            if (player.position === "EMERG") emergencies.push(name);
+            else named22.push(name); // INT + starting positions = named 22
+          }
+          if (named22.length > 0 || emergencies.length > 0) {
+            result[slug] = { named22, emergencies };
+            ppCount += named22.length + emergencies.length;
+            teamsFound++;
+          }
+        }
+      } catch (_) {} // individual roster fetch failure — skip
+    }));
+
     return { selections: teamsFound > 0 ? result : null, teamsFound, ppCount };
   } catch (e) {
     return { selections: null, teamsFound: 0, ppCount: 0, error: e.message };
@@ -426,7 +452,7 @@ async function fetchAFLTeamSelections() {
 function buildSelectionStatus(squadPlayers, fwSelections) {
   const status = new Map();
   for (const p of squadPlayers) {
-    const slug = findFWSlug(p.team);
+    const slug = findTeamSlug(p.team);
     if (!slug || !fwSelections[slug]) { status.set(p.name, "unknown"); continue; }
     const { named22, emergencies } = fwSelections[slug];
     const norm = normName(p.name);
@@ -656,7 +682,7 @@ async function handler(request) {
   const force    = searchParams.get("force") === "1";
   const dry      = searchParams.get("dry")   === "1";
   const probe    = searchParams.get("probe") === "1";
-  // preteams=1: allow lineup generation before Footywire team selections are announced.
+  // preteams=1: allow lineup generation before AFL team selections are announced.
   // Still excludes bye players and long-term injuries (MONTHS/SEASON), but does NOT exclude "out" based on team selection.
   const preteams = searchParams.get("preteams") === "1";
   const roundArg = searchParams.get("round") ? parseInt(searchParams.get("round")) : null;
@@ -667,10 +693,10 @@ async function handler(request) {
 
   // ── Probe mode: just report whether teams are announced ──
   if (probe) {
-    const { teamsFound, ppCount } = await fetchAFLTeamSelections();
+    const { teamsFound, ppCount } = await fetchAFLTeamSelections(round);
     return Response.json({
       round, teamsFound, ppCount,
-      announced: teamsFound >= 10,
+      announced: teamsFound >= 5,
       lockout: lockout ? { melbTime: lockout.melbTime, hoursUntil: Math.round(lockout.hoursUntil), locked: lockout.locked } : null,
     });
   }
@@ -745,7 +771,7 @@ async function handler(request) {
   const playingTeams  = getPlayingTeams(roundFixtures);
   const byePlayers    = squad.filter(p => !teamIsPlaying(p.team, playingTeams));
 
-  const { selections: fwSelections, teamsFound } = await fetchAFLTeamSelections();
+  const { selections: fwSelections, teamsFound } = await fetchAFLTeamSelections(round);
   const selectionStatus = fwSelections ? buildSelectionStatus(squad, fwSelections) : null;
   const effectiveSelectionStatus = preteams ? null : selectionStatus;
 
