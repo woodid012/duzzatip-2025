@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Duzzatip",
-  description: "2025",
+  description: "DuzzaTip 2026 — AFL Fantasy Tipping",
 };
 
 export default function RootLayout({ children }) {

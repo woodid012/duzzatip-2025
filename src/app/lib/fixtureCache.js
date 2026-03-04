@@ -27,7 +27,9 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
   } catch {
     // Local file not found, fall back to external API
     console.log(`No local fixtures file for ${year}, fetching from external API`);
-    const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`);
+    const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`, {
+      signal: AbortSignal.timeout(10000),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch ${year} fixtures: ${response.status}`);
     }

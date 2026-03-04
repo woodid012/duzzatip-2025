@@ -88,11 +88,6 @@ export default function useResults() {
         // Check round end status using roundInfo from context
         const checkRoundEndStatus = () => {
           try {
-            console.log('DEBUG ---- Round End Detection ----');
-            console.log('AppContext roundInfo:', roundInfo);
-            console.log('Current round from context:', currentRound);
-            console.log('Local round being checked:', localRound);
-            
             let roundEndPassedReason = '';
             
             // For the current round, check the global context's roundInfo
