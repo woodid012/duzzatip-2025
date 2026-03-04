@@ -6,6 +6,14 @@ import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 
 const SQUAD_SIZE = 18;
 
+const INJURY_BADGES = {
+  SEASON: { icon: "🩹", color: "text-red-600",    tip: "OUT SEASON" },
+  MONTHS: { icon: "🩹", color: "text-orange-500", tip: "OUT MONTHS" },
+  WEEKS:  { icon: "🩹", color: "text-yellow-500", tip: "OUT WEEKS" },
+  DOUBT:  { icon: "🩹", color: "text-purple-500", tip: "DOUBT" },
+  MANAGED:{ icon: "🩹", color: "text-blue-400",   tip: "MANAGED" },
+};
+
 export default function Squads() {
   const { selectedYear, isPastYear } = useAppContext();
   const [squads, setSquads] = useState({});
@@ -15,7 +23,16 @@ export default function Squads() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [loadingSquads, setLoadingSquads] = useState(true);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
+  const [injuries, setInjuries] = useState({});
   const [error, setError] = useState(null);
+
+  // Fetch injuries
+  useEffect(() => {
+    fetch('/api/injuries')
+      .then(r => r.ok ? r.json() : { players: {} })
+      .then(data => setInjuries(data.players || {}))
+      .catch(() => {});
+  }, []);
 
   // First, fetch squads
   useEffect(() => {
@@ -240,8 +257,18 @@ export default function Squads() {
                   ) : (
                     <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
                       <span className="text-black">
-                        {player.name 
-                          ? `${player.name} (${player.team})`
+                        {player.name
+                          ? <>
+                              {player.name} ({player.team})
+                              {injuries[player.name] && (() => {
+                                const badge = INJURY_BADGES[injuries[player.name].status];
+                                return badge ? (
+                                  <span title={`${badge.tip}: ${injuries[player.name].detail}`} className={`ml-1 ${badge.color}`}>
+                                    {badge.icon}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </>
                           : <span className="text-gray-400">Empty slot</span>
                         }
                       </span>
