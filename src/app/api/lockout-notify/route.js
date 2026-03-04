@@ -629,17 +629,21 @@ async function saveTips(db, round, tips) {
 }
 
 // ── Notify state (MongoDB-backed, no local file on Vercel) ────────────────────
-async function getNotifiedRounds(db) {
+// Stores per-round: { round, teamsFound, notifiedAt }
+// Allows a second notification when teamsFound jumps significantly (staggered AFL releases)
+const RE_NOTIFY_TEAM_THRESHOLD = 18; // re-notify when teamsFound reaches this (most/all teams in)
+
+async function getNotifyState(db, round) {
   try {
     const doc = await db.collection("notify_state").findOne({ _id: "lockout_notifier" });
-    return doc?.notified || [];
-  } catch (_) { return []; }
+    return doc?.rounds?.[String(round)] || null; // { teamsFound, notifiedAt }
+  } catch (_) { return null; }
 }
-async function markRoundNotified(db, round) {
+async function markRoundNotified(db, round, teamsFound) {
   try {
     await db.collection("notify_state").updateOne(
       { _id: "lockout_notifier" },
-      { $addToSet: { notified: round }, $set: { lastNotified: new Date() } },
+      { $set: { [`rounds.${round}`]: { teamsFound, notifiedAt: new Date() }, lastNotified: new Date() } },
       { upsert: true }
     );
   } catch (_) {}
@@ -661,13 +665,15 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, teamsFound }) {
   const lines = [];
   const hrs  = Math.floor(Math.abs(lockout.minsUntil) / 60);
   const mins = Math.abs(lockout.minsUntil) % 60;
   const timeStr = lockout.locked ? `LOCKED` : `${lockout.melbTime} (${hrs}h ${mins}m)`;
 
-  lines.push(`🦆⚡ *DuzzaTip Rd${round} — Pre-Lockout Brief*`);
+  const isPartial = teamsFound > 0 && teamsFound < RE_NOTIFY_TEAM_THRESHOLD;
+  const phaseTag = isPartial ? ` _(${teamsFound} teams — partial, update to follow)_` : "";
+  lines.push(`🦆⚡ *DuzzaTip Rd${round} — Pre-Lockout Brief*${phaseTag}`);
   lines.push(`⏰ ${timeStr}`);
   if (dry) lines.push(`_(dry-run — nothing saved)_`);
   lines.push("");
@@ -791,7 +797,8 @@ async function handler(request) {
     const { teamsFound, ppCount } = await fetchAFLTeamSelections(round);
     return Response.json({
       round, teamsFound, ppCount,
-      announced: teamsFound >= 5,
+      announced: teamsFound >= 2,
+      allTeams: teamsFound >= RE_NOTIFY_TEAM_THRESHOLD,
       lockout: lockout ? { melbTime: lockout.melbTime, hoursUntil: Math.round(lockout.hoursUntil), locked: lockout.locked } : null,
     });
   }
@@ -805,9 +812,15 @@ async function handler(request) {
     if (lockout && lockout.hoursUntil > NOTIFY_WINDOW_HOURS)
       return Response.json({ skipped: true, reason: `lockout ${Math.round(lockout.hoursUntil)}h away (>${NOTIFY_WINDOW_HOURS}h window)` });
 
-    const notified = await getNotifiedRounds(db);
-    if (notified.includes(round))
-      return Response.json({ skipped: true, reason: `already notified for round ${round}` });
+    const prevNotify = await getNotifyState(db, round);
+    if (prevNotify) {
+      // Already sent for this round — but allow re-trigger if many more teams are now available
+      // (staggered AFL release: early teams day-before, rest ~1hr before game)
+      const { teamsFound: prevTeams } = prevNotify;
+      if (prevTeams >= RE_NOTIFY_TEAM_THRESHOLD)
+        return Response.json({ skipped: true, reason: `already notified for round ${round} with ${prevTeams} teams` });
+      // Will re-check teamsFound below after fetching selections — allow through for now
+    }
   }
 
   // ── Squad ──
@@ -871,6 +884,13 @@ async function handler(request) {
   const selectionStatus = fwSelections ? buildSelectionStatus(squad, fwSelections) : null;
   const effectiveSelectionStatus = preteams ? null : selectionStatus;
 
+  // ── Re-check dedup: skip if we already notified with similar or more teams ──
+  if (!force && !dry) {
+    const prevNotify = await getNotifyState(db, round);
+    if (prevNotify && teamsFound <= prevNotify.teamsFound)
+      return Response.json({ skipped: true, reason: `already notified for round ${round} with ${prevNotify.teamsFound} teams (now ${teamsFound})` });
+  }
+
   // ── Auto-exclude ──
   const autoExcluded = new Set();
   for (const p of squad) {
@@ -933,14 +953,14 @@ async function handler(request) {
   }
 
   // ── Send ──
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, teamsFound });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
   }
 
   // ── Record ──
-  if (!dry && !force && sent) await markRoundNotified(db, round);
+  if (!dry && !force && sent) await markRoundNotified(db, round, teamsFound);
 
   return Response.json({
     ok: true, round, dry, teamsFound,

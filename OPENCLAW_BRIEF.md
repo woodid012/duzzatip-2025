@@ -4,7 +4,7 @@
 
 ```
 openclaw (Hostinger)
-  → polls Footywire every 15-20 min (Wed evening → Thu evening AEST)
+  → polls https://www.afl.com.au/matches/team-lineups (day before first match, from ~5pm AEST)
   → detects AFL team selections announced
   → POST https://duzzatip.vercel.app/api/lockout-notify?token=<NOTIFY_SECRET>
       → Vercel computes optimal team + tips
@@ -39,11 +39,13 @@ or as a query param: `?token=<NOTIFY_SECRET>`
   "teamsFound": 16,
   "ppCount": 418,
   "announced": true,
+  "allTeams": false,
   "lockout": { "melbTime": "Thu, 12 Mar, 7:30 pm", "hoursUntil": 8, "locked": false }
 }
 ```
-- `announced: true` when `teamsFound >= 10`
-- `ppCount` = raw count of player links on the page (< 50 = not out yet, > 200 = announced)
+- `announced: true` when `teamsFound >= 2` (at least one match has teams)
+- `allTeams: true` when `teamsFound >= 18` (most/all teams announced)
+- `ppCount` = raw count of players found across all rosters
 
 ### Trigger response
 ```json
@@ -70,22 +72,72 @@ GET /api/lockout-notify?dry=1&force=1&preteams=1&round=0&token=<NOTIFY_SECRET>
 - Returns a `preview` field with the full Telegram message text
 - Nothing is saved or sent when `dry=1`
 
-## Your monitoring job
+## Your weekly team-update duty (add to heartbeat.md)
 
-### When to poll
-- **Window:** Wednesday 5pm AEST → Thursday 8pm AEST each week
-- **Frequency:** every 15–20 minutes within that window
-- **Outside the window:** no need to poll (teams aren't announced Mon–Wed afternoon)
+This is a **recurring task** you must run every round of the AFL season.
+Add it as a scheduled item in your `heartbeat.md` so it fires automatically.
 
-### Decision logic
+### Goal
+Ensure the user's DuzzaTip team + tips are computed, saved, and sent via Telegram
+**before lockout** each round.
+
+### Timing — when to check
+- Use the fixture data to find the **first match of each round** (earliest `DateUtc`).
+- AFL teams are typically announced **~24 hours before** the first match of the round
+  (e.g. if first game is Thu 7:30pm AEST, teams come out Wed evening).
+- Teams are always published first at: https://www.afl.com.au/matches/team-lineups
+- Start polling **~1 hour before the first fixture of the round** as a safety net,
+  but ideally catch the announcement the day before.
+- **Primary check:** the day before the first match, from ~5pm AEST onwards.
+- If teams are not yet announced, poll every 15–20 min until either
+  `announced == true` or `lockout.locked == true`.
+
+### Polling window
+- **Day before first match, 5pm AEST → match-day 1hr before lockout** is the target window.
+- Outside this window teams are almost never announced, so no need to poll.
+
+### Decision logic (two-phase team announcements)
+
+The AFL staggers team announcements: a few teams are released **~24h before** the
+first game (usually Thursday teams on Wednesday evening), then the remaining teams
+are released **~1hr before** the first game of the round.
+
+The API handles this automatically with two-phase notifications:
+- **Phase 1 (partial):** Fires when the first teams drop (`announced: true`, `allTeams: false`).
+  The Telegram message is tagged "_(X teams — partial, update to follow)_".
+  Players from unannounced teams show as "unknown" status.
+- **Phase 2 (full):** Fires again when significantly more teams appear (`allTeams: true`).
+  The API internally tracks how many teams it notified with, and re-triggers
+  when the count jumps. No action needed from you — just keep polling.
+
 ```
-1. GET /api/lockout-notify?probe=1&token=<secret>
-2. If announced == true AND lockout.locked == false:
+1. Fetch https://www.afl.com.au/matches/team-lineups
+   → Check if team lineups are populated (not just "TBC" / empty squads)
+2. If teams look announced:
+     GET /api/lockout-notify?probe=1&token=<secret>   ← confirms via the API
+3. If probe says announced == true AND lockout.locked == false:
      POST /api/lockout-notify?token=<secret>
-     → stop polling for this round (the API deduplicates but no need to keep hitting it)
-3. If announced == false: wait 20 min, try again
-4. If lockout.locked == true: stop polling (too late)
+     → The API will send a notification and record how many teams were available
+4. If allTeams == false: KEEP POLLING every 15-20 min
+     → When more teams appear, POST again — the API will send an updated notification
+     → Once allTeams == true OR lockout.locked == true, stop polling
+5. If allTeams == true: stop polling (all teams in, notification sent)
+6. If lockout.locked == true: stop polling (too late — log a warning)
 ```
+
+### What to log in heartbeat.md
+After each round's check, append a status line:
+```
+## DuzzaTip Weekly Team Update
+- Round <N>: <timestamp AEST> — <result>
+```
+Where `<result>` is one of:
+- `✅ Team + tips saved & sent (X teams — partial)` (phase 1, keep polling)
+- `✅ Team + tips saved & sent (all teams)` (phase 2, done)
+- `⏳ Teams not announced, polling…` (still waiting)
+- `⏭ Skipped — already notified with X teams` (API dedup, keep polling for more)
+- `⚠️ Lockout passed — missed window` (too late)
+- `🔧 Manual trigger by user` (force push)
 
 ### One-off manual trigger
 If the user asks you to send the brief now:
