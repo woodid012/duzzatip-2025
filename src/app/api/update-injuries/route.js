@@ -64,6 +64,9 @@ function classifySeverity(estimatedReturn, injuryType) {
   const ret = (estimatedReturn || "").toLowerCase().trim();
   const inj = (injuryType || "").toLowerCase().trim();
 
+  // "Mid-season" = MONTHS (check before "season" to avoid false SEASON match)
+  if (ret.includes("mid-season") || ret.includes("mid season")) return "MONTHS";
+
   // Season / Indefinite
   if (ret.includes("season") || ret.includes("indefinite")) return "SEASON";
 
@@ -74,8 +77,7 @@ function classifySeverity(estimatedReturn, injuryType) {
     return "MONTHS"; // TBC generally = unknown long-term
   }
 
-  // "6-plus weeks", "Mid-season"
-  if (ret.includes("mid-season") || ret.includes("mid season")) return "MONTHS";
+  // "6-plus weeks"
   if (ret.includes("6-plus") || ret.includes("6+")) return "MONTHS";
 
   // Parse numeric weeks
@@ -101,94 +103,97 @@ function classifySeverity(estimatedReturn, injuryType) {
   return "WEEKS";
 }
 
+// ── Image filename → team mapping ─────────────────────────────────────────────
+// The AFL injury page uses a promo-image section with a team logo image before
+// each injury table. The filename in the image URL identifies the team.
+const IMAGE_SLUG_TO_TEAM = {
+  "adelaide":         "Adelaide",
+  "brisbane":         "Brisbane",
+  "carlton":          "Carlton",
+  "collingwood":      "Collingwood",
+  "essendon":         "Essendon",
+  "fremantle":        "Fremantle",
+  "geelong":          "Geelong",
+  "gc":               "Gold Coast",
+  "gold-coast":       "Gold Coast",
+  "gws":              "GWS",
+  "hawthorn":         "Hawthorn",
+  "melbourne":        "Melbourne",
+  "north-melbourne":  "North Melbourne",
+  "port-adelaide":    "Port Adelaide",
+  "richmond":         "Richmond",
+  "stk":              "St Kilda",
+  "st-kilda":         "St Kilda",
+  "sydney":           "Sydney",
+  "west-coast":       "West Coast",
+  "western-bulldogs": "Western Bulldogs",
+};
+
+function teamFromImageUrl(url) {
+  // Extract filename: e.g. "adelaide-strap-new-logo-2024.jpg" → try prefixes
+  const filename = (url || "").split("/").pop()?.split("?")[0]?.toLowerCase() || "";
+  for (const [slug, team] of Object.entries(IMAGE_SLUG_TO_TEAM)) {
+    if (filename.startsWith(slug)) return team;
+  }
+  return null;
+}
+
 // ── HTML parsing ──────────────────────────────────────────────────────────────
-// The AFL injury list page renders a table per team. We parse the HTML to extract
-// player name, injury type, and estimated return for each row.
+// Structure: each team has a <section class="promo-image"> with a logo image,
+// immediately followed by a <table> with PLAYER | INJURY | ESTIMATED RETURN rows.
+// After the table there's an editorial "In the mix" section (noise — skip it).
 
 function parseInjuryHtml(html) {
   const players = {};
 
-  // The page has sections per team. Each team section has a heading and table rows.
-  // We look for team headings and then player rows within each team section.
-
-  // Strategy: find all team sections. The AFL page uses a structure like:
-  //   <h3 class="...">Team Name</h3> (or similar heading)
-  //   followed by table rows with player data
-
-  // Match team heading patterns — AFL uses various heading elements
-  // Try to find team blocks: look for team name patterns followed by player entries
-
-  // First, let's try to extract structured data from the page
-  // The AFL injury list typically has a consistent structure per team
-
-  let currentTeam = null;
-
-  // Split by common team section markers
-  // AFL.com.au uses elements like: <h3>Team Name</h3> or data attributes
-  // We'll use a regex approach to find team headings and player rows
-
-  // Find all team headings (h2, h3, h4 with team names, or specific class patterns)
-  const teamPattern = /class="[^"]*(?:injury-list-club|team-name|club-name)[^"]*"[^>]*>([^<]+)</gi;
-  const headingPattern = /<h[23456][^>]*>([^<]*(?:Crows|Lions|Carlton|Collingwood|Essendon|Fremantle|Cats|Suns|Giants|Hawthorn|Melbourne|North Melbourne|Port Adelaide|Richmond|St Kilda|Swans|Eagles|Bulldogs)[^<]*)<\/h[23456]>/gi;
-
-  // Try structured approach: split HTML by team sections
-  // Look for any element containing a known team name that acts as a section header
-  const teamNames = Object.keys(TEAM_DISPLAY).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const teamSectionRe = new RegExp(`(?:<[^>]+>\\s*)(${teamNames.join("|")})(?:\\s*<[^>]+>)`, "gi");
-
-  // Simpler approach: find all table rows with player data
-  // AFL page typically has rows like: <td>Player Name</td><td>Injury</td><td>Return</td>
-
-  // Extract all rows that look like player injury entries
-  // Pattern: three consecutive td cells in a row
-  const rowPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  const tdPattern = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-
-  // First pass: find team sections by looking for team names in headings or strong tags
-  const sections = [];
-  const sectionPattern = /(<(?:h[1-6]|div|span|strong)[^>]*>[^<]*(?:Adelaide|Brisbane|Carlton|Collingwood|Essendon|Fremantle|Geelong|Gold Coast|GWS|Greater Western Sydney|Hawthorn|Melbourne|North Melbourne|Port Adelaide|Richmond|St Kilda|Sydney|West Coast|Western Bulldogs)[^<]*<\/(?:h[1-6]|div|span|strong)>)/gi;
-
-  let sectionMatch;
-  const sectionPositions = [];
-  while ((sectionMatch = sectionPattern.exec(html)) !== null) {
-    // Extract team name from the match
-    const teamText = sectionMatch[1].replace(/<[^>]+>/g, "").trim();
-    sectionPositions.push({ team: normaliseTeam(teamText), pos: sectionMatch.index });
+  // Find all team logo images (promo-image sections) and their positions
+  const imageRe = /promo-image__image[^>]+src="([^"]+)"/gi;
+  const imagePositions = [];
+  let m;
+  while ((m = imageRe.exec(html)) !== null) {
+    const team = teamFromImageUrl(m[1]);
+    if (team && !imagePositions.some(p => p.team === team)) {
+      imagePositions.push({ team, pos: m.index });
+    }
   }
 
-  // For each section, extract player rows until next section
-  for (let i = 0; i < sectionPositions.length; i++) {
-    const start = sectionPositions[i].pos;
-    const end = i + 1 < sectionPositions.length ? sectionPositions[i + 1].pos : html.length;
-    const sectionHtml = html.substring(start, end);
-    const team = sectionPositions[i].team;
+  // Find all tables and associate each with the nearest preceding team image
+  const tableRe = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+  while ((m = tableRe.exec(html)) !== null) {
+    const tableHtml = m[1];
 
-    // Find all table rows in this section
-    let rowMatch;
+    // Only process tables that have a PLAYER header (injury tables)
+    if (!/<th[^>]*>[\s\S]*?PLAYER[\s\S]*?<\/th>/i.test(tableHtml)) continue;
+
+    // Find which team this table belongs to (nearest preceding image)
+    let team = null;
+    for (const img of imagePositions) {
+      if (img.pos < m.index) team = img.team;
+    }
+    if (!team) continue;
+
+    // Extract rows with 3 <td> cells: Player, Injury, Return
     const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    while ((rowMatch = rowRe.exec(sectionHtml)) !== null) {
-      const rowHtml = rowMatch[1];
+    let rowMatch;
+    while ((rowMatch = rowRe.exec(tableHtml)) !== null) {
       const cells = [];
-      let cellMatch;
       const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-      while ((cellMatch = cellRe.exec(rowHtml)) !== null) {
+      let cellMatch;
+      while ((cellMatch = cellRe.exec(rowMatch[1])) !== null) {
         cells.push(cellMatch[1].replace(/<[^>]+>/g, "").trim());
       }
 
-      // Expect at least: Player Name, Injury, Estimated Return
-      if (cells.length >= 3) {
-        const name = cells[0];
-        const injury = cells[1];
-        const returnEst = cells[cells.length - 1]; // last cell is usually return timeline
+      if (cells.length < 3) continue;
+      const name = cells[0];
+      const injury = cells[1];
+      const returnEst = cells[cells.length - 1];
 
-        // Skip header rows
-        if (!name || name.toLowerCase() === "player" || name.toLowerCase() === "name") continue;
+      // Skip header rows, "Updated:" rows, and empty names
+      if (!name || /^(player|name|updated)$/i.test(name) || /^updated:/i.test(name)) continue;
 
-        const severity = classifySeverity(returnEst, injury);
-        const detail = `${injury}, ${returnEst}`.replace(/\s+/g, " ").trim();
-
-        players[name] = { status: severity, detail, team };
-      }
+      const severity = classifySeverity(returnEst, injury);
+      const detail = `${injury}, ${returnEst}`.replace(/\s+/g, " ").trim();
+      players[name] = { status: severity, detail, team };
     }
   }
 
