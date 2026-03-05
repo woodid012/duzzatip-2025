@@ -928,10 +928,16 @@ async function handler(request) {
   }
 
   // ── Auto-exclude ──
+  // Exclude: bye players, serious injuries, and anyone NOT named in team selections
   const autoExcluded = new Set();
   for (const p of squad) {
     if (!teamIsPlaying(p.team, playingTeams)) autoExcluded.add(p.name);
-    else if (injSeverity(p.name, injuries) >= 3 || effectiveSelectionStatus?.get(p.name) === "out") autoExcluded.add(p.name);
+    else if (injSeverity(p.name, injuries) >= 3) autoExcluded.add(p.name);
+    else if (effectiveSelectionStatus) {
+      const sel = effectiveSelectionStatus.get(p.name);
+      // Only include players confirmed as "playing"; exclude "out", "emergency", "unknown"
+      if (sel && sel !== "playing") autoExcluded.add(p.name);
+    }
   }
 
   // ── Lineup + tips ──
