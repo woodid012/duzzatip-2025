@@ -83,14 +83,11 @@ export async function GET(request) {
         }
 
         // Only assign stars/crabs when ALL games in the round are complete
-        // Local fixture file doesn't have scores, so use time-based check:
-        // all games complete if the last game started > 3 hours ago (AFL games ~2.5hrs)
-        const now = new Date();
+        // fixtureCache now fetches from external API which includes scores for finished games
         const roundFixturesForStars = (aflFixtures || []).filter(f => f.RoundNumber === round);
-        const allGamesComplete = roundFixturesForStars.length > 0 && roundFixturesForStars.every(f => {
-            const gameStart = new Date(f.DateUtc);
-            return (now - gameStart) > 3 * 60 * 60 * 1000; // 3 hours
-        });
+        const allGamesComplete = roundFixturesForStars.length > 0 && roundFixturesForStars.every(
+            f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
+        );
 
         const validScores = allTeamScores.filter(s => s.totalScore > 0);
         let highestScore = 0;
