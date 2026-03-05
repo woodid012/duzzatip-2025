@@ -21,4 +21,6 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
 
 export const debugNavigationItems = [
   { name: 'Round-by-Round', path: '/pages/round-by-round', id: 'round-by-round' },
+  { name: 'Update Stats', path: '/pages/update-stats', id: 'update-stats' },
+  { name: 'Update Players', path: '/pages/update-players', id: 'update-players' },
 ];
