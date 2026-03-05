@@ -572,6 +572,13 @@ function TeamCard({
   duplicateWarnings,
   injuries = {}
 }) {
+  // Lookup injury by player name — keys are "Name (Team)"
+  const getInjury = (name) => {
+    if (!name) return null;
+    const match = Object.keys(injuries).find(k => k.startsWith(name + ' ('));
+    return match ? injuries[match] : null;
+  };
+
   // State for toggling visibility on mobile
   const [isExpanded, setIsExpanded] = useState(true);
 
