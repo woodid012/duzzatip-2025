@@ -77,8 +77,8 @@ function UpdateStatsPage() {
         setResult(data.stats);
       } else {
         setStatus('error');
-        setMessage(`Error: ${data.error || 'Failed to update stats'}`);
-        setResult(data.details || null);
+        setMessage(`Error: ${data.error || 'Failed to update stats'}${data.details ? ` — ${data.details}` : ''}`);
+        setResult(null);
       }
     } catch (error) {
       setStatus('error');
