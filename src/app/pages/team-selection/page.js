@@ -10,6 +10,14 @@ import { USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constant
 import { useToast } from '@/app/components/Toast';
 import SearchableSelect from '@/app/components/SearchableSelect';
 
+const INJURY_BADGES = {
+  SEASON:  { icon: "🩹", color: "text-red-600",    tip: "OUT SEASON" },
+  MONTHS:  { icon: "🩹", color: "text-orange-500", tip: "OUT MONTHS" },
+  WEEKS:   { icon: "🩹", color: "text-yellow-500", tip: "OUT WEEKS" },
+  DOUBT:   { icon: "🩹", color: "text-purple-500", tip: "DOUBT" },
+  MANAGED: { icon: "🩹", color: "text-blue-400",   tip: "MANAGED" },
+};
+
 export default function TeamSelectionPage() {
   // Get just the current round from the app context for initial display
   const { currentRound, roundInfo, getSpecificRoundInfo } = useAppContext();
@@ -41,6 +49,15 @@ export default function TeamSelectionPage() {
 
   // State for duplicate warnings
   const [duplicateWarnings, setDuplicateWarnings] = useState([]);
+
+  // Injuries
+  const [injuries, setInjuries] = useState({});
+  useEffect(() => {
+    fetch('/api/injuries')
+      .then(r => r.ok ? r.json() : { players: {} })
+      .then(data => setInjuries(data.players || {}))
+      .catch(() => {});
+  }, []);
   
   // Admin override state - separate from the hook's isEditing
   const [adminEditMode, setAdminEditMode] = useState(false);
@@ -478,6 +495,7 @@ export default function TeamSelectionPage() {
             onBackupPositionChange={handleBackupPositionChange}
             onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
             duplicateWarnings={duplicateWarnings}
+            injuries={injuries}
           />
         ) : (
           // Show all teams (for admin or when no user is selected)
@@ -534,17 +552,18 @@ export default function TeamSelectionPage() {
 }
 
 // Team card component
-function TeamCard({ 
-  userId, 
-  userName, 
-  team, 
-  squad, 
-  isEditing, 
+function TeamCard({
+  userId,
+  userName,
+  team,
+  squad,
+  isEditing,
   isLocked,
-  onPlayerChange, 
+  onPlayerChange,
   onBackupPositionChange,
   onCopyFromPrevious,
-  duplicateWarnings
+  duplicateWarnings,
+  injuries = {}
 }) {
   // State for toggling visibility on mobile
   const [isExpanded, setIsExpanded] = useState(true);
@@ -656,6 +675,14 @@ function TeamCard({
                           <span className={`${isDuplicate ? 'text-red-600 font-semibold' : 'text-black'}`}>
                             {playerData.player_name}
                             {isDuplicate && " (Duplicate)"}
+                            {injuries[playerData.player_name] && (() => {
+                              const badge = INJURY_BADGES[injuries[playerData.player_name].status];
+                              return badge ? (
+                                <span title={`${badge.tip}: ${injuries[playerData.player_name].detail}`} className={`ml-1 ${badge.color}`}>
+                                  {badge.icon}
+                                </span>
+                              ) : null;
+                            })()}
                           </span>
                           {position === 'Bench' && playerData.backup_position && (
                             <span className="text-black text-xs">
