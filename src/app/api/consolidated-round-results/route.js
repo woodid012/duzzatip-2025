@@ -4,7 +4,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { POSITIONS } from '@/app/lib/scoring_rules';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
-import { getAflFixtures } from '@/app/lib/fixtureCache';
+import { getAflFixtures, isRoundComplete as checkRoundComplete } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
 
 // Map 3-letter abbreviations (from 2026_players) to full fixture names
@@ -83,11 +83,8 @@ export async function GET(request) {
         }
 
         // Only assign stars/crabs when ALL games in the round are complete
-        // fixtureCache now fetches from external API which includes scores for finished games
-        const roundFixturesForStars = (aflFixtures || []).filter(f => f.RoundNumber === round);
-        const allGamesComplete = roundFixturesForStars.length > 0 && roundFixturesForStars.every(
-            f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
-        );
+        // Uses AFL API match status (CONCLUDED) — cached for 2 minutes
+        const allGamesComplete = await checkRoundComplete(round, year);
 
         const validScores = allTeamScores.filter(s => s.totalScore > 0);
         let highestScore = 0;
