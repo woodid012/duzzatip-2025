@@ -24,7 +24,7 @@ function UpdateStatsPage() {
   // Auto-refresh stats on page visit (10-min cooldown via ifStale)
   const [autoRefreshDone, setAutoRefreshDone] = useState(false);
   useEffect(() => {
-    if (!currentRound || autoRefreshDone) return;
+    if (currentRound == null || autoRefreshDone) return;
     setAutoRefreshDone(true);
 
     (async () => {
@@ -54,7 +54,7 @@ function UpdateStatsPage() {
   }, [currentRound, autoRefreshDone]);
 
   const handleUpdateStats = async () => {
-    if (!round) {
+    if (round == null) {
       setMessage('Please select a round');
       setStatus('error');
       return;
@@ -102,9 +102,9 @@ function UpdateStatsPage() {
               className="p-2 border rounded w-32"
               disabled={loading}
             >
-              {[...Array(24)].map((_, i) => (
-                <option key={i+1} value={i+1}>
-                  Round {i+1}
+              {[...Array(25)].map((_, i) => (
+                <option key={i} value={i}>
+                  Round {i}
                 </option>
               ))}
             </select>
