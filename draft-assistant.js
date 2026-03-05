@@ -19,6 +19,16 @@ const { INJURIES, INJURY_DISPLAY } = require("./injuries-2026");
 
 const MY_USER = 4;
 const DRAFT_ORDER = [6, 4, 7, 8, 1, 3, 2, 5];
+const USER_NAMES = {
+  1: "flailing feathers",
+  2: "Garvs Garden Gnomes",
+  3: "Miguel's Marauders",
+  4: "Le Mallards",
+  5: "Rands Ruffians",
+  6: "Balls Deep Briz",
+  7: "Honour String",
+  8: "pinga jinga jim",
+};
 const TOTAL_PICKS = 144;
 const COLLECTION = "2026_draft_picks";
 const POLL_INTERVAL_MS = 3000;
@@ -159,8 +169,29 @@ function buildPlayerDB() {
   return players;
 }
 
+// ===== 2026 Bye rounds (rounds 12-16) =====
+const BYE_ROUNDS = {
+  ADE: 12, GCS: 12, NTH: 12, PTA: 12,
+  GWS: 13, RIC: 13,
+  CAR: 14, COL: 14, FRE: 14, HAW: 14,
+  BRL: 15, ESS: 15, SYD: 15, WCE: 15,
+  GEE: 16, MEL: 16, STK: 16, WBD: 16,
+};
+
+function getByeRound(team) { return BYE_ROUNDS[team] || null; }
+
+// Count how many players on myTeam share each bye round
+function byeRoundCounts(myTeam) {
+  const counts = {};
+  for (const p of myTeam) {
+    const bye = getByeRound(p.team);
+    if (bye) counts[bye] = (counts[bye] || 0) + 1;
+  }
+  return counts;
+}
+
 // ===== Suggest top 3 for my team =====
-function suggestPicks(available, myPosCounts, pickIndex) {
+function suggestPicks(available, myPosCounts, pickIndex, myTeam) {
   const candidates = [];
   for (const player of available) {
     for (const posName of POS_LIST) {
@@ -193,7 +224,7 @@ function suggestPicks(available, myPosCounts, pickIndex) {
     .slice(0, 3);
 }
 
-function buildReason(s, myPosCounts) {
+function buildReason(s, myPosCounts, myTeam) {
   const { player, pos, rawScore } = s;
   const parts = [];
   const currentCount = myPosCounts[pos];
@@ -203,7 +234,46 @@ function buildReason(s, myPosCounts) {
   if (versatile.length >= 2) parts.push(`versatile: also ${versatile.filter(p=>p!==pos).map(p=>POS_SHORT[p]).join("/")} capable`);
   if (player.flag) parts.push(player.flag);
   if (player.games2025 >= 15) parts.push(`${player.games2025}g 2025 data`);
+  // Bye round info
+  const playerBye = getByeRound(player.team);
+  if (playerBye) {
+    const stack = myTeam ? byeRoundCounts(myTeam)[playerBye] || 0 : 0;
+    if (stack >= 2) parts.push(`⚠ BYE R${playerBye} clash (${stack} already)`);
+    else parts.push(`bye R${playerBye}`);
+  }
   return parts.join("  |  ");
+}
+
+// ===== Bye filler suggestions (final 5 picks) =====
+function suggestByeFillers(available, myTeam, myPosCounts) {
+  const byeCounts = byeRoundCounts(myTeam);
+  // Find bye rounds with fewer than 2 players (thin coverage)
+  const thinRounds = [12, 13, 14, 15, 16].filter(r => (byeCounts[r] || 0) < 2);
+  if (thinRounds.length === 0) return null;
+
+  const fillers = [];
+  for (const r of thinRounds) {
+    // Best available player NOT in this bye round (i.e. they PLAY in round r)
+    const candidates = available
+      .filter(p => getByeRound(p.team) !== r)
+      .filter(p => POS_LIST.some(pos => myPosCounts[pos] < POS_CAPS[pos]))
+      .sort((a, b) => b.compositeValue - a.compositeValue)
+      .slice(0, 1);
+    if (candidates.length > 0) {
+      fillers.push({ round: r, have: byeCounts[r] || 0, player: candidates[0] });
+    }
+  }
+  return fillers.length > 0 ? { thinRounds, fillers } : null;
+}
+
+// Display name as "Surname, Firstname" — search/DB still use original
+function dn(fullName) {
+  if (!fullName) return fullName;
+  const parts = fullName.trim().split(" ");
+  if (parts.length < 2) return fullName;
+  const surname = parts[parts.length - 1];
+  const first = parts.slice(0, -1).join(" ");
+  return `${surname}, ${first}`;
 }
 
 function findPlayer(name, players) {
@@ -236,13 +306,28 @@ function printTeam(myTeam, myPosCounts) {
   for (const posName of POS_LIST) {
     const players = myTeam.filter(p => p.draftedAs === posName);
     const cap = POS_CAPS[posName];
-    const bar = `[${"#".repeat(players.length)}${".".repeat(cap - players.length)}]`;
-    const names = players.map(p => p.name).join(", ") || "-";
+    const over = Math.max(0, players.length - cap);
+    const bar = `[${"#".repeat(Math.min(players.length, cap))}${over > 0 ? `+${over}` : ".".repeat(cap - players.length)}]`;
+    const names = players.map(p => dn(p.name)).join(", ") || "-";
     console.log(`  ${POS_SHORT[posName].padEnd(4)} ${bar} ${names}`);
+  }
+  // Bye round spread
+  const byeCounts = byeRoundCounts(myTeam);
+  if (Object.keys(byeCounts).length > 0) {
+    const byeStr = [12, 13, 14, 15, 16].map(r => {
+      const count = byeCounts[r] || 0;
+      const teams = myTeam.filter(p => getByeRound(p.team) === r).map(p => p.team);
+      const color = count >= 3 ? C.red : count === 2 ? C.yellow : C.dim;
+      return `${color}R${r}:${count}${C.reset}`;
+    }).join("  ");
+    console.log(`\n  ${C.dim}Bye spread:${C.reset}  ${byeStr}`);
+    const maxBye = Math.max(...Object.values(byeCounts));
+    if (maxBye >= 3) console.log(`  ${C.red}⚠ ${maxBye} players share a bye round — avoid adding more from that group${C.reset}`);
+    else if (maxBye === 2) console.log(`  ${C.yellow}⚠ 2 players share a bye round — consider spreading in later picks${C.reset}`);
   }
 }
 
-function printSuggestions(suggestions, myPosCounts) {
+function printSuggestions(suggestions, myPosCounts, myTeam) {
   section("SUGGESTIONS FOR YOUR PICK");
   suggestions.forEach((s, i) => {
     const flagStr = s.player.flag ? ` ${C.yellow}[${s.player.flag}]${C.reset}` : "";
@@ -254,9 +339,9 @@ function printSuggestions(suggestions, myPosCounts) {
       score2025 != null ? `${C.green}2025: ${score2025}${C.dim} (${s.player.games2025}g)` : `${C.dim}2025: n/a`,
       score2024 != null ? `2024: ${score2024} (${s.player.games2024}g)` : `2024: n/a`,
     ].join(`  `);
-    console.log(`\n  ${C.bold}${C.green}[${i + 1}] ${s.player.name}${C.reset} (${s.player.team})${flagStr}${injStr}`);
+    console.log(`\n  ${C.bold}${C.green}[${i + 1}] ${dn(s.player.name)}${C.reset} (${s.player.team})${flagStr}${injStr}`);
     console.log(`      ${C.bold}${s.pos}${C.reset}  |  blended: ${C.bold}${s.rawScore}${C.reset}  [${yearStr}${C.reset}]`);
-    console.log(`      ${C.dim}${buildReason(s, myPosCounts)}${C.reset}`);
+    console.log(`      ${C.dim}${buildReason(s, myPosCounts, myTeam)}${C.reset}`);
     const allScores = POS_LIST.map(p => `${POS_SHORT[p]}:${s.player.posScores[p]}`).join("  ");
     console.log(`      ${C.dim}${allScores}${C.reset}`);
   });
@@ -268,13 +353,14 @@ async function fetchDraftState(collection) {
   return picks;
 }
 
-async function submitPick(collection, pickNumber, round, userId, playerName, teamName) {
+async function submitPick(collection, pickNumber, round, userId, playerName, teamName, position) {
   await collection.insertOne({
     pick_number: pickNumber,
     round,
     user_id: userId,
     player_name: playerName,
     team_name: teamName,
+    position,
     timestamp: new Date(),
     Active: 1,
   });
@@ -282,103 +368,124 @@ async function submitPick(collection, pickNumber, round, userId, playerName, tea
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ===== Main =====
-async function main() {
-  header("DuzzaTip 2026 Live Draft Assistant");
-  console.log(`${C.dim}Loading player database...${C.reset}`);
+// Optimally assign positions across a set of players, respecting POS_CAPS
+function optimizeAllPositions(pickedPlayers) {
+  const assignments = new Map();
+  const counts = {};
+  POS_LIST.forEach(p => counts[p] = 0);
 
-  const allPlayers = buildPlayerDB();
-  console.log(`${C.green}Loaded ${allPlayers.length} players | Your picks: ${MY_PICK_NUMS.join(", ")}${C.reset}`);
-
-  // Connect to MongoDB
-  console.log(`${C.dim}Connecting to MongoDB...${C.reset}`);
-  const client = new MongoClient(process.env.MONGODB_URI, {
-    serverApi: { version: "1", strict: true, deprecationErrors: true },
-    connectTimeoutMS: 10000,
-  });
-  await client.connect();
-  const db = client.db("afl_database");
-  const col = db.collection(COLLECTION);
-  console.log(`${C.green}Connected to MongoDB${C.reset}`);
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const ask = (q) => new Promise(resolve => rl.question(q, resolve));
-
-  // Load current draft state from DB
-  let dbPicks = await fetchDraftState(col);
-  const drafted = new Set(dbPicks.map(p => p.player_name));
-
-  // Build my team from DB picks
-  const myTeam = [];
-  const myPosCounts = {};
-  POS_LIST.forEach(p => myPosCounts[p] = 0);
-
-  for (const pick of dbPicks) {
-    if (pick.user_id === MY_USER) {
-      // Find the player in DB to know position — use bestPos from our stats
-      const playerData = allPlayers.find(p => p.name === pick.player_name);
-      const pos = pick.position || (playerData ? playerData.bestPos : "Midfielder");
-      myTeam.push({ name: pick.player_name, team: pick.team_name, draftedAs: pos, ...(playerData || {}) });
-      myPosCounts[pos]++;
+  for (let pass = 0; pass < 8; pass++) {
+    for (const player of pickedPlayers) {
+      if (assignments.has(player.name)) continue;
+      const available = POS_LIST.filter(pos => counts[pos] < POS_CAPS[pos]);
+      if (!available.length) continue;
+      const sorted = [...available].sort((a, b) => (player.posScores?.[b] || 0) - (player.posScores?.[a] || 0));
+      const unfilled = sorted.filter(pos => counts[pos] === 0);
+      const target = unfilled.length > 0 ? unfilled[0] : sorted[0];
+      if (pass < 3) {
+        const otherUnfilled = POS_LIST.filter(pos => counts[pos] === 0 && pos !== target);
+        const betterElsewhere = otherUnfilled.some(pos => (player.posScores?.[pos] || 0) > (player.posScores?.[target] || 0));
+        if (betterElsewhere) continue;
+      }
+      assignments.set(player.name, target);
+      counts[target]++;
     }
   }
-
-  const resumedPicks = dbPicks.length;
-  if (resumedPicks > 0) {
-    console.log(`\n${C.green}Synced ${resumedPicks} picks from DB (${myTeam.length} are yours)${C.reset}`);
-    printTeam(myTeam, myPosCounts);
+  // Fallback for any still-unassigned
+  for (const player of pickedPlayers) {
+    if (!assignments.has(player.name)) {
+      const fallback = POS_LIST.find(pos => counts[pos] < POS_CAPS[pos]);
+      if (fallback) { assignments.set(player.name, fallback); counts[fallback]++; }
+    }
   }
+  return { assignments, counts };
+}
 
-  let myPickIndex = myTeam.length; // how many of my 18 picks done
+// ===== Shared pick loop (used by both live and mock modes) =====
+async function runDraft({ allPlayers, picks, drafted, myTeam, myPosCounts, ask, submitPickFn, opponentPickFn, teamDrafted }) {
+  let myPickIndex = myTeam.length;
 
-  // ===== Process picks from current state onwards =====
-  for (const pickInfo of ALL_PICKS) {
-    // Skip picks already in DB
-    if (pickInfo.pick <= dbPicks.length) continue;
+  // Initialise teamDrafted from already-known picks (resume case)
+  if (!teamDrafted) teamDrafted = {};
+  DRAFT_ORDER.forEach(id => { if (!teamDrafted[id]) teamDrafted[id] = []; });
+
+  for (const pickInfo of picks) {
+    const available = allPlayers.filter(p => !drafted.has(p.name));
 
     if (pickInfo.userId !== MY_USER) {
-      // ===== OPPONENT PICK — poll DB until it appears =====
-      const predicted = allPlayers.filter(p => !drafted.has(p.name)).sort((a, b) => b.compositeValue - a.compositeValue)[0];
-      const predStr = predicted ? `${C.cyan}predicted: ${predicted.name} (${predicted.bestPos}, ${predicted.bestAvg})${C.reset}` : "";
-      process.stdout.write(`\n${C.dim}Pick ${pickInfo.pick} (Rd ${pickInfo.round}) - User ${pickInfo.userId} — ${predStr}${C.dim} — waiting...${C.reset}`);
-      let newPick = null;
-      while (!newPick) {
-        await sleep(POLL_INTERVAL_MS);
-        dbPicks = await fetchDraftState(col);
-        newPick = dbPicks.find(p => p.pick_number === pickInfo.pick);
+      // ===== OPPONENT PICK =====
+      const top3predicted = [...available].sort((a, b) => b.compositeValue - a.compositeValue).slice(0, 3);
+      const predicted = top3predicted[0];
+
+      // Show prediction + targeting watchlist BEFORE waiting for the pick
+      const predStr = top3predicted.length
+        ? top3predicted.map((p, i) => `${i === 0 ? C.cyan : C.dim}${i + 1}. ${dn(p.name)} (${p.bestPos}, ${p.bestAvg})${C.reset}`).join(`${C.dim}  `)
+        : "";
+      process.stdout.write(`\n${C.dim}Pick ${pickInfo.pick} (Rd ${pickInfo.round}) - ${USER_NAMES[pickInfo.userId]}${C.reset}\n`);
+      process.stdout.write(`  ${C.dim}predicted: ${predStr}${C.reset}\n`);
+      const nextMyPick = picks.find(p => p.userId === MY_USER && p.pick > pickInfo.pick);
+      if (nextMyPick) {
+        const picksUntilMe = picks.filter(p => p.userId !== MY_USER && p.pick > pickInfo.pick && p.pick < nextMyPick.pick).length;
+        const nowAvailable = allPlayers.filter(p => !drafted.has(p.name));
+        const watchlist = suggestPicks(nowAvailable, myPosCounts, myPickIndex, myTeam).slice(0, 3);
+        if (watchlist.length > 0) {
+          process.stdout.write(`  ${C.dim}↳ my pick in ${picksUntilMe} | targeting: ${watchlist.map(s => `${C.bold}${dn(s.player.name)}${C.reset}${C.dim} (${s.rawScore})`).join(", ")}${C.reset}\n`);
+        }
       }
-      drafted.add(newPick.player_name);
-      const hit = predicted && predicted.name === newPick.player_name;
-      const resultColor = hit ? C.green : C.dim;
-      const callStr = hit ? " ✓ called it!" : (predicted ? ` (predicted: ${predicted.name})` : "");
-      process.stdout.write(`\r${resultColor}Pick ${pickInfo.pick} (Rd ${pickInfo.round}) - User ${pickInfo.userId}: ${newPick.player_name} (${newPick.team_name})${callStr}${" ".repeat(5)}${C.reset}\n`);
+
+      const picked = await opponentPickFn(pickInfo, predicted, available);
+      drafted.add(picked.name);
+      teamDrafted[pickInfo.userId].push(picked.name);
+      const pickedData = allPlayers.find(p => p.name === picked.name);
+      const scoreStr = pickedData ? ` ${C.bold}${pickedData.bestAvg}${C.reset}${pickedData.bestPos ? ` ${pickedData.bestPos}` : ""}` : "";
+      const hitIdx = top3predicted.findIndex(p => p.name === picked.name);
+      const hit = hitIdx === 0;
+      const resultColor = hitIdx >= 0 ? C.green : C.dim;
+      const callStr = hit ? ` ✓ called it` : hitIdx > 0 ? ` ✓ (#${hitIdx + 1} predicted)` : (predicted ? ` (predicted: ${dn(predicted.name)})` : "");
+      process.stdout.write(`${resultColor}  → ${C.bold}${dn(picked.name)}${C.reset}${resultColor} (${picked.team})${scoreStr}${resultColor}${callStr}${C.reset}\n`);
 
     } else {
       // ===== MY TURN =====
-      // Re-fetch DB to be sure we have latest state
-      dbPicks = await fetchDraftState(col);
-      for (const p of dbPicks) if (!drafted.has(p.player_name)) drafted.add(p.player_name);
-
       header(`YOUR TURN - Pick #${pickInfo.pick} (Round ${pickInfo.round})`);
       printTeam(myTeam, myPosCounts);
 
-      const available = allPlayers.filter(p => !drafted.has(p.name));
-      const suggestions = suggestPicks(available, myPosCounts, myPickIndex);
-      printSuggestions(suggestions, myPosCounts);
+      const suggestions = suggestPicks(available, myPosCounts, myPickIndex, myTeam);
+      printSuggestions(suggestions, myPosCounts, myTeam);
+
+      // Bye filler callout — final 5 picks (rounds 14-18)
+      if (myPickIndex >= 13) {
+        const byeInfo = suggestByeFillers(available, myTeam, myPosCounts);
+        if (byeInfo) {
+          console.log(`\n  ${C.bold}${C.yellow}--- BYE FILLERS (thin coverage detected) ---${C.reset}`);
+          const byeCounts = byeRoundCounts(myTeam);
+          for (const r of [12, 13, 14, 15, 16]) {
+            const count = byeCounts[r] || 0;
+            const color = count === 0 ? C.red : count === 1 ? C.yellow : C.dim;
+            const teams = myTeam.filter(p => getByeRound(p.team) === r).map(p => dn(p.name)).join(", ") || "none";
+            console.log(`  ${color}  R${r}: ${count} player(s) — ${teams}${C.reset}`);
+          }
+          console.log();
+          for (const f of byeInfo.fillers) {
+            const inj = INJURIES[f.player.name];
+            const injStr = inj ? ` ${INJURY_DISPLAY[inj.status].color}[${INJURY_DISPLAY[inj.status].label}]${C.reset}` : "";
+            console.log(`  ${C.yellow}Fill R${f.round} gap (${f.have}/2):${C.reset} ${C.bold}${dn(f.player.name)}${C.reset} (${f.player.team} — bye R${getByeRound(f.player.team)}) ${f.player.bestAvg} pts${injStr}`);
+          }
+        }
+      }
 
       const unfilled = POS_LIST.filter(p => myPosCounts[p] === 0);
       if (unfilled.length > 0) console.log(`\n  ${C.yellow}Still need: ${unfilled.join(", ")}${C.reset}`);
 
       let picked = false;
       while (!picked) {
-        const input = await ask(`\n${C.bold}Your pick (1/2/3, player name, "search <name>", "top", "team"): ${C.reset}`);
+        const input = await ask(`\n${C.bold}Your pick (1/2/3, player name, "search <name>", "top", "team", "board"): ${C.reset}`);
         const trimmed = input.trim();
 
         if (trimmed === "1" || trimmed === "2" || trimmed === "3") {
           const s = suggestions[parseInt(trimmed) - 1];
           if (s) {
             const posOptions = POS_LIST.filter(p => myPosCounts[p] < POS_CAPS[p]);
-            console.log(`\n  ${C.cyan}${s.player.name} - available slots: ${posOptions.map(p => `${POS_SHORT[p]}:${s.player.posScores[p]}`).join("  ")}${C.reset}`);
+            console.log(`\n  ${C.cyan}${dn(s.player.name)} - available slots: ${posOptions.map(p => `${POS_SHORT[p]}:${s.player.posScores[p]}`).join("  ")}${C.reset}`);
             const posInput = await ask(`  Draft as position (default: ${s.pos}): `);
             let finalPos = s.pos;
             if (posInput.trim()) {
@@ -386,12 +493,13 @@ async function main() {
               if (matched && myPosCounts[matched] < POS_CAPS[matched]) finalPos = matched;
               else console.log(`  ${C.red}Invalid/full, using ${s.pos}${C.reset}`);
             }
-            await submitPick(col, pickInfo.pick, pickInfo.round, MY_USER, s.player.name, s.player.team);
+            await submitPickFn(pickInfo, s.player, finalPos);
             drafted.add(s.player.name);
+            teamDrafted[MY_USER].push(s.player.name);
             myTeam.push({ ...s.player, draftedAs: finalPos });
             myPosCounts[finalPos]++;
             myPickIndex++;
-            console.log(`  ${C.bgGreen}${C.bold} DRAFTED: ${s.player.name} as ${finalPos} (${s.rawScore} pts/game) ${C.reset}`);
+            console.log(`  ${C.bgGreen}${C.bold} DRAFTED: ${dn(s.player.name)} as ${finalPos} (${s.rawScore} pts/game) ${C.reset}`);
             picked = true;
           }
 
@@ -399,32 +507,50 @@ async function main() {
           const query = trimmed.slice(7);
           const results = available.filter(p => p.name.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
           if (results.length === 0) console.log(`  ${C.red}No players found${C.reset}`);
-          else results.forEach(p => console.log(`  ${p.name.padEnd(26)} ${p.team.padEnd(4)} ${p.bestPos.padEnd(14)} ${p.bestAvg} pts${p.flag ? " ["+p.flag+"]" : ""}`));
+          else results.forEach(p => console.log(`  ${dn(p.name).padEnd(26)} ${p.team.padEnd(4)} ${p.bestPos.padEnd(14)} ${p.bestAvg} pts${p.flag ? " ["+p.flag+"]" : ""}`));
 
         } else if (trimmed.toLowerCase() === "top") {
           const top10 = [...available].sort((a,b) => b.compositeValue - a.compositeValue).slice(0, 10);
           section("TOP 10 AVAILABLE");
-          top10.forEach((p, i) => console.log(`  ${i+1}. ${p.name.padEnd(26)} ${p.team.padEnd(4)} ${p.bestPos.padEnd(14)} ${p.bestAvg}`));
+          top10.forEach((p, i) => console.log(`  ${i+1}. ${dn(p.name).padEnd(26)} ${p.team.padEnd(4)} ${p.bestPos.padEnd(14)} ${p.bestAvg}`));
 
         } else if (trimmed.toLowerCase() === "team") {
           printTeam(myTeam, myPosCounts);
 
+        } else if (trimmed.toLowerCase() === "board") {
+          section("ALL TEAMS");
+          for (const userId of DRAFT_ORDER) {
+            const picks = teamDrafted[userId] || [];
+            const name = USER_NAMES[userId];
+            const tag = userId === MY_USER ? `${C.bold}${C.green}(YOU)${C.reset} ` : "";
+            console.log(`\n  ${C.bold}${name}${C.reset} ${tag}— ${picks.length} picks`);
+            if (picks.length === 0) { console.log(`    ${C.dim}(none yet)${C.reset}`); continue; }
+            picks.forEach((pName, i) => {
+              const pData = allPlayers.find(p => p.name === pName);
+              const score = pData ? ` ${pData.bestAvg} ${POS_SHORT[pData.bestPos]}` : "";
+              const inj = INJURIES[pName];
+              const injStr = inj ? ` ${INJURY_DISPLAY[inj.status].color}[${INJURY_DISPLAY[inj.status].label}]${C.reset}` : "";
+              console.log(`    ${String(i+1).padStart(2)}. ${dn(pName)}${C.dim}${score}${C.reset}${injStr}`);
+            });
+          }
+
         } else if (trimmed) {
           const found = findPlayer(trimmed, available);
           if (!found) { console.log(`  ${C.red}Not found or already drafted: "${trimmed}"${C.reset}`); }
-          else if (Array.isArray(found)) { console.log(`  ${C.yellow}Multiple matches: ${found.map(p=>p.name).join(", ")}${C.reset}`); }
+          else if (Array.isArray(found)) { console.log(`  ${C.yellow}Multiple matches: ${found.map(p=>dn(p.name)).join(", ")}${C.reset}`); }
           else {
             const posOptions = POS_LIST.filter(p => myPosCounts[p] < POS_CAPS[p]);
-            console.log(`\n  ${C.cyan}${found.name} - ${found.team} | ${posOptions.map(p => `${POS_SHORT[p]}:${found.posScores[p]}`).join("  ")}${C.reset}`);
+            console.log(`\n  ${C.cyan}${dn(found.name)} - ${found.team} | ${posOptions.map(p => `${POS_SHORT[p]}:${found.posScores[p]}`).join("  ")}${C.reset}`);
             const posInput = await ask(`  Draft as position: `);
             const matched = POS_LIST.find(p => p.toLowerCase().includes(posInput.trim().toLowerCase()) || POS_SHORT[p].toLowerCase() === posInput.trim().toLowerCase());
             if (matched && myPosCounts[matched] < POS_CAPS[matched]) {
-              await submitPick(col, pickInfo.pick, pickInfo.round, MY_USER, found.name, found.team);
+              await submitPickFn(pickInfo, found, matched);
               drafted.add(found.name);
+              teamDrafted[MY_USER].push(found.name);
               myTeam.push({ ...found, draftedAs: matched });
               myPosCounts[matched]++;
               myPickIndex++;
-              console.log(`  ${C.bgGreen}${C.bold} DRAFTED: ${found.name} as ${matched} (${found.posScores[matched]} pts/game) ${C.reset}`);
+              console.log(`  ${C.bgGreen}${C.bold} DRAFTED: ${dn(found.name)} as ${matched} (${found.posScores[matched]} pts/game) ${C.reset}`);
               picked = true;
             } else {
               console.log(`  ${C.red}Invalid or full position${C.reset}`);
@@ -434,9 +560,14 @@ async function main() {
       }
     }
   }
+}
 
-  // ===== Final summary =====
+// ===== Final summary (shared) =====
+function printFinalSummary(myTeam) {
   header("DRAFT COMPLETE - YOUR TEAM");
+  const myPosCounts = {};
+  POS_LIST.forEach(p => myPosCounts[p] = 0);
+  myTeam.forEach(p => myPosCounts[p.draftedAs]++);
   printTeam(myTeam, myPosCounts);
 
   section("OPTIMAL STARTING LINEUP");
@@ -454,24 +585,156 @@ async function main() {
       }
     }
   }
-
   let total = 0;
   for (const posName of POS_LIST) {
     const p = lineup[posName];
     if (p) {
       const score = p.posScores[posName];
       total += score;
-      console.log(`  ${posName.padEnd(14)} ${p.name.padEnd(25)} ${score} pts/game${p.flag ? " ["+p.flag+"]" : ""}`);
+      const inj = INJURIES[p.name];
+      const injStr = inj ? ` ${INJURY_DISPLAY[inj.status].color}[${INJURY_DISPLAY[inj.status].label}]${C.reset}` : "";
+      console.log(`  ${posName.padEnd(14)} ${dn(p.name).padEnd(25)} ${score} pts/game${injStr}`);
     }
   }
   const bench = myTeam.filter(p => !lineupUsed.has(p.name));
   ["Bench","Reserve A","Reserve B"].forEach((label, i) => {
-    if (bench[i]) console.log(`  ${label.padEnd(14)} ${bench[i].name}`);
+    if (bench[i]) console.log(`  ${label.padEnd(14)} ${dn(bench[i].name)}`);
   });
   console.log(`\n  ${C.bold}Projected weekly score: ~${Math.round(total)} pts${C.reset}`);
+}
 
-  await client.close();
+// ===== Main =====
+async function main() {
+  const isMock = process.argv.includes("--mock");
+
+  header(isMock ? "DuzzaTip 2026 Mock Draft" : "DuzzaTip 2026 Live Draft Assistant");
+  console.log(`${C.dim}Loading player database...${C.reset}`);
+
+  const allPlayers = buildPlayerDB();
+  console.log(`${C.green}Loaded ${allPlayers.length} players | Your picks: ${MY_PICK_NUMS.join(", ")}${C.reset}`);
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q) => new Promise(resolve => rl.question(q, resolve));
+
+  const drafted = new Set();
+  const myTeam = [];
+  const myPosCounts = {};
+  POS_LIST.forEach(p => myPosCounts[p] = 0);
+
+  // ===== Track opponent pick numbers to skip already-drafted =====
+  let processedPicks = 0;
+
+  if (isMock) {
+    // ===== MOCK MODE — no DB, instant opponent picks =====
+    console.log(`${C.yellow}MOCK MODE — opponents auto-pick best available, nothing saved to DB${C.reset}\n`);
+
+    await runDraft({
+      allPlayers, picks: ALL_PICKS, drafted, myTeam, myPosCounts, ask,
+      submitPickFn: async () => {},  // no-op, we add to myTeam in the loop
+      opponentPickFn: async (pickInfo, predicted) => {
+        return predicted;
+      },
+    });
+
+  } else {
+    // ===== LIVE MODE — MongoDB =====
+    console.log(`${C.dim}Connecting to MongoDB...${C.reset}`);
+    const client = new MongoClient(process.env.MONGODB_URI, {
+      serverApi: { version: "1", strict: true, deprecationErrors: true },
+      connectTimeoutMS: 10000,
+    });
+    await client.connect();
+    const db = client.db("afl_database");
+    const col = db.collection(COLLECTION);
+    console.log(`${C.green}Connected to MongoDB${C.reset}`);
+
+    // Sync existing picks from DB
+    let dbPicks = await fetchDraftState(col);
+    const myDbPicks = dbPicks.filter(p => p.user_id === MY_USER);
+    const myDbPlayersData = myDbPicks.map(pick => allPlayers.find(p => p.name === pick.player_name) || { name: pick.player_name, posScores: {} });
+
+    // Use stored positions if all picks have them, otherwise optimize
+    const allHavePositions = myDbPicks.every(p => p.position);
+    let positionMap;
+    if (allHavePositions) {
+      positionMap = new Map(myDbPicks.map(p => [p.player_name, p.position]));
+    } else {
+      const { assignments } = optimizeAllPositions(myDbPlayersData);
+      // Override with stored positions where present
+      for (const pick of myDbPicks) {
+        if (pick.position) assignments.set(pick.player_name, pick.position);
+      }
+      positionMap = assignments;
+    }
+
+    for (const pick of dbPicks) {
+      drafted.add(pick.player_name);
+      if (pick.user_id === MY_USER) {
+        const playerData = allPlayers.find(p => p.name === pick.player_name);
+        const pos = positionMap.get(pick.player_name) || (playerData ? playerData.bestPos : "Midfielder");
+        myTeam.push({ name: pick.player_name, team: pick.team_name, draftedAs: pos, ...(playerData || {}) });
+        myPosCounts[pos]++;
+      }
+    }
+    // Pre-populate teamDrafted from DB picks
+    const teamDrafted = {};
+    DRAFT_ORDER.forEach(id => teamDrafted[id] = []);
+    for (const pick of dbPicks) teamDrafted[pick.user_id].push(pick.player_name);
+
+    if (dbPicks.length > 0) {
+      console.log(`\n${C.green}Synced ${dbPicks.length} picks from DB (${myTeam.length} are yours)${C.reset}`);
+      printTeam(myTeam, myPosCounts);
+    }
+
+    await runDraft({
+      allPlayers, picks: ALL_PICKS.filter(p => p.pick > dbPicks.length),
+      drafted, myTeam, myPosCounts, ask, teamDrafted,
+      submitPickFn: async (pickInfo, player, pos) => {
+        await submitPick(col, pickInfo.pick, pickInfo.round, MY_USER, player.name, player.team, pos);
+      },
+      opponentPickFn: async (pickInfo, predicted, available) => {
+        process.stdout.write(`  ${C.dim}(type player name to enter manually, or wait for DB)${C.reset}\n`);
+
+        let resolveManual;
+        const manualPick = new Promise(r => { resolveManual = r; });
+
+        const lineHandler = async (input) => {
+          const trimmed = input.trim();
+          if (!trimmed) return;
+          const found = findPlayer(trimmed, available);
+          if (!found) {
+            process.stdout.write(`  ${C.red}Not found: "${trimmed}" — try again${C.reset}\n`);
+          } else if (Array.isArray(found)) {
+            process.stdout.write(`  ${C.yellow}Multiple matches: ${found.map(p => dn(p.name)).join(", ")}${C.reset}\n`);
+          } else {
+            await submitPick(col, pickInfo.pick, pickInfo.round, pickInfo.userId, found.name, found.team);
+            process.stdout.write(`  ${C.green}Submitted: ${dn(found.name)} for ${USER_NAMES[pickInfo.userId]}${C.reset}\n`);
+            resolveManual({ name: found.name, team: found.team });
+          }
+        };
+        rl.on('line', lineHandler);
+
+        const pollPick = (async () => {
+          let newPick = null;
+          while (!newPick) {
+            await sleep(POLL_INTERVAL_MS);
+            dbPicks = await fetchDraftState(col);
+            newPick = dbPicks.find(p => p.pick_number === pickInfo.pick);
+          }
+          return { name: newPick.player_name, team: newPick.team_name };
+        })();
+
+        const result = await Promise.race([manualPick, pollPick]);
+        rl.removeListener('line', lineHandler);
+        return result;
+      },
+    });
+
+    await client.close();
+  }
+
+  printFinalSummary(myTeam);
   rl.close();
 }
 
-main().catch(async e => { console.error(C.red + e.message + C.reset); process.exit(1); });
+main().catch(e => { console.error(C.red + e.message + C.reset); process.exit(1); });
