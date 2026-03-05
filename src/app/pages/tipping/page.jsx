@@ -418,13 +418,31 @@ function MobileTippingView({
         <div className="space-y-3">
           <h2 className="text-sm font-medium text-black">Match Tips</h2>
           <form onSubmit={handleFormSubmit}>
-            {roundFixtures.map((fixture) => (
+            {roundFixtures.map((fixture) => {
+              const gameHasStarted = new Date() >= new Date(fixture.DateUtc);
+              const gameHasResult = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+              const winner = gameHasResult
+                ? (fixture.HomeTeamScore > fixture.AwayTeamScore ? fixture.HomeTeam
+                   : fixture.AwayTeamScore > fixture.HomeTeamScore ? fixture.AwayTeam
+                   : 'Draw')
+                : null;
+              const tipTeam = tips[fixture.MatchNumber]?.team;
+              const isCorrectTip = gameHasResult && winner !== 'Draw' && tipTeam === winner;
+              const isWrongTip = gameHasResult && winner !== 'Draw' && tipTeam !== winner;
+              const gameLocked = (gameHasStarted && !isAdmin) || (isRoundLocked && !isAdmin);
+              return (
               <div key={fixture.MatchNumber} className="bg-white rounded-lg p-3 shadow">
                 {/* Match Info */}
-                <div className="text-xs text-gray-600 mb-2">
-                  Game {fixture.MatchNumber} • {fixture.DateMelb}
+                <div className="flex justify-between items-center mb-2">
+                  <div className="text-xs text-gray-600">
+                    Game {fixture.MatchNumber} • {fixture.DateMelb}
+                    {gameHasStarted && !gameHasResult && <span className="ml-1 text-yellow-600">In progress</span>}
+                  </div>
+                  {isCorrectTip && <span className="text-green-600 font-bold text-lg">✓</span>}
+                  {isWrongTip && <span className="text-red-600 font-bold text-lg">✗</span>}
+                  {gameHasResult && winner === 'Draw' && <span className="text-gray-500 text-xs">Draw</span>}
                 </div>
-                
+
                 {/* Team Selection */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
@@ -433,35 +451,39 @@ function MobileTippingView({
                       handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
                     }}
                     type="button"
-                    disabled={!isEditing || (isRoundLocked && !isAdmin)}
+                    disabled={!isEditing || gameLocked}
                     className={`p-3 rounded-lg text-sm font-medium transition-colors ${
                       tips[fixture.MatchNumber]?.team === fixture.HomeTeam
                         ? 'bg-green-500 text-white shadow-md'
                         : 'bg-gray-100 hover:bg-gray-200 text-black'
-                    } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
+                    } ${(!isEditing || gameLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                   >
                     <div className="text-center">
                       <div className="font-bold">{fixture.HomeTeam}</div>
-                      <div className="text-xs opacity-75">HOME</div>
+                      <div className="text-xs opacity-75">
+                        HOME{gameHasResult ? ` (${fixture.HomeTeamScore})` : ''}
+                      </div>
                     </div>
                   </button>
-                  
+
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
                     }}
                     type="button"
-                    disabled={!isEditing || (isRoundLocked && !isAdmin)}
+                    disabled={!isEditing || gameLocked}
                     className={`p-3 rounded-lg text-sm font-medium transition-colors ${
                       tips[fixture.MatchNumber]?.team === fixture.AwayTeam
                         ? 'bg-green-500 text-white shadow-md'
                         : 'bg-gray-100 hover:bg-gray-200 text-black'
-                    } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
+                    } ${(!isEditing || gameLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                   >
                     <div className="text-center">
                       <div className="font-bold">{fixture.AwayTeam}</div>
-                      <div className="text-xs opacity-75">AWAY</div>
+                      <div className="text-xs opacity-75">
+                        AWAY{gameHasResult ? ` (${fixture.AwayTeamScore})` : ''}
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -481,18 +503,19 @@ function MobileTippingView({
                       handleDeadCertToggle(fixture.MatchNumber);
                     }}
                     type="button"
-                    disabled={!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team}
+                    disabled={!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team}
                     className={`px-3 py-1 rounded text-xs font-medium ${
                       tips[fixture.MatchNumber]?.deadCert
                         ? 'bg-yellow-500 text-white'
                         : 'bg-gray-100 text-black'
-                    } ${(!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-400'}`}
+                    } ${(!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-400'}`}
                   >
                     {tips[fixture.MatchNumber]?.deadCert ? '⭐ Dead Cert' : 'Dead Cert'}
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </form>
         </div>
       )}
@@ -705,12 +728,28 @@ function DesktopTippingView({
                   <th className="py-2 px-4 border text-black">Away Team</th>
                   <th className="py-2 px-4 border text-black">Your Tip</th>
                   <th className="py-2 px-4 border text-black">Dead Cert</th>
+                  <th className="py-2 px-4 border text-black">Result</th>
                 </tr>
               </thead>
               <tbody className="text-black">
-                {roundFixtures.map((fixture) => (
-                  <tr key={fixture.MatchNumber} className="hover:bg-gray-50">
-                    <td className="py-2 px-4 border text-black">{fixture.DateMelb}</td>
+                {roundFixtures.map((fixture) => {
+                  const gameHasStarted = new Date() >= new Date(fixture.DateUtc);
+                  const gameHasResult = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+                  const winner = gameHasResult
+                    ? (fixture.HomeTeamScore > fixture.AwayTeamScore ? fixture.HomeTeam
+                       : fixture.AwayTeamScore > fixture.HomeTeamScore ? fixture.AwayTeam
+                       : 'Draw')
+                    : null;
+                  const tipTeam = tips[fixture.MatchNumber]?.team;
+                  const isCorrectTip = gameHasResult && winner !== 'Draw' && tipTeam === winner;
+                  const isWrongTip = gameHasResult && winner !== 'Draw' && tipTeam !== winner;
+                  const gameLocked = (gameHasStarted && !isAdmin) || (isRoundLocked && !isAdmin);
+                  return (
+                  <tr key={fixture.MatchNumber} className={`hover:bg-gray-50 ${gameHasStarted && !gameHasResult ? 'bg-yellow-50' : ''}`}>
+                    <td className="py-2 px-4 border text-black text-sm">
+                      {fixture.DateMelb}
+                      {gameHasStarted && !gameHasResult && <div className="text-xs text-yellow-600">In progress</div>}
+                    </td>
                     <td className="py-2 px-4 border">
                       <button
                         onClick={(e) => {
@@ -718,14 +757,15 @@ function DesktopTippingView({
                           handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
                         }}
                         type="button"
-                        disabled={!isEditing || (isRoundLocked && !isAdmin)}
+                        disabled={!isEditing || gameLocked}
                         className={`px-3 py-1 rounded ${
                           tips[fixture.MatchNumber]?.team === fixture.HomeTeam
                             ? 'bg-green-500 text-white'
                             : 'bg-gray-100 hover:bg-gray-200 text-black'
-                        } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
+                        } ${(!isEditing || gameLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                       >
                         {fixture.HomeTeam}
+                        {gameHasResult && <span className="ml-1 text-xs">({fixture.HomeTeamScore})</span>}
                       </button>
                     </td>
                     <td className="py-2 px-4 border">
@@ -735,14 +775,15 @@ function DesktopTippingView({
                           handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
                         }}
                         type="button"
-                        disabled={!isEditing || (isRoundLocked && !isAdmin)}
+                        disabled={!isEditing || gameLocked}
                         className={`px-3 py-1 rounded ${
                           tips[fixture.MatchNumber]?.team === fixture.AwayTeam
                             ? 'bg-green-500 text-white'
                             : 'bg-gray-100 hover:bg-gray-200 text-black'
-                        } ${(!isEditing || (isRoundLocked && !isAdmin)) ? 'cursor-not-allowed opacity-60' : ''}`}
+                        } ${(!isEditing || gameLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
                       >
                         {fixture.AwayTeam}
+                        {gameHasResult && <span className="ml-1 text-xs">({fixture.AwayTeamScore})</span>}
                       </button>
                     </td>
                     <td className="py-2 px-4 border text-center text-black">
@@ -755,18 +796,25 @@ function DesktopTippingView({
                           handleDeadCertToggle(fixture.MatchNumber);
                         }}
                         type="button"
-                        disabled={!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team}
+                        disabled={!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team}
                         className={`px-3 py-1 rounded ${
                           tips[fixture.MatchNumber]?.deadCert
                             ? 'bg-yellow-500 text-white'
                             : 'bg-gray-100 hover:bg-gray-200 text-black'
-                        } ${(!isEditing || (isRoundLocked && !isAdmin) || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        } ${(!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
                       </button>
                     </td>
+                    <td className="py-2 px-4 border text-center">
+                      {isCorrectTip && <span className="text-green-600 font-bold text-lg">✓</span>}
+                      {isWrongTip && <span className="text-red-600 font-bold text-lg">✗</span>}
+                      {gameHasResult && winner === 'Draw' && <span className="text-gray-500 text-sm">Draw</span>}
+                      {!gameHasResult && gameHasStarted && <span className="text-yellow-500 text-xs">Live</span>}
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </form>
