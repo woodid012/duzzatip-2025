@@ -89,7 +89,7 @@ const TippingResultsGrid = () => {
           const userId = Object.keys(USER_NAMES)[index];
           
           // Process the matches and add default home team selections if needed
-          const processedMatches = roundResult.completedMatches.map(match => {
+          const processedMatches = (roundResult.completedMatches || []).map(match => {
             // If there's no tip, use the home team as default
             if (!match.tip) {
               return {
