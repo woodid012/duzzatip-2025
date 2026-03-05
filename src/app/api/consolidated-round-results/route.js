@@ -7,6 +7,16 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
 
+// Map 3-letter abbreviations (from 2026_players) to full fixture names
+const ABBREV_TO_FULL = {
+    ADE: 'Adelaide Crows', BRL: 'Brisbane Lions', CAR: 'Carlton',
+    COL: 'Collingwood', ESS: 'Essendon', FRE: 'Fremantle',
+    GEE: 'Geelong Cats', GCS: 'Gold Coast SUNS', GWS: 'GWS GIANTS',
+    HAW: 'Hawthorn', MEL: 'Melbourne', NTH: 'North Melbourne',
+    PTA: 'Port Adelaide', RIC: 'Richmond', STK: 'St Kilda',
+    SYD: 'Sydney Swans', WCE: 'West Coast Eagles', WBD: 'Western Bulldogs',
+};
+
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -35,12 +45,28 @@ export async function GET(request) {
         // Read and parse AFL fixtures (uses local file first, falls back to external API)
         const aflFixtures = await getAflFixtures(year);
 
+        // Build player → full team name map from game_results (these already use full names)
+        const playerTeamMap = {};
+        playerStats.forEach(stat => {
+            if (stat.player_name && stat.team_name) {
+                playerTeamMap[stat.player_name] = stat.team_name;
+            }
+        });
+
+        // For players NOT in stats (game hasn't started or DNP), look up from 2026_players
+        const playersData = await db.collection(`${year}_players`).find({}).toArray();
+        for (const p of playersData) {
+            if (!playerTeamMap[p.player_name] && p.team_name) {
+                playerTeamMap[p.player_name] = ABBREV_TO_FULL[p.team_name] || p.team_name;
+            }
+        }
+
         // Get all user results in parallel
         const userIds = Object.keys(USER_NAMES);
         const userResults = await Promise.all(userIds.map(async (userId) => {
             try {
                 console.log(`Processing user ${userId} (${USER_NAMES[userId]})`);
-                const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures, year);
+                const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures, year, playerTeamMap);
                 console.log(`User ${userId} total score: ${userResult.totalScore}`);
                 return { userId, userResult, totalScore: userResult.totalScore };
             } catch (error) {
@@ -56,21 +82,26 @@ export async function GET(request) {
             allTeamScores.push({ userId, totalScore });
         }
 
-        // Calculate stars and crabs
+        // Only assign stars/crabs when ALL games in the round are complete
+        const roundFixtures = (aflFixtures || []).filter(f => f.RoundNumber === round);
+        const allGamesComplete = roundFixtures.length > 0 && roundFixtures.every(
+            f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
+        );
+
         const validScores = allTeamScores.filter(s => s.totalScore > 0);
         let highestScore = 0;
         let lowestScore = 0;
         let starWinners = [];
         let crabWinners = [];
 
-        if (validScores.length > 0) {
+        if (allGamesComplete && validScores.length > 0) {
             highestScore = Math.max(...validScores.map(s => s.totalScore));
             lowestScore = Math.min(...validScores.map(s => s.totalScore));
-            
+
             starWinners = validScores
                 .filter(s => s.totalScore === highestScore)
                 .map(s => s.userId);
-            
+
             if (lowestScore < highestScore) {
                 crabWinners = validScores
                     .filter(s => s.totalScore === lowestScore)
@@ -203,7 +234,7 @@ function extractWinners(results, fixtures) {
 }
 
 // Use the exact same logic as your round-results API
-async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, year = CURRENT_YEAR) {
+async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, year = CURRENT_YEAR, playerTeamMap = {}) {
     try {
         // Get team selection - same as round-results API
         const teamSelection = await db.collection(`${year}_team_selection`)
@@ -220,7 +251,7 @@ async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, y
         }
 
         // Process positions with substitutions (same logic as useResults hook)
-        const teamScoreData = calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round);
+        const teamScoreData = calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round, aflFixtures, playerTeamMap);
         const playerScore = teamScoreData.totalScore;
         const positions = teamScoreData.positionScores;
 
@@ -387,7 +418,7 @@ function calculateScores(completedMatches) {
 }
 
 // Calculate team scores with substitutions (same logic as useResults hook)
-function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round) {
+function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round, aflFixtures = [], playerTeamMap = {}) {
     const POSITION_TYPES = [
         'Full Forward', 
         'Tall Forward', 
@@ -406,8 +437,15 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
         statsMap[stat.player_name] = stat;
     });
     
-    // Only allow reserve substitutions when real game stats exist for this round
-    const roundEndPassed = playerStats.length > 0;
+    // Build per-team game-started map from AFL fixtures
+    const now = new Date();
+    const roundFixtures = (aflFixtures || []).filter(f => f.RoundNumber === round);
+    const teamGameStarted = {};
+    for (const f of roundFixtures) {
+        const started = new Date(f.DateUtc) <= now;
+        teamGameStarted[f.HomeTeam] = started;
+        teamGameStarted[f.AwayTeam] = started;
+    }
     
     // Helper function to check if player played
     const didPlayerPlay = (stats) => {
@@ -477,19 +515,21 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
             
             // Calculate score if player played and has backup position
             let score = 0;
+            let breakdown = '';
             if (hasPlayed && data.backup_position) {
                 const backupPosType = data.backup_position.toUpperCase().replace(/\s+/g, '_');
                 const scoring = calculateScore(backupPosType, stats);
                 score = scoring?.total || 0;
+                breakdown = scoring?.breakdown || '';
             }
-            
+
             return {
                 position: pos,
                 playerName: data.player_name,
                 backupPosition: data.backup_position || 'Not Set',
                 stats,
                 score,
-                breakdown: '',
+                breakdown,
                 hasPlayed
             };
         })
@@ -562,9 +602,11 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
         const positionType = position.toUpperCase().replace(/\s+/g, '_');
         const scoring = calculateScore(positionType, stats);
         const originalScore = scoring?.total || 0;
-        
+        const originalBreakdown = scoring?.breakdown || '';
+
         let finalScore = originalScore;
         let finalPlayerName = playerName;
+        let finalBreakdown = originalBreakdown;
         let isSubstitution = false;
         let substitutionType = null;
         
@@ -576,6 +618,7 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
             if (benchPlayer.score > originalScore) {
                 finalScore = benchPlayer.score;
                 finalPlayerName = benchPlayer.playerName;
+                finalBreakdown = benchPlayer.breakdown || '';
                 isSubstitution = true;
                 substitutionType = 'Bench';
                 usedBenchPlayers.add(benchPlayer.playerName);
@@ -592,8 +635,10 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
             }
         }
         
-        // Step 2: If player didn't play and no bench substitution, try reserves
-        if (!isSubstitution && !hasPlayed && roundEndPassed) {
+        // Step 2: If player didn't play, their game has started, and no bench sub, try reserves
+        const playerTeam = playerTeamMap[playerName];
+        const gameStarted = playerTeam ? (teamGameStarted[playerTeam] ?? false) : false;
+        if (!isSubstitution && !hasPlayed && gameStarted) {
             const isReserveAPosition = RESERVE_A_POSITIONS.includes(position);
             const isReserveBPosition = RESERVE_B_POSITIONS.includes(position);
             
@@ -625,6 +670,7 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
                     const bestReserve = reserveScores[0];
                     finalScore = bestReserve.calculatedScore;
                     finalPlayerName = bestReserve.playerName;
+                    finalBreakdown = bestReserve.breakdown || '';
                     isSubstitution = true;
                     substitutionType = bestReserve.position;
                     usedReservePlayers.add(bestReserve.playerName);
@@ -647,6 +693,8 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
             originalPlayerName: playerName,
             score: finalScore,
             originalScore,
+            breakdown: finalBreakdown,
+            originalBreakdown,
             isSubstitution,
             substitutionType
         };
@@ -664,20 +712,33 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
         didPlay: bench.hasPlayed,
         replacingPlayerName: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.originalPlayer,
         replacingPosition: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.position,
-        breakdown: ''
+        breakdown: bench.breakdown || ''
     }));
 
-    const reserveScores = reservePlayers.map(reserve => ({
-        position: reserve.isReserveA ? 'Reserve A' : 'Reserve B',
-        playerName: reserve.playerName,
-        score: reserve.score,
-        backupPosition: reserve.backupPosition,
-        isBeingUsed: usedReservePlayers.has(reserve.playerName),
-        didPlay: reserve.hasPlayed,
-        replacingPlayerName: substitutionsUsed.find(s => s.replacementPlayer === reserve.playerName)?.originalPlayer,
-        replacingPosition: substitutionsUsed.find(s => s.replacementPlayer === reserve.playerName)?.position,
-        breakdown: ''
-    }));
+    const reserveScores = reservePlayers.map(reserve => {
+        // Find the best breakdown if the reserve was used as a sub
+        const subInfo = substitutionsUsed.find(s => s.replacementPlayer === reserve.playerName);
+        let breakdown = '';
+        if (reserve.hasPlayed) {
+            // Calculate breakdown for the position they were used in, or best natural position
+            const targetPos = subInfo?.position || reserve.validPositions?.[0];
+            if (targetPos) {
+                const scoring = calculateScore(targetPos.toUpperCase().replace(/\s+/g, '_'), reserve.stats);
+                breakdown = scoring?.breakdown || '';
+            }
+        }
+        return {
+            position: reserve.isReserveA ? 'Reserve A' : 'Reserve B',
+            playerName: reserve.playerName,
+            score: reserve.score,
+            backupPosition: reserve.backupPosition,
+            isBeingUsed: usedReservePlayers.has(reserve.playerName),
+            didPlay: reserve.hasPlayed,
+            replacingPlayerName: subInfo?.originalPlayer,
+            replacingPosition: subInfo?.position,
+            breakdown
+        };
+    });
 
     return {
         totalScore,
@@ -687,6 +748,8 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
             originalPlayerName: pos.originalPlayerName,
             score: pos.score,
             originalScore: pos.originalScore,
+            breakdown: pos.breakdown || '',
+            originalBreakdown: pos.originalBreakdown || '',
             isSubstitution: pos.isSubstitution,
             substitutionType: pos.substitutionType,
             hasPlayed: pos.playerName && pos.score > 0,

@@ -37,8 +37,10 @@ export default function useSimplifiedResults() {
   const loadRoundData = useCallback(async (round) => {
     if (round === null || round === undefined) return;
 
-    // Check cache first
-    if (roundCache.has(round)) {
+    // Check cache first — but skip for live rounds (current or future)
+    // so auto-refresh can fetch updated stats
+    const isPastRound = currentRound !== undefined && round < currentRound;
+    if (isPastRound && roundCache.has(round)) {
       const cachedData = roundCache.get(round);
       setRoundData(cachedData.roundData);
       setFixtures(cachedData.fixtures);
@@ -46,6 +48,8 @@ export default function useSimplifiedResults() {
       setLoadingMessage('');
       return;
     }
+    // Clear stale cache for this round before refreshing
+    roundCache.delete(round);
 
     try {
       setError(null);
@@ -72,10 +76,18 @@ export default function useSimplifiedResults() {
       
       await new Promise(resolve => setTimeout(resolve, 400)); // Brief pause
 
-      // Stage 3: Load results
+      // Stage 3: Refresh stats if stale, then load results
       setLoadingStage('results');
-      setLoadingMessage(`Calculating Round ${round} results...`);
+      setLoadingMessage(`Refreshing Round ${round} stats...`);
 
+      try {
+        await fetch(`/api/update-round-stats?round=${round}&source=afl&ifStale=1`);
+      } catch (e) {
+        // Fire-and-forget: don't block results on refresh failure
+        console.warn('Stats refresh failed (non-blocking):', e.message);
+      }
+
+      setLoadingMessage(`Calculating Round ${round} results...`);
       console.log(`Loading consolidated results for round ${round}`);
       
       const response = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
@@ -102,7 +114,7 @@ export default function useSimplifiedResults() {
       setLoadingStage('error');
       setLoadingMessage(`Error loading round ${round}`);
     }
-  }, [roundCache, selectedYear]);
+  }, [roundCache, selectedYear, currentRound]);
 
   // Load data when round changes
   useEffect(() => {
@@ -148,7 +160,7 @@ export default function useSimplifiedResults() {
         originalPlayerName: pos.originalPlayerName || pos.playerName || 'Not Selected',
         score: pos.score || 0,
         originalScore: pos.originalScore || pos.score || 0,
-        breakdown: '', // API doesn't return breakdown, could be enhanced later
+        breakdown: pos.breakdown || '',
         hasPlayed: pos.hasPlayed || (pos.playerName && pos.score > 0),
         isBenchPlayer: pos.isSubstitution || false,
         noStats: pos.noStats || (!pos.playerName || pos.score === 0),
