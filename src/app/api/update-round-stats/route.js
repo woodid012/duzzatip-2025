@@ -181,7 +181,7 @@ export async function GET(request) {
         const forceSource = searchParams.get('source'); // "afl" | "dfs" | null
         const ifStale = searchParams.get('ifStale') === '1';
 
-        if (!round) {
+        if (isNaN(round)) {
             return Response.json({ error: 'Round parameter is required' }, { status: 400 });
         }
 
