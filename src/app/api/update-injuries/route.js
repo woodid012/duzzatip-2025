@@ -193,22 +193,7 @@ function parseInjuryHtml(html) {
 
       const severity = classifySeverity(returnEst, injury);
       const detail = `${injury}, ${returnEst}`.replace(/\s+/g, " ").trim();
-
-      // Handle duplicate names (e.g. "Max King" at two clubs)
-      // If the name already exists for a different team, use "Name (Team)" keys for both
-      if (players[name] && players[name].team !== team) {
-        // Move existing entry to "Name (Team)" format
-        const existing = players[name];
-        players[`${name} (${existing.team})`] = existing;
-        delete players[name];
-        // Store new entry with team suffix
-        players[`${name} (${team})`] = { status: severity, detail, team };
-      } else if (players[`${name} (${team})`]) {
-        // Already disambiguated, update in place
-        players[`${name} (${team})`] = { status: severity, detail, team };
-      } else {
-        players[name] = { status: severity, detail, team };
-      }
+      players[`${name} (${team})`] = { status: severity, detail, team };
     }
   }
 

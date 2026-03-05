@@ -40,7 +40,10 @@ export default function InjuriesPage() {
 
   // Build grouped + filtered list
   const { teams, filteredCount, totalCount } = useMemo(() => {
-    const entries = Object.entries(injuries).map(([name, info]) => ({ name, ...info }));
+    const entries = Object.entries(injuries).map(([key, info]) => ({
+      name: key.replace(/\s*\([^)]+\)\s*$/, ''),
+      ...info,
+    }));
     const totalCount = entries.length;
 
     const filtered = entries.filter(p => {

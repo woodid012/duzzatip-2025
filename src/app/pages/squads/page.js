@@ -34,11 +34,9 @@ export default function Squads() {
       .catch(() => {});
   }, []);
 
-  // Lookup injury by player name, handling disambiguated keys like "Max King (St Kilda)"
+  // Lookup injury by player name — keys are "Name (Team)"
   const getInjury = (name) => {
     if (!name) return null;
-    if (injuries[name]) return injuries[name];
-    // Check disambiguated entries
     const match = Object.keys(injuries).find(k => k.startsWith(name + ' ('));
     return match ? injuries[match] : null;
   };
