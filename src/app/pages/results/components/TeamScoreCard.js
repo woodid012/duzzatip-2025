@@ -136,20 +136,34 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
         // Determine player status and styling
         const didNotPlay = position.noStats || !position.player?.hasPlayed;
         const isReplaced = position.isBenchPlayer;
-        
+        const isLive = position.isGameLive;
+        const isFinished = position.isGameFinished;
+        const notStarted = !isLive && !isFinished && !didNotPlay && position.playerName;
+
         // Only show DNP status if round is complete, otherwise show normal status
         const showDNP = isRoundComplete && didNotPlay;
-        
+
         // Always show original player, but in red if they didn't play or were replaced
         const playerNameClass = (showDNP || isReplaced) ? 'text-red-600' : 'text-black';
-        
+
         // For replaced players, we'll show both original and replacement details
         const originalScore = position.originalScore || 0;
         const originalTeam = position.team || (position.player?.originalTeam);
         const replacementScore = isReplaced ? position.score : null;
-        
+
+        // Row background: amber tint for live games
+        const rowBg = isLive ? 'bg-amber-50' : '';
+        // Score colour: orange for live, red for DNP/replaced, gray for not started, bold black for final
+        const scoreClass = (showDNP || isReplaced)
+          ? 'text-red-600'
+          : isLive
+            ? 'text-amber-600 font-semibold'
+            : notStarted
+              ? 'text-gray-400'
+              : 'font-semibold';
+
         return (
-          <div key={position.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
+          <div key={position.position} className={`border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black ${rowBg}`}>
             <div className="font-medium col-span-2 mb-1 sm:mb-0">{position.position}</div>
             <div className="col-span-3 mb-1 sm:mb-0">
               <div className={playerNameClass}>
@@ -187,15 +201,18 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
                 <div className="text-red-600">
                   Player did not play
                 </div>
+              ) : notStarted ? (
+                <div className="text-gray-400 italic text-xs">Game not started</div>
               ) : (
-                position.breakdown
+                <span className={isLive ? 'text-amber-700' : ''}>{position.breakdown}</span>
               )}
             </div>
             <div className="col-span-2 text-right">
-              <span className={showDNP || isReplaced ? "text-red-600" : "font-semibold"}>
+              <span className={scoreClass}>
+                {isLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
                 {originalScore}
               </span>
-              
+
               {isReplaced && (
                 <div className="text-xs text-green-600 font-medium mt-1">
                   +{replacementScore} (used)
@@ -223,16 +240,27 @@ function BenchSection({ benchScores, isRoundComplete }) {
         // Determine bench player status and styling
         const didNotPlay = !bench.didPlay;
         const isBeingUsed = bench.isBeingUsed;
-        
+        const isLive = bench.isGameLive;
+        const isFinished = bench.isGameFinished;
+        const notStarted = !isLive && !isFinished && !didNotPlay && bench.playerName;
+
         // Only show DNP status if round is complete
         const showDNP = isRoundComplete && didNotPlay;
-        
+
         // Player and score status colors
         const playerNameClass = isBeingUsed ? 'text-green-600' : showDNP ? 'text-red-600' : 'text-black';
-        const scoreClass = showDNP ? 'text-red-600' : isBeingUsed ? 'text-green-600' : 'text-black';
-        
+        const scoreClass = showDNP
+          ? 'text-red-600'
+          : isBeingUsed
+            ? 'text-green-600 font-semibold'
+            : isLive
+              ? 'text-amber-600 font-semibold'
+              : notStarted
+                ? 'text-gray-400'
+                : 'text-black';
+
         return (
-          <div key={bench.position} className="border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black">
+          <div key={bench.position} className={`border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black ${isLive ? 'bg-amber-50' : ''}`}>
             <div className="font-medium col-span-2 mb-1 sm:mb-0">
               {bench.position}
               {bench.position === 'Reserve A' && (
@@ -266,11 +294,14 @@ function BenchSection({ benchScores, isRoundComplete }) {
                 <div className="text-red-600">
                   Player did not play
                 </div>
+              ) : notStarted ? (
+                <div className="text-gray-400 italic text-xs">Game not started</div>
               ) : (
-                bench.breakdown
+                <span className={isLive ? 'text-amber-700' : ''}>{bench.breakdown}</span>
               )}
             </div>
-            <div className={`col-span-2 text-right ${scoreClass} ${isBeingUsed ? "font-semibold" : ""}`}>
+            <div className={`col-span-2 text-right ${scoreClass}`}>
+              {isLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
               {bench.score}
             </div>
           </div>

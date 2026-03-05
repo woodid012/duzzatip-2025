@@ -423,14 +423,18 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
         statsMap[stat.player_name] = stat;
     });
     
-    // Build per-team game-started map from AFL fixtures
+    // Build per-team game-started and game-finished maps from AFL fixtures
     const now = new Date();
     const roundFixtures = (aflFixtures || []).filter(f => f.RoundNumber === round);
     const teamGameStarted = {};
+    const teamGameFinished = {};
     for (const f of roundFixtures) {
         const started = new Date(f.DateUtc) <= now;
+        const finished = f.HomeTeamScore !== null && f.AwayTeamScore !== null;
         teamGameStarted[f.HomeTeam] = started;
         teamGameStarted[f.AwayTeam] = started;
+        teamGameFinished[f.HomeTeam] = finished;
+        teamGameFinished[f.AwayTeam] = finished;
     }
     
     // Helper function to check if player played
@@ -673,6 +677,12 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             }
         }
         
+        const activePlayerTeam = playerTeamMap[finalPlayerName];
+        const isGameLive = activePlayerTeam
+            ? (teamGameStarted[activePlayerTeam] && !teamGameFinished[activePlayerTeam])
+            : false;
+        const isGameFinished = activePlayerTeam ? (teamGameFinished[activePlayerTeam] ?? false) : false;
+
         return {
             position,
             playerName: finalPlayerName,
@@ -683,24 +693,31 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             originalBreakdown,
             isSubstitution,
             substitutionType,
-            hasPlayed
+            hasPlayed,
+            isGameLive,
+            isGameFinished
         };
     });
     
     const totalScore = positionScores.reduce((sum, pos) => sum + pos.score, 0);
     
     // Prepare bench and reserve data for display
-    const benchScores = benchPlayers.map(bench => ({
-        position: 'Bench',
-        playerName: bench.playerName,
-        score: bench.score,
-        backupPosition: bench.backupPosition,
-        isBeingUsed: usedBenchPlayers.has(bench.playerName),
-        didPlay: bench.hasPlayed,
-        replacingPlayerName: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.originalPlayer,
-        replacingPosition: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.position,
-        breakdown: bench.breakdown || ''
-    }));
+    const benchScores = benchPlayers.map(bench => {
+        const benchTeam = playerTeamMap[bench.playerName];
+        return {
+            position: 'Bench',
+            playerName: bench.playerName,
+            score: bench.score,
+            backupPosition: bench.backupPosition,
+            isBeingUsed: usedBenchPlayers.has(bench.playerName),
+            didPlay: bench.hasPlayed,
+            replacingPlayerName: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.originalPlayer,
+            replacingPosition: substitutionsUsed.find(s => s.replacementPlayer === bench.playerName)?.position,
+            breakdown: bench.breakdown || '',
+            isGameLive: benchTeam ? (teamGameStarted[benchTeam] && !teamGameFinished[benchTeam]) : false,
+            isGameFinished: benchTeam ? (teamGameFinished[benchTeam] ?? false) : false
+        };
+    });
 
     const reserveScores = reservePlayers.map(reserve => {
         // Find the best breakdown if the reserve was used as a sub
@@ -714,6 +731,7 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
                 breakdown = scoring?.breakdown || '';
             }
         }
+        const reserveTeam = playerTeamMap[reserve.playerName];
         return {
             position: reserve.isReserveA ? 'Reserve A' : 'Reserve B',
             playerName: reserve.playerName,
@@ -723,7 +741,9 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             didPlay: reserve.hasPlayed,
             replacingPlayerName: subInfo?.originalPlayer,
             replacingPosition: subInfo?.position,
-            breakdown
+            breakdown,
+            isGameLive: reserveTeam ? (teamGameStarted[reserveTeam] && !teamGameFinished[reserveTeam]) : false,
+            isGameFinished: reserveTeam ? (teamGameFinished[reserveTeam] ?? false) : false
         };
     });
 
@@ -740,7 +760,9 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             isSubstitution: pos.isSubstitution,
             substitutionType: pos.substitutionType,
             hasPlayed: pos.hasPlayed,
-            noStats: !pos.playerName || !pos.hasPlayed
+            noStats: !pos.playerName || !pos.hasPlayed,
+            isGameLive: pos.isGameLive || false,
+            isGameFinished: pos.isGameFinished || false
         })),
         benchScores: [...benchScores, ...reserveScores],
         substitutionsUsed
