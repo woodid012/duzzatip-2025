@@ -167,14 +167,20 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
               {isReplaced ? (
                 <div>
                   <div className="text-green-600">
-                    Substituted with: {position.playerName} 
+                    Substituted with: {position.playerName}
                     <span className="ml-1 text-gray-500">({position.replacementType})</span>
                   </div>
                   <div className="text-xs mt-1 text-gray-600">
                     {position.originalPlayerName}'s score: {originalScore}
+                    {position.originalBreakdown && (
+                      <span className="ml-1 text-gray-400">({position.originalBreakdown})</span>
+                    )}
                   </div>
                   <div className="text-xs mt-1 text-gray-600">
                     {position.playerName}'s score: {replacementScore}
+                    {position.breakdown && (
+                      <span className="ml-1 text-gray-400">({position.breakdown})</span>
+                    )}
                   </div>
                 </div>
               ) : showDNP ? (

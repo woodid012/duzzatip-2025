@@ -167,6 +167,7 @@ export default function useSimplifiedResults() {
         score: pos.score || 0,
         originalScore: pos.originalScore || pos.score || 0,
         breakdown: pos.breakdown || '',
+        originalBreakdown: pos.originalBreakdown || '',
         hasPlayed: pos.hasPlayed || (pos.playerName && pos.score > 0),
         isBenchPlayer: pos.isSubstitution || false,
         noStats: pos.noStats || (!pos.playerName || pos.score === 0),
