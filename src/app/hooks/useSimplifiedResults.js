@@ -15,6 +15,7 @@ export default function useSimplifiedResults() {
   // Progressive loading states
   const [loadingStage, setLoadingStage] = useState('initializing'); // 'initializing', 'round', 'fixtures', 'results', 'complete'
   const [loadingMessage, setLoadingMessage] = useState('Initializing...');
+  const [isRefreshing, setIsRefreshing] = useState(false); // silent background refresh indicator
 
   // Cache for round data to prevent refetching
   const [roundCache] = useState(new Map());
@@ -76,31 +77,39 @@ export default function useSimplifiedResults() {
       
       await new Promise(resolve => setTimeout(resolve, 400)); // Brief pause
 
-      // Stage 3: Fire-and-forget stats refresh (don't await — it can take 5-10s)
-      fetch(`/api/update-round-stats?round=${round}&source=afl&ifStale=1`).catch(() => {});
-
-      // Load results
+      // Stage 3: Load results immediately (don't wait for stats refresh)
       setLoadingStage('results');
       setLoadingMessage(`Calculating Round ${round} results...`);
-      console.log(`Loading consolidated results for round ${round}`);
-      
+
       const response = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to load round data: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       // Cache both fixtures and round data
       roundCache.set(round, { roundData: data, fixtures: fixturesData });
       setRoundData(data);
 
-      console.log(`Successfully loaded consolidated data for round ${round}`);
-
-      // Stage 4: Complete
+      // Stage 4: Complete — page is visible
       setLoadingStage('complete');
       setLoadingMessage('');
+
+      // For live rounds: kick off background stats refresh, then silently re-fetch results
+      if (!isPastRound) {
+        setIsRefreshing(true);
+        fetch(`/api/update-round-stats?round=${round}&source=afl&ifStale=1`)
+          .then(() => fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`))
+          .then(res => res.ok ? res.json() : Promise.reject())
+          .then(freshData => {
+            roundCache.set(round, { roundData: freshData, fixtures: fixturesData });
+            setRoundData(freshData);
+          })
+          .catch(() => {}) // silent fail
+          .finally(() => setIsRefreshing(false));
+      }
 
     } catch (err) {
       console.error('Error loading round data:', err);
@@ -242,6 +251,7 @@ export default function useSimplifiedResults() {
     loadingStage,
     loadingMessage,
     isInitializing,
+    isRefreshing,
     
     // Derived data
     teamScores: transformedData.teamScores,
