@@ -84,14 +84,6 @@ export default function ResultsPage() {
     return `Round ${round}`;
   };
 
-  // Check if the round is complete
-  const isRoundComplete = () => {
-    if (!roundInfo.roundEndTime) return false;
-    const now = new Date();
-    const roundEnd = new Date(roundInfo.roundEndTime);
-    return now > roundEnd;
-  };
-
   // Calculate all team scores using the simplified data
   // NOTE: All hooks must be called before any early returns
   const allTeamScores = useMemo(() => calculateAllTeamScores(), [calculateAllTeamScores]);
@@ -124,7 +116,7 @@ export default function ResultsPage() {
   };
 
   useEffect(() => {
-    if (displayedRound && allTeamScores.length > 0) {
+    if (displayedRound !== null && displayedRound !== undefined && allTeamScores.length > 0) {
       storeFinalTotalsRef.current(allTeamScores, displayedRound);
     }
   }, [displayedRound, allTeamScores]);
@@ -339,7 +331,7 @@ export default function ResultsPage() {
                 isHighestScore={userTeamScores.finalScore === highestScore && highestScore > 0}
                 isLowestScore={userTeamScores.finalScore === lowestScore && lowestScore > 0}
                 isSelectedUser={userId === selectedUserId}
-                isRoundComplete={isRoundComplete()}
+                isRoundComplete={roundEndPassed}
               />
             );
           })}
@@ -377,7 +369,7 @@ export default function ResultsPage() {
                 isHighestScore={userTeamScores.finalScore === highestScore && highestScore > 0}
                 isLowestScore={userTeamScores.finalScore === lowestScore && lowestScore > 0}
                 isSelectedUser={userId === selectedUserId}
-                isRoundComplete={isRoundComplete()}
+                isRoundComplete={roundEndPassed}
               />
             );
           })}
@@ -436,7 +428,7 @@ function MobileTeamScoreCard({
                 </div>
                 <div className="text-right ml-1">
                   <span className={`font-semibold ${showDNP || isReplaced ? "text-red-600" : ""}`}>
-                    {position.originalScore || position.score}
+                    {position.originalScore ?? position.score}
                   </span>
                   {isReplaced && (
                     <div className="text-xs text-green-600 font-medium">

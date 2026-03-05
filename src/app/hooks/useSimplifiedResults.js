@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { calculateFinalsFixtures, isFinalRound } from '@/app/lib/finals_utils';
@@ -17,13 +17,16 @@ export default function useSimplifiedResults() {
   const [loadingMessage, setLoadingMessage] = useState('Initializing...');
   const [isRefreshing, setIsRefreshing] = useState(false); // silent background refresh indicator
 
+  // Ref to track which round is active, to guard against stale background refreshes
+  const activeRoundRef = useRef(null);
+
   // Cache for round data to prevent refetching
-  const [roundCache] = useState(new Map());
+  const roundCache = useRef(new Map()).current;
 
   // Clear cache when year changes
   useEffect(() => {
     roundCache.clear();
-  }, [selectedYear, roundCache]);
+  }, [selectedYear]);
 
   // Initialize round from context
   useEffect(() => {
@@ -37,6 +40,8 @@ export default function useSimplifiedResults() {
   // Progressive data loading
   const loadRoundData = useCallback(async (round) => {
     if (round === null || round === undefined) return;
+    activeRoundRef.current = round;
+    setIsRefreshing(false);
 
     // Check cache first — but skip for live rounds (current or future)
     // so auto-refresh can fetch updated stats
@@ -58,7 +63,6 @@ export default function useSimplifiedResults() {
       // Stage 1: Set up round
       setLoadingStage('round');
       setLoadingMessage(`Loading Round ${round} information...`);
-      await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for visual feedback
 
       // Stage 2: Load fixtures
       setLoadingStage('fixtures');
@@ -74,8 +78,6 @@ export default function useSimplifiedResults() {
       }
       
       setFixtures(fixturesData || []);
-      
-      await new Promise(resolve => setTimeout(resolve, 400)); // Brief pause
 
       // Stage 3: Load results immediately (don't wait for stats refresh)
       setLoadingStage('results');
@@ -104,6 +106,7 @@ export default function useSimplifiedResults() {
           .then(() => fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`))
           .then(res => res.ok ? res.json() : Promise.reject())
           .then(freshData => {
+            if (round !== activeRoundRef.current) return;
             roundCache.set(round, { roundData: freshData, fixtures: fixturesData });
             setRoundData(freshData);
           })
@@ -117,7 +120,7 @@ export default function useSimplifiedResults() {
       setLoadingStage('error');
       setLoadingMessage(`Error loading round ${round}`);
     }
-  }, [roundCache, selectedYear, currentRound]);
+  }, [selectedYear, currentRound]);
 
   // Load data when round changes
   useEffect(() => {

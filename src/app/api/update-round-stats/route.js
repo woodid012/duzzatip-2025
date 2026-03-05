@@ -11,6 +11,7 @@ async function getAFLToken() {
         body: "{}",
         signal: AbortSignal.timeout(8000),
     });
+    if (!res.ok) throw new Error(`AFL token fetch failed: HTTP ${res.status}`);
     const data = await res.json();
     return data.token;
 }

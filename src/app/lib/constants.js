@@ -40,27 +40,26 @@ export const getRoundLockoutTime = (fixtures, roundNumber) => {
   if (!fixtures || !fixtures.length) return null;
   
   // Filter for the active round
-  const roundFixtures = fixtures.filter(fixture => 
+  const roundFixtures = fixtures.filter(fixture =>
     fixture.RoundNumber.toString() === roundNumber.toString()
-  ).map(fixture => ({
-    ...fixture,
-    DateUtc: new Date(fixture.DateUtc).toLocaleString('en-AU', {
-      timeZone: 'Australia/Melbourne',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true
-    })
-  }));
-  
+  );
+
   if (!roundFixtures.length) return null;
-  
-  // Sort by date and get earliest
-  return roundFixtures.sort((a, b) => 
+
+  // Sort by raw UTC date and get earliest, then format
+  roundFixtures.sort((a, b) =>
     new Date(a.DateUtc) - new Date(b.DateUtc)
-  )[0].DateUtc;
+  );
+
+  return new Date(roundFixtures[0].DateUtc).toLocaleString('en-AU', {
+    timeZone: 'Australia/Melbourne',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  });
 };
 
 export const POSITION_TYPES = [

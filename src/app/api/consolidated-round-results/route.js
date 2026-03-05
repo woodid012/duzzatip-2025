@@ -292,6 +292,7 @@ function createEmptyResult(userId) {
         deadCertScore: 0,
         totalScore: 0,
         positions: [],
+        benchScores: [],
         substitutionsUsed: [],
         hasStar: false,
         hasCrab: false,
@@ -451,14 +452,14 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
         if (!stats) return { total: 0, breakdown: [] };
         
         const safeStats = {
+            ...stats,
             kicks: stats.kicks || 0,
             handballs: stats.handballs || 0,
             marks: stats.marks || 0,
             tackles: stats.tackles || 0,
             hitouts: stats.hitouts || 0,
             goals: stats.goals || 0,
-            behinds: stats.behinds || 0,
-            ...stats
+            behinds: stats.behinds || 0
         };
         
         if ((position === 'BENCH' || position.startsWith('RESERVE')) && backupPosition) {
@@ -532,7 +533,7 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             
             // Determine if Reserve A or Reserve B
             const isReserveA = pos.toLowerCase().includes('a');
-            const validPositions = isReserveA ? RESERVE_A_POSITIONS : RESERVE_B_POSITIONS;
+            const validPositions = [...(isReserveA ? RESERVE_A_POSITIONS : RESERVE_B_POSITIONS)];
             
             if (data.backup_position) {
                 validPositions.push(data.backup_position);
@@ -681,7 +682,8 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             breakdown: finalBreakdown,
             originalBreakdown,
             isSubstitution,
-            substitutionType
+            substitutionType,
+            hasPlayed
         };
     });
     
@@ -737,8 +739,8 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             originalBreakdown: pos.originalBreakdown || '',
             isSubstitution: pos.isSubstitution,
             substitutionType: pos.substitutionType,
-            hasPlayed: pos.playerName && pos.score > 0,
-            noStats: !pos.playerName || pos.score === 0
+            hasPlayed: pos.hasPlayed,
+            noStats: !pos.playerName || !pos.hasPlayed
         })),
         benchScores: [...benchScores, ...reserveScores],
         substitutionsUsed

@@ -70,10 +70,10 @@ export async function POST(request) {
         // Create bulk operations
         const bulkOps = [];
 
-        // First, mark all existing records as inactive
+        // First, mark all existing records as inactive (scoped to affected users only)
         bulkOps.push({
             updateMany: {
-                filter: {},
+                filter: { user_id: { $in: [...new Set(Object.keys(updatedSquads).map(id => parseInt(id)))] } },
                 update: { $set: { Active: 0 } }
             }
         });
