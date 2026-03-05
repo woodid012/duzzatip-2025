@@ -70,13 +70,19 @@ async function loadInjuries(db) {
   return INJURIES;
 }
 
+// Lookup injury by player name — keys are now "Name (Team)"
+function findInjury(name, injuries) {
+  if (!name) return null;
+  const match = Object.keys(injuries).find(k => k.startsWith(name + " ("));
+  return match ? injuries[match] : (injuries[name] || null);
+}
 function injSeverity(name, injuries) {
-  const inj = injuries[name];
+  const inj = findInjury(name, injuries);
   if (!inj) return 0;
   return { SEASON: 4, MONTHS: 3, WEEKS: 2, DOUBT: 1, MANAGED: 0 }[inj.status] ?? 0;
 }
 function injNote(name, injuries) {
-  const inj = injuries[name];
+  const inj = findInjury(name, injuries);
   if (!inj) return "";
   const labels = { SEASON: "OUT SEASON", MONTHS: "OUT MONTHS", WEEKS: "OUT WEEKS", DOUBT: "DOUBT", MANAGED: "managed" };
   return ` [${labels[inj.status]}: ${inj.detail}]`;
@@ -733,7 +739,7 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   if (selectionStatus) {
     for (const [name, sel] of selectionStatus.entries()) {
       if (autoExcluded.has(name) && !(byePlayers || []).some(p => p.name === name)) {
-        const inj = injuries[name];
+        const inj = findInjury(name, injuries);
         alerts.push(`✗ *OUT* ${dn(name)}${inj ? ` — ${inj.detail}` : ""}`);
       } else if (sel === "emergency") {
         alerts.push(`⚡ *EMERG* ${dn(name)} — named emergency`);
@@ -742,7 +748,10 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     const allInLineup = [...Object.values(result.lineup), result.bench, result.reserveA, result.reserveB].filter(Boolean);
     for (const p of allInLineup) {
       if (injSeverity(p.name, injuries) >= 1 && !autoExcluded.has(p.name)) {
-        alerts.push(`⚠ *DOUBT* ${dn(p.name)} — ${injuries[p.name].detail}`);
+        const inj = findInjury(p.name, injuries);
+        const sel = selectionStatus?.get(p.name);
+        const namedTag = sel === "playing" ? " ✅ NAMED" : sel === "emergency" ? "" : "";
+        alerts.push(`⚠ *DOUBT* ${dn(p.name)} — ${inj?.detail || "?"}${namedTag}`);
       }
     }
   }
