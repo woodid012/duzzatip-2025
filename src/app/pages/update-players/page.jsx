@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function UpdatePlayersPage() {
   const [loading, setLoading] = useState(false);
@@ -33,6 +33,11 @@ function UpdatePlayersPage() {
       setLoading(false);
     }
   };
+
+  // Auto-run on page visit
+  useEffect(() => {
+    handleUpdate();
+  }, []);
 
   return (
     <div className="p-6">
