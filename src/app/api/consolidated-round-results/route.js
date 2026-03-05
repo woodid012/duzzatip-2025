@@ -35,15 +35,15 @@ export async function GET(request) {
 
         console.log(`Getting consolidated results for round ${round} (year ${year})`);
 
-        // Pre-fetch shared data once
+        // Pre-fetch all independent data in parallel
         const { db } = await connectToDatabase();
 
-        const playerStats = await db.collection(`${year}_game_results`)
-            .find({ round: round })
-            .toArray();
-
-        // Read and parse AFL fixtures (uses local file first, falls back to external API)
-        const aflFixtures = await getAflFixtures(year);
+        const [playerStats, aflFixtures, playersData, allGamesComplete] = await Promise.all([
+            db.collection(`${year}_game_results`).find({ round: round }).toArray(),
+            getAflFixtures(year),
+            db.collection(`${year}_players`).find({}).toArray(),
+            checkRoundComplete(round, year).catch(() => false),
+        ]);
 
         // Build player → full team name map from game_results (these already use full names)
         const playerTeamMap = {};
@@ -53,8 +53,7 @@ export async function GET(request) {
             }
         });
 
-        // For players NOT in stats (game hasn't started or DNP), look up from 2026_players
-        const playersData = await db.collection(`${year}_players`).find({}).toArray();
+        // For players NOT in stats (game hasn't started or DNP), look up from players collection
         for (const p of playersData) {
             if (!playerTeamMap[p.player_name] && p.team_name) {
                 playerTeamMap[p.player_name] = ABBREV_TO_FULL[p.team_name] || p.team_name;
@@ -65,9 +64,7 @@ export async function GET(request) {
         const userIds = Object.keys(USER_NAMES);
         const userResults = await Promise.all(userIds.map(async (userId) => {
             try {
-                console.log(`Processing user ${userId} (${USER_NAMES[userId]})`);
                 const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures, year, playerTeamMap);
-                console.log(`User ${userId} total score: ${userResult.totalScore}`);
                 return { userId, userResult, totalScore: userResult.totalScore };
             } catch (error) {
                 console.error(`Error processing user ${userId}:`, error);
@@ -81,10 +78,6 @@ export async function GET(request) {
             results[userId] = userResult;
             allTeamScores.push({ userId, totalScore });
         }
-
-        // Only assign stars/crabs when ALL games in the round are complete
-        // Uses AFL API match status (CONCLUDED) — cached for 2 minutes
-        const allGamesComplete = await checkRoundComplete(round, year);
 
         const validScores = allTeamScores.filter(s => s.totalScore > 0);
         let highestScore = 0;
@@ -107,7 +100,7 @@ export async function GET(request) {
             }
         }
 
-        console.log(`Stars: ${starWinners}, Crabs: ${crabWinners}`);
+        if (allGamesComplete) console.log(`Stars: ${starWinners}, Crabs: ${crabWinners}`);
 
         // Add star/crab flags to results
         Object.keys(results).forEach(userId => {
@@ -154,11 +147,8 @@ export async function GET(request) {
                 results[awayUserId].pointsFor = awayScore;
                 results[awayUserId].pointsAgainst = homeScore;
                 
-                console.log(`Match: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore}) - Winner: ${homeScore > awayScore ? USER_NAMES[homeUserId] : awayScore > homeScore ? USER_NAMES[awayUserId] : 'Draw'}`);
             }
         });
-
-        console.log(`Completed consolidated results for round ${round}`);
 
         const responseData = {
             round,
@@ -257,14 +247,11 @@ async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, y
         let deadCertScore = 0;
         try {
             deadCertScore = await calculateDeadCertScore(db, round, userId, aflFixtures, year);
-            console.log(`User ${userId} dead cert score: ${deadCertScore}`);
         } catch (tippingError) {
             console.error(`Error calculating dead cert for user ${userId} round ${round}:`, tippingError);
         }
 
         const totalScore = playerScore + deadCertScore;
-
-        console.log(`User ${userId}: Player score ${playerScore}, Dead cert ${deadCertScore}, Total ${totalScore}`);
 
         return {
             userId,
@@ -314,19 +301,16 @@ function createEmptyResult(userId) {
 // Calculate dead cert score directly (same logic as tipping-results API)
 async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CURRENT_YEAR) {
     try {
-        console.log(`Calculating dead cert score directly for user ${userId} round ${round}`);
-
         const fixtures = aflFixtures;
-        
+
         // Filter completed matches for the round
-        const completedMatches = fixtures.filter(match => 
+        const completedMatches = fixtures.filter(match =>
             match.RoundNumber.toString() === round.toString() &&
             match.HomeTeamScore !== null &&
             match.AwayTeamScore !== null
         );
 
         if (completedMatches.length === 0) {
-            console.log(`No completed matches found for round ${round}`);
             return 0;
         }
 
@@ -337,8 +321,6 @@ async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CUR
                 User: parseInt(userId),
                 Active: 1
             }).toArray();
-
-        console.log(`Found ${tips.length} tips for user ${userId} round ${round}`);
 
         // Get all matches for this round (including those without scores yet)
         const allRoundMatches = fixtures.filter(match => 
@@ -387,7 +369,6 @@ async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CUR
             allMatchesWithTips.filter(m => m.isCompleted)
         );
         
-        console.log(`Calculated dead cert score for user ${userId} round ${round}: ${deadCertScore}`);
         return deadCertScore;
         
     } catch (error) {
