@@ -423,16 +423,35 @@ async function fetchAFLTeamSelections(roundNumber) {
     let teamsFound = 0;
 
     // Fetch roster for each match
+    // Try /full endpoint first (standard), fall back to non-full (Opening Round uses this)
     await Promise.all(matches.map(async (match) => {
       const providerId = match.providerId;
       if (!providerId) return;
       try {
-        const rosterRes = await fetch(
+        let roster = null;
+        let usedFull = false;
+
+        // Try /full first
+        const fullRes = await fetch(
           `https://api.afl.com.au/cfs/afl/matchRoster/full/${providerId}`,
           { headers, signal: AbortSignal.timeout(10000) }
         );
-        if (!rosterRes.ok) return; // 404 = teams not yet announced
-        const roster = await rosterRes.json();
+        if (fullRes.ok) {
+          const fullData = await fullRes.json();
+          const hasPositions = (fullData.homeTeam?.positions?.length || 0) + (fullData.awayTeam?.positions?.length || 0) > 0;
+          if (hasPositions) { roster = fullData; usedFull = true; }
+        }
+
+        // Fall back to non-full endpoint (e.g. Opening Round)
+        if (!roster) {
+          const baseRes = await fetch(
+            `https://api.afl.com.au/cfs/afl/matchRoster/${providerId}`,
+            { headers, signal: AbortSignal.timeout(10000) }
+          );
+          if (baseRes.ok) roster = await baseRes.json();
+        }
+
+        if (!roster) return;
 
         for (const side of ["homeTeam", "awayTeam"]) {
           const teamData = roster[side];
@@ -444,9 +463,17 @@ async function fetchAFLTeamSelections(roundNumber) {
           const named22 = [];
           const emergencies = [];
           for (const player of (teamData.positions || [])) {
-            const name = `${player.givenName} ${player.surname}`;
+            // /full uses player.givenName, non-full uses player.player.playerName.givenName
+            const givenName = usedFull
+              ? (player.givenName || "")
+              : (player.player?.playerName?.givenName || "");
+            const surname = usedFull
+              ? (player.surname || "")
+              : (player.player?.playerName?.surname || "");
+            const name = `${givenName} ${surname}`.trim();
+            if (!name) continue;
             if (player.position === "EMERG") emergencies.push(name);
-            else named22.push(name); // INT + starting positions = named 22
+            else named22.push(name);
           }
           if (named22.length > 0 || emergencies.length > 0) {
             result[slug] = { named22, emergencies };
