@@ -658,7 +658,7 @@ async function saveTips(db, round, tips) {
 // ── Notify state (MongoDB-backed, no local file on Vercel) ────────────────────
 // Stores per-round: { round, teamsFound, notifiedAt }
 // Allows a second notification when teamsFound jumps significantly (staggered AFL releases)
-const RE_NOTIFY_TEAM_THRESHOLD = 18; // re-notify when teamsFound reaches this (most/all teams in)
+const RE_NOTIFY_TEAM_THRESHOLD = 5; // re-notify when teamsFound reaches this (most/all teams in)
 
 async function getNotifyState(db, round) {
   try {
