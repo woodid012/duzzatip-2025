@@ -58,6 +58,14 @@ export default function TeamSelectionPage() {
       .then(data => setInjuries(data.players || {}))
       .catch(() => {});
   }, []);
+
+  // Lookup injury by player name, handling disambiguated keys like "Max King (St Kilda)"
+  const getInjury = (name) => {
+    if (!name) return null;
+    if (injuries[name]) return injuries[name];
+    const match = Object.keys(injuries).find(k => k.startsWith(name + ' ('));
+    return match ? injuries[match] : null;
+  };
   
   // Admin override state - separate from the hook's isEditing
   const [adminEditMode, setAdminEditMode] = useState(false);
@@ -675,10 +683,12 @@ function TeamCard({
                           <span className={`${isDuplicate ? 'text-red-600 font-semibold' : 'text-black'}`}>
                             {playerData.player_name}
                             {isDuplicate && " (Duplicate)"}
-                            {injuries[playerData.player_name] && (() => {
-                              const badge = INJURY_BADGES[injuries[playerData.player_name].status];
+                            {(() => {
+                              const inj = getInjury(playerData.player_name);
+                              if (!inj) return null;
+                              const badge = INJURY_BADGES[inj.status];
                               return badge ? (
-                                <span title={`${badge.tip}: ${injuries[playerData.player_name].detail}`} className={`ml-1 ${badge.color}`}>
+                                <span title={`${badge.tip}: ${inj.detail}`} className={`ml-1 ${badge.color}`}>
                                   {badge.icon}
                                 </span>
                               ) : null;

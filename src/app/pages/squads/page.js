@@ -34,6 +34,15 @@ export default function Squads() {
       .catch(() => {});
   }, []);
 
+  // Lookup injury by player name, handling disambiguated keys like "Max King (St Kilda)"
+  const getInjury = (name) => {
+    if (!name) return null;
+    if (injuries[name]) return injuries[name];
+    // Check disambiguated entries
+    const match = Object.keys(injuries).find(k => k.startsWith(name + ' ('));
+    return match ? injuries[match] : null;
+  };
+
   // First, fetch squads
   useEffect(() => {
     const fetchSquads = async () => {
@@ -260,10 +269,12 @@ export default function Squads() {
                         {player.name
                           ? <>
                               {player.name} ({player.team})
-                              {injuries[player.name] && (() => {
-                                const badge = INJURY_BADGES[injuries[player.name].status];
+                              {(() => {
+                                const inj = getInjury(player.name);
+                                if (!inj) return null;
+                                const badge = INJURY_BADGES[inj.status];
                                 return badge ? (
-                                  <span title={`${badge.tip}: ${injuries[player.name].detail}`} className={`ml-1 ${badge.color}`}>
+                                  <span title={`${badge.tip}: ${inj.detail}`} className={`ml-1 ${badge.color}`}>
                                     {badge.icon}
                                   </span>
                                 ) : null;
