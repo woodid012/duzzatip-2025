@@ -406,8 +406,8 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round)
         statsMap[stat.player_name] = stat;
     });
     
-    // Check if round has ended (for reserve substitutions) - assume true for API
-    const roundEndPassed = true;
+    // Only allow reserve substitutions when real game stats exist for this round
+    const roundEndPassed = playerStats.length > 0;
     
     // Helper function to check if player played
     const didPlayerPlay = (stats) => {
