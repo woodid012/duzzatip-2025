@@ -38,11 +38,17 @@ export async function GET(request) {
         // Pre-fetch all independent data in parallel
         const { db } = await connectToDatabase();
 
+        // Race isRoundComplete against a 3s timeout so it doesn't hold up the response
+        const roundCompleteWithTimeout = Promise.race([
+            checkRoundComplete(round, year).catch(() => false),
+            new Promise(resolve => setTimeout(() => resolve(false), 3000)),
+        ]);
+
         const [playerStats, aflFixtures, playersData, allGamesComplete] = await Promise.all([
             db.collection(`${year}_game_results`).find({ round: round }).toArray(),
             getAflFixtures(year),
             db.collection(`${year}_players`).find({}).toArray(),
-            checkRoundComplete(round, year).catch(() => false),
+            roundCompleteWithTimeout,
         ]);
 
         // Build player → full team name map from game_results (these already use full names)

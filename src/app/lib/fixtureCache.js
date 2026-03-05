@@ -26,7 +26,7 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
   // Try external API first — it includes scores for completed matches
   try {
     const response = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -69,14 +69,14 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Origin': 'https://www.afl.com.au' },
       body: '{}',
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
     });
     const { token } = await tokenRes.json();
 
     // Fetch match statuses for the round
     const matchesRes = await fetch(
       `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${round}&pageSize=20`,
-      { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(10000) }
+      { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(3000) }
     );
     const data = await matchesRes.json();
     const matches = data.matches || [];

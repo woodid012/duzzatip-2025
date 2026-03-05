@@ -76,17 +76,11 @@ export default function useSimplifiedResults() {
       
       await new Promise(resolve => setTimeout(resolve, 400)); // Brief pause
 
-      // Stage 3: Refresh stats if stale, then load results
+      // Stage 3: Fire-and-forget stats refresh (don't await — it can take 5-10s)
+      fetch(`/api/update-round-stats?round=${round}&source=afl&ifStale=1`).catch(() => {});
+
+      // Load results
       setLoadingStage('results');
-      setLoadingMessage(`Refreshing Round ${round} stats...`);
-
-      try {
-        await fetch(`/api/update-round-stats?round=${round}&source=afl&ifStale=1`);
-      } catch (e) {
-        // Fire-and-forget: don't block results on refresh failure
-        console.warn('Stats refresh failed (non-blocking):', e.message);
-      }
-
       setLoadingMessage(`Calculating Round ${round} results...`);
       console.log(`Loading consolidated results for round ${round}`);
       
