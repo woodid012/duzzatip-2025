@@ -20,8 +20,8 @@ export async function GET(request) {
     const fixtures = await getAflFixtures(collectionYear);
     const { db } = await connectToDatabase();
 
-    // If year parameter is provided (for yearly totals), calculate totals for all rounds
-    if (yearParam) {
+    // If year parameter is provided WITHOUT round (for yearly totals), calculate totals for all rounds
+    if (yearParam && !round) {
       // Find all rounds that have completed matches
       const completedRounds = findCompletedRounds(fixtures);
 
