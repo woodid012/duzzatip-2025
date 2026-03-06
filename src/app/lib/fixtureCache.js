@@ -30,9 +30,18 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    fixtureCache.set(year, { data, timestamp: now });
-    console.log(`Fixtures for ${year} loaded from external API (cache refreshed)`);
-    return data;
+    // Normalize round numbers: fixturedownload.com may use 1-indexed rounds
+    // while our app uses 0 for Opening Round. If the minimum round is 1 and
+    // round 1 has the same game count as our local Opening Round (≤6 games),
+    // shift all round numbers down by 1 to align with our convention.
+    const minRound = Math.min(...data.map(m => m.RoundNumber));
+    const round1Count = data.filter(m => m.RoundNumber === 1).length;
+    const normalized = (minRound === 1 && round1Count <= 6)
+      ? data.map(m => ({ ...m, RoundNumber: m.RoundNumber - 1 }))
+      : data;
+    fixtureCache.set(year, { data: normalized, timestamp: now });
+    console.log(`Fixtures for ${year} loaded from external API (cache refreshed, minRound was ${minRound})`);
+    return normalized;
   } catch (err) {
     console.log(`External API failed for ${year} fixtures (${err.message}), falling back to local file`);
   }
