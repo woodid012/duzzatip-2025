@@ -57,7 +57,7 @@ export async function GET(request) {
       // Return year totals
       return NextResponse.json({
         userId,
-        year,
+        year: collectionYear,
         correctTips: totalCorrectTips,
         deadCertScore: totalDeadCertScore,
         totalScore: totalCorrectTips + totalDeadCertScore
