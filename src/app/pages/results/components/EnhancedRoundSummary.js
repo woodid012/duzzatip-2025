@@ -67,40 +67,40 @@ function OpeningRoundSummary({ allTeamScores, selectedUserId }) {
       <p className="text-blue-700 mb-4">Current team scores for the Opening Round:</p>
       
       {/* Display all teams with their scores for Opening Round */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mt-4">
         {Object.entries(USER_NAMES).map(([userId, userName]) => {
           // Get the team score, treat null, undefined, NaN as 0
           const score = allTeamScores.find(s => s.userId === userId)?.totalScore || 0;
-          
+
           // Only teams with scores > 0 should be considered for rankings
           const validScores = allTeamScores
             .filter(s => (s.totalScore || 0) > 0)
             .sort((a, b) => b.totalScore - a.totalScore);
-          
+
           // Get rank of this team (only if they have a score > 0)
-          const rank = score > 0 
-            ? validScores.findIndex(s => s.userId === userId) + 1 
+          const rank = score > 0
+            ? validScores.findIndex(s => s.userId === userId) + 1
             : '-';
-            
+
           const isTopFour = rank !== '-' && rank <= 4;
-          
+
           return (
             <div key={userId} className={`${
               isTopFour ? 'bg-green-50 border-green-200' : 'bg-white'
-            } rounded-lg shadow-md p-3`}>
-              <div className="text-center font-medium">
-                <div className="text-2xl mb-1">{TEAM_LOGOS[userId]}</div>
-                {userName}
+            } rounded-lg shadow-md p-2 sm:p-3`}>
+              <div className="text-center font-medium text-xs sm:text-base">
+                <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[userId]}</div>
+                <div className="truncate">{userName}</div>
                 {userId === selectedUserId && (
-                  <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                  <span className="ml-1 text-xs px-1 sm:px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
                     Selected
                   </span>
                 )}
               </div>
-              <div className="text-center text-2xl font-bold my-2">
+              <div className="text-center text-lg sm:text-2xl font-bold my-1 sm:my-2">
                 {score}
               </div>
-              <div className="text-center text-sm">
+              <div className="text-center text-xs sm:text-sm">
                 {score > 0 ? (
                   <span className="text-gray-600">
                     Rank: {rank}
@@ -129,7 +129,7 @@ function hasLiveGames(teamScoreData) {
 // Component for regular round fixtures
 function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
       {fixtures.map((fixture, index) => {
         // Highlight the selected user's match
         const isSelectedUserMatch = selectedUserId &&
@@ -153,35 +153,35 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 : matchHasLive
                   ? 'bg-amber-50 border-amber-200'
                   : 'bg-white'
-            } rounded-lg shadow-md p-3 order-${index}`}
+            } rounded-lg shadow-md p-2 sm:p-3 order-${index}`}
           >
-            <div className="text-center text-sm text-gray-500 mb-2">
+            <div className="text-center text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
               Game {index + 1}
               {isSelectedUserMatch && (
-                <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                <span className="ml-1 sm:ml-2 text-xs px-1 sm:px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
                   Your Match
                 </span>
               )}
             </div>
             <div className="flex justify-between items-center">
               <div className="text-center flex-1">
-                <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.home]}</div>
-                <div className={`font-medium text-sm ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
+                <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[fixture.home]}</div>
+                <div className={`font-medium text-xs sm:text-sm truncate ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.home] || fixture.home}
                 </div>
-                <div className={`text-2xl font-bold ${homeLive ? 'text-amber-600' : ''}`}>
-                  {homeLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
+                <div className={`text-lg sm:text-2xl font-bold ${homeLive ? 'text-amber-600' : ''}`}>
+                  {homeLive && <span className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-orange-500 animate-pulse mr-0.5 sm:mr-1 align-middle" />}
                   {homeScore}
                 </div>
               </div>
-              <div className="text-center text-gray-500 px-2">vs</div>
+              <div className="text-center text-gray-500 px-1 sm:px-2 text-xs sm:text-base">vs</div>
               <div className="text-center flex-1">
-                <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.away]}</div>
-                <div className={`font-medium text-sm ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
+                <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[fixture.away]}</div>
+                <div className={`font-medium text-xs sm:text-sm truncate ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.away] || fixture.away}
                 </div>
-                <div className={`text-2xl font-bold ${awayLive ? 'text-amber-600' : ''}`}>
-                  {awayLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
+                <div className={`text-lg sm:text-2xl font-bold ${awayLive ? 'text-amber-600' : ''}`}>
+                  {awayLive && <span className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-orange-500 animate-pulse mr-0.5 sm:mr-1 align-middle" />}
                   {awayScore}
                 </div>
               </div>
@@ -363,7 +363,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
   
   // Default fallback
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
       {fixtures.map((fixture, index) => renderMatchCard(fixture, index))}
     </div>
   );

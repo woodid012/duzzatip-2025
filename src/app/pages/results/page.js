@@ -379,7 +379,7 @@ export default function ResultsPage() {
   );
 }
 
-// Mobile-optimized TeamScoreCard component - compact by default, expandable on tap
+// Mobile-optimized TeamScoreCard component
 function MobileTeamScoreCard({
   userId,
   userName,
@@ -389,117 +389,120 @@ function MobileTeamScoreCard({
   isSelectedUser,
   isRoundComplete
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  // Check if any game is live
-  const hasLiveGame = teamScores.positionScores?.some(p => p.isGameLive) ||
-                      teamScores.benchScores?.some(b => b.isGameLive);
-
   return (
-    <div
-      className={`bg-white rounded-lg shadow-sm p-2 cursor-pointer ${isSelectedUser ? 'ring-2 ring-blue-400' : ''} ${hasLiveGame ? 'ring-1 ring-amber-400' : ''}`}
-      onClick={() => setIsExpanded(!isExpanded)}
-    >
-      {/* Compact header - always visible */}
-      <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <h2 className="text-xs font-bold text-black truncate">{userName}</h2>
-            {isHighestScore && <span className="text-yellow-500 text-xs">⭐</span>}
-            {isLowestScore && <span className="text-red-500 text-xs">🦀</span>}
-          </div>
-          {hasLiveGame && (
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-          )}
+    <div className="bg-white rounded-lg shadow-md p-2 sm:p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1 min-w-0 flex-1">
+          <h2 className="text-sm sm:text-lg font-bold text-black truncate">{userName}</h2>
+          {isHighestScore && <span className="text-yellow-500 text-xs sm:text-base">⭐</span>}
+          {isLowestScore && <span className="text-red-500 text-xs sm:text-base">🦀</span>}
+          {isSelectedUser &&
+            <span className="text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded text-xs hidden sm:inline">Selected</span>}
         </div>
-        <div className="text-right font-bold text-sm text-black ml-1">
+        <div className="text-right font-bold text-sm sm:text-lg text-black">
           {teamScores.finalScore}
         </div>
       </div>
 
-      {/* Compact summary row - team score + dead cert */}
-      <div className="flex justify-between text-xs text-gray-500 mt-0.5">
-        <span>Team: {teamScores.totalScore}</span>
-        <span>DC: {teamScores.deadCertScore}</span>
-      </div>
+      <div className="space-y-2 text-xs sm:text-sm">
+        {/* Main Team Positions - Compact */}
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold border-b pb-1 text-black">Main Team</h3>
+          {teamScores.positionScores.map((position) => {
+            const didNotPlay = position.noStats || !position.player?.hasPlayed;
+            const isReplaced = position.isBenchPlayer;
+            const isLive = position.isGameLive;
+            const showDNP = isRoundComplete && didNotPlay;
 
-      {/* Expandable detail section */}
-      {isExpanded && (
-        <div className="mt-2 space-y-2 text-xs border-t pt-2" onClick={(e) => e.stopPropagation()}>
-          {/* Main Team Positions */}
-          <div className="space-y-1">
-            <h3 className="text-xs font-semibold text-black">Main Team</h3>
-            {teamScores.positionScores.map((position) => {
-              const didNotPlay = position.noStats || !position.player?.hasPlayed;
-              const isReplaced = position.isBenchPlayer;
-              const isLive = position.isGameLive;
-              const showDNP = isRoundComplete && didNotPlay;
+            // Score colour: amber for live, red for DNP/replaced
+            const scoreClass = (showDNP || isReplaced)
+              ? 'text-red-600 font-semibold'
+              : isLive
+                ? 'text-amber-600 font-semibold'
+                : 'font-semibold';
 
-              const scoreClass = (showDNP || isReplaced)
-                ? 'text-red-600 font-semibold'
-                : isLive
-                  ? 'text-amber-600 font-semibold'
-                  : 'font-semibold';
+            return (
+              <div key={position.position} className={`flex justify-between items-center py-1 ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">{position.position}</div>
+                  <div className={`text-xs truncate ${(showDNP || isReplaced) ? 'text-red-600' : 'text-black'}`}>
+                    {position.originalPlayerName || 'Not Selected'}
+                    {isReplaced && (
+                      <div className="text-green-600 text-xs">
+                        → {position.playerName}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right ml-1">
+                  <span className={scoreClass}>
+                    {isLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-0.5 align-middle" />}
+                    {position.originalScore ?? position.score}
+                  </span>
+                  {isReplaced && (
+                    <div className="text-xs text-green-600 font-medium">
+                      +{position.score}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Team Score + Dead Cert */}
+        <div className="border-t pt-2 space-y-1">
+          <div className="flex justify-between">
+            <span className="font-medium text-black">Team Score:</span>
+            <span className="font-semibold text-black">{teamScores.totalScore}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-black">Dead Cert:</span>
+            <span className="font-semibold text-black">{teamScores.deadCertScore}</span>
+          </div>
+        </div>
+
+        {/* Bench/Reserves - Very Compact */}
+        <div className="bg-gray-50 p-2 rounded text-xs">
+          <h3 className="text-xs font-semibold mb-1 text-black">Bench/Reserves</h3>
+          {(!teamScores.benchScores || teamScores.benchScores.length === 0) ? (
+            <div className="text-xs text-gray-600 italic">
+              No bench or reserve players selected
+            </div>
+          ) : (
+            teamScores.benchScores.map((bench) => {
+              const showDNP = isRoundComplete && !bench.didPlay;
+              const isBeingUsed = bench.isBeingUsed;
+              const isLive = bench.isGameLive;
+
+              const benchScoreClass = showDNP
+                ? 'text-red-600'
+                : isBeingUsed
+                  ? 'text-green-600'
+                  : isLive
+                    ? 'text-amber-600'
+                    : 'text-black';
 
               return (
-                <div key={position.position} className={`flex justify-between items-center ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
+                <div key={bench.position} className={`flex justify-between items-center ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
                   <div className="min-w-0 flex-1">
-                    <span className={`text-xs truncate block ${(showDNP || isReplaced) ? 'text-red-600' : 'text-black'}`}>
-                      {position.originalPlayerName || 'Not Selected'}
-                      {isReplaced && (
-                        <span className="text-green-600"> → {position.playerName}</span>
-                      )}
-                    </span>
+                    <div className="text-xs truncate">{bench.position}</div>
+                    <div className={`text-xs truncate ${isBeingUsed ? 'text-green-600' : showDNP ? 'text-red-600' : 'text-black'}`}>
+                      {bench.playerName}
+                      {isBeingUsed && ' (Used)'}
+                      {!isRoundComplete && !isBeingUsed && ' : Locked'}
+                    </div>
                   </div>
-                  <div className="text-right ml-1">
-                    <span className={scoreClass}>
-                      {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse mr-0.5 align-middle" />}
-                      {position.originalScore ?? position.score}
-                    </span>
+                  <div className={`text-xs ${benchScoreClass}`}>
+                    {isLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-0.5 align-middle" />}
+                    {bench.score}
                   </div>
                 </div>
               );
-            })}
-          </div>
-
-          {/* Bench/Reserves */}
-          <div className="bg-gray-50 p-1.5 rounded">
-            <h3 className="text-xs font-semibold mb-1 text-black">Bench</h3>
-            {(!teamScores.benchScores || teamScores.benchScores.length === 0) ? (
-              <div className="text-xs text-gray-600 italic">No bench players</div>
-            ) : (
-              teamScores.benchScores.map((bench) => {
-                const showDNP = isRoundComplete && !bench.didPlay;
-                const isBeingUsed = bench.isBeingUsed;
-                const isLive = bench.isGameLive;
-
-                const benchScoreClass = showDNP
-                  ? 'text-red-600'
-                  : isBeingUsed
-                    ? 'text-green-600'
-                    : isLive
-                      ? 'text-amber-600'
-                      : 'text-black';
-
-                return (
-                  <div key={bench.position} className={`flex justify-between items-center ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
-                    <div className="min-w-0 flex-1">
-                      <span className={`text-xs truncate block ${isBeingUsed ? 'text-green-600' : showDNP ? 'text-red-600' : 'text-black'}`}>
-                        {bench.playerName}
-                        {isBeingUsed && ' (Used)'}
-                      </span>
-                    </div>
-                    <div className={`text-xs ${benchScoreClass}`}>
-                      {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse mr-0.5 align-middle" />}
-                      {bench.score}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+            })
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
