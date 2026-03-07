@@ -1,8 +1,10 @@
 // src/app/lib/fixtureCache.js
-// In-memory cache for AFL fixtures JSON
-// Uses local file for fixture structure; overlays live scores from the AFL API.
+// Fixture source of truth: MongoDB {year}_fixtures collection.
+// On first use, seeds from local JSON file.
+// Scores are overlaid from the AFL API for started games and written back to MongoDB.
 
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { connectToDatabase } from '@/app/lib/mongodb';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -157,47 +159,59 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
     return cached.data;
   }
 
-  // Load fixture structure from local file (reliable, pre-populated)
-  const fixturesPath = path.join(process.cwd(), 'public', `afl-${year}.json`);
-  let fixtures;
-  try {
-    const raw = await fs.readFile(fixturesPath, 'utf8');
-    fixtures = JSON.parse(raw);
-    console.log(`Fixtures for ${year} loaded from local file`);
-  } catch {
-    throw new Error(`No local fixture file for ${year}`);
+  const { db } = await connectToDatabase();
+  const collection = db.collection(`${year}_fixtures`);
+
+  // Seed MongoDB from local file if collection is empty
+  let count = await collection.countDocuments();
+  if (count === 0) {
+    const fixturesPath = path.join(process.cwd(), 'public', `afl-${year}.json`);
+    try {
+      const raw = await fs.readFile(fixturesPath, 'utf8');
+      const seed = JSON.parse(raw).map(f => ({ ...f, year }));
+      await collection.insertMany(seed);
+      console.log(`Seeded ${seed.length} fixtures for ${year} into MongoDB`);
+    } catch (err) {
+      throw new Error(`Failed to seed fixtures for ${year}: ${err.message}`);
+    }
   }
 
-  // Overlay live scores from AFL API (only for current year)
+  // Load all fixtures from MongoDB
+  let fixtures = await collection.find({}, { projection: { _id: 0 } }).toArray();
+
+  // For current year, refresh scores from AFL API for games that have started
+  // but don't yet have both scores recorded.
   if (year === CURRENT_YEAR) {
-    try {
-      fixtures = await overlayAflScores(fixtures, year);
-    } catch (err) {
-      console.warn(`AFL API score overlay failed: ${err.message}`);
-      // Try fixturedownload.com as fallback for scores
+    const needsScore = fixtures.filter(
+      f => new Date(f.DateUtc) <= now &&
+           (f.HomeTeamScore === null || f.AwayTeamScore === null)
+    );
+
+    if (needsScore.length > 0) {
       try {
-        const res = await fetch(`https://fixturedownload.com/feed/json/afl-${year}`, {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const minRound = Math.min(...data.map(m => m.RoundNumber));
-          const round1Count = data.filter(m => m.RoundNumber === 1).length;
-          const normalized = (minRound === 1 && round1Count <= 6)
-            ? data.map(m => ({ ...m, RoundNumber: m.RoundNumber - 1 }))
-            : data;
-          // Merge scores into local fixtures by match number
-          const scoreByMatch = {};
-          normalized.forEach(m => { scoreByMatch[m.MatchNumber] = m; });
-          fixtures = fixtures.map(f => {
-            const s = scoreByMatch[f.MatchNumber];
-            if (!s) return f;
-            return { ...f, HomeTeamScore: s.HomeTeamScore, AwayTeamScore: s.AwayTeamScore };
-          });
-          console.log(`Scores overlaid from fixturedownload.com (fallback)`);
+        const updated = await overlayAflScores(fixtures, year);
+        // Write any newly-acquired scores back to MongoDB
+        const ops = [];
+        for (const f of updated) {
+          if (f.HomeTeamScore !== null && f.AwayTeamScore !== null) {
+            const orig = fixtures.find(o => o.MatchNumber === f.MatchNumber);
+            if (!orig || orig.HomeTeamScore === null || orig.AwayTeamScore === null) {
+              ops.push({
+                updateOne: {
+                  filter: { MatchNumber: f.MatchNumber, year },
+                  update: { $set: { HomeTeamScore: f.HomeTeamScore, AwayTeamScore: f.AwayTeamScore } },
+                }
+              });
+            }
+          }
         }
-      } catch {
-        console.warn(`fixturedownload.com fallback also failed`);
+        if (ops.length > 0) {
+          await collection.bulkWrite(ops);
+          console.log(`Wrote ${ops.length} new scores to MongoDB fixtures`);
+        }
+        fixtures = updated;
+      } catch (err) {
+        console.warn(`AFL API score refresh failed: ${err.message}`);
       }
     }
   }
