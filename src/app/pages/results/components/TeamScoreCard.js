@@ -209,7 +209,7 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
             </div>
             <div className="col-span-2 text-right">
               <span className={scoreClass}>
-                {isLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
+                {isLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
                 {originalScore}
               </span>
 
@@ -301,7 +301,7 @@ function BenchSection({ benchScores, isRoundComplete }) {
               )}
             </div>
             <div className={`col-span-2 text-right ${scoreClass}`}>
-              {isLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
+              {isLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
               {bench.score}
             </div>
           </div>
