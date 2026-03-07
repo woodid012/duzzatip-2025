@@ -119,30 +119,50 @@ function OpeningRoundSummary({ allTeamScores, selectedUserId }) {
   );
 }
 
+// Helper to check if a team has any live games
+function hasLiveGames(teamScoreData) {
+  if (!teamScoreData) return false;
+  return teamScoreData.positionScores?.some(p => p.isGameLive) ||
+    teamScoreData.benchScores?.some(b => b.isGameLive);
+}
+
 // Component for regular round fixtures
 function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {fixtures.map((fixture, index) => {
         // Highlight the selected user's match
-        const isSelectedUserMatch = selectedUserId && 
+        const isSelectedUserMatch = selectedUserId &&
           (String(fixture.home) === String(selectedUserId) || String(fixture.away) === String(selectedUserId));
-        
-        // Get scores
-        const homeScore = allTeamScores.find(s => String(s.userId) === String(fixture.home))?.totalScore || 0;
-        const awayScore = allTeamScores.find(s => String(s.userId) === String(fixture.away))?.totalScore || 0;
-        
+
+        // Get scores and live status
+        const homeTeamData = allTeamScores.find(s => String(s.userId) === String(fixture.home));
+        const awayTeamData = allTeamScores.find(s => String(s.userId) === String(fixture.away));
+        const homeScore = homeTeamData?.totalScore || 0;
+        const awayScore = awayTeamData?.totalScore || 0;
+        const homeLive = hasLiveGames(homeTeamData);
+        const awayLive = hasLiveGames(awayTeamData);
+        const matchHasLive = homeLive || awayLive;
+
         return (
-          <div 
-            key={fixture.home + '-' + fixture.away} 
+          <div
+            key={fixture.home + '-' + fixture.away}
             className={`${
-              isSelectedUserMatch 
-                ? 'bg-blue-50 border-blue-200' 
-                : 'bg-white'
+              isSelectedUserMatch
+                ? 'bg-blue-50 border-blue-200'
+                : matchHasLive
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-white'
             } rounded-lg shadow-md p-3 order-${index}`}
           >
             <div className="text-center text-sm text-gray-500 mb-2">
               Game {index + 1}
+              {matchHasLive && (
+                <span className="ml-2 inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  LIVE
+                </span>
+              )}
               {isSelectedUserMatch && (
                 <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
                   Your Match
@@ -155,7 +175,8 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 <div className={`font-medium text-sm ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.home] || fixture.home}
                 </div>
-                <div className="text-2xl font-bold">
+                <div className={`text-2xl font-bold ${homeLive ? 'text-amber-600' : ''}`}>
+                  {homeLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
                   {homeScore}
                 </div>
               </div>
@@ -165,7 +186,8 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 <div className={`font-medium text-sm ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.away] || fixture.away}
                 </div>
-                <div className="text-2xl font-bold">
+                <div className={`text-2xl font-bold ${awayLive ? 'text-amber-600' : ''}`}>
+                  {awayLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
                   {awayScore}
                 </div>
               </div>
@@ -181,13 +203,13 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
 function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound }) {
   // Helper to render a match card
   const renderMatchCard = (fixture, index) => {
-    const isSelectedUserMatch = selectedUserId && 
+    const isSelectedUserMatch = selectedUserId &&
       (String(fixture.home) === String(selectedUserId) || String(fixture.away) === String(selectedUserId));
-    
+
     // Handle pending fixtures
     if (fixture.pending || fixture.home === 'TBD' || fixture.away === 'TBD') {
       return (
-        <div 
+        <div
           key={`finals-${index}`}
           className="bg-gray-50 rounded-lg shadow-md p-4 border-2 border-gray-200"
         >
@@ -215,25 +237,38 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
         </div>
       );
     }
-    
-    // Get scores for completed fixtures
-    const homeScore = allTeamScores.find(s => String(s.userId) === String(fixture.home))?.totalScore || 0;
-    const awayScore = allTeamScores.find(s => String(s.userId) === String(fixture.away))?.totalScore || 0;
+
+    // Get scores and live status for completed fixtures
+    const homeTeamData = allTeamScores.find(s => String(s.userId) === String(fixture.home));
+    const awayTeamData = allTeamScores.find(s => String(s.userId) === String(fixture.away));
+    const homeScore = homeTeamData?.totalScore || 0;
+    const awayScore = awayTeamData?.totalScore || 0;
     const hasResult = homeScore > 0 || awayScore > 0;
     const homeWins = hasResult && homeScore > awayScore;
     const awayWins = hasResult && awayScore > homeScore;
-    
+    const homeLive = hasLiveGames(homeTeamData);
+    const awayLive = hasLiveGames(awayTeamData);
+    const matchHasLive = homeLive || awayLive;
+
     return (
-      <div 
+      <div
         key={`finals-${index}`}
         className={`${
-          isSelectedUserMatch 
-            ? 'bg-blue-50 border-blue-300 border-2' 
-            : 'bg-white border-gray-200 border'
+          isSelectedUserMatch
+            ? 'bg-blue-50 border-blue-300 border-2'
+            : matchHasLive
+              ? 'bg-amber-50 border-amber-200 border-2'
+              : 'bg-white border-gray-200 border'
         } rounded-lg shadow-md p-4`}
       >
         <div className="text-center text-sm font-semibold text-gray-700 mb-3">
           {fixture.name || `Match ${index + 1}`}
+          {matchHasLive && (
+            <span className="ml-2 inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              LIVE
+            </span>
+          )}
           {isSelectedUserMatch && (
             <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
               Your Match
@@ -253,7 +288,8 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
                 </span>
               )}
             </div>
-            <div className={`text-2xl font-bold mt-1 ${homeWins ? 'text-green-600' : ''}`}>
+            <div className={`text-2xl font-bold mt-1 ${homeWins ? 'text-green-600' : homeLive ? 'text-amber-600' : ''}`}>
+              {homeLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
               {homeScore || '-'}
             </div>
             {homeWins && <div className="text-xs text-green-600 font-semibold">WINNER</div>}
@@ -271,7 +307,8 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
                 </span>
               )}
             </div>
-            <div className={`text-2xl font-bold mt-1 ${awayWins ? 'text-green-600' : ''}`}>
+            <div className={`text-2xl font-bold mt-1 ${awayWins ? 'text-green-600' : awayLive ? 'text-amber-600' : ''}`}>
+              {awayLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
               {awayScore || '-'}
             </div>
             {awayWins && <div className="text-xs text-green-600 font-semibold">WINNER</div>}

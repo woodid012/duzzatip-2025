@@ -380,23 +380,33 @@ export default function ResultsPage() {
 }
 
 // Mobile-optimized TeamScoreCard component
-function MobileTeamScoreCard({ 
-  userId, 
-  userName, 
-  teamScores, 
-  isHighestScore, 
+function MobileTeamScoreCard({
+  userId,
+  userName,
+  teamScores,
+  isHighestScore,
   isLowestScore,
   isSelectedUser,
   isRoundComplete
 }) {
+  // Check if any player in this team has a live game
+  const hasAnyLiveGame = teamScores.positionScores?.some(p => p.isGameLive) ||
+    teamScores.benchScores?.some(b => b.isGameLive);
+
   return (
     <div className="bg-white rounded-lg shadow-md p-2 sm:p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <h2 className="text-sm sm:text-lg font-bold text-black truncate">{userName}</h2>
+          {hasAnyLiveGame && (
+            <span className="inline-flex items-center gap-0.5 text-xs px-1 py-0.5 bg-amber-100 text-amber-700 rounded font-semibold">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              LIVE
+            </span>
+          )}
           {isHighestScore && <span className="text-yellow-500 text-xs sm:text-base">⭐</span>}
           {isLowestScore && <span className="text-red-500 text-xs sm:text-base">🦀</span>}
-          {isSelectedUser && 
+          {isSelectedUser &&
             <span className="text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded text-xs hidden sm:inline">Selected</span>}
         </div>
         <div className="text-right font-bold text-sm sm:text-lg text-black">
@@ -411,10 +421,18 @@ function MobileTeamScoreCard({
           {teamScores.positionScores.map((position) => {
             const didNotPlay = position.noStats || !position.player?.hasPlayed;
             const isReplaced = position.isBenchPlayer;
+            const isLive = position.isGameLive;
             const showDNP = isRoundComplete && didNotPlay;
-            
+
+            // Score colour: amber for live, red for DNP/replaced
+            const scoreClass = (showDNP || isReplaced)
+              ? 'text-red-600 font-semibold'
+              : isLive
+                ? 'text-amber-600 font-semibold'
+                : 'font-semibold';
+
             return (
-              <div key={position.position} className="flex justify-between items-center py-1">
+              <div key={position.position} className={`flex justify-between items-center py-1 ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{position.position}</div>
                   <div className={`text-xs truncate ${(showDNP || isReplaced) ? 'text-red-600' : 'text-black'}`}>
@@ -427,7 +445,8 @@ function MobileTeamScoreCard({
                   </div>
                 </div>
                 <div className="text-right ml-1">
-                  <span className={`font-semibold ${showDNP || isReplaced ? "text-red-600" : ""}`}>
+                  <span className={scoreClass}>
+                    {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-0.5 align-middle" />}
                     {position.originalScore ?? position.score}
                   </span>
                   {isReplaced && (
@@ -440,7 +459,7 @@ function MobileTeamScoreCard({
             );
           })}
         </div>
-        
+
         {/* Team Score + Dead Cert */}
         <div className="border-t pt-2 space-y-1">
           <div className="flex justify-between">
@@ -464,9 +483,18 @@ function MobileTeamScoreCard({
             teamScores.benchScores.map((bench) => {
               const showDNP = isRoundComplete && !bench.didPlay;
               const isBeingUsed = bench.isBeingUsed;
-              
+              const isLive = bench.isGameLive;
+
+              const benchScoreClass = showDNP
+                ? 'text-red-600'
+                : isBeingUsed
+                  ? 'text-green-600'
+                  : isLive
+                    ? 'text-amber-600'
+                    : 'text-black';
+
               return (
-                <div key={bench.position} className="flex justify-between items-center">
+                <div key={bench.position} className={`flex justify-between items-center ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs truncate">{bench.position}</div>
                     <div className={`text-xs truncate ${isBeingUsed ? 'text-green-600' : showDNP ? 'text-red-600' : 'text-black'}`}>
@@ -475,7 +503,8 @@ function MobileTeamScoreCard({
                       {!isRoundComplete && !isBeingUsed && ' : Locked'}
                     </div>
                   </div>
-                  <div className={`text-xs ${showDNP ? 'text-red-600' : isBeingUsed ? 'text-green-600' : 'text-black'}`}>
+                  <div className={`text-xs ${benchScoreClass}`}>
+                    {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-0.5 align-middle" />}
                     {bench.score}
                   </div>
                 </div>
