@@ -142,6 +142,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
         const awayScore = awayTeamData?.totalScore || 0;
         const homeLive = hasLiveGames(homeTeamData);
         const awayLive = hasLiveGames(awayTeamData);
+        const matchHasLive = homeLive || awayLive;
 
         return (
           <div
@@ -149,7 +150,9 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
             className={`${
               isSelectedUserMatch
                 ? 'bg-blue-50 border-blue-200'
-                : 'bg-white'
+                : matchHasLive
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-white'
             } rounded-lg shadow-md p-3 order-${index}`}
           >
             <div className="text-center text-sm text-gray-500 mb-2">
@@ -166,7 +169,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 <div className={`font-medium text-sm ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.home] || fixture.home}
                 </div>
-                <div className="text-2xl font-bold">
+                <div className={`text-2xl font-bold ${homeLive ? 'text-amber-600' : ''}`}>
                   {homeLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
                   {homeScore}
                 </div>
@@ -177,7 +180,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 <div className={`font-medium text-sm ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.away] || fixture.away}
                 </div>
-                <div className="text-2xl font-bold">
+                <div className={`text-2xl font-bold ${awayLive ? 'text-amber-600' : ''}`}>
                   {awayLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
                   {awayScore}
                 </div>
@@ -239,6 +242,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
     const awayWins = hasResult && awayScore > homeScore;
     const homeLive = hasLiveGames(homeTeamData);
     const awayLive = hasLiveGames(awayTeamData);
+    const matchHasLive = homeLive || awayLive;
 
     return (
       <div
@@ -246,7 +250,9 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
         className={`${
           isSelectedUserMatch
             ? 'bg-blue-50 border-blue-300 border-2'
-            : 'bg-white border-gray-200 border'
+            : matchHasLive
+              ? 'bg-amber-50 border-amber-200 border-2'
+              : 'bg-white border-gray-200 border'
         } rounded-lg shadow-md p-4`}
       >
         <div className="text-center text-sm font-semibold text-gray-700 mb-3">
@@ -270,7 +276,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
                 </span>
               )}
             </div>
-            <div className={`text-2xl font-bold mt-1 ${homeWins ? 'text-green-600' : ''}`}>
+            <div className={`text-2xl font-bold mt-1 ${homeWins ? 'text-green-600' : homeLive ? 'text-amber-600' : ''}`}>
               {homeLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
               {homeScore || '-'}
             </div>
@@ -289,7 +295,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
                 </span>
               )}
             </div>
-            <div className={`text-2xl font-bold mt-1 ${awayWins ? 'text-green-600' : ''}`}>
+            <div className={`text-2xl font-bold mt-1 ${awayWins ? 'text-green-600' : awayLive ? 'text-amber-600' : ''}`}>
               {awayLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-1 align-middle" />}
               {awayScore || '-'}
             </div>
