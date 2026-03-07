@@ -456,10 +456,45 @@ function MobileTeamScoreCard({
             <span className="font-medium text-black">Team Score:</span>
             <span className="font-semibold text-black">{teamScores.totalScore}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-black">Dead Cert:</span>
-            <span className="font-semibold text-black">{teamScores.deadCertScore}</span>
-          </div>
+          {/* Dead Cert Breakdown */}
+          {teamScores.deadCertDetails && teamScores.deadCertDetails.length > 0 ? (
+            <div className="space-y-1">
+              <div className="font-medium text-black text-xs">Dead Certs:</div>
+              {teamScores.deadCertDetails.map((dc) => {
+                const isPending = !dc.isCompleted;
+                const isCorrect = dc.correct === true;
+                const bgColor = isPending ? 'bg-amber-50' : isCorrect ? 'bg-green-50' : 'bg-red-50';
+                const scoreColor = isPending ? 'text-amber-600' : isCorrect ? 'text-green-600' : 'text-red-600';
+                return (
+                  <div key={dc.matchNumber} className={`${bgColor} rounded px-1 py-0.5 flex justify-between items-center`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs truncate text-gray-600">
+                        {dc.homeTeam} v {dc.awayTeam}
+                      </div>
+                      <div className="text-xs font-medium truncate">
+                        Tip: {dc.tip}
+                        {isPending && (
+                          <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse align-middle" />
+                        )}
+                      </div>
+                    </div>
+                    <div className={`text-xs font-bold ml-1 ${scoreColor}`}>
+                      {isPending ? '+6/-12' : isCorrect ? '+6' : '-12'}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between">
+                <span className="font-medium text-black">DC Total:</span>
+                <span className="font-semibold text-black">{teamScores.deadCertScore}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-between">
+              <span className="font-medium text-black">Dead Cert:</span>
+              <span className="font-semibold text-black">{teamScores.deadCertScore}</span>
+            </div>
+          )}
         </div>
 
         {/* Bench/Reserves - Very Compact */}

@@ -103,11 +103,10 @@ export default function TeamScoreCard({
             </div>
 
             {/* Dead Certs */}
-            <div className="space-y-2">
-              <div className="text-right font-semibold text-black">
-                Dead Cert Bonus: {teamScores.deadCertScore}
-              </div>
-            </div>
+            <DeadCertSection
+              deadCertScore={teamScores.deadCertScore}
+              deadCertDetails={teamScores.deadCertDetails || []}
+            />
 
             {/* Bench/Reserves */}
             <BenchSection 
@@ -222,6 +221,57 @@ function MainTeamSection({ positionScores, isRoundComplete }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// Component for dead cert breakdown
+function DeadCertSection({ deadCertScore, deadCertDetails }) {
+  if (!deadCertDetails || deadCertDetails.length === 0) {
+    return (
+      <div className="space-y-2">
+        <div className="text-right font-semibold text-black">
+          Dead Cert Bonus: {deadCertScore}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-lg font-semibold border-b pb-2 text-black">Dead Certs</h3>
+      {deadCertDetails.map((dc) => {
+        const isPending = !dc.isCompleted;
+        const isCorrect = dc.correct === true;
+        const isWrong = dc.correct === false;
+
+        const rowBg = isPending ? 'bg-amber-50' : isCorrect ? 'bg-green-50' : 'bg-red-50';
+        const scoreColor = isPending ? 'text-amber-600' : isCorrect ? 'text-green-600' : 'text-red-600';
+
+        return (
+          <div key={dc.matchNumber} className={`${rowBg} border rounded p-2 sm:p-0 sm:border-0 sm:grid grid-cols-12 gap-2 text-sm text-black sm:px-2 sm:py-1 sm:rounded`}>
+            <div className="col-span-5 mb-1 sm:mb-0">
+              <span className="text-xs text-gray-500">{dc.homeTeam} vs {dc.awayTeam}</span>
+            </div>
+            <div className="col-span-4 mb-1 sm:mb-0">
+              <span className="font-medium">Tipped: {dc.tip}</span>
+              {isPending && (
+                <span className="ml-1 inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse align-middle" />
+              )}
+            </div>
+            <div className={`col-span-3 text-right font-semibold ${scoreColor}`}>
+              {isPending ? (
+                <span title="Correct: +6 / Wrong: -12">+6 / -12</span>
+              ) : (
+                <span>{isCorrect ? '+6' : '-12'}</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <div className="text-right font-semibold text-black border-t pt-1">
+        Dead Cert Total: {deadCertScore}
+      </div>
     </div>
   );
 }

@@ -251,8 +251,11 @@ async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, y
 
         // Calculate dead cert score directly (no self-fetch)
         let deadCertScore = 0;
+        let deadCertDetails = [];
         try {
-            deadCertScore = await calculateDeadCertScore(db, round, userId, aflFixtures, year);
+            const deadCertResult = await calculateDeadCertScore(db, round, userId, aflFixtures, year);
+            deadCertScore = deadCertResult.deadCertScore;
+            deadCertDetails = deadCertResult.deadCertDetails;
         } catch (tippingError) {
             console.error(`Error calculating dead cert for user ${userId} round ${round}:`, tippingError);
         }
@@ -264,6 +267,7 @@ async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, y
             userName: USER_NAMES[userId],
             playerScore,
             deadCertScore,
+            deadCertDetails,
             totalScore,
             positions, // Simplified position scores only
             benchScores: teamScoreData.benchScores || [], // Include bench and reserve players
@@ -290,6 +294,7 @@ function createEmptyResult(userId) {
         userName: USER_NAMES[userId],
         playerScore: 0,
         deadCertScore: 0,
+        deadCertDetails: [],
         totalScore: 0,
         positions: [],
         benchScores: [],
@@ -375,12 +380,27 @@ async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CUR
         const { deadCertScore } = calculateScores(
             allMatchesWithTips.filter(m => m.isCompleted)
         );
-        
-        return deadCertScore;
-        
+
+        // Return both score and per-match details (only dead cert matches)
+        const deadCertDetails = allMatchesWithTips
+            .filter(m => m.deadCert)
+            .map(m => ({
+                matchNumber: m.matchNumber,
+                homeTeam: m.homeTeam,
+                awayTeam: m.awayTeam,
+                tip: m.tip,
+                correct: m.correct,
+                isCompleted: m.isCompleted,
+                score: m.isCompleted ? (m.correct ? 6 : -12) : null,
+                homeScore: m.homeScore,
+                awayScore: m.awayScore
+            }));
+
+        return { deadCertScore, deadCertDetails };
+
     } catch (error) {
         console.error(`Error calculating dead cert score for user ${userId} round ${round}:`, error);
-        return 0;
+        return { deadCertScore: 0, deadCertDetails: [] };
     }
 }
 
