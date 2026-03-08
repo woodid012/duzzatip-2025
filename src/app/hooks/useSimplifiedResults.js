@@ -165,7 +165,7 @@ export default function useSimplifiedResults() {
         playerName: pos.playerName || 'Not Selected',
         originalPlayerName: pos.originalPlayerName || pos.playerName || 'Not Selected',
         score: pos.score || 0,
-        originalScore: pos.originalScore || pos.score || 0,
+        originalScore: pos.originalScore ?? 0,
         breakdown: pos.breakdown || '',
         originalBreakdown: pos.originalBreakdown || '',
         isGameLive: pos.isGameLive || false,
