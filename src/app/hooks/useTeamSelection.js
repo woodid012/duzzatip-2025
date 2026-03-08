@@ -132,6 +132,35 @@ export default function useTeamSelection() {
         // Only update state if component is still mounted
         if (!isMounted) return;
 
+        // For any bench player missing a backup position, default to last round's value
+        if (teamsData && Object.keys(teamsData).length > 0 && localRound > 0) {
+          const hasMissingBackup = Object.values(teamsData).some(
+            userTeam => userTeam?.['Bench']?.player_name && !userTeam['Bench'].backup_position
+          );
+          if (hasMissingBackup) {
+            try {
+              const prevRound = localRound - 1;
+              const prevRes = await fetch(`/api/team-selection?round=${prevRound}&year=${selectedYear}`);
+              if (prevRes.ok) {
+                const prevData = await prevRes.json();
+                Object.entries(teamsData).forEach(([userId, userTeam]) => {
+                  if (userTeam?.['Bench']?.player_name && !userTeam['Bench'].backup_position) {
+                    const prevBackup = prevData[userId]?.['Bench']?.backup_position;
+                    if (prevBackup) {
+                      teamsData[userId]['Bench'] = {
+                        ...teamsData[userId]['Bench'],
+                        backup_position: prevBackup
+                      };
+                    }
+                  }
+                });
+              }
+            } catch (err) {
+              console.warn('Could not fetch previous round for backup position defaults:', err);
+            }
+          }
+        }
+
         if (teamsData && Object.keys(teamsData).length > 0) {
           console.log(`Loaded team data for round ${localRound}`);
           setTeams(teamsData);
