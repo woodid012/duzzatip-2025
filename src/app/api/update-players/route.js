@@ -114,29 +114,43 @@ export async function GET(request) {
       }))
     );
 
-    // 4. Sync team names in squads collection
-    // For each active squad player, update their team to match the current AFL roster
-    // Squads use abbreviations (ADE, SYD etc) so map player → abbreviation
-    const playerTeamMap = {};
+    // 4. Sync team + afl_id/provider_id in squads collection
+    // Build a map keyed by name+team for unambiguous lookup (handles duplicate names like Max King)
+    const playerMap = {}; // "Name|TEAM" -> player
+    const playerMapByName = {}; // "Name" -> [player, ...] for fallback
     for (const p of allPlayers) {
-      playerTeamMap[p.player_name] = p.team_name; // abbreviation
+      playerMap[`${p.player_name}|${p.team_name}`] = p;
+      if (!playerMapByName[p.player_name]) playerMapByName[p.player_name] = [];
+      playerMapByName[p.player_name].push(p);
     }
 
     const squadsCollection = db.collection(`${CURRENT_YEAR}_squads`);
     const activeSquadPlayers = await squadsCollection.find({ Active: 1 }).toArray();
     const teamUpdates = [];
+    const idUpdates = [];
 
     for (const sq of activeSquadPlayers) {
-      const currentTeam = playerTeamMap[sq.player_name];
-      if (currentTeam && currentTeam !== sq.team) {
-        teamUpdates.push({
-          player: sq.player_name,
-          from: sq.team,
-          to: currentTeam,
-        });
+      // Match by name+team first (unambiguous), fall back to name-only if unique
+      const key = `${sq.player_name}|${sq.team}`;
+      const byNameTeam = playerMap[key];
+      const byName = playerMapByName[sq.player_name];
+      const afl = byNameTeam || (byName?.length === 1 ? byName[0] : null);
+      if (!afl) continue;
+
+      const updates = {};
+      if (afl.team_name !== sq.team) {
+        updates.team = afl.team_name;
+        teamUpdates.push({ player: sq.player_name, from: sq.team, to: afl.team_name });
+      }
+      if (afl.provider_id && sq.provider_id !== afl.provider_id) {
+        updates.provider_id = afl.provider_id;
+        updates.afl_id = afl.afl_id;
+        idUpdates.push({ player: sq.player_name, provider_id: afl.provider_id });
+      }
+      if (Object.keys(updates).length > 0) {
         await squadsCollection.updateMany(
-          { player_name: sq.player_name, Active: 1 },
-          { $set: { team: currentTeam } }
+          { player_name: sq.player_name, user_id: sq.user_id },
+          { $set: updates }
         );
       }
     }
@@ -147,6 +161,7 @@ export async function GET(request) {
       players: allPlayers.length,
       inserted: insertResult.insertedCount,
       teamUpdatesInSquads: teamUpdates,
+      idUpdatesInSquads: idUpdates.length,
       sample: allPlayers.slice(0, 5).map(p => ({ name: p.player_name, team: p.team_name })),
     });
   } catch (e) {
