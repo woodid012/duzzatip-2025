@@ -625,9 +625,14 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             }
         }
         
-        // Step 2: If player didn't play, their game has started, and no bench sub, try reserves
+        // Step 2: If player didn't play, their game has started (or team has a bye), and no bench sub, try reserves
         const playerTeam = playerTeamMap[playerName];
-        const gameStarted = playerTeam ? (teamGameStarted[playerTeam] ?? false) : false;
+        const teamHasGame = playerTeam ? playerTeam in teamGameStarted : false;
+        const roundHasStartedGames = Object.values(teamGameStarted).some(v => v);
+        // Bye team: treat as "game started" once any game in the round has begun
+        const gameStarted = teamHasGame
+            ? (teamGameStarted[playerTeam] ?? false)
+            : (playerTeam ? roundHasStartedGames : false);
         if (!isSubstitution && !hasPlayed && gameStarted) {
             const isReserveAPosition = RESERVE_A_POSITIONS.includes(position);
             const isReserveBPosition = RESERVE_B_POSITIONS.includes(position);
