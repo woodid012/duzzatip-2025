@@ -14,8 +14,9 @@ export default function useTeamSelection() {
   } = useAppContext();
   
   // Local round state - initialized from global current round but can be changed independently
-  const [localRound, setLocalRound] = useState(currentRound);
-  
+  const [localRound, setLocalRound] = useState(null);
+  const [userChangedRound, setUserChangedRound] = useState(false);
+
   const [teams, setTeams] = useState({});
   const [editedTeams, setEditedTeams] = useState({});
   const [squads, setSquads] = useState({});
@@ -26,12 +27,12 @@ export default function useTeamSelection() {
   const retryCountRef = useRef(0);
   const squadsFetchedRef = useRef(false);
 
-  // Initialize local round from global current round on first load
+  // Sync local round when currentRound loads
   useEffect(() => {
-    if (localRound === undefined && currentRound !== undefined) {
+    if (currentRound !== null && !userChangedRound) {
       setLocalRound(currentRound);
     }
-  }, [currentRound, localRound]);
+  }, [currentRound]);
 
   // Create stable fetch functions using useCallback
   const fetchSquads = useCallback(async () => {
@@ -216,6 +217,7 @@ export default function useTeamSelection() {
   const handleRoundChange = useCallback((newRound) => {
     console.log(`Changing local round to ${newRound}`);
     setLocalRound(newRound);
+    setUserChangedRound(true);
     // Reset editing state when changing rounds
     setIsEditing(false);
     

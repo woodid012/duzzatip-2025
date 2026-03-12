@@ -7,7 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 function UpdateStatsPage() {
   const { selectedUserId } = useUserContext();
   const { currentRound } = useAppContext();
-  const [round, setRound] = useState(currentRound);
+  const [round, setRound] = useState(null);
   const [source, setSource] = useState(''); // '' = auto, 'afl', 'dfs'
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');

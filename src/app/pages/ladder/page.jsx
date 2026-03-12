@@ -9,7 +9,8 @@ import { calculateFinalsFixtures, getFinalsResults } from '@/app/lib/finals_util
 
 export default function LadderConsolidatedPage() {
   const { currentRound, selectedYear } = useAppContext();
-  const [selectedRound, setSelectedRound] = useState(currentRound);
+  const [selectedRound, setSelectedRound] = useState(null);
+  const [userChangedRound, setUserChangedRound] = useState(false);
   const [ladderData, setLadderData] = useState([]);
   const [roundResults, setRoundResults] = useState({});
   const [loading, setLoading] = useState(true);
@@ -24,18 +25,18 @@ export default function LadderConsolidatedPage() {
   // Track the previous year so we can detect year changes
   const [prevYear, setPrevYear] = useState(selectedYear);
 
-  // Initialize selected round when currentRound is available, or reset on year change
+  // Sync selected round when currentRound loads or year changes
   useEffect(() => {
     if (selectedYear !== prevYear) {
-      // Year changed — sync to the new currentRound
       setPrevYear(selectedYear);
-      if (currentRound !== undefined) {
+      setUserChangedRound(false);
+      if (currentRound !== null) {
         setSelectedRound(currentRound);
       }
-    } else if (currentRound !== undefined && selectedRound === undefined) {
+    } else if (currentRound !== null && !userChangedRound) {
       setSelectedRound(currentRound);
     }
-  }, [currentRound, selectedRound, selectedYear, prevYear]);
+  }, [currentRound, selectedYear, prevYear]);
 
   // Calculate finals standings when viewing round 21+
   useEffect(() => {
@@ -351,6 +352,7 @@ export default function LadderConsolidatedPage() {
 
   const handleRoundChange = (e) => {
     setSelectedRound(Number(e.target.value));
+    setUserChangedRound(true);
   };
 
   const handleSaveStandings = async () => {

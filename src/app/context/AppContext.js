@@ -31,7 +31,7 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   // Global state variables
   const [fixtures, setFixtures] = useState([]);
-  const [currentRound, setCurrentRound] = useState(0); // Default to Round 0
+  const [currentRound, setCurrentRound] = useState(null); // null until fixtures load
   const [roundInfo, setRoundInfo] = useState({
     currentRound: 0,
     currentRoundDisplay: 'Opening Round',

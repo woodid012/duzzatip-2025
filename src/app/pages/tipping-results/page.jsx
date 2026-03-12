@@ -6,7 +6,7 @@ import { useAppContext } from '@/app/context/AppContext';
 
 const TippingResultsGrid = () => {
   const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear } = useAppContext();
-  const [selectedRound, setSelectedRound] = useState(currentRound.toString());
+  const [selectedRound, setSelectedRound] = useState(null);
   const [fixtures, setFixtures] = useState([]);
   const [allUserTips, setAllUserTips] = useState({});
   const [yearTotals, setYearTotals] = useState({});
@@ -14,25 +14,27 @@ const TippingResultsGrid = () => {
   const [error, setError] = useState(null);
   const [selectedRoundInfo, setSelectedRoundInfo] = useState(null);
   const [isLockoutPassed, setIsLockoutPassed] = useState(false);
-  
+
   // Mobile view states
   const [isMobile, setIsMobile] = useState(false);
   const [selectedUser, setSelectedUser] = useState('');
-  
+
   // Check if mobile on mount and resize
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
+
   // Update selectedRound when currentRound changes
   useEffect(() => {
-    setSelectedRound(currentRound.toString());
+    if (currentRound !== null) {
+      setSelectedRound(currentRound.toString());
+    }
   }, [currentRound]);
   
   // Get round info for the selected round

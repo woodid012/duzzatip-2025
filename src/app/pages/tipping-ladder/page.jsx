@@ -8,19 +8,20 @@ import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function TippingLadderPage() {
   const { currentRound, selectedYear } = useAppContext();
-  const [selectedRound, setSelectedRound] = useState(currentRound);
+  const [selectedRound, setSelectedRound] = useState(null);
+  const [userChangedRound, setUserChangedRound] = useState(false);
   const [ladderData, setLadderData] = useState([]);
   const [roundResults, setRoundResults] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Initialize selected round when currentRound is available
+  // Sync selected round when currentRound loads (unless user manually changed it)
   useEffect(() => {
-    if (currentRound !== undefined && selectedRound === undefined) {
+    if (currentRound !== null && !userChangedRound) {
       setSelectedRound(currentRound);
     }
-  }, [currentRound, selectedRound]);
+  }, [currentRound]);
 
   // Load tipping ladder data when round or year changes
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function TippingLadderPage() {
 
   const handleRoundChange = (e) => {
     setSelectedRound(Number(e.target.value));
+    setUserChangedRound(true);
   };
 
   const formatRoundName = (round) => {

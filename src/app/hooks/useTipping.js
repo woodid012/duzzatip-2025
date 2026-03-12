@@ -11,8 +11,9 @@ export default function useTipping(initialUserId = '') {
   const isInitializedRef = useRef(false);
   
   // Local round state - initialized from global current round but can be changed independently
-  const [localRound, setLocalRound] = useState(currentRound);
-  
+  const [localRound, setLocalRound] = useState(null);
+  const [userChangedRound, setUserChangedRound] = useState(false);
+
   // State for user and tips
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
   const [tips, setTips] = useState({});
@@ -25,16 +26,16 @@ export default function useTipping(initialUserId = '') {
 
   // Round fixtures
   const [roundFixtures, setRoundFixtures] = useState([]);
-  
+
   // Track if data has been loaded
   const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Initialize local round from global current round on first render
+  // Sync local round when currentRound loads
   useEffect(() => {
-    if (localRound === undefined && currentRound !== undefined) {
+    if (currentRound !== null && !userChangedRound) {
       setLocalRound(currentRound);
     }
-  }, [currentRound, localRound]);
+  }, [currentRound]);
 
   // Update selectedUserId when initialUserId changes (from context)
   // But only for non-admin users - admin manages team selection locally
@@ -170,6 +171,7 @@ export default function useTipping(initialUserId = '') {
   const handleRoundChange = (newRound) => {
     console.log(`Changing local round to ${newRound}`);
     setLocalRound(newRound);
+    setUserChangedRound(true);
     // Reset editing state when changing rounds
     setIsEditing(false);
     // Reset data loaded state to force reload
