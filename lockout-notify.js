@@ -472,22 +472,22 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     const pts = p.scores[pos] ? Math.round(p.scores[pos]) : "?";
     if (typeof pts === "number") totalPts += pts;
     const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
-    lines.push(`  ${POS_SHORT[pos].padEnd(5)} ${dn(p.name).padEnd(24)} ${pts}pts${inj}`);
+    lines.push(`  *${POS_SHORT[pos]}*  *${dn(p.name)}* _(${pts}pts)_${inj}`);
   }
   if (result.bench) {
     const p = result.bench;
     const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
-    lines.push(`  BNCH  ${dn(p.name).padEnd(24)} → backs up ${POS_SHORT[result.benchBackup] || "?"}${inj}`);
+    lines.push(`  *BNCH*  *${dn(p.name)}* → ${POS_SHORT[result.benchBackup] || "?"}${inj}`);
   }
   if (result.reserveA) {
     const p = result.reserveA;
     const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
-    lines.push(`  ResA  ${dn(p.name).padEnd(24)} (${RESERVE_A_COVERS.map(p => POS_SHORT[p]).join("/")})${inj}`);
+    lines.push(`  *ResA*  *${dn(p.name)}* (${RESERVE_A_COVERS.map(p => POS_SHORT[p]).join("/")})${inj}`);
   }
   if (result.reserveB) {
     const p = result.reserveB;
     const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
-    lines.push(`  ResB  ${dn(p.name).padEnd(24)} (${RESERVE_B_COVERS.map(p => POS_SHORT[p]).join("/")})${inj}`);
+    lines.push(`  *ResB*  *${dn(p.name)}* (${RESERVE_B_COVERS.map(p => POS_SHORT[p]).join("/")})${inj}`);
   }
   lines.push(`  📊 Projected: ~${totalPts} pts/round`);
   lines.push("");
@@ -531,7 +531,12 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     for (const t of tipSuggestions) {
       const dc   = t.suggestDC ? " 💀DC" : "";
       const gameTime = formatGameTime(t.dateUtc);
-      lines.push(`  ${t.favourite}  ${t.confidence}%${dc}  — ${t.homeTeam} v ${t.awayTeam}  (${gameTime})`);
+      const matchup = t.favourite === t.homeTeam
+        ? `*${t.homeTeam}* v ${t.awayTeam}`
+        : `${t.homeTeam} v *${t.awayTeam}*`;
+      lines.push(`  *Pick:* *${t.favourite}*  ${t.confidence}%${dc}`);
+      lines.push(`  ${matchup}`);
+      lines.push(`  _${gameTime}_`);
     }
     lines.push("");
   }

@@ -728,16 +728,16 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     if (typeof pts === "number") totalPts += pts;
     const injTag = injSeverity(p.name, injuries) >= 1 ? ` ⚠` : "";
     const srcTag = p.statsSource ? ` _[${p.statsSource}]_` : "";
-    teamLines.push(`*${POS_SHORT[pos]}* — ${dn(p.name)} _(${pts}pts)_${injTag}${srcTag}`);
+    teamLines.push(`*${POS_SHORT[pos]}* — *${dn(p.name)}* _(${pts}pts)_${injTag}${srcTag}`);
   }
   lines.push(`📋 *YOUR TEAM* — _~${totalPts}pts projected_`);
   for (const l of teamLines) lines.push(l);
   if (result.bench) {
     const gainStr = result.benchExpectedGain > 0 ? ` _(+${result.benchExpectedGain}pts exp)_` : "";
-    lines.push(`🪑 *Bench* — ${dn(result.bench.name)} → ${POS_SHORT[result.benchBackup] || "?"}${gainStr}`);
+    lines.push(`🪑 *Bench* — *${dn(result.bench.name)}* → ${POS_SHORT[result.benchBackup] || "?"}${gainStr}`);
   }
-  if (result.reserveA) lines.push(`🅰 *Res A* — ${dn(result.reserveA.name)}`);
-  if (result.reserveB) lines.push(`🅱 *Res B* — ${dn(result.reserveB.name)}`);
+  if (result.reserveA) lines.push(`🅰 *Res A* — *${dn(result.reserveA.name)}*`);
+  if (result.reserveB) lines.push(`🅱 *Res B* — *${dn(result.reserveB.name)}*`);
   lines.push("");
 
   // ── Alerts ──
@@ -781,7 +781,8 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
       const oddsStr = t.homeOdds && t.awayOdds
         ? `  _($${t.homeOdds.toFixed(2)} / $${t.awayOdds.toFixed(2)})_`
         : "";
-      lines.push(`${matchup}  ${t.confidence}%${dc}${oddsStr}`);
+      lines.push(`*Pick:* *${t.favourite}*  ${t.confidence}%${dc}${oddsStr}`);
+      lines.push(`${matchup}`);
       lines.push(`_${formatGameTime(t.dateUtc)}_`);
       lines.push("");
     }
