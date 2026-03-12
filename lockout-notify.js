@@ -283,7 +283,18 @@ function findFWSlug(dbTeam) {
 }
 function playerNameMatches(dbName, fwNames) {
   const norm = normName(dbName);
-  return fwNames.some(fw => normName(fw) === norm);
+  // Exact match first
+  if (fwNames.some(fw => normName(fw) === norm)) return true;
+  // Fuzzy: match surname + first-name initial (handles Tim/Timothy, Jack/Jackson, etc.)
+  const parts = norm.split(" ");
+  if (parts.length < 2) return false;
+  const surname = parts[parts.length - 1];
+  const initial = parts[0][0];
+  return fwNames.some(fw => {
+    const fwParts = normName(fw).split(" ");
+    if (fwParts.length < 2) return false;
+    return fwParts[fwParts.length - 1] === surname && fwParts[0][0] === initial;
+  });
 }
 function buildSelectionStatus(squadPlayers, fwSelections) {
   const status = new Map();
