@@ -583,7 +583,14 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
          f.AwayTeam.toLowerCase().includes((t.ateam || "").split(" ")[0].toLowerCase()))
       );
       if (candidates.length > 0) {
-        homePct = candidates.reduce((a, t) => a + (parseFloat(t.confidence) || 50), 0) / candidates.length;
+        homePct = candidates.reduce((a, t) => {
+          const explicitHomePct = parseFloat(t.hconfidence);
+          if (!Number.isNaN(explicitHomePct)) return a + explicitHomePct;
+
+          const tippedPct = parseFloat(t.confidence);
+          if (Number.isNaN(tippedPct)) return a + 50;
+          return a + (t.tip === f.HomeTeam ? tippedPct : 100 - tippedPct);
+        }, 0) / candidates.length;
         source = `Squiggle(${candidates.length})`;
       }
     }

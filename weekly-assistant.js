@@ -519,8 +519,14 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
         )
       );
       if (candidates.length > 0) {
-        // Average confidence across tipsters for this game
-        const avgConf = candidates.reduce((a, t) => a + (parseFloat(t.confidence) || 50), 0) / candidates.length;
+        const avgConf = candidates.reduce((a, t) => {
+          const explicitHomePct = parseFloat(t.hconfidence);
+          if (!Number.isNaN(explicitHomePct)) return a + explicitHomePct;
+
+          const tippedPct = parseFloat(t.confidence);
+          if (Number.isNaN(tippedPct)) return a + 50;
+          return a + (t.tip === f.HomeTeam ? tippedPct : 100 - tippedPct);
+        }, 0) / candidates.length;
         homePct = avgConf;
         source = `Squiggle(${candidates.length} tipsters)`;
       }
