@@ -69,12 +69,18 @@ export default function useTipping(initialUserId = '') {
     return new Date() >= new Date(firstGame.DateUtc);
   }
 
-  // True when the round's lockout time has passed but it's still the current round.
-  // Used to show a "late submission" warning rather than blocking editing.
+  // True when the round's lockout time has passed, it's still the current round,
+  // AND the user hasn't already submitted before lockout.
   const isLateSubmission = (round) => {
     if (selectedUserId === 'admin') return false;
     if (round !== currentRound) return false;
-    return !!roundInfo.isLocked;
+    if (!roundInfo.isLocked) return false;
+    // If the user submitted before lockout, it's not a late submission
+    if (lastEditedTime && roundInfo.lockoutDate) {
+      return lastEditedTime >= new Date(roundInfo.lockoutDate);
+    }
+    // No submission yet and round is locked — would be late if they submit now
+    return !lastEditedTime;
   }
 
   // Load fixtures for the selected local round

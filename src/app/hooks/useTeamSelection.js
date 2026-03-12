@@ -99,10 +99,15 @@ export default function useTeamSelection() {
     return new Date() >= new Date(firstGame.DateUtc);
   }, [currentRound, fixtures]);
 
-  // True when the game has started but it's still the current round.
-  // Team selection is allowed but flagged as "for fun only — won't affect scoring".
+  // True only for Opening Round (Round 0) when games have started — that round is genuinely for fun.
   const isForFunOnly = useCallback((roundNumber) => {
-    return roundNumber === currentRound && !!roundInfo.isLocked;
+    return roundNumber === 0 && roundNumber === currentRound && !!roundInfo.isLocked;
+  }, [roundInfo.isLocked, currentRound]);
+
+  // True when a scoring round (1+) has started but it's still the current round.
+  // Team selection is allowed but flagged as a late submission.
+  const isLateSubmission = useCallback((roundNumber) => {
+    return roundNumber > 0 && roundNumber === currentRound && !!roundInfo.isLocked;
   }, [roundInfo.isLocked, currentRound]);
 
   // Load data when local round changes
@@ -467,6 +472,7 @@ const saveTeamSelections = useCallback(async () => {
     localRound,
     isRoundLocked: isRoundLocked(localRound),
     isForFunOnly: isForFunOnly(localRound),
+    isLateSubmission: isLateSubmission(localRound),
     isPastYear,
 
     // Actions

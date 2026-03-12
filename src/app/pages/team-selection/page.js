@@ -35,6 +35,7 @@ export default function TeamSelectionPage() {
     localRound,
     isRoundLocked,
     isForFunOnly,
+    isLateSubmission,
     isPastYear,
     handleRoundChange,
     handlePlayerChange,
@@ -359,7 +360,7 @@ export default function TeamSelectionPage() {
           {/* Show which round we're displaying with improved formatting - matching tipping page style */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
-              <span className={isForFunOnly && !isAdmin ? "text-orange-600" : "text-green-600"}>
+              <span className={(isForFunOnly || isLateSubmission) && !isAdmin ? "text-orange-600" : "text-green-600"}>
                 Showing {formatRoundName(localRound)}
               </span>
               {isForFunOnly && !isAdmin && (
@@ -367,9 +368,20 @@ export default function TeamSelectionPage() {
                   🎉 Round locked — for fun only
                 </span>
               )}
-              {isAdmin && isForFunOnly && (
+              {isLateSubmission && !isAdmin && (() => {
+                // Only show "Late submission" if user hasn't submitted, or submitted after lockout
+                const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
+                const submittedOnTime = lastUpdatedTime && localInfo?.lockoutDate && lastUpdatedTime < new Date(localInfo.lockoutDate);
+                if (submittedOnTime) return null;
+                return (
+                  <span className="ml-2 text-orange-500">
+                    ⚠️ Late submission
+                  </span>
+                );
+              })()}
+              {isAdmin && (isForFunOnly || isLateSubmission) && (
                 <span className="ml-2 text-orange-500 font-medium">
-                  (Normally for-fun-only, admin override)
+                  (Admin Override)
                 </span>
               )}
             </div>
