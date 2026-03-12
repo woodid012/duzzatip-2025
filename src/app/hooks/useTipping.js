@@ -79,7 +79,7 @@ export default function useTipping(initialUserId = '') {
 
   // Load fixtures for the selected local round
   useEffect(() => {
-    if (fixtures.length > 0 && localRound !== undefined) {
+    if (fixtures.length > 0 && localRound != null) {
       const filtered = fixtures.filter(
         fixture => fixture.RoundNumber.toString() === localRound.toString()
       );
