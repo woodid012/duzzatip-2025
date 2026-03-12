@@ -450,7 +450,7 @@ function formatGameTime(dateUtc) {
   });
 }
 
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dryRun }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, otherAvailable, savedTeam, savedTips, dryRun }) {
   const lines = [];
   const hrs  = Math.floor(Math.abs(lockout.minsUntil) / 60);
   const mins = Math.abs(lockout.minsUntil) % 60;
@@ -522,6 +522,19 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   if (alerts.length > 0) {
     lines.push(`⚠️ *ALERTS (${alerts.length})*`);
     for (const a of alerts) lines.push(`  ${a}`);
+    lines.push("");
+  }
+
+  // ── Other available players ──
+  if (otherAvailable?.length > 0) {
+    lines.push(`🔄 *OTHER AVAILABLE (${otherAvailable.length})*`);
+    for (const p of otherAvailable) {
+      const posStr = p.bestPositions
+        .map(([pos, score]) => `${POS_SHORT[pos]} ${Math.round(score)}`)
+        .join(" / ");
+      const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
+      lines.push(`  ${dn(p.name)}  _(${posStr})_${inj}`);
+    }
     lines.push("");
   }
 
@@ -702,6 +715,22 @@ async function main() {
   const result = findOptimalLineup(squad, autoExcluded);
   console.log(`   Lineup: ${Object.values(result.lineup).filter(Boolean).map(p => dn(p.name)).join(", ")}`);
 
+  // ── Other available players (not in lineup, not excluded) ──
+  const lineupNames = new Set([
+    ...Object.values(result.lineup).filter(Boolean).map(p => p.name),
+    result.bench?.name, result.reserveA?.name, result.reserveB?.name
+  ].filter(Boolean));
+  const otherAvailable = squad
+    .filter(p => !lineupNames.has(p.name) && !autoExcluded.has(p.name) && p.scores && Object.keys(p.scores).length > 0)
+    .map(p => {
+      const bestPositions = Object.entries(p.scores)
+        .filter(([pos]) => MAIN_POSITIONS.includes(pos))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+      return { ...p, bestPositions };
+    })
+    .sort((a, b) => (b.bestPositions[0]?.[1] || 0) - (a.bestPositions[0]?.[1] || 0));
+
   // ── Tips ──
   process.stdout.write(`   Fetching Squiggle tips for Round ${round}...`);
   const squiggleTips  = await fetchSquiggleTips(round);
@@ -734,7 +763,7 @@ async function main() {
   await client.close();
 
   // ── Format & send message ──
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dryRun });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, otherAvailable, savedTeam, savedTips, dryRun });
 
   const sent = await sendTelegram(message, dryRun);
 
