@@ -210,17 +210,28 @@ function findOptimalLineup(squadPlayers, excluded = new Set()) {
     }
   }
 
-  const benchCandidates = pool.filter(p => !used.has(p.name))
-    .sort((a, b) => Math.max(...Object.values(b.scores)) - Math.max(...Object.values(a.scores)));
-  const bench = benchCandidates[0] || null;
-  if (bench) used.add(bench.name);
-
-  let benchBackup = MAIN_POSITIONS[0];
-  if (bench?.scores) {
-    let best = -1;
-    for (const pos of MAIN_POSITIONS) {
-      if ((bench.scores[pos] || 0) > best) { best = bench.scores[pos]; benchBackup = pos; }
+  // Bench: pick the player+position combo that best covers the weakest starter.
+  // For each candidate, find their best backup position and score the "coverage value"
+  // as how close they come to the starter they'd replace (higher = better insurance).
+  const benchPool = pool.filter(p => !used.has(p.name));
+  let bench = null, benchBackup = MAIN_POSITIONS[0];
+  if (benchPool.length > 0) {
+    let bestValue = -Infinity;
+    for (const p of benchPool) {
+      for (const pos of MAIN_POSITIONS) {
+        const starterScore = assigned[pos]?.scores[pos] || 0;
+        const benchScore = p.scores[pos] || 0;
+        // Value = bench score at that position, weighted towards positions where
+        // the starter is weakest (biggest risk) and bench player is strongest
+        const coverage = benchScore - (starterScore * 0.3); // prefer covering weak starters
+        if (coverage > bestValue) {
+          bestValue = coverage;
+          bench = p;
+          benchBackup = pos;
+        }
+      }
     }
+    if (bench) used.add(bench.name);
   }
 
   const resAScore = p => Math.max(...RESERVE_A_COVERS.map(pos => p.scores[pos] || 0));
