@@ -666,9 +666,9 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
       const dc = t.suggestDC ? " 💀DC" : "";
       const gameTime = formatGameTime(t.dateUtc);
       const homePick = t.favourite === t.homeTeam;
-      const home = homePick ? `*${t.homeTeam}* ✅` : t.homeTeam;
-      const away = homePick ? t.awayTeam : `✅ *${t.awayTeam}*`;
-      lines.push(`  ${home} v ${away}  ${t.confidence}%${dc}`);
+      const home = homePick ? `✅ *${t.homeTeam}* (${t.confidence}%)` : t.homeTeam;
+      const away = homePick ? t.awayTeam : `✅ *${t.awayTeam}* (${t.confidence}%)`;
+      lines.push(`  ${home} v ${away}${dc}`);
       lines.push(`  _${gameTime}_`);
     }
     lines.push("");
