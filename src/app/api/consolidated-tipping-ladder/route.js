@@ -163,12 +163,12 @@ export const GET = createApiHandler(async (request, db) => {
       });
     }
 
-    // Sort by total score (descending) then by DC accuracy (descending)
+    // Sort by correct tips (descending) then by net DC score as tiebreaker (descending)
     ladderData.sort((a, b) => {
-      if (b.totalScore !== a.totalScore) {
-        return b.totalScore - a.totalScore;
+      if (b.correctTips !== a.correctTips) {
+        return b.correctTips - a.correctTips;
       }
-      return b.dcAccuracy - a.dcAccuracy;
+      return b.netDCScore - a.netDCScore;
     });
 
     // Assign positions
