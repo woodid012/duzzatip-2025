@@ -654,10 +654,10 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     for (const t of tipSuggestions) {
       const dc = t.suggestDC ? " 💀DC" : "";
       const gameTime = formatGameTime(t.dateUtc);
-      const matchup = t.favourite === t.homeTeam
-        ? `*${t.homeTeam}* v ${t.awayTeam}`
-        : `${t.homeTeam} v *${t.awayTeam}*`;
-      lines.push(`  ✅ ${matchup}  ${t.confidence}%${dc}`);
+      const homePick = t.favourite === t.homeTeam;
+      const home = homePick ? `*${t.homeTeam}* ✅` : t.homeTeam;
+      const away = homePick ? t.awayTeam : `✅ *${t.awayTeam}*`;
+      lines.push(`  ${home} v ${away}  ${t.confidence}%${dc}`);
       lines.push(`  _${gameTime}_`);
     }
     lines.push("");
