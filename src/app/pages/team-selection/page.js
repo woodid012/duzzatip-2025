@@ -34,9 +34,13 @@ export default function TeamSelectionPage() {
     error,
     localRound,
     isRoundLocked,
+    isRoundPartiallyLocked,
     isForFunOnly,
     isLateSubmission,
     isPastYear,
+    isPositionLocked,
+    isPlayerGameStarted,
+    getNextLockoutTime,
     handleRoundChange,
     handlePlayerChange,
     handleBackupPositionChange,
@@ -336,11 +340,8 @@ export default function TeamSelectionPage() {
   // Determine if we're in edit mode (either regular editing or admin edit mode)
   const inEditMode = isEditing || adminEditMode;
   
-  // Check if editing is allowed (admin can always edit, regular users only if not locked, nobody can edit past years)
+  // Check if editing is allowed — allow if any position's game hasn't started yet
   const canEdit = !isPastYear && (isAdmin || !isRoundLocked);
-  
-  // For TeamCard props - admin should never be locked when in edit mode
-  const isTeamCardLocked = isAdmin ? false : isRoundLocked;
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
@@ -386,17 +387,35 @@ export default function TeamSelectionPage() {
               )}
             </div>
             
-            {/* Lockout time — use local round's info so it always shows the displayed round's lockout */}
+            {/* Lockout time — per-game locking: show next lockout or fully locked */}
             {(() => {
               const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
               if (!localInfo || !localInfo.lockoutTime) return null;
+              if (isRoundLocked && !isAdmin) {
+                return (
+                  <div className="text-sm">
+                    <span className="text-red-600 font-medium">All games started (Locked)</span>
+                  </div>
+                );
+              }
+              const nextLockout = getNextLockoutTime();
+              if (isRoundPartiallyLocked && nextLockout && !isAdmin) {
+                return (
+                  <div className="text-sm">
+                    <span className="text-gray-600">Next lockout:</span>
+                    <span className="font-medium text-orange-600 ml-1">
+                      {nextLockout.toLocaleString('en-AU', {
+                        timeZone: 'Australia/Melbourne',
+                        day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric', hour12: true
+                      })}
+                    </span>
+                  </div>
+                );
+              }
               return (
                 <div className="text-sm">
                   <span className="text-gray-600">Lockout:</span>
                   <span className="font-medium text-black ml-1">{localInfo.lockoutTime}</span>
-                  {isRoundLocked && localInfo.isLocked && !isAdmin && (
-                    <span className="text-red-600 ml-1">(Locked)</span>
-                  )}
                 </div>
               );
             })()}
@@ -502,14 +521,17 @@ export default function TeamSelectionPage() {
         {/* Check if we have a selected user, otherwise show all teams */}
         {selectedUserId && selectedUserId !== 'admin' ? (
           // Show only the selected user's team
-          <TeamCard 
+          <TeamCard
             key={selectedUserId}
             userId={selectedUserId}
             userName={USER_NAMES[selectedUserId]}
             team={teams[selectedUserId] || {}}
             squad={squads[selectedUserId]?.players || []}
             isEditing={inEditMode}
-            isLocked={isTeamCardLocked}
+            isAdmin={isAdmin}
+            isPositionLocked={isPositionLocked}
+            isPlayerGameStarted={isPlayerGameStarted}
+            isRoundPartiallyLocked={isRoundPartiallyLocked}
             onPlayerChange={handlePlayerChange}
             onBackupPositionChange={handleBackupPositionChange}
             onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
@@ -519,14 +541,17 @@ export default function TeamSelectionPage() {
         ) : (
           // Show all teams (for admin or when no user is selected)
           Object.entries(USER_NAMES).map(([userId, userName]) => (
-            <TeamCard 
+            <TeamCard
               key={userId}
               userId={userId}
               userName={userName}
               team={teams[userId] || {}}
               squad={squads[userId]?.players || []}
               isEditing={inEditMode}
-              isLocked={isTeamCardLocked}
+              isAdmin={isAdmin}
+              isPositionLocked={isPositionLocked}
+              isPlayerGameStarted={isPlayerGameStarted}
+              isRoundPartiallyLocked={isRoundPartiallyLocked}
               onPlayerChange={handlePlayerChange}
               onBackupPositionChange={handleBackupPositionChange}
               onCopyFromPrevious={() => copyFromPreviousRound(userId)}
@@ -577,7 +602,10 @@ function TeamCard({
   team,
   squad,
   isEditing,
-  isLocked,
+  isAdmin,
+  isPositionLocked,
+  isPlayerGameStarted,
+  isRoundPartiallyLocked,
   onPlayerChange,
   onBackupPositionChange,
   onCopyFromPrevious,
@@ -634,7 +662,6 @@ function TeamCard({
             <button
               onClick={handleCopyFromPrevious}
               className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
-              disabled={isLocked}
             >
               Copy Previous
             </button>
@@ -657,12 +684,17 @@ function TeamCard({
             const playerData = team[position] || null;
             const displayPosition = getPositionDisplay(position);
             // Use optional chaining to safely access player_name
-            const isDuplicate = playerData?.player_name ? 
+            const isDuplicate = playerData?.player_name ?
               isDuplicatePlayer(playerData.player_name, position) : false;
-            
+            // Per-game locking: check if this specific position's player's game has started
+            const posLocked = !isAdmin && isPositionLocked(userId, position);
+
             return (
               <div key={position} className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-black">{displayPosition}</label>
+                <label className={`text-sm font-medium ${posLocked ? 'text-gray-400' : 'text-black'}`}>
+                  {displayPosition}
+                  {posLocked && isEditing && <span className="text-xs text-red-400 ml-1">(locked)</span>}
+                </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   {isEditing ? (
                     <>
@@ -670,10 +702,11 @@ function TeamCard({
                         value={playerData?.player_name || ''}
                         onChange={(val) => onPlayerChange(userId, position, val)}
                         options={squad
+                          .filter(p => !posLocked ? !isPlayerGameStarted(p.name, userId) : true)
                           .sort((a, b) => a.name.localeCompare(b.name))
                           .map(p => ({ value: p.name, label: `${p.name} (${p.team})` }))}
                         placeholder="Select Player"
-                        disabled={isLocked}
+                        disabled={posLocked}
                         className={`w-full ${isDuplicate ? '[&>button]:border-red-500 [&>button]:bg-red-50' : ''}`}
                       />
                       {position === 'Bench' && (
@@ -681,7 +714,7 @@ function TeamCard({
                           value={playerData?.backup_position || ''}
                           onChange={(e) => onBackupPositionChange(userId, position, e.target.value)}
                           className="w-full sm:w-1/3 p-2 text-sm border rounded bg-white text-black"
-                          disabled={isLocked}
+                          disabled={posLocked}
                         >
                           <option value="">Backup Position</option>
                           {BACKUP_POSITIONS.map(pos => (
