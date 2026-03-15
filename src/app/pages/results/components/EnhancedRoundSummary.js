@@ -129,7 +129,7 @@ function hasLiveGames(teamScoreData) {
 // Component for regular round fixtures
 function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
       {fixtures.map((fixture, index) => {
         // Highlight the selected user's match
         const isSelectedUserMatch = selectedUserId &&
@@ -363,7 +363,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
   
   // Default fallback
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
       {fixtures.map((fixture, index) => renderMatchCard(fixture, index))}
     </div>
   );
