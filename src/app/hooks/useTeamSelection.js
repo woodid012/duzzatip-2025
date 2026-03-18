@@ -94,7 +94,7 @@ export default function useTeamSelection() {
   // With PER_GAME_LOCKING: fully locked only when ALL games have started.
   // Without PER_GAME_LOCKING (default): locked when the FIRST game has started.
   const isRoundLocked = useCallback((roundNumber) => {
-    if (roundNumber >= currentRound) return false;
+    if (roundNumber > currentRound) return false;
     const roundFixtures = fixtures.filter(f => f.RoundNumber === roundNumber);
     if (roundFixtures.length === 0) return false;
     const now = new Date();
