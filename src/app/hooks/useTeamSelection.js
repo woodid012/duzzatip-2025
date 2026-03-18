@@ -130,21 +130,57 @@ export default function useTeamSelection() {
     return new Date(game.DateUtc);
   }, [squads, fixtures]);
 
+  // Positions covered by each reserve for the reserve-exploit lock (Rule 3).
+  const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
+  const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
+
   // Check if a specific position is locked (that player's game has started).
   // When PER_GAME_LOCKING is off, delegates to round-level isRoundLocked.
+  // When PER_GAME_LOCKING is on, three rules apply:
+  //   Rule 1 — Empty slots lock when the first game of the round kicks off.
+  //   Rule 2 — A filled slot locks when that player's game kicks off.
+  //   Rule 3 — If a reserve has already played, all positions it covers lock immediately
+  //             (prevents swapping in a DNP to trigger the reserve's score).
   const isPositionLocked = useCallback((userId, position, roundNumber) => {
     const rnd = roundNumber ?? localRound;
     if (rnd === null || rnd === undefined) return false;
     if (!PER_GAME_LOCKING) return isRoundLocked(rnd);
     // Future rounds are never locked
     if (rnd > currentRound) return false;
+
+    const now = new Date();
+    const roundFixtures = fixtures.filter(f => f.RoundNumber === rnd);
     const currentTeams = isEditing ? editedTeams : teams;
-    const playerData = currentTeams[userId]?.[position];
-    if (!playerData?.player_name) return false; // Empty position → not locked
+    const userTeam = currentTeams[userId] || {};
+    const playerData = userTeam[position];
+
+    // Rule 1: empty slots lock at first game kick-off
+    if (!playerData?.player_name) {
+      if (roundFixtures.length === 0) return false;
+      const firstGame = roundFixtures.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
+      return now >= new Date(firstGame.DateUtc);
+    }
+
+    // Rule 2: filled slot locks when that player's game starts
     const gameTime = getPlayerGameTime(playerData.player_name, userId, rnd);
-    if (!gameTime) return false; // Bye or not found → not locked
-    return new Date() >= gameTime;
-  }, [localRound, currentRound, teams, editedTeams, isEditing, getPlayerGameTime, isRoundLocked]);
+    if (gameTime && now >= gameTime) return true;
+
+    // Rule 3: lock if the reserve covering this position has already played
+    const reserveHasPlayed = (reservePosition) => {
+      const reserve = userTeam[reservePosition];
+      if (!reserve?.player_name) return false;
+      const reserveGameTime = getPlayerGameTime(reserve.player_name, userId, rnd);
+      return reserveGameTime ? now >= reserveGameTime : false;
+    };
+
+    if (RESERVE_A_POSITIONS.includes(position) && reserveHasPlayed('Reserve A')) return true;
+    if (RESERVE_B_POSITIONS.includes(position) && reserveHasPlayed('Reserve B')) return true;
+
+    const bench = userTeam['Bench'];
+    if (bench?.player_name && bench?.backup_position === position && reserveHasPlayed('Bench')) return true;
+
+    return false;
+  }, [localRound, currentRound, teams, editedTeams, isEditing, getPlayerGameTime, isRoundLocked, fixtures]);
 
   // Check if a player's game has started (for filtering dropdowns).
   // When PER_GAME_LOCKING is off, always returns false (no per-player filtering).
