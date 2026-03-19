@@ -1,0 +1,34 @@
+﻿name: DuzzaTip Backup Trigger
+
+on:
+  schedule:
+    # Every 20 mins during AFL lockout windows (Thu/Fri/Sat/Sun AEST)
+    - cron: '*/20 8-11 * * 4'   # Thu 6pm-9pm AEST
+    - cron: '*/20 8-11 * * 5'   # Fri 6pm-9pm AEST
+    - cron: '*/20 1-11 * * 6'   # Sat 11am-9pm AEST
+    - cron: '*/20 1-8 * * 0'    # Sun 11am-6pm AEST
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe teams
+        id: probe
+        run: |
+          RESULT=$(curl -s "https://duzzatip.vercel.app/api/lockout-notify?probe=1&token=${{ secrets.NOTIFY_SECRET }}")
+          echo "result=$RESULT" >> $GITHUB_OUTPUT
+          echo $RESULT
+
+      - name: Trigger if announced and not locked
+        run: |
+          ANNOUNCED=$(echo '${{ steps.probe.outputs.result }}' | jq '.announced')
+          LOCKED=$(echo '${{ steps.probe.outputs.result }}' | jq '.lockout.locked')
+          ROUND=$(echo '${{ steps.probe.outputs.result }}' | jq '.round')
+          echo "Round=$ROUND announced=$ANNOUNCED locked=$LOCKED"
+          if [ "$ANNOUNCED" = "true" ] && [ "$LOCKED" = "false" ]; then
+            echo "Triggering DuzzaTip..."
+            curl -s -X POST "https://duzzatip.vercel.app/api/lockout-notify?token=${{ secrets.NOTIFY_SECRET }}"
+          else
+            echo "Skipping - not announced or already locked"
+          fi
