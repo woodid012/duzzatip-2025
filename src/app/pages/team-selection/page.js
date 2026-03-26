@@ -20,7 +20,7 @@ const INJURY_BADGES = {
 
 export default function TeamSelectionPage() {
   // Get just the current round from the app context for initial display
-  const { currentRound, roundInfo, getSpecificRoundInfo } = useAppContext();
+  const { currentRound, roundInfo, getSpecificRoundInfo, injuries } = useAppContext();
   
   // Get selected user context
   const { selectedUserId } = useUserContext();
@@ -55,14 +55,7 @@ export default function TeamSelectionPage() {
   // State for duplicate warnings
   const [duplicateWarnings, setDuplicateWarnings] = useState([]);
 
-  // Injuries
-  const [injuries, setInjuries] = useState({});
-  useEffect(() => {
-    fetch('/api/injuries')
-      .then(r => r.ok ? r.json() : { players: {} })
-      .then(data => setInjuries(data.players || {}))
-      .catch(() => {});
-  }, []);
+  // injuries comes from AppContext (fetched once globally)
 
   // Lookup injury by player name — keys are "Name (Team)"
   const getInjury = (name) => {

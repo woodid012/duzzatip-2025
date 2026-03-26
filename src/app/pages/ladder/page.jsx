@@ -62,35 +62,43 @@ export default function LadderConsolidatedPage() {
           }
         }
 
-        // Get SF fixtures and results (round 22)
+        // Fetch all three rounds' results in parallel
+        const [sfResults, prelimResults, gfResults] = await Promise.all([
+          getFinalsResults(22, selectedYear),
+          getFinalsResults(23, selectedYear),
+          getFinalsResults(24, selectedYear),
+        ]);
+
+        // Fetch fixtures in parallel (only where results exist)
+        const [sfFixtures, pfFixtures, gfFixtures] = await Promise.all([
+          sfResults && Object.keys(sfResults).length > 0 ? calculateFinalsFixtures(22, selectedYear) : Promise.resolve([]),
+          prelimResults && Object.keys(prelimResults).length > 0 ? calculateFinalsFixtures(23, selectedYear) : Promise.resolve([]),
+          gfResults && Object.keys(gfResults).length > 0 ? calculateFinalsFixtures(24, selectedYear) : Promise.resolve([]),
+        ]);
+
+        // Process SF results (round 22)
         let sf1Result = null;
         let sf2Result = null;
-        const sfResults = await getFinalsResults(22, selectedYear);
-        if (sfResults && Object.keys(sfResults).length > 0) {
-          const sfFixtures = await calculateFinalsFixtures(22, selectedYear);
-          if (sfFixtures.length >= 2) {
-            const homeScore0 = sfFixtures[0].home !== 'TBD' ? (sfResults[sfFixtures[0].home]?.totalScore || 0) : 0;
-            const awayScore0 = sfFixtures[0].away !== 'TBD' ? (sfResults[sfFixtures[0].away]?.totalScore || 0) : 0;
-            const homeScore1 = sfFixtures[1].home !== 'TBD' ? (sfResults[sfFixtures[1].home]?.totalScore || 0) : 0;
-            const awayScore1 = sfFixtures[1].away !== 'TBD' ? (sfResults[sfFixtures[1].away]?.totalScore || 0) : 0;
+        if (sfFixtures.length >= 2) {
+          const homeScore0 = sfFixtures[0].home !== 'TBD' ? (sfResults[sfFixtures[0].home]?.totalScore || 0) : 0;
+          const awayScore0 = sfFixtures[0].away !== 'TBD' ? (sfResults[sfFixtures[0].away]?.totalScore || 0) : 0;
+          const homeScore1 = sfFixtures[1].home !== 'TBD' ? (sfResults[sfFixtures[1].home]?.totalScore || 0) : 0;
+          const awayScore1 = sfFixtures[1].away !== 'TBD' ? (sfResults[sfFixtures[1].away]?.totalScore || 0) : 0;
 
-            if (homeScore0 > 0 || awayScore0 > 0) {
-              sf1Result = {
-                winner: homeScore0 > awayScore0 ? sfFixtures[0].home : sfFixtures[0].away,
-                loser: homeScore0 > awayScore0 ? sfFixtures[0].away : sfFixtures[0].home,
-              };
-            }
-            if (homeScore1 > 0 || awayScore1 > 0) {
-              sf2Result = {
-                winner: homeScore1 > awayScore1 ? sfFixtures[1].home : sfFixtures[1].away,
-                loser: homeScore1 > awayScore1 ? sfFixtures[1].away : sfFixtures[1].home,
-              };
-            }
+          if (homeScore0 > 0 || awayScore0 > 0) {
+            sf1Result = {
+              winner: homeScore0 > awayScore0 ? sfFixtures[0].home : sfFixtures[0].away,
+              loser: homeScore0 > awayScore0 ? sfFixtures[0].away : sfFixtures[0].home,
+            };
+          }
+          if (homeScore1 > 0 || awayScore1 > 0) {
+            sf2Result = {
+              winner: homeScore1 > awayScore1 ? sfFixtures[1].home : sfFixtures[1].away,
+              loser: homeScore1 > awayScore1 ? sfFixtures[1].away : sfFixtures[1].home,
+            };
           }
         }
 
-        // Position 5: SF2 loser (Elimination Final - eliminated here)
-        // SF1 loser goes to PF, handled below
         if (sf2Result) {
           standings.push({
             pick: standings.length + 1,
@@ -100,24 +108,19 @@ export default function LadderConsolidatedPage() {
           });
         }
 
-        // Get PF results (round 23)
+        // Process PF results (round 23)
         let pfResult = null;
-        const prelimResults = await getFinalsResults(23, selectedYear);
-        if (prelimResults && Object.keys(prelimResults).length > 0) {
-          const pfFixtures = await calculateFinalsFixtures(23, selectedYear);
-          if (pfFixtures.length >= 1 && !pfFixtures[0].pending) {
-            const homeScore = pfFixtures[0].home !== 'TBD' ? (prelimResults[pfFixtures[0].home]?.totalScore || 0) : 0;
-            const awayScore = pfFixtures[0].away !== 'TBD' ? (prelimResults[pfFixtures[0].away]?.totalScore || 0) : 0;
-            if (homeScore > 0 || awayScore > 0) {
-              pfResult = {
-                winner: homeScore > awayScore ? pfFixtures[0].home : pfFixtures[0].away,
-                loser: homeScore > awayScore ? pfFixtures[0].away : pfFixtures[0].home,
-              };
-            }
+        if (pfFixtures.length >= 1 && !pfFixtures[0].pending) {
+          const homeScore = pfFixtures[0].home !== 'TBD' ? (prelimResults[pfFixtures[0].home]?.totalScore || 0) : 0;
+          const awayScore = pfFixtures[0].away !== 'TBD' ? (prelimResults[pfFixtures[0].away]?.totalScore || 0) : 0;
+          if (homeScore > 0 || awayScore > 0) {
+            pfResult = {
+              winner: homeScore > awayScore ? pfFixtures[0].home : pfFixtures[0].away,
+              loser: homeScore > awayScore ? pfFixtures[0].away : pfFixtures[0].home,
+            };
           }
         }
 
-        // Position 3: PF loser
         if (pfResult) {
           standings.push({
             pick: standings.length + 1,
@@ -127,20 +130,16 @@ export default function LadderConsolidatedPage() {
           });
         }
 
-        // Get GF results (round 24)
+        // Process GF results (round 24)
         let gfResult = null;
-        const gfResults = await getFinalsResults(24, selectedYear);
-        if (gfResults && Object.keys(gfResults).length > 0) {
-          const gfFixtures = await calculateFinalsFixtures(24, selectedYear);
-          if (gfFixtures.length >= 1 && !gfFixtures[0].pending) {
-            const homeScore = gfFixtures[0].home !== 'TBD' ? (gfResults[gfFixtures[0].home]?.totalScore || 0) : 0;
-            const awayScore = gfFixtures[0].away !== 'TBD' ? (gfResults[gfFixtures[0].away]?.totalScore || 0) : 0;
-            if (homeScore > 0 || awayScore > 0) {
-              gfResult = {
-                winner: homeScore > awayScore ? gfFixtures[0].home : gfFixtures[0].away,
-                loser: homeScore > awayScore ? gfFixtures[0].away : gfFixtures[0].home,
-              };
-            }
+        if (gfFixtures.length >= 1 && !gfFixtures[0].pending) {
+          const homeScore = gfFixtures[0].home !== 'TBD' ? (gfResults[gfFixtures[0].home]?.totalScore || 0) : 0;
+          const awayScore = gfFixtures[0].away !== 'TBD' ? (gfResults[gfFixtures[0].away]?.totalScore || 0) : 0;
+          if (homeScore > 0 || awayScore > 0) {
+            gfResult = {
+              winner: homeScore > awayScore ? gfFixtures[0].home : gfFixtures[0].away,
+              loser: homeScore > awayScore ? gfFixtures[0].away : gfFixtures[0].home,
+            };
           }
         }
 

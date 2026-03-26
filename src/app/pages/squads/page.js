@@ -15,7 +15,7 @@ const INJURY_BADGES = {
 };
 
 export default function Squads() {
-  const { selectedYear, isPastYear } = useAppContext();
+  const { selectedYear, isPastYear, injuries } = useAppContext();
   const [squads, setSquads] = useState({});
   const [editedSquads, setEditedSquads] = useState({});
   const [players, setPlayers] = useState({});
@@ -23,16 +23,7 @@ export default function Squads() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [loadingSquads, setLoadingSquads] = useState(true);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
-  const [injuries, setInjuries] = useState({});
   const [error, setError] = useState(null);
-
-  // Fetch injuries
-  useEffect(() => {
-    fetch('/api/injuries')
-      .then(r => r.ok ? r.json() : { players: {} })
-      .then(data => setInjuries(data.players || {}))
-      .catch(() => {});
-  }, []);
 
   // Lookup injury by player name — keys are "Name (Team)"
   const getInjury = (name) => {
@@ -41,58 +32,48 @@ export default function Squads() {
     return match ? injuries[match] : null;
   };
 
-  // First, fetch squads
+  // Fetch squads and players in parallel
   useEffect(() => {
-    const fetchSquads = async () => {
+    const fetchData = async () => {
+      setLoadingSquads(true);
+      setLoadingPlayers(true);
       try {
-        const squadsRes = await fetch(`/api/squads?year=${selectedYear}`);
+        const [squadsRes, playersRes] = await Promise.all([
+          fetch(`/api/squads?year=${selectedYear}`),
+          fetch(`/api/players?year=${selectedYear}`),
+        ]);
+
         if (!squadsRes.ok) throw new Error('Failed to fetch squads');
-        
-        const squadsData = await squadsRes.json();
-        // Ensure each squad has exactly 18 players
+        if (!playersRes.ok) throw new Error('Failed to fetch players');
+
+        const [squadsData, playersData] = await Promise.all([
+          squadsRes.json(),
+          playersRes.json(),
+        ]);
+
         const paddedSquads = Object.entries(squadsData).reduce((acc, [userId, userData]) => {
           acc[userId] = {
             ...userData,
-            players: Array(SQUAD_SIZE).fill(null).map((_, i) => 
+            players: Array(SQUAD_SIZE).fill(null).map((_, i) =>
               userData.players[i] || { name: '', team: '' }
-            )
+            ),
           };
           return acc;
         }, {});
-        
+
         setSquads(paddedSquads);
         setEditedSquads(paddedSquads);
+        setPlayers(playersData);
       } catch (err) {
         setError(err.message);
       } finally {
         setLoadingSquads(false);
+        setLoadingPlayers(false);
       }
     };
 
-    fetchSquads();
+    fetchData();
   }, [selectedYear]);
-
-  // Then, fetch players after squads are loaded
-  useEffect(() => {
-    if (!loadingSquads && !error) {
-      const fetchPlayers = async () => {
-        setLoadingPlayers(true);
-        try {
-          const playersRes = await fetch(`/api/players?year=${selectedYear}`);
-          if (!playersRes.ok) throw new Error('Failed to fetch players');
-          
-          const playersData = await playersRes.json();
-          setPlayers(playersData);
-        } catch (err) {
-          setError(err.message);
-        } finally {
-          setLoadingPlayers(false);
-        }
-      };
-
-      fetchPlayers();
-    }
-  }, [loadingSquads, error, selectedYear]);
 
   const handlePlayerChange = (userId, playerIndex, newPlayerName) => {
     if (userId !== selectedUserId) return; // Only allow changes for selected user

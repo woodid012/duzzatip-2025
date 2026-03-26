@@ -43,6 +43,7 @@ export function AppProvider({ children }) {
   const [allUsers, setAllUsers] = useState({});
   const [squads, setSquads] = useState({});
   const [teamSelections, setTeamSelections] = useState({});
+  const [injuries, setInjuries] = useState({});
   const [loading, setLoading] = useState({
     fixtures: true,
     users: true,
@@ -55,6 +56,14 @@ export function AppProvider({ children }) {
   // Year selection state - shared across the app
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const isPastYear = selectedYear !== CURRENT_YEAR;
+
+  // Fetch injuries once on mount (not year-dependent)
+  useEffect(() => {
+    fetch('/api/injuries')
+      .then(r => r.ok ? r.json() : { players: {} })
+      .then(data => setInjuries(data.players || {}))
+      .catch(() => {});
+  }, []);
 
   // Initialize selectedYear from localStorage
   useEffect(() => {
@@ -312,6 +321,7 @@ export function AppProvider({ children }) {
     error,
     selectedYear,
     isPastYear,
+    injuries,
 
     // Actions
     changeRound,

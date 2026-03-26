@@ -95,11 +95,12 @@ export default function DraftPage() {
     Promise.all([fetchDraftState(), fetchPlayers()]).then(() => setLoading(false));
   }, [fetchDraftState, fetchPlayers]);
 
-  // Poll for updates every 3 seconds
+  // Poll for updates every 3 seconds, but only while draft is in progress
   useEffect(() => {
+    if (draftState?.status !== 'in_progress') return;
     const interval = setInterval(fetchDraftState, 3000);
     return () => clearInterval(interval);
-  }, [fetchDraftState]);
+  }, [fetchDraftState, draftState?.status]);
 
   // Get picked player names for filtering
   const pickedPlayerNames = new Set(

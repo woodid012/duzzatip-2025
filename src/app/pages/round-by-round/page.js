@@ -11,88 +11,73 @@ export default function RoundByRoundPage() {
   const [roundData, setRoundData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [loadingProgress, setLoadingProgress] = useState(0);
 
   useEffect(() => {
     const fetchAllRoundData = async () => {
       try {
         setLoading(true);
         const allData = {};
-        
-        // Load data for rounds 1-21 (regular season)
+
+        // Load all 21 rounds in parallel
         const totalRounds = 21;
-        
-        for (let round = 1; round <= totalRounds; round++) {
-          setLoadingProgress((round / totalRounds) * 100);
-          
-          try {
-            console.log(`Fetching round ${round} data...`);
-            
-            const res = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
-            if (!res.ok) {
-              console.warn(`Could not fetch data for round ${round}: ${res.status}`);
-              continue;
+        const roundNumbers = Array.from({ length: totalRounds }, (_, i) => i + 1);
+
+        const responses = await Promise.all(
+          roundNumbers.map(round =>
+            fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`)
+              .then(res => (res.ok ? res.json() : null))
+              .catch(() => null)
+          )
+        );
+
+        responses.forEach((data, i) => {
+          const round = i + 1;
+          if (!data?.results) return;
+
+          // Process each user's data for this round
+          Object.entries(data.results).forEach(([userId, userResult]) => {
+            if (!allData[userId]) {
+              allData[userId] = {
+                rounds: {},
+                seasonTotals: {
+                  playerScore: 0,
+                  deadCertScore: 0,
+                  totalScore: 0,
+                  wins: 0,
+                  losses: 0,
+                  draws: 0,
+                  pointsFor: 0,
+                  pointsAgainst: 0,
+                },
+              };
             }
-            
-            const data = await res.json();
-            
-            if (data.results) {
-              // Process each user's data for this round
-              Object.entries(data.results).forEach(([userId, userResult]) => {
-                if (!allData[userId]) {
-                  allData[userId] = { 
-                    rounds: {}, 
-                    seasonTotals: {
-                      playerScore: 0,
-                      deadCertScore: 0,
-                      totalScore: 0,
-                      wins: 0,
-                      losses: 0,
-                      draws: 0,
-                      pointsFor: 0,
-                      pointsAgainst: 0
-                    }
-                  };
-                }
-                
-                // Store round data
-                allData[userId].rounds[round] = {
-                  playerScore: userResult.playerScore || 0,
-                  deadCertScore: userResult.deadCertScore || 0,
-                  totalScore: userResult.totalScore || 0,
-                  matchResult: userResult.matchResult,
-                  opponent: userResult.opponent,
-                  opponentScore: userResult.opponentScore || 0,
-                  pointsFor: userResult.pointsFor || userResult.totalScore || 0,
-                  pointsAgainst: userResult.pointsAgainst || userResult.opponentScore || 0,
-                  isHome: userResult.isHome,
-                  hasStar: userResult.hasStar,
-                  hasCrab: userResult.hasCrab,
-                  substitutionsUsed: userResult.substitutionsUsed || []
-                };
-                
-                // Update season totals
-                allData[userId].seasonTotals.playerScore += userResult.playerScore || 0;
-                allData[userId].seasonTotals.deadCertScore += userResult.deadCertScore || 0;
-                allData[userId].seasonTotals.totalScore += userResult.totalScore || 0;
-                allData[userId].seasonTotals.pointsFor += userResult.pointsFor || userResult.totalScore || 0;
-                allData[userId].seasonTotals.pointsAgainst += userResult.pointsAgainst || userResult.opponentScore || 0;
-                
-                // Count wins/losses/draws
-                if (userResult.matchResult === 'W') {
-                  allData[userId].seasonTotals.wins++;
-                } else if (userResult.matchResult === 'L') {
-                  allData[userId].seasonTotals.losses++;
-                } else if (userResult.matchResult === 'D') {
-                  allData[userId].seasonTotals.draws++;
-                }
-              });
-            }
-            
-          } catch (roundError) {
-            console.error(`Error fetching round ${round}:`, roundError);
-          }
-        }
+
+            allData[userId].rounds[round] = {
+              playerScore: userResult.playerScore || 0,
+              deadCertScore: userResult.deadCertScore || 0,
+              totalScore: userResult.totalScore || 0,
+              matchResult: userResult.matchResult,
+              opponent: userResult.opponent,
+              opponentScore: userResult.opponentScore || 0,
+              pointsFor: userResult.pointsFor || userResult.totalScore || 0,
+              pointsAgainst: userResult.pointsAgainst || userResult.opponentScore || 0,
+              isHome: userResult.isHome,
+              hasStar: userResult.hasStar,
+              hasCrab: userResult.hasCrab,
+              substitutionsUsed: userResult.substitutionsUsed || [],
+            };
+
+            allData[userId].seasonTotals.playerScore += userResult.playerScore || 0;
+            allData[userId].seasonTotals.deadCertScore += userResult.deadCertScore || 0;
+            allData[userId].seasonTotals.totalScore += userResult.totalScore || 0;
+            allData[userId].seasonTotals.pointsFor += userResult.pointsFor || userResult.totalScore || 0;
+            allData[userId].seasonTotals.pointsAgainst += userResult.pointsAgainst || userResult.opponentScore || 0;
+
+            if (userResult.matchResult === 'W') allData[userId].seasonTotals.wins++;
+            else if (userResult.matchResult === 'L') allData[userId].seasonTotals.losses++;
+            else if (userResult.matchResult === 'D') allData[userId].seasonTotals.draws++;
+          });
+        });
 
         // Calculate percentages for each user
         Object.keys(allData).forEach(userId => {
@@ -110,7 +95,6 @@ export default function RoundByRoundPage() {
         setError(err.message);
       } finally {
         setLoading(false);
-        setLoadingProgress(100);
       }
     };
 
@@ -119,19 +103,9 @@ export default function RoundByRoundPage() {
 
   if (loading) {
     return (
-      <div className="p-4">
-        <div className="flex items-center justify-center mb-4">
-          <div className="text-lg">Loading round data...</div>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-            style={{ width: `${loadingProgress}%` }}
-          ></div>
-        </div>
-        <div className="text-center text-sm text-gray-600 mt-2">
-          {Math.round(loadingProgress)}% complete
-        </div>
+      <div className="p-4 text-center">
+        <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent mx-auto mb-4"></div>
+        Loading round data...
       </div>
     );
   }
