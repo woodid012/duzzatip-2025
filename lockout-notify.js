@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
- * DuzzaTip 2026 — Lockout Notification Bot 🦆⚡
+ * DuzzaTip 2026 â€” Lockout Notification Bot ðŸ¦†âš¡
  *
  * Runs headlessly before AFL lockout. Sends a Telegram message via @woodenduck_bot with:
  *   - Your optimal team (auto-excluding injured/unnamed players)
@@ -8,15 +8,15 @@
  *   - Suggested tips with confidence %
  *   - Auto-saves team selection + tips to MongoDB
  *
- * Scheduling: run daily via Task Scheduler — script self-gates on lockout proximity.
+ * Scheduling: run daily via Task Scheduler â€” script self-gates on lockout proximity.
  *
- * Setup: add to .env.local →  TELEGRAM_BOT_TOKEN=<your token from BotFather>
+ * Setup: add to .env.local â†’  TELEGRAM_BOT_TOKEN=<your token from BotFather>
  *
  * Usage:
- *   node lockout-notify.js              — auto-detect round, send if lockout ≤36h away
- *   node lockout-notify.js --round=5    — force round 5
- *   node lockout-notify.js --force      — skip the 36h lockout gate (always send)
- *   node lockout-notify.js --dry-run    — compute everything, print message, don't save or send
+ *   node lockout-notify.js              â€” auto-detect round, send if lockout â‰¤36h away
+ *   node lockout-notify.js --round=5    â€” force round 5
+ *   node lockout-notify.js --force      â€” skip the 36h lockout gate (always send)
+ *   node lockout-notify.js --dry-run    â€” compute everything, print message, don't save or send
  */
 
 require("dotenv").config({ path: ".env.local" });
@@ -34,10 +34,10 @@ const YEAR     = 2026;
 // How many hours before lockout to fire (prevents firing days early)
 const NOTIFY_WINDOW_HOURS = 36;
 
-// Telegram — bot token comes from .env.local (TELEGRAM_BOT_TOKEN), chat_id is yours
+// Telegram â€” bot token comes from .env.local (TELEGRAM_BOT_TOKEN), chat_id is yours
 const TELEGRAM_CHAT_ID = "8600335192";
 
-// State file — tracks which rounds we've already sent a notification for
+// State file â€” tracks which rounds we've already sent a notification for
 const STATE_FILE = path.join(__dirname, ".notified-rounds.json");
 
 // ===== Scoring formulas =====
@@ -111,7 +111,7 @@ function getPlayingTeams(roundFixtures) {
 
 // Check if a squad player's AFL team is playing this round
 function teamIsPlaying(dbTeam, playingTeams) {
-  if (!dbTeam) return true; // unknown team — don't exclude
+  if (!dbTeam) return true; // unknown team â€” don't exclude
   const dbT = dbTeam.toLowerCase().trim();
   for (const t of playingTeams) {
     if (t.toLowerCase().includes(dbT) || dbT.includes(t.toLowerCase().split(" ")[0])) return true;
@@ -151,11 +151,11 @@ async function loadPlayerStats(db, names) {
       byPlayer[d.player_name].push(d);
     }
     for (const [name, games] of Object.entries(byPlayer)) {
-      if (games.length >= 1) stats[name] = { source: `2026(${games.length}g)`, games: games.length, avg: calcAvgStats(games) };
+      if (games.length >= 5) stats[name] = { source: `2026(${games.length}g)`, games: games.length, avg: calcAvgStats(games) };
     }
   } catch (_) {}
 
-  const needCsv = names.filter(n => !stats[n] || stats[n].games < 3);
+  const needCsv = names.filter(n => !stats[n] || stats[n].games < 5);
   if (needCsv.length > 0 && fs.existsSync("./afl-stats-1771399552485.csv")) {
     const Papa = require("papaparse");
     const raw = fs.readFileSync("./afl-stats-1771399552485.csv", "utf8");
@@ -327,7 +327,7 @@ function buildSelectionStatus(squadPlayers, selections) {
   return status;
 }
 
-// ── AFL.com.au API ──
+// â”€â”€ AFL.com.au API â”€â”€
 async function getAFLToken() {
   const axios = require("axios");
   const res = await axios.post("https://api.afl.com.au/cfs/afl/WMCTok", "{}", {
@@ -404,7 +404,7 @@ async function fetchAFLAPISelections(roundNumber) {
   }
 }
 
-// ── Footywire fallback ──
+// â”€â”€ Footywire fallback â”€â”€
 function slugToName(slug) {
   return slug.split("-").map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : "").join(" ");
 }
@@ -454,7 +454,7 @@ async function fetchFootywireSelections() {
   } catch (_) { return null; }
 }
 
-// ── Combined: AFL API first, Footywire fallback ──
+// â”€â”€ Combined: AFL API first, Footywire fallback â”€â”€
 async function fetchTeamSelections(roundNumber) {
   // Try AFL API first
   const { selections: aflSel, teamsFound, ppCount, error } = await fetchAFLAPISelections(roundNumber);
@@ -579,13 +579,13 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     ? `LOCKED (game has started)`
     : `${lockout.melbTime}  (${hrs}h ${mins}m away)`;
 
-  lines.push(`🦆⚡ *DuzzaTip Rd${round} — Pre-Lockout Brief*`);
-  lines.push(`⏰ Lockout: ${timeStr}`);
-  if (dryRun) lines.push(`_(dry-run — nothing saved)_`);
+  lines.push(`ðŸ¦†âš¡ *DuzzaTip Rd${round} â€” Pre-Lockout Brief*`);
+  lines.push(`â° Lockout: ${timeStr}`);
+  if (dryRun) lines.push(`_(dry-run â€” nothing saved)_`);
   lines.push("");
 
-  // ── Team ──
-  lines.push(`📋 *YOUR TEAM*`);
+  // â”€â”€ Team â”€â”€
+  lines.push(`ðŸ“‹ *YOUR TEAM*`);
   let totalPts = 0;
   for (const pos of MAIN_POSITIONS) {
     const p = result.lineup[pos];
@@ -598,7 +598,7 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   if (result.bench) {
     const p = result.bench;
     const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
-    lines.push(`  *BNCH*  *${dn(p.name)}* → ${POS_SHORT[result.benchBackup] || "?"}${inj}`);
+    lines.push(`  *BNCH*  *${dn(p.name)}* â†’ ${POS_SHORT[result.benchBackup] || "?"}${inj}`);
   }
   if (result.reserveA) {
     const p = result.reserveA;
@@ -610,25 +610,25 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
     lines.push(`  *ResB*  *${dn(p.name)}* (${RESERVE_B_COVERS.map(p => POS_SHORT[p]).join("/")})${inj}`);
   }
-  lines.push(`  📊 Projected: ~${totalPts} pts/round`);
+  lines.push(`  ðŸ“Š Projected: ~${totalPts} pts/round`);
   lines.push("");
 
-  // ── Alerts ──
+  // â”€â”€ Alerts â”€â”€
   const alerts = [];
   // Bye players
   for (const p of (byePlayers || [])) {
-    alerts.push(`🚫 *BYE*: ${dn(p.name)} (${p.team}) — not playing Rd${round}`);
+    alerts.push(`ðŸš« *BYE*: ${dn(p.name)} (${p.team}) â€” not playing Rd${round}`);
   }
   if (selectionStatus) {
     for (const [name, sel] of selectionStatus.entries()) {
       const inj = INJURIES[name];
       if (autoExcluded.has(name) && !(byePlayers || []).some(p => p.name === name)) {
-        alerts.push(`✗ *OUT* (auto-excluded): ${dn(name)}${inj ? ` — ${inj.detail}` : ""}`);
+        alerts.push(`âœ— *OUT* (auto-excluded): ${dn(name)}${inj ? ` â€” ${inj.detail}` : ""}`);
       } else if (sel === "emergency") {
-        alerts.push(`⚡ *EMERG*: ${dn(name)} — named emergency`);
+        alerts.push(`âš¡ *EMERG*: ${dn(name)} â€” named emergency`);
       } else if (sel === "out") {
         // Not in lineup, not auto-excluded (stats-based exclusion path)
-        alerts.push(`⚠ *NOT NAMED*: ${dn(name)} not in team but still in your lineup — check!`);
+        alerts.push(`âš  *NOT NAMED*: ${dn(name)} not in team but still in your lineup â€” check!`);
       }
     }
     // Doubts/flags still in lineup
@@ -636,19 +636,19 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     for (const p of allInLineup) {
       if (injSeverity(p.name) >= 1 && !autoExcluded.has(p.name)) {
         const inj = INJURIES[p.name];
-        alerts.push(`⚠ *DOUBT*: ${dn(p.name)} in lineup — ${inj.detail}`);
+        alerts.push(`âš  *DOUBT*: ${dn(p.name)} in lineup â€” ${inj.detail}`);
       }
     }
   }
   if (alerts.length > 0) {
-    lines.push(`⚠️ *ALERTS (${alerts.length})*`);
+    lines.push(`âš ï¸ *ALERTS (${alerts.length})*`);
     for (const a of alerts) lines.push(`  ${a}`);
     lines.push("");
   }
 
-  // ── Other available players ──
+  // â”€â”€ Other available players â”€â”€
   if (otherAvailable?.length > 0) {
-    lines.push(`🔄 *OTHER AVAILABLE (${otherAvailable.length})*`);
+    lines.push(`ðŸ”„ *OTHER AVAILABLE (${otherAvailable.length})*`);
     for (const p of otherAvailable) {
       const posStr = p.bestPositions
         .map(([pos, score]) => `${POS_SHORT[pos]} ${Math.round(score)}`)
@@ -659,29 +659,29 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     lines.push("");
   }
 
-  // ── Tips ──
+  // â”€â”€ Tips â”€â”€
   if (tipSuggestions?.length) {
-    lines.push(`🏈 *TIPS — Round ${round}*`);
+    lines.push(`ðŸˆ *TIPS â€” Round ${round}*`);
     for (const t of tipSuggestions) {
-      const dc = t.suggestDC ? " 💀DC" : "";
+      const dc = t.suggestDC ? " ðŸ’€DC" : "";
       const gameTime = formatGameTime(t.dateUtc);
       const homePick = t.favourite === t.homeTeam;
-      const home = homePick ? `✅ *${t.homeTeam}* (${t.confidence}%)` : t.homeTeam;
-      const away = homePick ? t.awayTeam : `✅ *${t.awayTeam}* (${t.confidence}%)`;
+      const home = homePick ? `âœ… *${t.homeTeam}* (${t.confidence}%)` : t.homeTeam;
+      const away = homePick ? t.awayTeam : `âœ… *${t.awayTeam}* (${t.confidence}%)`;
       lines.push(`  ${home} v ${away}${dc}`);
       lines.push(`  _${gameTime}_`);
     }
     lines.push("");
   }
 
-  // ── DB status ──
+  // â”€â”€ DB status â”€â”€
   if (dryRun) {
     lines.push(`_(dry-run: team + tips NOT saved)_`);
   } else {
-    lines.push(savedTeam && savedTips ? `✅ Team + tips saved to DB` :
-               savedTeam ? `✅ Team saved  ⚠ Tips not saved` :
-               savedTips ? `⚠ Team not saved  ✅ Tips saved` :
-               `⚠ Nothing saved to DB`);
+    lines.push(savedTeam && savedTips ? `âœ… Team + tips saved to DB` :
+               savedTeam ? `âœ… Team saved  âš  Tips not saved` :
+               savedTips ? `âš  Team not saved  âœ… Tips saved` :
+               `âš  Nothing saved to DB`);
   }
 
   return lines.join("\n");
@@ -690,15 +690,15 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
 // ===== Send via Telegram bot API =====
 function sendTelegram(message, dryRun) {
   if (dryRun) {
-    console.log("\n─── MESSAGE PREVIEW ─────────────────────────────────");
+    console.log("\nâ”€â”€â”€ MESSAGE PREVIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€");
     console.log(message);
-    console.log("─────────────────────────────────────────────────────\n");
+    console.log("â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n");
     return Promise.resolve(true);
   }
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    console.error("❌ TELEGRAM_BOT_TOKEN not set in .env.local");
+    console.error("âŒ TELEGRAM_BOT_TOKEN not set in .env.local");
     return Promise.resolve(false);
   }
 
@@ -720,15 +720,15 @@ function sendTelegram(message, dryRun) {
       res.on("end", () => {
         const parsed = JSON.parse(data || "{}");
         if (parsed.ok) {
-          console.log("   📨 Telegram message sent.");
+          console.log("   ðŸ“¨ Telegram message sent.");
           resolve(true);
         } else {
-          console.error(`❌ Telegram API error: ${parsed.description || data}`);
+          console.error(`âŒ Telegram API error: ${parsed.description || data}`);
           resolve(false);
         }
       });
     });
-    req.on("error", e => { console.error("❌ Telegram send failed:", e.message); resolve(false); });
+    req.on("error", e => { console.error("âŒ Telegram send failed:", e.message); resolve(false); });
     req.write(body);
     req.end();
   });
@@ -745,50 +745,50 @@ async function main() {
   const round    = roundArg ? parseInt(roundArg.split("=")[1]) : getCurrentRound(fixtures);
   const lockout  = getLockoutInfo(fixtures, round);
 
-  console.log(`\n🦆⚡ DuzzaTip Lockout Notifier — Round ${round}`);
+  console.log(`\nðŸ¦†âš¡ DuzzaTip Lockout Notifier â€” Round ${round}`);
   if (lockout) {
     const hrs  = Math.floor(lockout.minsUntil / 60);
     const mins = lockout.minsUntil % 60;
     console.log(`   Lockout: ${lockout.melbTime}  (${hrs}h ${mins}m away)`);
   }
 
-  // ── Gate: only fire within NOTIFY_WINDOW_HOURS of lockout ──
+  // â”€â”€ Gate: only fire within NOTIFY_WINDOW_HOURS of lockout â”€â”€
   if (!force && !dryRun) {
     if (lockout?.locked) {
-      console.log("   ⏭  Round already locked — nothing to do.");
+      console.log("   â­  Round already locked â€” nothing to do.");
       return;
     }
     if (lockout && lockout.hoursUntil > NOTIFY_WINDOW_HOURS) {
-      console.log(`   ⏭  Lockout is ${Math.round(lockout.hoursUntil)}h away (>${NOTIFY_WINDOW_HOURS}h window) — skipping.`);
+      console.log(`   â­  Lockout is ${Math.round(lockout.hoursUntil)}h away (>${NOTIFY_WINDOW_HOURS}h window) â€” skipping.`);
       return;
     }
     // Check if we already notified for this round
     const state = loadState();
     if (state.notified.includes(round)) {
-      console.log(`   ⏭  Already sent notification for Round ${round} — skipping.`);
+      console.log(`   â­  Already sent notification for Round ${round} â€” skipping.`);
       return;
     }
   }
 
-  // ── Connect to MongoDB ──
+  // â”€â”€ Connect to MongoDB â”€â”€
   process.stdout.write("   Connecting to MongoDB...");
   const client = new MongoClient(process.env.MONGODB_URI, { connectTimeoutMS: 10000 });
   await client.connect();
   const db = client.db("afl_database");
   console.log(" connected");
 
-  // ── Load squad ──
+  // â”€â”€ Load squad â”€â”€
   const squadDocs = await db.collection(`${YEAR}_squads`)
     .find({ user_id: MY_USER, Active: 1 }).toArray();
 
   if (!squadDocs.length) {
-    console.error(`❌ No squad found for user ${MY_USER} (${YEAR}).`);
+    console.error(`âŒ No squad found for user ${MY_USER} (${YEAR}).`);
     await client.close();
     return;
   }
   console.log(`   Squad: ${squadDocs.length} players`);
 
-  // ── Load stats ──
+  // â”€â”€ Load stats â”€â”€
   process.stdout.write("   Loading stats...");
   const statsMap = await loadPlayerStats(db, squadDocs.map(p => p.player_name));
   console.log(" done");
@@ -800,7 +800,7 @@ async function main() {
     return { name: p.player_name, team: p.team, scores, statsSource: s?.source || null, bestPos: best?.[0] || null, bestScore: best?.[1] || 0 };
   });
 
-  // ── Fetch AFL team selections (AFL API → Footywire fallback) ──
+  // â”€â”€ Fetch AFL team selections (AFL API â†’ Footywire fallback) â”€â”€
   process.stdout.write("   Fetching team selections...");
   const { selections, source: selSource } = await fetchTeamSelections(round);
   let selectionStatus = null;
@@ -811,7 +811,7 @@ async function main() {
     console.log(` ${selSource}`);
   }
 
-  // ── Round fixtures + bye detection ──
+  // â”€â”€ Round fixtures + bye detection â”€â”€
   const roundFixtures = getRoundFixtures(fixtures, round);
   const playingTeams  = getPlayingTeams(roundFixtures);
   const byePlayers    = squad.filter(p => !teamIsPlaying(p.team, playingTeams));
@@ -819,7 +819,7 @@ async function main() {
     console.log(`   Bye this round: ${byePlayers.map(p => `${dn(p.name)} (${p.team})`).join(", ")}`);
   }
 
-  // ── Auto-exclude: bye + long-term injury + not named ──
+  // â”€â”€ Auto-exclude: bye + long-term injury + not named â”€â”€
   const autoExcluded = new Set();
   for (const p of squad) {
     const sev = injSeverity(p.name);
@@ -831,11 +831,11 @@ async function main() {
     console.log(`   Auto-excluded: ${[...autoExcluded].map(dn).join(", ")}`);
   }
 
-  // ── Optimal lineup ──
+  // â”€â”€ Optimal lineup â”€â”€
   const result = findOptimalLineup(squad, autoExcluded);
   console.log(`   Lineup: ${Object.values(result.lineup).filter(Boolean).map(p => dn(p.name)).join(", ")}`);
 
-  // ── Other available players (not in lineup, not excluded) ──
+  // â”€â”€ Other available players (not in lineup, not excluded) â”€â”€
   const lineupNames = new Set([
     ...Object.values(result.lineup).filter(Boolean).map(p => p.name),
     result.bench?.name, result.reserveA?.name, result.reserveB?.name
@@ -851,21 +851,21 @@ async function main() {
     })
     .sort((a, b) => (b.bestPositions[0]?.[1] || 0) - (a.bestPositions[0]?.[1] || 0));
 
-  // ── Tips ──
+  // â”€â”€ Tips â”€â”€
   process.stdout.write(`   Fetching Squiggle tips for Round ${round}...`);
   const squiggleTips  = await fetchSquiggleTips(round);
   console.log(squiggleTips ? ` ${squiggleTips.length} tips` : " unavailable");
   const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips);
 
-  // ── Save to DB ──
+  // â”€â”€ Save to DB â”€â”€
   let savedTeam = false, savedTips = false;
   if (!dryRun) {
     try {
       await saveTeamSelection(db, round, result);
       savedTeam = true;
-      console.log("   ✅ Team selection saved");
+      console.log("   âœ… Team selection saved");
     } catch (e) {
-      console.error("   ❌ Team save failed:", e.message);
+      console.error("   âŒ Team save failed:", e.message);
     }
     try {
       const tipsToSave = {};
@@ -874,20 +874,20 @@ async function main() {
       }
       await saveTips(db, round, tipsToSave);
       savedTips = true;
-      console.log("   ✅ Tips saved");
+      console.log("   âœ… Tips saved");
     } catch (e) {
-      console.error("   ❌ Tips save failed:", e.message);
+      console.error("   âŒ Tips save failed:", e.message);
     }
   }
 
   await client.close();
 
-  // ── Format & send message ──
+  // â”€â”€ Format & send message â”€â”€
   const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, otherAvailable, savedTeam, savedTips, dryRun });
 
   const sent = await sendTelegram(message, dryRun);
 
-  // ── Record notification so we don't double-send ──
+  // â”€â”€ Record notification so we don't double-send â”€â”€
   if (!dryRun && !force && sent) {
     const state = loadState();
     if (!state.notified.includes(round)) {
@@ -898,10 +898,11 @@ async function main() {
     }
   }
 
-  console.log("\n✅ Done.");
+  console.log("\nâœ… Done.");
 }
 
 main().catch(err => {
   console.error("Fatal error:", err);
   process.exit(1);
 });
+

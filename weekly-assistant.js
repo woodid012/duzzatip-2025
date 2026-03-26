@@ -1,13 +1,13 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
- * DuzzaTip 2026 — Weekly Team & Tipping Assistant 🦆⚡
+ * DuzzaTip 2026 â€” Weekly Team & Tipping Assistant ðŸ¦†âš¡
  *
  * Usage:
- *   node weekly-assistant.js              — team selection + tipping
- *   node weekly-assistant.js --team       — team selection only
- *   node weekly-assistant.js --tips       — tipping only
- *   node weekly-assistant.js --round=5    — force a specific round
- *   node weekly-assistant.js --dry-run    — show suggestions without saving
+ *   node weekly-assistant.js              â€” team selection + tipping
+ *   node weekly-assistant.js --team       â€” team selection only
+ *   node weekly-assistant.js --tips       â€” tipping only
+ *   node weekly-assistant.js --round=5    â€” force a specific round
+ *   node weekly-assistant.js --dry-run    â€” show suggestions without saving
  */
 
 require("dotenv").config({ path: ".env.local" });
@@ -49,11 +49,11 @@ const C = {
 };
 
 function header(text) {
-  console.log(`\n${C.bold}${C.cyan}${"═".repeat(64)}${C.reset}`);
+  console.log(`\n${C.bold}${C.cyan}${"â•".repeat(64)}${C.reset}`);
   console.log(`${C.bold}${C.cyan}  ${text}${C.reset}`);
-  console.log(`${C.bold}${C.cyan}${"═".repeat(64)}${C.reset}`);
+  console.log(`${C.bold}${C.cyan}${"â•".repeat(64)}${C.reset}`);
 }
-function section(text) { console.log(`\n${C.bold}${C.yellow}── ${text} ${"─".repeat(Math.max(0, 48 - text.length))}${C.reset}`); }
+function section(text) { console.log(`\n${C.bold}${C.yellow}â”€â”€ ${text} ${"â”€".repeat(Math.max(0, 48 - text.length))}${C.reset}`); }
 
 function dn(name) {
   if (!name) return name;
@@ -133,14 +133,14 @@ async function loadPlayerStats(db, names) {
       byPlayer[d.player_name].push(d);
     }
     for (const [name, games] of Object.entries(byPlayer)) {
-      if (games.length >= 1) {
+      if (games.length >= 5) {
         stats[name] = { source: `2026(${games.length}g)`, games: games.length, avg: calcAvgStats(games) };
       }
     }
   } catch (_) { /* no 2026 data yet */ }
 
   // 2. Fall back to 2025 CSV for players lacking 2026 data
-  const needCsv = names.filter(n => !stats[n] || stats[n].games < 3);
+  const needCsv = names.filter(n => !stats[n] || stats[n].games < 5);
   if (needCsv.length > 0 && fs.existsSync("./afl-stats-1771399552485.csv")) {
     const Papa = require("papaparse");
     const raw = fs.readFileSync("./afl-stats-1771399552485.csv", "utf8");
@@ -239,7 +239,7 @@ function printLineup(result, excluded = new Set()) {
   let total = 0;
   const rows = [
     ...MAIN_POSITIONS.map(pos => ({ label: pos, player: result.lineup[pos], score: result.lineup[pos]?.scores[pos] })),
-    { label: "Bench", player: result.bench, extra: `→ backs up ${result.benchBackup || "?"}` },
+    { label: "Bench", player: result.bench, extra: `â†’ backs up ${result.benchBackup || "?"}` },
     { label: "Reserve A", player: result.reserveA, extra: `covers ${RESERVE_A_COVERS.map(p => POS_SHORT[p]).join("/")}` },
     { label: "Reserve B", player: result.reserveB, extra: `covers ${RESERVE_B_COVERS.map(p => POS_SHORT[p]).join("/")}` },
   ];
@@ -401,7 +401,7 @@ async function fetchAFLTeamSelections(roundNumber) {
             teamsFound++;
           }
         }
-      } catch (_) {} // individual roster fetch failure — skip
+      } catch (_) {} // individual roster fetch failure â€” skip
     }));
 
     return { selections: teamsFound > 0 ? result : null, teamsFound, ppCount };
@@ -508,7 +508,7 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
 
     // Try Squiggle (gives win probability 0-100 for home team per tipster)
     if (squiggleTips) {
-      // Squiggle aggregates multiple tipsters — use the FPTA (machine learning) one if available
+      // Squiggle aggregates multiple tipsters â€” use the FPTA (machine learning) one if available
       const candidates = squiggleTips.filter(t =>
         t.gameid && (
           t.hteam?.toLowerCase().includes(f.HomeTeam.split(" ")[0].toLowerCase()) ||
@@ -646,19 +646,19 @@ async function main() {
   const round = roundArg ? parseInt(roundArg.split("=")[1]) : getCurrentRound(fixtures);
   const lockout = getLockoutInfo(fixtures, round);
 
-  header(`🦆⚡ Le Quack Attack — DuzzaTip ${YEAR} Weekly Assistant`);
+  header(`ðŸ¦†âš¡ Le Quack Attack â€” DuzzaTip ${YEAR} Weekly Assistant`);
 
-  if (dryRun) console.log(`  ${C.yellow}DRY-RUN mode — nothing will be saved${C.reset}`);
+  if (dryRun) console.log(`  ${C.yellow}DRY-RUN mode â€” nothing will be saved${C.reset}`);
 
   console.log(`\n  ${C.bold}Round ${round}${C.reset}`);
   if (lockout) {
     if (lockout.locked) {
-      console.log(`  ${C.red}⚠  Round is LOCKED (first game has started)${C.reset}`);
+      console.log(`  ${C.red}âš   Round is LOCKED (first game has started)${C.reset}`);
     } else {
       const hrs = Math.floor(lockout.minsUntil / 60);
       const mins = lockout.minsUntil % 60;
       const col = lockout.minsUntil < 60 ? C.red : lockout.minsUntil < 360 ? C.yellow : C.green;
-      console.log(`  ${col}⏰ Lockout: ${lockout.melbTime}  (${hrs}h ${mins}m away)${C.reset}`);
+      console.log(`  ${col}â° Lockout: ${lockout.melbTime}  (${hrs}h ${mins}m away)${C.reset}`);
     }
   }
 
@@ -702,9 +702,9 @@ async function main() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = q => new Promise(r => rl.question(q, r));
 
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  TEAM SELECTION
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (doTeam) {
     section("YOUR SQUAD");
 
@@ -737,24 +737,24 @@ async function main() {
         if (sel === "playing") {
           // Only show if they have an injury flag too
           if (injSeverity(p.name) >= 1) {
-            console.log(`  ${C.green}✓ NAMED   ${dn(p.name).padEnd(28)}${C.reset}${injBadge(p.name)}`);
+            console.log(`  ${C.green}âœ“ NAMED   ${dn(p.name).padEnd(28)}${C.reset}${injBadge(p.name)}`);
             anyIssues = true;
           }
         } else if (sel === "emergency") {
-          console.log(`  ${C.yellow}⚡ EMERG   ${dn(p.name).padEnd(28)}${C.dim}named as emergency — not confirmed${C.reset}${injBadge(p.name)}`);
+          console.log(`  ${C.yellow}âš¡ EMERG   ${dn(p.name).padEnd(28)}${C.dim}named as emergency â€” not confirmed${C.reset}${injBadge(p.name)}`);
           anyIssues = true;
         } else if (sel === "out") {
-          console.log(`  ${C.red}✗ NOT NAMED ${dn(p.name).padEnd(26)}${C.dim}not in ${p.team}'s named 22${C.reset}${injBadge(p.name)}`);
+          console.log(`  ${C.red}âœ— NOT NAMED ${dn(p.name).padEnd(26)}${C.dim}not in ${p.team}'s named 22${C.reset}${injBadge(p.name)}`);
           anyIssues = true;
         } else {
-          // unknown — team not found in AFL API or selections not announced yet
+          // unknown â€” team not found in AFL API or selections not announced yet
           if (injSeverity(p.name) >= 1) {
             console.log(`  ${C.yellow}? UNKNOWN ${dn(p.name).padEnd(27)}${injBadge(p.name)}`);
             anyIssues = true;
           }
         }
       }
-      if (!anyIssues) console.log(`  ${C.green}All squad players named — no issues found.${C.reset}`);
+      if (!anyIssues) console.log(`  ${C.green}All squad players named â€” no issues found.${C.reset}`);
     }
 
     // Auto-exclude based on injury list AND team selections
@@ -767,24 +767,24 @@ async function main() {
       const sel = selectionStatus?.get(p.name);
 
       if (sev >= 3) {
-        // Long-term injury — auto-exclude regardless of selection
+        // Long-term injury â€” auto-exclude regardless of selection
         autoExcluded.add(p.name);
         console.log(`  ${C.red}AUTO-OUT  ${dn(p.name).padEnd(28)}${INJURIES[p.name].detail}${C.reset}`);
         hasFlags = true;
       } else if (sel === "out") {
-        // Not named in team — auto-exclude
+        // Not named in team â€” auto-exclude
         autoExcluded.add(p.name);
         console.log(`  ${C.red}AUTO-OUT  ${dn(p.name).padEnd(28)}${C.dim}not named in ${p.team}'s team${C.reset}${injBadge(p.name)}`);
         hasFlags = true;
       } else if (sel === "emergency") {
-        console.log(`  ${C.yellow}EMERGENCY ${dn(p.name).padEnd(28)}${C.dim}named emergency — may or may not play${C.reset}`);
+        console.log(`  ${C.yellow}EMERGENCY ${dn(p.name).padEnd(28)}${C.dim}named emergency â€” may or may not play${C.reset}`);
         hasFlags = true;
       } else if (sev >= 1) {
         console.log(`  ${C.yellow}FLAGGED   ${dn(p.name).padEnd(28)}${INJURIES[p.name].detail}${C.reset}`);
         hasFlags = true;
       }
     }
-    if (!hasFlags) console.log(`  ${C.green}All available — no exclusions needed.${C.reset}`);
+    if (!hasFlags) console.log(`  ${C.green}All available â€” no exclusions needed.${C.reset}`);
 
     console.log(`\n  ${C.dim}Any extra players OUT this week? Enter last names/full names (comma-separated), or press Enter.${C.reset}`);
     const outInput = await ask(`  OUT this week: `);
@@ -811,7 +811,7 @@ async function main() {
     ].filter(Boolean);
     const risks = allInLineup.filter(p => injSeverity(p.name) >= 1);
     if (risks.length > 0) {
-      console.log(`\n  ${C.yellow}⚠ Risks in lineup:${C.reset}`);
+      console.log(`\n  ${C.yellow}âš  Risks in lineup:${C.reset}`);
       for (const p of risks) console.log(`     ${C.yellow}${dn(p.name)}: ${INJURIES[p.name]?.detail}${C.reset}`);
     }
 
@@ -821,7 +821,7 @@ async function main() {
     console.log(`  ${"-".repeat(66)}`);
     for (const p of sorted) {
       if (!p.bestScore) continue;
-      const row = MAIN_POSITIONS.map(pos => String(p.scores[pos] || "—").padEnd(6)).join(" ");
+      const row = MAIN_POSITIONS.map(pos => String(p.scores[pos] || "â€”").padEnd(6)).join(" ");
       const excl = excluded.has(p.name) ? ` ${C.red}(OUT)${C.reset}` : "";
       console.log(`  ${dn(p.name).padEnd(28)} ${C.dim}${row}${C.reset}${excl}`);
     }
@@ -848,7 +848,7 @@ async function main() {
           if (!force.startsWith("y")) { console.log(`  ${C.yellow}Team not saved.${C.reset}`); break; }
         }
         await saveTeamSelection(db, round, result);
-        console.log(`  ${C.bgGreen} ✓ Team saved for Round ${round}! ${C.reset}`);
+        console.log(`  ${C.bgGreen} âœ“ Team saved for Round ${round}! ${C.reset}`);
         teamSaved = true;
         break;
 
@@ -888,7 +888,7 @@ async function main() {
           const bpIn = (await ask(`  Bench backup position (ff/tf/off/mid/tak/ruc): `)).trim().toLowerCase();
           const bp = MAIN_POSITIONS.find(p => p.toLowerCase().includes(bpIn) || (POS_SHORT[p] || "").toLowerCase() === bpIn);
           if (bp) result.benchBackup = bp;
-          console.log(`  ${C.green}Bench: ${dn(playerMatch.name)} → backs up ${result.benchBackup}${C.reset}`);
+          console.log(`  ${C.green}Bench: ${dn(playerMatch.name)} â†’ backs up ${result.benchBackup}${C.reset}`);
         } else if (posMatch === "Reserve A") {
           result.reserveA = playerMatch;
           console.log(`  ${C.green}Reserve A: ${dn(playerMatch.name)}${C.reset}`);
@@ -906,9 +906,9 @@ async function main() {
     }
   }
 
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  TIPPING
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (doTips) {
     section(`ROUND ${round} TIPPING`);
 
@@ -931,7 +931,7 @@ async function main() {
 
       section("SUGGESTED TIPS");
       console.log(`  ${"#".padEnd(5)}${"Home".padEnd(24)}${"Away".padEnd(24)}${"Tip".padEnd(24)}Odds/Conf`);
-      console.log(`  ${"─".repeat(80)}`);
+      console.log(`  ${"â”€".repeat(80)}`);
 
       for (const s of suggestions) {
         const melbDate = new Date(s.dateUtc).toLocaleString("en-AU", {
@@ -939,7 +939,7 @@ async function main() {
           month: "short", hour: "numeric", minute: "2-digit", hour12: true
         });
         const oddsStr = s.favOdds ? `$${Number(s.favOdds).toFixed(2)}` : `${s.confidence}%`;
-        const dcFlag = s.suggestDC ? ` ${C.yellow}★ suggest DC${C.reset}` : "";
+        const dcFlag = s.suggestDC ? ` ${C.yellow}â˜… suggest DC${C.reset}` : "";
         console.log(`  ${String(s.matchNumber).padEnd(5)}${s.homeTeam.padEnd(24)}${s.awayTeam.padEnd(24)}${C.green}${s.favourite.padEnd(24)}${C.reset}${oddsStr}${dcFlag}`);
         console.log(`  ${C.dim}      ${melbDate}  (${s.source})${C.reset}`);
       }
@@ -960,7 +960,7 @@ async function main() {
           if (!deadCertMatch) {
             const sugDC = suggestions.find(s => s.suggestDC);
             if (sugDC) {
-              const dcIn = (await ask(`  ${C.yellow}No Dead Cert set. Suggest Match ${sugDC.matchNumber} — ${tips[sugDC.matchNumber].team} (${sugDC.confidence}% conf). Set as DC? (y/n): ${C.reset}`)).trim().toLowerCase();
+              const dcIn = (await ask(`  ${C.yellow}No Dead Cert set. Suggest Match ${sugDC.matchNumber} â€” ${tips[sugDC.matchNumber].team} (${sugDC.confidence}% conf). Set as DC? (y/n): ${C.reset}`)).trim().toLowerCase();
               if (dcIn.startsWith("y")) {
                 tips[sugDC.matchNumber].deadCert = true;
                 deadCertMatch = sugDC.matchNumber;
@@ -972,8 +972,8 @@ async function main() {
           section("TIPS TO SAVE");
           for (const s of suggestions) {
             const t = tips[s.matchNumber];
-            const dcStr = t.deadCert ? ` ${C.bgYellow} ★ DEAD CERT ${C.reset}` : "";
-            console.log(`  Match ${String(s.matchNumber).padEnd(4)} ${s.homeTeam.padEnd(22)} v ${s.awayTeam.padEnd(22)} → ${C.green}${t.team}${C.reset}${dcStr}`);
+            const dcStr = t.deadCert ? ` ${C.bgYellow} â˜… DEAD CERT ${C.reset}` : "";
+            console.log(`  Match ${String(s.matchNumber).padEnd(4)} ${s.homeTeam.padEnd(22)} v ${s.awayTeam.padEnd(22)} â†’ ${C.green}${t.team}${C.reset}${dcStr}`);
           }
 
           if (dryRun) {
@@ -983,7 +983,7 @@ async function main() {
           const confirm = (await ask(`\n${C.bold}Save these tips for Round ${round}? (y/n): ${C.reset}`)).trim().toLowerCase();
           if (confirm.startsWith("y")) {
             await saveTips(db, round, tips);
-            console.log(`  ${C.bgGreen} ✓ Tips saved for Round ${round}! ${C.reset}`);
+            console.log(`  ${C.bgGreen} âœ“ Tips saved for Round ${round}! ${C.reset}`);
           } else {
             console.log(`  ${C.dim}Tips not saved.${C.reset}`);
           }
@@ -996,8 +996,8 @@ async function main() {
         } else if (lower === "view") {
           for (const s of suggestions) {
             const t = tips[s.matchNumber];
-            const dcStr = t.deadCert ? ` ${C.yellow}★ DC${C.reset}` : "";
-            console.log(`  ${String(s.matchNumber).padEnd(5)}${s.homeTeam.padEnd(24)} v ${s.awayTeam.padEnd(24)} → ${C.green}${t.team}${C.reset}${dcStr}`);
+            const dcStr = t.deadCert ? ` ${C.yellow}â˜… DC${C.reset}` : "";
+            console.log(`  ${String(s.matchNumber).padEnd(5)}${s.homeTeam.padEnd(24)} v ${s.awayTeam.padEnd(24)} â†’ ${C.green}${t.team}${C.reset}${dcStr}`);
           }
 
         } else if (lower.startsWith("tip ")) {
@@ -1008,10 +1008,10 @@ async function main() {
           if (!fix) { console.log(`  ${C.red}Match ${matchNum} not found.${C.reset}`); continue; }
           if (fix.HomeTeam.toLowerCase().includes(teamQ)) {
             tips[matchNum].team = fix.HomeTeam;
-            console.log(`  ${C.green}Match ${matchNum} → ${fix.HomeTeam}${C.reset}`);
+            console.log(`  ${C.green}Match ${matchNum} â†’ ${fix.HomeTeam}${C.reset}`);
           } else if (fix.AwayTeam.toLowerCase().includes(teamQ)) {
             tips[matchNum].team = fix.AwayTeam;
-            console.log(`  ${C.green}Match ${matchNum} → ${fix.AwayTeam}${C.reset}`);
+            console.log(`  ${C.green}Match ${matchNum} â†’ ${fix.AwayTeam}${C.reset}`);
           } else {
             console.log(`  ${C.red}Team not found in match ${matchNum}. Teams: ${fix.HomeTeam} / ${fix.AwayTeam}${C.reset}`);
           }
@@ -1022,7 +1022,7 @@ async function main() {
           if (deadCertMatch) tips[deadCertMatch].deadCert = false;
           tips[matchNum].deadCert = true;
           deadCertMatch = matchNum;
-          console.log(`  ${C.yellow}★ Dead Cert → Match ${matchNum}: ${tips[matchNum].team}${C.reset}`);
+          console.log(`  ${C.yellow}â˜… Dead Cert â†’ Match ${matchNum}: ${tips[matchNum].team}${C.reset}`);
 
         } else if (lower === "clear dc") {
           if (deadCertMatch) { tips[deadCertMatch].deadCert = false; deadCertMatch = null; }
@@ -1037,10 +1037,11 @@ async function main() {
 
   await client.close();
   rl.close();
-  console.log(`\n${C.dim}Done 🦆${C.reset}\n`);
+  console.log(`\n${C.dim}Done ðŸ¦†${C.reset}\n`);
 }
 
 main().catch(e => {
-  console.error(`${C.red}✗ ${e.message}${C.reset}`);
+  console.error(`${C.red}âœ— ${e.message}${C.reset}`);
   process.exit(1);
 });
+
