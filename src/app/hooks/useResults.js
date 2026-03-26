@@ -49,6 +49,24 @@ export default function useResults() {
     }
   }, [currentRound, contextLoading.fixtures]);
 
+  // Fetch squads once per year (not per round)
+  useEffect(() => {
+    if (!selectedYear) return;
+    fetch(`/api/squads?year=${selectedYear}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(squadsData => {
+        if (!squadsData) return;
+        const teamMap = {};
+        Object.values(squadsData).forEach(userData => {
+          userData.players.forEach(player => {
+            if (player.name) teamMap[player.name] = player.team;
+          });
+        });
+        setPlayerTeamMap(teamMap);
+      })
+      .catch(() => {});
+  }, [selectedYear]);
+
   // Load data when local round changes and is not null
   useEffect(() => {
     // Don't load data if localRound is null (initial blank state)
@@ -60,31 +78,13 @@ export default function useResults() {
     if (loadedRoundRef.current === `${selectedYear}-${localRound}`) {
       return;
     }
-    
+
     const fetchData = async () => {
       try {
         setLoading(true);
         setRoundInitialized(false);
         console.log(`Fetching data for round: ${localRound}`);
-        
-        // Fetch squads to get player team information
-        const squadsRes = await fetch(`/api/squads?year=${selectedYear}`);
-        if (squadsRes.ok) {
-          const squadsData = await squadsRes.json();
-          
-          // Create a map of player name to team
-          const teamMap = {};
-          Object.values(squadsData).forEach(userData => {
-            userData.players.forEach(player => {
-              if (player.name) {
-                teamMap[player.name] = player.team;
-              }
-            });
-          });
-          
-          setPlayerTeamMap(teamMap);
-        }
-        
+
         // Check round end status using roundInfo from context
         const checkRoundEndStatus = () => {
           try {
@@ -195,78 +195,72 @@ export default function useResults() {
         // Check round end status
         checkRoundEndStatus();
         
-        // Fetch teams and player stats for the correct round
-        const teamsRes = await fetch(`/api/team-selection?round=${localRound}&year=${selectedYear}`);
+        // Fetch teams and dead cert scores in parallel (1 call each instead of 1 + 8)
+        const [teamsRes, tippingAllRes] = await Promise.all([
+          fetch(`/api/team-selection?round=${localRound}&year=${selectedYear}`),
+          fetch(`/api/tipping-results-all?round=${localRound}&year=${selectedYear}`),
+        ]);
         if (!teamsRes.ok) throw new Error('Failed to fetch teams');
         const teamsData = await teamsRes.json();
         setTeams(teamsData);
-    
-        // Fetch dead cert scores for all users (1-8)
-        const deadCertPromises = Array.from({ length: 8 }, (_, i) => i + 1).map(userId => 
-          fetch(`/api/tipping-results?round=${localRound}&userId=${userId}&year=${selectedYear}`)
-            .then(res => res.json())
-            .catch(() => ({ deadCertScore: 0 })) // Default value if fetch fails
-        );
-        const deadCertResults = await Promise.all(deadCertPromises);
+
+        // Extract dead cert scores from the combined tipping results response
         const deadCertMap = {};
-        deadCertResults.forEach((result, index) => {
-          const userId = index + 1;
-          deadCertMap[userId] = result.deadCertScore || 0;
-        });
+        if (tippingAllRes.ok) {
+          const tippingAllData = await tippingAllRes.json();
+          const usersData = tippingAllData.users || {};
+          for (let userId = 1; userId <= 8; userId++) {
+            deadCertMap[userId] = usersData[userId]?.round?.deadCertScore ?? 0;
+          }
+        } else {
+          for (let userId = 1; userId <= 8; userId++) deadCertMap[userId] = 0;
+        }
         setDeadCertScores(deadCertMap);
 
-        // Fetch player stats for each team - FIX: Add null checks
-        const allStats = {};
-        for (const [userId, team] of Object.entries(teamsData)) {
-          // Collect all player names for this team - FIX: Add null check
+        // Fetch player stats for all teams in parallel
+        const statsPromises = Object.entries(teamsData).map(([userId, team]) => {
           const playerNames = Object.values(team)
-            .filter(data => data !== null && data !== undefined) // Add explicit null check
+            .filter(data => data !== null && data !== undefined)
             .map(data => data.player_name)
-            .filter(Boolean); // Remove any undefined/null values
-    
-          if (playerNames.length === 0) continue;
+            .filter(Boolean);
+          if (playerNames.length === 0) return Promise.resolve([userId, {}]);
+          return fetch(`/api/player-stats?round=${localRound}&players=${encodeURIComponent(playerNames.join(','))}&year=${selectedYear}`)
+            .then(res => res.ok ? res.json() : {})
+            .then(statsData => [userId, statsData]);
+        });
+        const statsResults = await Promise.all(statsPromises);
 
-          // Make a single API call for all players in the team
-          const res = await fetch(`/api/player-stats?round=${localRound}&players=${encodeURIComponent(playerNames.join(','))}&year=${selectedYear}`);
-          if (!res.ok) throw new Error('Failed to fetch player stats');
-          const statsData = await res.json();
-    
-          // Process the stats for each player
+        const allStats = {};
+        for (const [userId, statsData] of statsResults) {
+          const team = teamsData[userId];
+          if (!team) continue;
           const playerStats = {};
           for (const [position, data] of Object.entries(team)) {
-            // FIX: Skip if position data is null or undefined
             if (!data) continue;
-            
             const playerName = data.player_name;
             if (!playerName) continue;
-            
             const stats = statsData[playerName];
             const positionType = position.toUpperCase().replace(/\s+/g, '_');
-            
-            // Ensure stats exists before trying to calculate score
             let scoring = { total: 0, breakdown: [] };
             if (stats) {
               scoring = calculateScore(positionType, stats, data.backup_position);
             }
-            
-            // Check if player has any stats (if they played)
             const hasPlayed = stats && (
-              (stats.kicks && stats.kicks > 0) || 
-              (stats.handballs && stats.handballs > 0) || 
-              (stats.marks && stats.marks > 0) || 
-              (stats.tackles && stats.tackles > 0) || 
-              (stats.hitouts && stats.hitouts > 0) || 
-              (stats.goals && stats.goals > 0) || 
+              (stats.kicks && stats.kicks > 0) ||
+              (stats.handballs && stats.handballs > 0) ||
+              (stats.marks && stats.marks > 0) ||
+              (stats.tackles && stats.tackles > 0) ||
+              (stats.hitouts && stats.hitouts > 0) ||
+              (stats.goals && stats.goals > 0) ||
               (stats.behinds && stats.behinds > 0)
             );
-            
             playerStats[playerName] = {
               ...stats,
               team: playerTeamMap[playerName] || (stats ? stats.team_name : ''),
               scoring,
               backup_position: data.backup_position,
               original_position: position,
-              hasPlayed: hasPlayed
+              hasPlayed
             };
           }
           allStats[userId] = playerStats;
