@@ -5,7 +5,7 @@ import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 import { useAppContext } from '@/app/context/AppContext';
 
 const TippingResultsGrid = () => {
-  const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear } = useAppContext();
+  const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear, fixtures: appFixtures } = useAppContext();
   const [selectedRound, setSelectedRound] = useState(null);
   const [fixtures, setFixtures] = useState([]);
   const [allUserTips, setAllUserTips] = useState({});
@@ -67,54 +67,44 @@ const TippingResultsGrid = () => {
       setError(null);
 
       try {
-        // Load fixtures first
-        const fixturesResponse = await fetch(`/api/tipping-data?year=${selectedYear}`);
-        if (!fixturesResponse.ok) throw new Error('Failed to load fixtures');
-        const fixtureData = await fixturesResponse.json();
-
-        const fixturesArray = Array.isArray(fixtureData) ? fixtureData : fixtureData.fixtures || [];
-        const roundFixtures = fixturesArray.filter(f => f.RoundNumber.toString() === selectedRound)
+        // Use fixtures already loaded by AppContext — no extra fetch needed
+        const roundFixtures = (appFixtures || [])
+          .filter(f => f.RoundNumber.toString() === selectedRound)
           .sort((a, b) => a.MatchNumber - b.MatchNumber);
         setFixtures(roundFixtures);
 
-        // Load tips for all users
-        const userTipsPromises = Object.keys(USER_NAMES).map(userId =>
-          Promise.all([
-            fetch(`/api/tipping-results?round=${selectedRound}&userId=${userId}&year=${selectedYear}`).then(res => res.json()),
-            fetch(`/api/tipping-results?year=${selectedYear}&userId=${userId}`).then(res => res.json())
-          ])
+        // Single API call for all users (replaces 16 separate requests)
+        const response = await fetch(
+          `/api/tipping-results-all?round=${selectedRound}&year=${selectedYear}`
         );
+        if (!response.ok) throw new Error('Failed to load results');
+        const data = await response.json();
 
-        const allResults = await Promise.all(userTipsPromises);
         const tipsMap = {};
         const yearTotalsMap = {};
-        
-        allResults.forEach(([roundResult, yearResult], index) => {
-          const userId = Object.keys(USER_NAMES)[index];
-          
-          // Process the matches and add default home team selections if needed
-          const processedMatches = (roundResult.completedMatches || []).map(match => {
-            // If there's no tip, use the home team as default
+
+        Object.keys(USER_NAMES).forEach(userId => {
+          const userData = data.users?.[userId] || {};
+          const roundData = userData.round || {};
+          const yearData = userData.year || {};
+
+          const processedMatches = (roundData.matches || []).map(match => {
             if (!match.tip) {
-              return {
-                ...match,
-                tip: match.homeTeam,
-                isDefault: true
-              };
+              return { ...match, tip: match.homeTeam, isDefault: true };
             }
             return match;
           });
-          
+
           tipsMap[userId] = {
             matches: processedMatches,
-            correctTips: roundResult.correctTips,
-            deadCertScore: roundResult.deadCertScore,
-            totalScore: roundResult.totalScore
+            correctTips: roundData.correctTips,
+            deadCertScore: roundData.deadCertScore,
+            totalScore: roundData.totalScore,
           };
-          
+
           yearTotalsMap[userId] = {
-            correctTips: yearResult.correctTips,
-            deadCertScore: yearResult.deadCertScore
+            correctTips: yearData.correctTips,
+            deadCertScore: yearData.deadCertScore,
           };
         });
 
@@ -128,7 +118,7 @@ const TippingResultsGrid = () => {
     };
 
     loadAllResults();
-  }, [selectedRound, selectedYear]);
+  }, [selectedRound, selectedYear, appFixtures]);
 
   const displayRound = (round) => {
     return round === '0' ? 'Opening Round' : `Round ${round}`;
