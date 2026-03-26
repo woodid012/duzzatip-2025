@@ -39,6 +39,7 @@ const TippingResultsGrid = () => {
   
   // Get round info for the selected round
   useEffect(() => {
+    if (!selectedRound) return;
     if (getSpecificRoundInfo) {
       const roundInfo = getSpecificRoundInfo(parseInt(selectedRound));
       setSelectedRoundInfo(roundInfo);
@@ -61,6 +62,7 @@ const TippingResultsGrid = () => {
 
   useEffect(() => {
     const loadAllResults = async () => {
+      if (!selectedRound) return;
       setLoading(true);
       setError(null);
 
