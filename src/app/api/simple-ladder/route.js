@@ -137,9 +137,10 @@ export async function POST(request) {
         const { db } = await connectToDatabase();
         const collection = db.collection(`${year}_simple_round_results`);
 
-        // Build base URL: NEXTAUTH_URL takes priority; VERCEL_URL needs https:// prepended
+        // Build base URL from the incoming request host (most reliable on Vercel)
+        const host = request.headers.get('host');
         const baseUrl = process.env.NEXTAUTH_URL ||
-            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+            (host ? `https://${host}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
 
         if (refreshAll) {
             // Refresh all rounds 1-21
