@@ -248,7 +248,7 @@ export default function LadderConsolidatedPage() {
       const response = await fetch('/api/simple-ladder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshAll: true })
+        body: JSON.stringify({ refreshAll: true, year: selectedYear })
       });
 
       if (!response.ok) {
@@ -296,7 +296,7 @@ export default function LadderConsolidatedPage() {
         const response = await fetch('/api/simple-ladder', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ round: selectedRound })
+          body: JSON.stringify({ round: selectedRound, year: selectedYear })
         });
 
         if (!response.ok) {

@@ -131,27 +131,32 @@ export async function GET(request) {
  */
 export async function POST(request) {
     try {
-        const { round, refreshAll } = await request.json();
+        const body = await request.json();
+        const { round, refreshAll } = body;
+        const year = body.year || CURRENT_YEAR;
         const { db } = await connectToDatabase();
-        const collection = db.collection(`${CURRENT_YEAR}_simple_round_results`);
-        
+        const collection = db.collection(`${year}_simple_round_results`);
+
+        // Build base URL: NEXTAUTH_URL takes priority; VERCEL_URL needs https:// prepended
+        const baseUrl = process.env.NEXTAUTH_URL ||
+            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
         if (refreshAll) {
             // Refresh all rounds 1-21
             console.log('Refreshing all rounds 1-21...');
-            
+
             const results = {
                 processed: [],
                 failed: [],
                 stored: []
             };
-            
+
             for (let r = 1; r <= 21; r++) {
                 console.log(`Processing round ${r}...`);
-                
+
                 try {
                     // Fetch from consolidated-round-results API
-                    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-                    const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${r}`);
+                    const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${r}&year=${year}`);
                     
                     if (!response.ok) {
                         console.warn(`Failed to fetch round ${r}`);
@@ -217,10 +222,9 @@ export async function POST(request) {
         } else if (round) {
             // Refresh specific round
             console.log(`Refreshing round ${round}...`);
-            
+
             // Fetch from consolidated-round-results API
-            const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
-            const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${round}`);
+            const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${round}&year=${year}`);
             
             if (!response.ok) {
                 throw new Error(`Failed to fetch round ${round} data`);
@@ -277,12 +281,13 @@ export async function DELETE(request) {
     try {
         const { searchParams } = new URL(request.url);
         const round = searchParams.get('round');
-        
+        const year = parseYearParam(searchParams);
+
         const { db } = await connectToDatabase();
-        
+
         if (round) {
             // Delete specific round
-            await db.collection(`${CURRENT_YEAR}_simple_round_results`)
+            await db.collection(`${year}_simple_round_results`)
                 .deleteOne({ round: parseInt(round) });
 
             return Response.json({
@@ -291,7 +296,7 @@ export async function DELETE(request) {
             });
         } else {
             // Delete all rounds
-            const result = await db.collection(`${CURRENT_YEAR}_simple_round_results`)
+            const result = await db.collection(`${year}_simple_round_results`)
                 .deleteMany({});
             
             return Response.json({ 
