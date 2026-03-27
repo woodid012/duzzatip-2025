@@ -215,20 +215,24 @@ export default function LadderConsolidatedPage() {
       setLadderData(ladderResult.ladder || []);
       setLastUpdated(ladderResult.lastUpdated ? new Date(ladderResult.lastUpdated) : null);
 
-      // Get current round results for display (still using consolidated for the round display)
-      if (round > 0) {
-        const roundResultsResponse = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
-        if (roundResultsResponse.ok) {
-          const data = await roundResultsResponse.json();
-          setRoundResults(data.results || {});
-        }
-      }
-
     } catch (err) {
       console.error('Error loading ladder data:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+
+    // Fetch round results in the background (slow API — don't block the main ladder render)
+    if (round > 0) {
+      try {
+        const roundResultsResponse = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
+        if (roundResultsResponse.ok) {
+          const data = await roundResultsResponse.json();
+          setRoundResults(data.results || {});
+        }
+      } catch (err) {
+        console.warn('Could not load round results:', err.message);
+      }
     }
   };
 
