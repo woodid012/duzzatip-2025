@@ -213,6 +213,12 @@ export default function LadderConsolidatedPage() {
       setLadderData(ladderResult.ladder || []);
       setLastUpdated(ladderResult.lastUpdated ? new Date(ladderResult.lastUpdated) : null);
 
+      // If we loaded round 0 but there's real data for later rounds, jump to that round
+      if (round === 0 && ladderResult.upToRound > 0 && !userChangedRound) {
+        setSelectedRound(ladderResult.upToRound);
+        return;
+      }
+
     } catch (err) {
       console.error('Error loading ladder data:', err);
       setError(err.message);

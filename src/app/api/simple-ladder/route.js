@@ -11,7 +11,8 @@ import { parseYearParam } from '@/app/lib/apiUtils';
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
-        const upToRound = parseInt(searchParams.get('round')) || 21;
+        const roundParam = searchParams.get('round');
+        const upToRound = roundParam !== null ? parseInt(roundParam) : 21;
         const year = parseYearParam(searchParams);
 
         const { db } = await connectToDatabase();
