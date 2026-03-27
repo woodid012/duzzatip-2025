@@ -94,3 +94,11 @@ jobs:
           
           # Push changes
           git push
+
+      - name: Refresh ladder snapshots
+        if: steps.update-script.outputs.CHANGES_MADE == 'true'
+        run: |
+          curl -s -X POST "${{ secrets.VERCEL_PRODUCTION_URL }}/api/simple-ladder" \
+            -H "Content-Type: application/json" \
+            -d '{"refreshAll":true}' \
+            --max-time 300 || true

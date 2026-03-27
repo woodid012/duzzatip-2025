@@ -16,8 +16,6 @@ export default function LadderConsolidatedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshProgress, setRefreshProgress] = useState('');
   const [finalsStandings, setFinalsStandings] = useState([]);
   const [savingStandings, setSavingStandings] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -236,123 +234,6 @@ export default function LadderConsolidatedPage() {
     }
   };
 
-  const handleFullRefresh = async () => {
-    try {
-      setIsRefreshing(true);
-      setError(null);
-      setRefreshProgress('Starting refresh...');
-
-      console.log('Starting full refresh of rounds 1-21');
-
-      // Call our new API to refresh all rounds
-      const response = await fetch('/api/simple-ladder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshAll: true, year: selectedYear })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to refresh ladder data');
-      }
-
-      const result = await response.json();
-      console.log('Refresh result:', result);
-
-      if (result.results) {
-        const message = `Processed: ${result.results.processed.length} rounds\n` +
-                       `Stored: ${result.results.stored.length} rounds\n` +
-                       `Failed: ${result.results.failed.length} rounds`;
-        
-        setRefreshProgress(message);
-        
-        if (result.results.failed.length > 0) {
-          console.warn(`Failed rounds: ${result.results.failed.join(', ')}`);
-        }
-      }
-
-      // Reload the ladder
-      await loadLadderData(selectedRound);
-
-      setRefreshProgress('Refresh complete!');
-      setTimeout(() => setRefreshProgress(''), 3000);
-
-    } catch (err) {
-      console.error('Error during refresh:', err);
-      setError(`Refresh failed: ${err.message}`);
-      setRefreshProgress('');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleQuickRefresh = async () => {
-    try {
-      setIsRefreshing(true);
-      setError(null);
-      setRefreshProgress(`Refreshing round ${selectedRound}...`);
-
-      // Only refresh if it's a regular season round
-      if (selectedRound >= 1 && selectedRound <= 21) {
-        const response = await fetch('/api/simple-ladder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ round: selectedRound, year: selectedYear })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to refresh round');
-        }
-
-        const result = await response.json();
-        console.log(`Round ${selectedRound} refresh result:`, result);
-      }
-
-      // Reload the ladder
-      await loadLadderData(selectedRound);
-      setRefreshProgress('');
-
-    } catch (err) {
-      console.error('Error during quick refresh:', err);
-      setError(`Refresh failed: ${err.message}`);
-      setRefreshProgress('');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleClearData = async () => {
-    if (!confirm('This will clear all stored ladder data. Are you sure?')) {
-      return;
-    }
-
-    try {
-      setIsRefreshing(true);
-      setRefreshProgress('Clearing all data...');
-
-      const response = await fetch('/api/simple-ladder', {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to clear data');
-      }
-
-      const result = await response.json();
-      alert(result.message);
-
-      // Reload
-      await loadLadderData(selectedRound);
-      setRefreshProgress('');
-
-    } catch (err) {
-      console.error('Error clearing data:', err);
-      setError(`Clear failed: ${err.message}`);
-      setRefreshProgress('');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   const handleRoundChange = (e) => {
     setSelectedRound(Number(e.target.value));
     setUserChangedRound(true);
@@ -421,7 +302,7 @@ export default function LadderConsolidatedPage() {
     };
   };
 
-  if (loading && !isRefreshing) {
+  if (loading) {
     return (
       <div className="p-4 sm:p-6">
         {/* Skeleton header */}
@@ -454,7 +335,7 @@ export default function LadderConsolidatedPage() {
     );
   }
 
-  if (error && !isRefreshing) {
+  if (error) {
     return (
       <div className="p-4 sm:p-6">
         <div className="bg-red-50 border border-red-300 rounded-lg p-4">
@@ -499,7 +380,6 @@ export default function LadderConsolidatedPage() {
               value={selectedRound || 0}
               onChange={handleRoundChange}
               className="p-2 border rounded text-sm text-black bg-white"
-              disabled={isRefreshing}
             >
               {[...Array(25)].map((_, i) => (
                 <option key={i} value={i}>
@@ -509,45 +389,11 @@ export default function LadderConsolidatedPage() {
             </select>
           </div>
           
-          <button
-            onClick={handleQuickRefresh}
-            disabled={isRefreshing}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
-            title="Refresh current round"
-          >
-            Quick Refresh
-          </button>
-          
-          <button
-            onClick={handleFullRefresh}
-            disabled={isRefreshing}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
-            title="Refresh all rounds 1-21"
-          >
-            Full Refresh
-          </button>
-          
-          <button
-            onClick={handleClearData}
-            disabled={isRefreshing}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400"
-            title="Clear all stored data"
-          >
-            Clear Data
-          </button>
         </div>
       </div>
 
-      {/* Refresh Progress */}
-      {refreshProgress && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h3 className="text-blue-800 font-semibold mb-2">Refresh Status</h3>
-          <pre className="text-blue-700 whitespace-pre-wrap">{refreshProgress}</pre>
-        </div>
-      )}
-
       {/* Opening Round Message */}
-      {selectedRound === 0 && !isRefreshing && (
+      {selectedRound === 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <h3 className="text-blue-800 font-semibold mb-2">Opening Round</h3>
           <p className="text-blue-700">
@@ -557,8 +403,7 @@ export default function LadderConsolidatedPage() {
       )}
 
       {/* Desktop Ladder Table */}
-      {!isRefreshing && (
-        <div className="hidden md:block">
+      <div className="hidden md:block">
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full">
@@ -680,10 +525,8 @@ export default function LadderConsolidatedPage() {
             </div>
           </div>
         </div>
-      )}
       {/* Mobile Ladder Cards */}
-      {!isRefreshing && (
-        <div className="block md:hidden space-y-3">
+      <div className="block md:hidden space-y-3">
           {ladderData.map((team, index) => {
             const currentRoundResult = getTeamCurrentRoundResult(team.userId);
             const isTopFour = index < 4;
@@ -754,10 +597,9 @@ export default function LadderConsolidatedPage() {
             );
           })}
         </div>
-      )}
 
       {/* Finals Info */}
-      {selectedRound >= 21 && ladderData.length > 0 && !isRefreshing && (
+      {selectedRound >= 21 && ladderData.length > 0 && (
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="text-blue-800 font-semibold mb-2">Finals Qualification</h3>
           <div className="text-blue-700">
@@ -777,7 +619,7 @@ export default function LadderConsolidatedPage() {
       )}
 
       {/* Final Standings & Draft Order */}
-      {finalsStandings.length > 0 && !isRefreshing && (
+      {finalsStandings.length > 0 && (
         <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="text-blue-800 font-semibold mb-3">Final Standings & Draft Order</h3>
           <div className="overflow-x-auto">
