@@ -40,6 +40,7 @@ export default function TeamSelectionPage() {
     isLateSubmission,
     isPastYear,
     isPositionLocked,
+    getPositionLockReason,
     isPlayerGameStarted,
     getNextLockoutTime,
     handleRoundChange,
@@ -524,6 +525,7 @@ export default function TeamSelectionPage() {
             isEditing={inEditMode}
             isAdmin={isAdmin}
             isPositionLocked={isPositionLocked}
+            getPositionLockReason={getPositionLockReason}
             isPlayerGameStarted={isPlayerGameStarted}
             isRoundPartiallyLocked={isRoundPartiallyLocked}
             onPlayerChange={handlePlayerChange}
@@ -545,6 +547,7 @@ export default function TeamSelectionPage() {
               isEditing={inEditMode}
               isAdmin={isAdmin}
               isPositionLocked={isPositionLocked}
+              getPositionLockReason={getPositionLockReason}
               isPlayerGameStarted={isPlayerGameStarted}
               isRoundPartiallyLocked={isRoundPartiallyLocked}
               onPlayerChange={handlePlayerChange}
@@ -600,6 +603,7 @@ function TeamCard({
   isEditing,
   isAdmin,
   isPositionLocked,
+  getPositionLockReason,
   isPlayerGameStarted,
   isRoundPartiallyLocked,
   onPlayerChange,
@@ -685,6 +689,7 @@ function TeamCard({
               isDuplicatePlayer(playerData.player_name, position) : false;
             // Per-game locking: check if this specific position's player's game has started
             const posLocked = !isAdmin && isPositionLocked(userId, position);
+            const lockReason = posLocked ? getPositionLockReason(userId, position) : null;
 
             return (
               <div key={position} className="flex flex-col gap-1">
@@ -692,7 +697,7 @@ function TeamCard({
                   {displayPosition}
                   {posLocked && isEditing && (
                     <span className="text-xs text-red-400 ml-1">
-                      (locked{playerData?.player_name && isPlayerGameStarted(playerData.player_name, userId) && playerScores[playerData.player_name] !== undefined
+                      ({lockReason ?? 'locked'}{playerData?.player_name && isPlayerGameStarted(playerData.player_name, userId) && playerScores[playerData.player_name] !== undefined
                         ? ` · ${playerScores[playerData.player_name]} pts`
                         : ''})
                     </span>
@@ -739,6 +744,9 @@ function TeamCard({
                           <span className={`${isDuplicate ? 'text-red-600 font-semibold' : posLocked ? 'text-gray-500' : 'text-black'}`}>
                             {posLocked && <span className="mr-1 text-xs">🔒</span>}
                             {playerData.player_name}
+                            {posLocked && lockReason && (
+                              <span className="ml-1 text-xs text-gray-400">({lockReason})</span>
+                            )}
                             {isDuplicate && " (Duplicate)"}
                             {(() => {
                               const inj = getInjury(playerData.player_name);

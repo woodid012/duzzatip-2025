@@ -207,6 +207,52 @@ export default function useTeamSelection() {
     return false;
   }, [localRound, currentRound, teams, editedTeams, isEditing, getPlayerGameTime, isRoundLocked, fixtures]);
 
+  // Returns a human-readable reason why a position is locked, or null if not locked.
+  const getPositionLockReason = useCallback((userId, position, roundNumber) => {
+    const rnd = roundNumber ?? localRound;
+    if (rnd === null || rnd === undefined) return null;
+    if (!PER_GAME_LOCKING) return isRoundLocked(rnd) ? 'Round locked' : null;
+    if (rnd > currentRound) return null;
+
+    const now = new Date();
+    const roundFixtures = fixtures.filter(f => f.RoundNumber === rnd);
+    const currentTeams = isEditing ? editedTeams : teams;
+    const userTeam = currentTeams[userId] || {};
+    const playerData = userTeam[position];
+
+    if (!playerData?.player_name) {
+      if (roundFixtures.length === 0) return null;
+      const firstGame = roundFixtures.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
+      return now >= new Date(firstGame.DateUtc) ? 'Round started' : null;
+    }
+
+    const gameTime = getPlayerGameTime(playerData.player_name, userId, rnd);
+    if (gameTime && now >= gameTime) return 'Game started';
+
+    const reserveHasPlayed = (reservePosition) => {
+      const reserve = userTeam[reservePosition];
+      if (!reserve?.player_name) return false;
+      const reserveGameTime = getPlayerGameTime(reserve.player_name, userId, rnd);
+      return reserveGameTime ? now >= reserveGameTime : false;
+    };
+
+    if (RESERVE_A_POSITIONS.includes(position) && reserveHasPlayed('Reserve A')) {
+      const resA = userTeam['Reserve A'];
+      return `Reserve A (${resA?.player_name}) played`;
+    }
+    if (RESERVE_B_POSITIONS.includes(position) && reserveHasPlayed('Reserve B')) {
+      const resB = userTeam['Reserve B'];
+      return `Reserve B (${resB?.player_name}) played`;
+    }
+
+    const bench = userTeam['Bench'];
+    if (bench?.player_name && bench?.backup_position === position && reserveHasPlayed('Bench')) {
+      return `Bench (${bench.player_name}) played`;
+    }
+
+    return null;
+  }, [localRound, currentRound, teams, editedTeams, isEditing, getPlayerGameTime, isRoundLocked, fixtures]);
+
   // Check if a player's game has started (for filtering dropdowns).
   // When PER_GAME_LOCKING is off, always returns false (no per-player filtering).
   const isPlayerGameStarted = useCallback((playerName, userId, roundNumber) => {
@@ -645,6 +691,7 @@ const saveTeamSelections = useCallback(async () => {
 
     // Per-game locking
     isPositionLocked,
+    getPositionLockReason,
     isPlayerGameStarted,
     getNextLockoutTime: () => getNextLockoutTime(localRound),
 
