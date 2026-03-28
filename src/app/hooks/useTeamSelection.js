@@ -24,6 +24,7 @@ export default function useTeamSelection() {
   const [teams, setTeams] = useState({});
   const [editedTeams, setEditedTeams] = useState({});
   const [squads, setSquads] = useState({});
+  const [playerScores, setPlayerScores] = useState({});
   const [changedPositions, setChangedPositions] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [loadingLocal, setLoadingLocal] = useState(true);
@@ -580,6 +581,35 @@ const saveTeamSelections = useCallback(async () => {
     }
   }, [localRound, currentRound, isRoundLocked]);
 
+  // Fetch player scores from consolidated results once any game in the round has started.
+  // Builds a map { userId: { playerName: score } } used to display scores on locked positions.
+  useEffect(() => {
+    if (localRound === null || localRound === undefined) return;
+    if (currentRound !== null && localRound > currentRound) return;
+    const roundFixs = fixtures.filter(f => f.RoundNumber === localRound);
+    if (roundFixs.length === 0) return;
+    const firstGame = roundFixs.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
+    if (new Date() < new Date(firstGame.DateUtc)) return; // round hasn't started
+
+    let cancelled = false;
+    fetch(`/api/consolidated-round-results?round=${localRound}&year=${selectedYear}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data?.results) return;
+        const scores = {};
+        Object.entries(data.results).forEach(([userId, result]) => {
+          scores[userId] = {};
+          (result.positions || []).forEach(pos => {
+            const name = pos.originalPlayerName || pos.playerName;
+            if (name) scores[userId][name] = pos.originalScore ?? pos.score ?? 0;
+          });
+        });
+        setPlayerScores(scores);
+      })
+      .catch(() => {}); // supplementary — silent fail
+    return () => { cancelled = true; };
+  }, [localRound, currentRound, fixtures, selectedYear]);
+
   // Clear error message
   const clearError = useCallback(() => {
     setErrorLocal(null);
@@ -589,6 +619,7 @@ const saveTeamSelections = useCallback(async () => {
     // State
     teams: isEditing ? editedTeams : teams,
     squads,
+    playerScores,
     isEditing,
     loading: loadingLocal,
     error: errorLocal,

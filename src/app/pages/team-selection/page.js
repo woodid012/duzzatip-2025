@@ -29,6 +29,7 @@ export default function TeamSelectionPage() {
   const {
     teams,
     squads,
+    playerScores,
     isEditing,
     loading,
     error,
@@ -530,6 +531,7 @@ export default function TeamSelectionPage() {
             onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
             duplicateWarnings={duplicateWarnings}
             injuries={injuries}
+            playerScores={playerScores[selectedUserId] || {}}
           />
         ) : (
           // Show all teams (for admin or when no user is selected)
@@ -549,6 +551,7 @@ export default function TeamSelectionPage() {
               onBackupPositionChange={handleBackupPositionChange}
               onCopyFromPrevious={() => copyFromPreviousRound(userId)}
               duplicateWarnings={duplicateWarnings}
+              playerScores={playerScores[userId] || {}}
             />
           ))
         )}
@@ -603,7 +606,8 @@ function TeamCard({
   onBackupPositionChange,
   onCopyFromPrevious,
   duplicateWarnings,
-  injuries = {}
+  injuries = {},
+  playerScores = {}
 }) {
   // Lookup injury by player name — keys are "Name (Team)"
   const getInjury = (name) => {
@@ -686,7 +690,13 @@ function TeamCard({
               <div key={position} className="flex flex-col gap-1">
                 <label className={`text-sm font-medium ${posLocked ? 'text-gray-400' : 'text-black'}`}>
                   {displayPosition}
-                  {posLocked && isEditing && <span className="text-xs text-red-400 ml-1">(locked)</span>}
+                  {posLocked && isEditing && (
+                    <span className="text-xs text-red-400 ml-1">
+                      (locked{playerData?.player_name && playerScores[playerData.player_name] !== undefined
+                        ? ` · ${playerScores[playerData.player_name]} pts`
+                        : ''})
+                    </span>
+                  )}
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   {isEditing ? (
@@ -737,6 +747,11 @@ function TeamCard({
                                 </span>
                               ) : null;
                             })()}
+                            {posLocked && playerScores[playerData.player_name] !== undefined && (
+                              <span className="ml-1 text-xs font-semibold text-blue-600">
+                                {playerScores[playerData.player_name]} pts
+                              </span>
+                            )}
                           </span>
                           {position === 'Bench' && playerData.backup_position && (
                             <span className="text-black text-xs">
