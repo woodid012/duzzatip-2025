@@ -406,6 +406,19 @@ export default function useTeamSelection() {
   const handleBackupPositionChange = useCallback((userId, position, newPosition) => {
     console.log(`Updating backup position for ${userId}, position ${position} to ${newPosition}`);
 
+    // Bench backup-position (coverage choice) locks at first game kickoff — can't change
+    // which position the bench covers once the round has started.
+    if (position === 'Bench' && userId !== 'admin') {
+      const roundFixs = fixtures.filter(f => f.RoundNumber === localRound);
+      if (roundFixs.length > 0) {
+        const firstGame = roundFixs.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
+        if (new Date() >= new Date(firstGame.DateUtc)) {
+          console.log('Bench backup position locked (first game started)');
+          return;
+        }
+      }
+    }
+
     if (isPositionLocked(userId, position) && userId !== 'admin') {
       console.log(`Position ${position} is locked (game started), ignoring backup position change`);
       return;

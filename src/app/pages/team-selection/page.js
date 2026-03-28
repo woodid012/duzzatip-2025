@@ -692,7 +692,7 @@ function TeamCard({
                   {displayPosition}
                   {posLocked && isEditing && (
                     <span className="text-xs text-red-400 ml-1">
-                      (locked{playerData?.player_name && playerScores[playerData.player_name] !== undefined
+                      (locked{playerData?.player_name && isPlayerGameStarted(playerData.player_name, userId) && playerScores[playerData.player_name] !== undefined
                         ? ` · ${playerScores[playerData.player_name]} pts`
                         : ''})
                     </span>
@@ -717,7 +717,7 @@ function TeamCard({
                           value={playerData?.backup_position || ''}
                           onChange={(e) => onBackupPositionChange(userId, position, e.target.value)}
                           className="w-full sm:w-1/3 p-2 text-sm border rounded bg-white text-black"
-                          disabled={posLocked}
+                          disabled={posLocked || isRoundPartiallyLocked}
                         >
                           <option value="">Backup Position</option>
                           {BACKUP_POSITIONS.map(pos => (
@@ -729,12 +729,15 @@ function TeamCard({
                       )}
                     </>
                   ) : (
-                    <div className={`w-full p-2 text-sm border rounded bg-white ${
-                      isDuplicate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                    <div className={`w-full p-2 text-sm border rounded ${
+                      isDuplicate ? 'border-red-500 bg-red-50' :
+                      posLocked ? 'bg-gray-100 border-gray-300 opacity-75' :
+                      'bg-white border-gray-200'
                     }`}>
                       {playerData ? (
                         <div className="flex justify-between items-center">
-                          <span className={`${isDuplicate ? 'text-red-600 font-semibold' : 'text-black'}`}>
+                          <span className={`${isDuplicate ? 'text-red-600 font-semibold' : posLocked ? 'text-gray-500' : 'text-black'}`}>
+                            {posLocked && <span className="mr-1 text-xs">🔒</span>}
                             {playerData.player_name}
                             {isDuplicate && " (Duplicate)"}
                             {(() => {
@@ -747,14 +750,14 @@ function TeamCard({
                                 </span>
                               ) : null;
                             })()}
-                            {posLocked && playerScores[playerData.player_name] !== undefined && (
+                            {posLocked && isPlayerGameStarted(playerData.player_name, userId) && playerScores[playerData.player_name] !== undefined && (
                               <span className="ml-1 text-xs font-semibold text-blue-600">
                                 {playerScores[playerData.player_name]} pts
                               </span>
                             )}
                           </span>
                           {position === 'Bench' && playerData.backup_position && (
-                            <span className="text-black text-xs">
+                            <span className={`text-xs ${posLocked ? 'text-gray-400' : 'text-black'}`}>
                               {playerData.backup_position}
                             </span>
                           )}
