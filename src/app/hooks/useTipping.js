@@ -55,33 +55,28 @@ export default function useTipping(initialUserId = '') {
     }
   }, [initialUserId, selectedUserId]);
 
-  // Tips are always submittable — only truly historical rounds (past rounds) are locked.
-  // A round being "time-locked" (game started) does NOT block tip submission.
-  // Use isLateSubmission to show a warning banner instead.
-  // Also guards against currentRound being prematurely advanced (e.g. LATEST_ROUND fallback).
+  // Tips lock at the first game kickoff — applies to both past rounds and the current round.
+  // (Unlike the old behaviour where current-round tips were always submittable.)
   const isRoundLocked = (round) => {
     if (selectedUserId === 'admin') return false;
-    if (round >= currentRound) return false;
-    // Verify the round's first game has actually occurred before locking
+    if (round > currentRound) return false;
     const roundFixs = fixtures.filter(f => f.RoundNumber === round);
     if (roundFixs.length === 0) return false;
     const firstGame = roundFixs.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
     return new Date() >= new Date(firstGame.DateUtc);
-  }
+  };
 
-  // True when the round's lockout time has passed, it's still the current round,
-  // AND the user hasn't already submitted before lockout.
+  // True when the round's first game has passed but it's still the current round
+  // and the user hasn't already submitted before lockout.
   const isLateSubmission = (round) => {
     if (selectedUserId === 'admin') return false;
     if (round !== currentRound) return false;
     if (!roundInfo.isLocked) return false;
-    // If the user submitted before lockout, it's not a late submission
     if (lastEditedTime && roundInfo.lockoutDate) {
       return lastEditedTime >= new Date(roundInfo.lockoutDate);
     }
-    // No submission yet and round is locked — would be late if they submit now
     return !lastEditedTime;
-  }
+  };
 
   // Load fixtures for the selected local round
   useEffect(() => {
@@ -188,8 +183,7 @@ export default function useTipping(initialUserId = '') {
   // Handle team tip selection
   const handleTipSelect = (matchNumber, team) => {
     console.log(`Setting tip for match ${matchNumber} to ${team} (isEditing: ${isEditing})`);
-    
-    // Check if we can edit (admin can bypass lock, regular users cannot)
+
     if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
       console.log("Can't edit - editing is locked");
       return;
@@ -218,8 +212,7 @@ export default function useTipping(initialUserId = '') {
   // Toggle dead cert status
   const handleDeadCertToggle = (matchNumber) => {
     console.log(`Toggling dead cert for match ${matchNumber} (isEditing: ${isEditing})`);
-    
-    // Check if we can edit (admin can bypass lock, regular users cannot)
+
     if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
       console.log("Can't edit - editing is locked");
       return;
@@ -237,17 +230,17 @@ export default function useTipping(initialUserId = '') {
 
   // Save tips
   const saveTips = async () => {
-    // Check if we can save (admin can bypass lock, regular users cannot)
     if (!selectedUserId || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
       console.log("Can't save - no user selected or round is locked");
       return false;
     }
-    
-    console.log("Saving tips...", editedTips);
-    
+
+    const tipsToSave = editedTips;
+    console.log("Saving tips...", tipsToSave);
+
     try {
       setErrorLocal(null);
-      
+
       const response = await fetch('/api/tipping-data', {
         method: 'POST',
         headers: {
@@ -256,21 +249,20 @@ export default function useTipping(initialUserId = '') {
         body: JSON.stringify({
           round: localRound,
           userId: selectedUserId,
-          tips: editedTips,
+          tips: tipsToSave,
           lastUpdated: new Date().toISOString()
         })
       });
 
       if (!response.ok) throw new Error('Failed to save tips');
       
-      // Update the base tips state to match edited tips
+      // Update the base tips state to reflect what was actually saved
       console.log("Tips saved successfully");
-      setTips({ ...editedTips });
+      setTips({ ...tipsToSave });
       setIsEditing(false);
       
       // Set last edited time to current time
-      const now = new Date();
-      setLastEditedTime(now);
+      setLastEditedTime(new Date());
       
       setSuccessMessage('Tips saved successfully');
       setTimeout(() => setSuccessMessage(''), 3000);

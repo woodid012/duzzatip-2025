@@ -6,7 +6,7 @@ import { CURRENT_YEAR } from '@/app/lib/constants';
 
 // Per-game locking: when true, positions lock individually as each game kicks off.
 // When false (default), the entire team locks when the first game of the round starts.
-const PER_GAME_LOCKING = false;
+const PER_GAME_LOCKING = true;
 
 export default function useTeamSelection() {
   const {
@@ -208,11 +208,11 @@ export default function useTeamSelection() {
     return roundNumber === 0 && roundNumber === currentRound && !!roundInfo.isLocked;
   }, [roundInfo.isLocked, currentRound]);
 
-  // True when a scoring round (1+) has started but it's still the current round.
-  // Team selection is allowed but flagged as a late submission.
+  // True only when a scoring round (1+) is fully locked (all games started) — with rolling
+  // lockout, editing mid-round for unlocked positions is normal, not "late".
   const isLateSubmission = useCallback((roundNumber) => {
-    return roundNumber > 0 && roundNumber === currentRound && !!roundInfo.isLocked;
-  }, [roundInfo.isLocked, currentRound]);
+    return roundNumber > 0 && roundNumber === currentRound && isRoundLocked(roundNumber);
+  }, [currentRound, isRoundLocked]);
 
   // Load data when local round changes
   useEffect(() => {
