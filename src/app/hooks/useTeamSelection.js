@@ -116,6 +116,28 @@ export default function useTeamSelection() {
     return started.length > 0 && started.length < roundFixtures.length;
   }, [fixtures]);
 
+  // Squad data stores abbreviated team codes; fixtures use full names — map between them.
+  const TEAM_CODE_TO_NAME = {
+    ADE: 'Adelaide Crows',
+    BRL: 'Brisbane Lions',
+    CAR: 'Carlton',
+    COL: 'Collingwood',
+    ESS: 'Essendon',
+    FRE: 'Fremantle',
+    GCS: 'Gold Coast SUNS',
+    GEE: 'Geelong Cats',
+    GWS: 'GWS GIANTS',
+    HAW: 'Hawthorn',
+    MEL: 'Melbourne',
+    NTH: 'North Melbourne',
+    PTA: 'Port Adelaide',
+    RIC: 'Richmond',
+    STK: 'St Kilda',
+    SYD: 'Sydney Swans',
+    WBD: 'Western Bulldogs',
+    WCE: 'West Coast Eagles',
+  };
+
   // Get the game start time for a player in a given round.
   // Returns the DateUtc of their team's game, or null if bye/not found.
   const getPlayerGameTime = useCallback((playerName, userId, roundNumber) => {
@@ -124,8 +146,10 @@ export default function useTeamSelection() {
     if (!userSquad) return null;
     const player = userSquad.find(p => p.name === playerName);
     if (!player?.team) return null;
+    // Resolve abbreviated team code to full fixture name
+    const teamName = TEAM_CODE_TO_NAME[player.team] ?? player.team;
     const roundFixtures = fixtures.filter(f => f.RoundNumber === roundNumber);
-    const game = roundFixtures.find(f => f.HomeTeam === player.team || f.AwayTeam === player.team);
+    const game = roundFixtures.find(f => f.HomeTeam === teamName || f.AwayTeam === teamName);
     if (!game) return null;
     return new Date(game.DateUtc);
   }, [squads, fixtures]);
