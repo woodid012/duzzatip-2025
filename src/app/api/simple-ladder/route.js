@@ -104,13 +104,13 @@ export async function GET(request) {
 
                     // Track high/low scores, form, stars, crabs
                     if (homeScore > homeLadder.highScore) homeLadder.highScore = homeScore;
-                    if (homeLadder.lowScore === null || homeScore < homeLadder.lowScore) homeLadder.lowScore = homeScore;
+                    if (round > 0 && homeScore > 0 && (homeLadder.lowScore === null || homeScore < homeLadder.lowScore)) homeLadder.lowScore = homeScore;
                     homeLadder.formHistory.push(homeResult);
                     if (storedResults.results[homeUserId]?.hasStar) homeLadder.starsTotal += 1;
                     if (storedResults.results[homeUserId]?.hasCrab) homeLadder.crabsTotal += 1;
 
                     if (awayScore > awayLadder.highScore) awayLadder.highScore = awayScore;
-                    if (awayLadder.lowScore === null || awayScore < awayLadder.lowScore) awayLadder.lowScore = awayScore;
+                    if (round > 0 && awayScore > 0 && (awayLadder.lowScore === null || awayScore < awayLadder.lowScore)) awayLadder.lowScore = awayScore;
                     awayLadder.formHistory.push(awayResult);
                     if (storedResults.results[awayUserId]?.hasStar) awayLadder.starsTotal += 1;
                     if (storedResults.results[awayUserId]?.hasCrab) awayLadder.crabsTotal += 1;
