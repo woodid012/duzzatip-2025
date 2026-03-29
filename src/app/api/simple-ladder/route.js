@@ -30,7 +30,12 @@ export async function GET(request) {
             pointsFor: 0,
             pointsAgainst: 0,
             percentage: 0,
-            points: 0
+            points: 0,
+            highScore: 0,
+            lowScore: null,
+            formHistory: [],
+            starsTotal: 0,
+            crabsTotal: 0,
         }));
         
         // Get stored round results from database
@@ -70,37 +75,57 @@ export async function GET(request) {
                     // Update games played
                     homeLadder.played += 1;
                     awayLadder.played += 1;
-                    
+
                     // Update points for/against
                     homeLadder.pointsFor += homeScore;
                     homeLadder.pointsAgainst += awayScore;
                     awayLadder.pointsFor += awayScore;
                     awayLadder.pointsAgainst += homeScore;
-                    
+
                     // Update wins/losses/draws and ladder points
+                    let homeResult, awayResult;
                     if (homeScore > awayScore) {
                         homeLadder.wins += 1;
                         homeLadder.points += 4;
                         awayLadder.losses += 1;
+                        homeResult = 'W'; awayResult = 'L';
                     } else if (awayScore > homeScore) {
                         awayLadder.wins += 1;
                         awayLadder.points += 4;
                         homeLadder.losses += 1;
+                        homeResult = 'L'; awayResult = 'W';
                     } else {
                         homeLadder.draws += 1;
                         homeLadder.points += 2;
                         awayLadder.draws += 1;
                         awayLadder.points += 2;
+                        homeResult = 'D'; awayResult = 'D';
                     }
+
+                    // Track high/low scores, form, stars, crabs
+                    if (homeScore > homeLadder.highScore) homeLadder.highScore = homeScore;
+                    if (homeLadder.lowScore === null || homeScore < homeLadder.lowScore) homeLadder.lowScore = homeScore;
+                    homeLadder.formHistory.push(homeResult);
+                    if (storedResults.results[homeUserId]?.hasStar) homeLadder.starsTotal += 1;
+                    if (storedResults.results[homeUserId]?.hasCrab) homeLadder.crabsTotal += 1;
+
+                    if (awayScore > awayLadder.highScore) awayLadder.highScore = awayScore;
+                    if (awayLadder.lowScore === null || awayScore < awayLadder.lowScore) awayLadder.lowScore = awayScore;
+                    awayLadder.formHistory.push(awayResult);
+                    if (storedResults.results[awayUserId]?.hasStar) awayLadder.starsTotal += 1;
+                    if (storedResults.results[awayUserId]?.hasCrab) awayLadder.crabsTotal += 1;
                 }
             });
         }
         
-        // Calculate percentages
+        // Calculate percentages and finalise new stats
         ladder.forEach(team => {
-            team.percentage = team.pointsAgainst === 0 
+            team.percentage = team.pointsAgainst === 0
                 ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
                 : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+            team.lowScore = team.lowScore === null ? 0 : team.lowScore;
+            team.form = team.formHistory.slice(-5).reverse();
+            delete team.formHistory;
         });
         
         // Sort ladder by points, then percentage

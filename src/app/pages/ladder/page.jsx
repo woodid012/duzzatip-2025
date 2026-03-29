@@ -445,6 +445,15 @@ export default function LadderConsolidatedPage() {
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Pts
                     </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      High/Low
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Form
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ⭐/🦀
+                    </th>
                     {selectedRound > 0 && (
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {formatRoundName(selectedRound)}
@@ -496,6 +505,29 @@ export default function LadderConsolidatedPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className="text-sm font-bold text-gray-900">{team.points}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          <span className="text-green-700">{team.highScore || '-'}</span>
+                          <span className="text-gray-400 mx-0.5">/</span>
+                          <span className="text-red-600">{team.lowScore || '-'}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex justify-center gap-0.5">
+                            {(team.form || []).map((result, i) => (
+                              <span key={i} className={`text-xs font-bold px-1 py-0.5 rounded ${
+                                result === 'W' ? 'bg-green-100 text-green-700' :
+                                result === 'L' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-500'
+                              }`}>{result}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
+                          {(team.starsTotal > 0 || team.crabsTotal > 0) ? (
+                            <span>{team.starsTotal > 0 ? `${team.starsTotal}⭐` : ''}{team.starsTotal > 0 && team.crabsTotal > 0 ? ' ' : ''}{team.crabsTotal > 0 ? `${team.crabsTotal}🦀` : ''}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         {selectedRound > 0 && (
                           <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -589,6 +621,37 @@ export default function LadderConsolidatedPage() {
                       </div>
                     </div>
                   )}
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center text-sm mt-3 pt-3 border-t border-gray-100">
+                  <div>
+                    <div className="text-gray-500">High/Low</div>
+                    <div className="font-medium">
+                      <span className="text-green-700">{team.highScore || '-'}</span>
+                      <span className="text-gray-400">/</span>
+                      <span className="text-red-600">{team.lowScore || '-'}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 mb-1">Form</div>
+                    <div className="flex justify-center gap-0.5">
+                      {(team.form || []).map((result, i) => (
+                        <span key={i} className={`text-xs font-bold px-1 py-0.5 rounded ${
+                          result === 'W' ? 'bg-green-100 text-green-700' :
+                          result === 'L' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-500'
+                        }`}>{result}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">⭐/🦀</div>
+                    <div className="font-medium text-xs">
+                      {team.starsTotal > 0 ? `${team.starsTotal}⭐` : ''}
+                      {team.starsTotal > 0 && team.crabsTotal > 0 ? ' ' : ''}
+                      {team.crabsTotal > 0 ? `${team.crabsTotal}🦀` : ''}
+                      {!team.starsTotal && !team.crabsTotal ? <span className="text-gray-400">-</span> : ''}
+                    </div>
+                  </div>
                 </div>
                 
                 {selectedRound > 0 && currentRoundResult && (
