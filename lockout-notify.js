@@ -129,7 +129,7 @@ function saveState(state) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 // Threshold: sends within this many minutes of lockout count as "final"
-const FINAL_WINDOW_MINS = 30;
+const FINAL_WINDOW_MINS = 45;
 
 // ===== Fixtures =====
 function loadFixtures() {

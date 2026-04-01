@@ -9,7 +9,7 @@
  *   or: ?token=<NOTIFY_SECRET>
  *
  * Query params:
- *   ?force=1    — skip the 36h lockout gate
+ *   ?force=1    — skip the 24h lockout gate
  *   ?dry=1      — compute only, no DB saves or Telegram send
  *   ?round=N    — force a specific round
  *   ?probe=1    — just check if teams are announced (no compute, no send)
@@ -26,7 +26,8 @@ import path from "path";
 
 const MY_USER = 4;
 const YEAR    = 2026;
-const NOTIFY_WINDOW_HOURS = 36;
+const NOTIFY_WINDOW_HOURS = 24;
+const FINAL_WINDOW_MINS   = 45;
 const TELEGRAM_CHAT_ID    = "8600335192";
 
 // ── Scoring ──────────────────────────────────────────────────────────────────
@@ -192,16 +193,20 @@ function scoreAllPositions(avg) {
 async function loadPlayerStats(db, names) {
   const stats = {};
 
-  // 1. Try current-year in-season data
+  // 1. Try current-year in-season data (exclude round 0 preseason, deduplicate)
   try {
-    const docs = await db.collection(`${YEAR}_game_results`).find({ player_name: { $in: names } }).toArray();
+    const docs = await db.collection(`${YEAR}_game_results`).find({
+      player_name: { $in: names },
+      round: { $gte: 1 },
+    }).toArray();
     const byPlayer = {};
     for (const d of docs) {
       if (!byPlayer[d.player_name]) byPlayer[d.player_name] = [];
+      if (byPlayer[d.player_name].some(g => g.round === d.round)) continue; // deduplicate
       byPlayer[d.player_name].push(d);
     }
     for (const [name, games] of Object.entries(byPlayer)) {
-      if (games.length >= 1) stats[name] = { source: `${YEAR}(${games.length}g)`, avg: calcAvgStats(games), games };
+      if (games.length >= 2) stats[name] = { source: `${YEAR}(${games.length}g)`, avg: calcAvgStats(games), games };
     }
   } catch (_) {}
 
@@ -669,21 +674,18 @@ async function saveTips(db, round, tips) {
 }
 
 // ── Notify state (MongoDB-backed, no local file on Vercel) ────────────────────
-// Stores per-round: { round, teamsFound, notifiedAt }
-// Allows a second notification when teamsFound jumps significantly (staggered AFL releases)
-const RE_NOTIFY_TEAM_THRESHOLD = 5; // re-notify when teamsFound reaches this (most/all teams in)
-
+// Dual-send: "early" (24h before lockout) and "final" (30min before lockout)
 async function getNotifyState(db, round) {
   try {
     const doc = await db.collection("notify_state").findOne({ _id: "lockout_notifier" });
-    return doc?.rounds?.[String(round)] || null; // { teamsFound, notifiedAt }
+    return doc?.rounds?.[String(round)] || null; // { early: bool, final: bool }
   } catch (_) { return null; }
 }
-async function markRoundNotified(db, round, teamsFound) {
+async function markRoundNotified(db, round, sendType) {
   try {
     await db.collection("notify_state").updateOne(
       { _id: "lockout_notifier" },
-      { $set: { [`rounds.${round}`]: { teamsFound, notifiedAt: new Date() }, lastNotified: new Date() } },
+      { $set: { [`rounds.${round}.${sendType}`]: true, lastNotified: new Date() } },
       { upsert: true }
     );
   } catch (_) {}
@@ -705,15 +707,14 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, teamsFound }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal }) {
   const lines = [];
   const hrs  = Math.floor(Math.abs(lockout.minsUntil) / 60);
   const mins = Math.abs(lockout.minsUntil) % 60;
   const timeStr = lockout.locked ? `LOCKED` : `${lockout.melbTime} (${hrs}h ${mins}m)`;
 
-  const isPartial = teamsFound > 0 && teamsFound < RE_NOTIFY_TEAM_THRESHOLD;
-  const phaseTag = isPartial ? ` _(${teamsFound} teams — partial, update to follow)_` : "";
-  lines.push(`🦆⚡ *DuzzaTip Rd${round} — Pre-Lockout Brief*${phaseTag}`);
+  const phaseTag = isFinal ? " ⚡ FINAL Update" : " 👀 Early Preview";
+  lines.push(`🦆⚡ *DuzzaTip Rd${round} —${phaseTag}*`);
   lines.push(`⏰ ${timeStr}`);
   if (dry) lines.push(`_(dry-run — nothing saved)_`);
   lines.push("");
@@ -842,7 +843,7 @@ async function handler(request) {
     return Response.json({
       round, teamsFound, ppCount,
       announced: teamsFound >= 2,
-      allTeams: teamsFound >= RE_NOTIFY_TEAM_THRESHOLD,
+      allTeams: teamsFound >= 5,
       lockout: lockout ? { melbTime: lockout.melbTime, hoursUntil: Math.round(lockout.hoursUntil), locked: lockout.locked } : null,
     });
   }
@@ -850,21 +851,27 @@ async function handler(request) {
   const { db } = await connectToDatabase();
   const injuries = await loadInjuries(db);
 
-  // ── Time gate ──
+  // ── Time gate (dual-send: early + final) ──
+  let sendType = null; // "early" or "final"
   if (!force && !dry) {
     if (lockout?.locked) return Response.json({ skipped: true, reason: "round already locked" });
     if (lockout && lockout.hoursUntil > NOTIFY_WINDOW_HOURS)
       return Response.json({ skipped: true, reason: `lockout ${Math.round(lockout.hoursUntil)}h away (>${NOTIFY_WINDOW_HOURS}h window)` });
 
+    const isFinalWindow = lockout && lockout.minsUntil <= FINAL_WINDOW_MINS;
+    sendType = isFinalWindow ? "final" : "early";
+
     const prevNotify = await getNotifyState(db, round);
     if (prevNotify) {
-      // Already sent for this round — but allow re-trigger if many more teams are now available
-      // (staggered AFL release: early teams day-before, rest ~1hr before game)
-      const { teamsFound: prevTeams } = prevNotify;
-      if (prevTeams >= RE_NOTIFY_TEAM_THRESHOLD)
-        return Response.json({ skipped: true, reason: `already notified for round ${round} with ${prevTeams} teams` });
-      // Will re-check teamsFound below after fetching selections — allow through for now
+      if (sendType === "early" && prevNotify.early)
+        return Response.json({ skipped: true, reason: `already sent early preview for round ${round}` });
+      if (sendType === "final" && prevNotify.final)
+        return Response.json({ skipped: true, reason: `already sent final update for round ${round}` });
     }
+  } else {
+    // force or dry — determine sendType for message display
+    const isFinalWindow = lockout && lockout.minsUntil <= FINAL_WINDOW_MINS;
+    sendType = isFinalWindow ? "final" : "early";
   }
 
   // ── Squad ──
@@ -928,12 +935,7 @@ async function handler(request) {
   const selectionStatus = fwSelections ? buildSelectionStatus(squad, fwSelections) : null;
   const effectiveSelectionStatus = preteams ? null : selectionStatus;
 
-  // ── Re-check dedup: skip if we already notified with similar or more teams ──
-  if (!force && !dry) {
-    const prevNotify = await getNotifyState(db, round);
-    if (prevNotify && teamsFound <= prevNotify.teamsFound)
-      return Response.json({ skipped: true, reason: `already notified for round ${round} with ${prevNotify.teamsFound} teams (now ${teamsFound})` });
-  }
+  // ── Re-check dedup (sendType already determined above) ──
 
   // ── Auto-exclude ──
   // Exclude: bye players, serious injuries, and anyone NOT named in team selections
@@ -1003,14 +1005,15 @@ async function handler(request) {
   }
 
   // ── Send ──
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, teamsFound });
+  const isFinal = sendType === "final";
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
   }
 
   // ── Record ──
-  if (!dry && !force && sent) await markRoundNotified(db, round, teamsFound);
+  if (!dry && !force && sent) await markRoundNotified(db, round, sendType);
 
   return Response.json({
     ok: true, round, dry, teamsFound,
