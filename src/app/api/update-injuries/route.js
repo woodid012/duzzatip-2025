@@ -103,10 +103,12 @@ function classifySeverity(estimatedReturn, injuryType) {
   return "WEEKS";
 }
 
-// ── Image filename → team mapping ─────────────────────────────────────────────
-// The AFL injury page uses a promo-image section with a team logo image before
-// each injury table. The filename in the image URL identifies the team.
-const IMAGE_SLUG_TO_TEAM = {
+// ── Team identification from image URLs ──────────────────────────────────────
+// The AFL injury page has a promo-image before each team's injury table.
+// We match team from the image URL using multiple strategies so that changes
+// to the AFL's image naming don't break us.
+const TEAM_SLUGS = {
+  // Full names (old-style filenames like "adelaide-strap-new-logo.jpg")
   "adelaide":         "Adelaide",
   "brisbane":         "Brisbane",
   "carlton":          "Carlton",
@@ -114,39 +116,67 @@ const IMAGE_SLUG_TO_TEAM = {
   "essendon":         "Essendon",
   "fremantle":        "Fremantle",
   "geelong":          "Geelong",
-  "gc":               "Gold Coast",
   "gold-coast":       "Gold Coast",
-  "gws":              "GWS",
   "hawthorn":         "Hawthorn",
   "melbourne":        "Melbourne",
   "north-melbourne":  "North Melbourne",
   "port-adelaide":    "Port Adelaide",
   "richmond":         "Richmond",
-  "stk":              "St Kilda",
   "st-kilda":         "St Kilda",
   "sydney":           "Sydney",
   "west-coast":       "West Coast",
   "western-bulldogs": "Western Bulldogs",
+  // Short abbreviations (new-style: "..._ADEL_FA-1x.jpg")
+  "adel":  "Adelaide",
+  "bris":  "Brisbane",
+  "carl":  "Carlton",
+  "coll":  "Collingwood",
+  "ess":   "Essendon",
+  "frem":  "Fremantle",
+  "geel":  "Geelong",
+  "gcs":   "Gold Coast",
+  "gc":    "Gold Coast",
+  "gws":   "GWS",
+  "haw":   "Hawthorn",
+  "melb":  "Melbourne",
+  "nm":    "North Melbourne",
+  "pa":    "Port Adelaide",
+  "rich":  "Richmond",
+  "stk":   "St Kilda",
+  "syd":   "Sydney",
+  "wce":   "West Coast",
+  "wb":    "Western Bulldogs",
 };
 
 function teamFromImageUrl(url) {
-  // Extract filename: e.g. "adelaide-strap-new-logo-2024.jpg" → try prefixes
-  const filename = (url || "").split("/").pop()?.split("?")[0]?.toLowerCase() || "";
-  for (const [slug, team] of Object.entries(IMAGE_SLUG_TO_TEAM)) {
-    if (filename.startsWith(slug)) return team;
+  const lower = (url || "").toLowerCase();
+  // Try to find any slug anywhere in the URL (not just filename prefix)
+  // Sort by length descending so "north-melbourne" matches before "melbourne"
+  const sorted = Object.entries(TEAM_SLUGS).sort((a, b) => b[0].length - a[0].length);
+  for (const [slug, team] of sorted) {
+    // Match slug as a word boundary — preceded/followed by non-alpha
+    const re = new RegExp(`(?:^|[^a-z])${slug.replace(/-/g, "[-_]?")}(?=$|[^a-z])`, "i");
+    if (re.test(lower)) return team;
   }
   return null;
 }
 
+// ── Alphabetical team order (fallback) ───────────────────────────────────────
+// AFL always lists teams alphabetically. If image-based detection fails,
+// we assign teams to injury tables by their position.
+const TEAMS_ALPHABETICAL = [
+  "Adelaide", "Brisbane", "Carlton", "Collingwood", "Essendon",
+  "Fremantle", "Geelong", "Gold Coast", "GWS", "Hawthorn",
+  "Melbourne", "North Melbourne", "Port Adelaide", "Richmond",
+  "St Kilda", "Sydney", "West Coast", "Western Bulldogs",
+];
+
 // ── HTML parsing ──────────────────────────────────────────────────────────────
-// Structure: each team has a <section class="promo-image"> with a logo image,
-// immediately followed by a <table> with PLAYER | INJURY | ESTIMATED RETURN rows.
-// After the table there's an editorial "In the mix" section (noise — skip it).
 
 function parseInjuryHtml(html) {
   const players = {};
 
-  // Find all team logo images (promo-image sections) and their positions
+  // Strategy 1: Find team logo images and their positions
   const imageRe = /promo-image__image[^>]+src="([^"]+)"/gi;
   const imagePositions = [];
   let m;
@@ -157,18 +187,33 @@ function parseInjuryHtml(html) {
     }
   }
 
-  // Find all tables and associate each with the nearest preceding team image
+  // Collect all injury tables (tables with a PLAYER header)
+  const injuryTables = [];
   const tableRe = /<table[^>]*>([\s\S]*?)<\/table>/gi;
   while ((m = tableRe.exec(html)) !== null) {
-    const tableHtml = m[1];
+    if (/<th[^>]*>[\s\S]*?PLAYER[\s\S]*?<\/th>/i.test(m[1])) {
+      injuryTables.push({ html: m[1], pos: m.index });
+    }
+  }
 
-    // Only process tables that have a PLAYER header (injury tables)
-    if (!/<th[^>]*>[\s\S]*?PLAYER[\s\S]*?<\/th>/i.test(tableHtml)) continue;
+  // Decide team assignment strategy
+  const useImages = imagePositions.length >= injuryTables.length;
 
-    // Find which team this table belongs to (nearest preceding image)
+  for (let i = 0; i < injuryTables.length; i++) {
+    const tableHtml = injuryTables[i].html;
+    const tablePos = injuryTables[i].pos;
+
+    // Determine team
     let team = null;
-    for (const img of imagePositions) {
-      if (img.pos < m.index) team = img.team;
+    if (useImages) {
+      // Nearest preceding image
+      for (const img of imagePositions) {
+        if (img.pos < tablePos) team = img.team;
+      }
+    }
+    // Fallback: alphabetical ordering
+    if (!team && i < TEAMS_ALPHABETICAL.length) {
+      team = TEAMS_ALPHABETICAL[i];
     }
     if (!team) continue;
 
