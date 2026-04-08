@@ -641,8 +641,9 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
              favourite, homeOdds, awayOdds, confidence, favOdds, source };
   });
 
-  const sorted = [...tips].sort((a, b) => b.confidence - a.confidence);
-  if (sorted.length > 0) sorted[0].suggestDC = true;
+  // Dead Cert: +6 correct / -12 wrong → break-even at p = 12/18 = 66.7%
+  // Flag every match with confidence ≥ 67% (positive EV)
+  tips.forEach(t => { if (t.confidence >= 67) t.suggestDC = true; });
   return tips;
 }
 
@@ -778,13 +779,22 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   if (tipSuggestions?.length) {
     lines.push(`\u{1F3C8} *TIPS \u2014 Round ${round}*`);
     for (const t of tipSuggestions) {
-      const dc = t.suggestDC ? ` \u{1F440}DC` : "";
       const gameTime = formatGameTime(t.dateUtc);
       const homePick = t.favourite === t.homeTeam;
-      const home = homePick ? `\u2705 *${t.homeTeam}* (${t.confidence}%)` : t.homeTeam;
-      const away = homePick ? t.awayTeam : `\u2705 *${t.awayTeam}* (${t.confidence}%)`;
-      lines.push(`  ${home} v ${away}${dc}`);
+      const lock = t.suggestDC ? " \u{1F512}" : "";
+      const home = homePick ? `\u2705 *${t.homeTeam}* (${t.confidence}%)${lock}` : t.homeTeam;
+      const away = homePick ? t.awayTeam : `\u2705 *${t.awayTeam}* (${t.confidence}%)${lock}`;
+      lines.push(`  ${home} v ${away}`);
       lines.push(`  _${gameTime}_`);
+    }
+    lines.push("");
+
+    const dcs = tipSuggestions.filter(t => t.suggestDC);
+    if (dcs.length) {
+      lines.push(`\u{1F512} *DEAD CERTS (${dcs.length})*`);
+      for (const t of dcs) {
+        lines.push(`  • *${t.favourite}* _(${t.confidence}%)_`);
+      }
     }
     lines.push("");
   }
