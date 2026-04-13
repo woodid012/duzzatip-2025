@@ -495,10 +495,10 @@ export default function LadderConsolidatedPage() {
                           {team.draws}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                          {team.pointsFor}
+                          {team.pointsFor} <span className="text-gray-400 text-xs">({team.played > 0 ? (team.pointsFor / team.played).toFixed(1) : '0'})</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                          {team.pointsAgainst}
+                          {team.pointsAgainst} <span className="text-gray-400 text-xs">({team.played > 0 ? (team.pointsAgainst / team.played).toFixed(1) : '0'})</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                           {team.percentage}%
@@ -593,7 +593,7 @@ export default function LadderConsolidatedPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-gray-900">{team.percentage}%</div>
-                    <div className="text-sm text-gray-500">{team.pointsFor}/{team.pointsAgainst}</div>
+                    <div className="text-sm text-gray-500">{team.pointsFor} ({team.played > 0 ? (team.pointsFor / team.played).toFixed(1) : '0'}) / {team.pointsAgainst} ({team.played > 0 ? (team.pointsAgainst / team.played).toFixed(1) : '0'})</div>
                   </div>
                 </div>
                 
