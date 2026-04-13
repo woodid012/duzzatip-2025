@@ -19,61 +19,72 @@ export async function GET(request) {
         
         console.log(`Building ladder up to round ${upToRound}`);
 
-        // Check if game_results have been updated since we last cached simple_round_results
+        // Check ALL rounds up to upToRound for stale/missing cached results
         if (upToRound > 0) {
-            const storedResults = await db.collection(`${year}_simple_round_results`)
-                .findOne({ round: upToRound });
-            const cachedAt = storedResults?.lastUpdated ? new Date(storedResults.lastUpdated) : null;
+            // Fetch all stored round results and game_results timestamps in bulk
+            const allStored = await db.collection(`${year}_simple_round_results`)
+                .find({ round: { $lte: upToRound } }, { projection: { round: 1, lastUpdated: 1 } })
+                .toArray();
+            const storedByRound = {};
+            allStored.forEach(r => { storedByRound[r.round] = r.lastUpdated ? new Date(r.lastUpdated) : null; });
 
-            // Find the newest game_results record for this round
-            const newestGameResult = await db.collection(`${year}_game_results`)
-                .findOne(
-                    { round: upToRound },
-                    { sort: { created_at: -1 }, projection: { created_at: 1 } }
-                );
-            const gameResultsAt = newestGameResult?.created_at ? new Date(newestGameResult.created_at) : null;
+            // Find rounds that have game_results but are missing or stale in simple_round_results
+            const roundsToRefresh = [];
+            for (let r = 1; r <= upToRound; r++) {
+                const cachedAt = storedByRound[r] || null;
+                const newestGameResult = await db.collection(`${year}_game_results`)
+                    .findOne(
+                        { round: r },
+                        { sort: { created_at: -1 }, projection: { created_at: 1 } }
+                    );
+                const gameResultsAt = newestGameResult?.created_at ? new Date(newestGameResult.created_at) : null;
 
-            const needsRefresh = !cachedAt || (gameResultsAt && gameResultsAt > cachedAt);
-
-            if (needsRefresh) {
-                console.log(`Round ${upToRound} game_results are newer than cached ladder (game: ${gameResultsAt?.toISOString()}, cache: ${cachedAt?.toISOString()}), refreshing...`);
-                try {
-                    const host = request.headers.get('host');
-                    const proto = host?.includes('localhost') ? 'http' : 'https';
-                    const baseUrl = process.env.NEXTAUTH_URL ||
-                        (host ? `${proto}://${host}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
-
-                    const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${upToRound}&year=${year}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        const hasValidData = data.results &&
-                            Object.values(data.results).some(result => result.totalScore > 0);
-
-                        if (hasValidData) {
-                            const roundData = {};
-                            Object.entries(data.results).forEach(([userId, result]) => {
-                                roundData[userId] = {
-                                    totalScore: result.totalScore || 0,
-                                    playerScore: result.playerScore || 0,
-                                    deadCertScore: result.deadCertScore || 0,
-                                    matchResult: result.matchResult || null,
-                                    opponent: result.opponent || null,
-                                    hasStar: result.hasStar || false,
-                                    hasCrab: result.hasCrab || false
-                                };
-                            });
-
-                            await db.collection(`${year}_simple_round_results`).updateOne(
-                                { round: upToRound },
-                                { $set: { round: upToRound, results: roundData, lastUpdated: new Date() } },
-                                { upsert: true }
-                            );
-                            console.log(`Auto-refreshed round ${upToRound} with ${Object.keys(roundData).length} results`);
-                        }
-                    }
-                } catch (err) {
-                    console.warn(`Auto-refresh failed for round ${upToRound}:`, err.message);
+                if (gameResultsAt && (!cachedAt || gameResultsAt > cachedAt)) {
+                    roundsToRefresh.push(r);
                 }
+            }
+
+            if (roundsToRefresh.length > 0) {
+                console.log(`Rounds needing refresh: ${roundsToRefresh.join(', ')}`);
+                const host = request.headers.get('host');
+                const proto = host?.includes('localhost') ? 'http' : 'https';
+                const baseUrl = process.env.NEXTAUTH_URL ||
+                    (host ? `${proto}://${host}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
+
+                await Promise.all(roundsToRefresh.map(async (r) => {
+                    try {
+                        const response = await fetch(`${baseUrl}/api/consolidated-round-results?round=${r}&year=${year}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const hasValidData = data.results &&
+                                Object.values(data.results).some(result => result.totalScore > 0);
+
+                            if (hasValidData) {
+                                const roundData = {};
+                                Object.entries(data.results).forEach(([userId, result]) => {
+                                    roundData[userId] = {
+                                        totalScore: result.totalScore || 0,
+                                        playerScore: result.playerScore || 0,
+                                        deadCertScore: result.deadCertScore || 0,
+                                        matchResult: result.matchResult || null,
+                                        opponent: result.opponent || null,
+                                        hasStar: result.hasStar || false,
+                                        hasCrab: result.hasCrab || false
+                                    };
+                                });
+
+                                await db.collection(`${year}_simple_round_results`).updateOne(
+                                    { round: r },
+                                    { $set: { round: r, results: roundData, lastUpdated: new Date() } },
+                                    { upsert: true }
+                                );
+                                console.log(`Auto-refreshed round ${r} with ${Object.keys(roundData).length} results`);
+                            }
+                        }
+                    } catch (err) {
+                        console.warn(`Auto-refresh failed for round ${r}:`, err.message);
+                    }
+                }));
             }
         }
 
