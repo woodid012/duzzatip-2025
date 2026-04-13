@@ -64,9 +64,13 @@ export default function TippingLadderPage() {
       
       setLadderData(transformedLadder);
       setRoundResults(data.roundResults);
-      setLastUpdated(data.cached ? 
-        `Cached: ${new Date(data.cachedAt).toLocaleString()}` : 
-        new Date().toLocaleString()
+      const formatDate = (d) => new Date(d).toLocaleString('en-AU', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+      setLastUpdated(data.cached ?
+        `Cached: ${formatDate(data.cachedAt)}` :
+        formatDate(new Date())
       );
 
       console.log(`Loaded tipping ladder (${data.cached ? 'cached' : 'fresh'}) with ${data.ladder.length} users`);

@@ -11,23 +11,40 @@ export const GET = createApiHandler(async (request, db) => {
   try {
     console.log(`Calculating consolidated tipping ladder up to round ${upToRound} (year ${year})`);
 
-    // First check cache directly from database
+    // Check cache — invalidate if game_results or tips have been updated since cache was built
     const cachedLadder = await getCollectionForYear(db, 'tipping_ladder_cache', year)
       .findOne({
         upToRound: upToRound,
         year: year
       });
 
-    if (cachedLadder) {
-      console.log(`Using cached tipping ladder up to round ${upToRound}`);
-      return Response.json({
-        upToRound,
-        cached: true,
-        ladder: cachedLadder.ladder,
-        roundResults: cachedLadder.roundResults || {},
-        cachedAt: cachedLadder.cachedAt,
-        lastUpdated: cachedLadder.lastUpdated
-      });
+    if (cachedLadder && cachedLadder.cachedAt) {
+      const cachedAt = new Date(cachedLadder.cachedAt);
+
+      // Check if tips have been updated since cache
+      const newestTip = await getCollectionForYear(db, 'tips', year)
+        .findOne(
+          { Round: { $lte: upToRound }, Active: 1 },
+          { sort: { _id: -1 }, projection: { _id: 1 } }
+        );
+
+      // MongoDB ObjectId encodes creation time — use it as a proxy for "latest tip insert"
+      const tipTime = newestTip?._id?.getTimestamp?.() || null;
+      const cacheStale = tipTime && tipTime > cachedAt;
+
+      if (!cacheStale) {
+        console.log(`Using cached tipping ladder up to round ${upToRound}`);
+        return Response.json({
+          upToRound,
+          cached: true,
+          ladder: cachedLadder.ladder,
+          roundResults: cachedLadder.roundResults || {},
+          cachedAt: cachedLadder.cachedAt,
+          lastUpdated: cachedLadder.lastUpdated
+        });
+      }
+
+      console.log(`Tipping ladder cache stale (tips updated after cache), recalculating...`);
     }
 
     // Get AFL fixtures data for match results (uses local file first, falls back to external API)

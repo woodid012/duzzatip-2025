@@ -280,7 +280,7 @@ export default function LadderConsolidatedPage() {
     if (diffMin < 60) return `${diffMin} min ago`;
     const diffHrs = Math.floor(diffMin / 60);
     if (diffHrs < 24) return `${diffHrs}h ago`;
-    return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const formatRoundName = (round) => {
