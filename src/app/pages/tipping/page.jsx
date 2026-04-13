@@ -54,7 +54,7 @@ export default function TippingPage() {
     cancelEditing,
     startEditing,
     changeUser
-  } = useTipping(selectedUserId === 'admin' ? '' : selectedUserId); // Only pass user if not admin
+  } = useTipping(selectedUserId === 'admin' ? '' : selectedUserId, { isAdmin: selectedUserId === 'admin' });
 
   // For admin mode, don't sync with global context changes
   // Admin mode manages its own team selection locally

@@ -4,12 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 
-export default function useTipping(initialUserId = '') {
+export default function useTipping(initialUserId = '', { isAdmin = false } = {}) {
   const { currentRound, roundInfo, fixtures, changeRound, selectedYear, isPastYear } = useAppContext();
-  
+
   // Use refs to maintain state between renders
   const isInitializedRef = useRef(false);
-  
+
   // Local round state - initialized from global current round but can be changed independently
   const [localRound, setLocalRound] = useState(null);
   const [userChangedRound, setUserChangedRound] = useState(false);
@@ -58,7 +58,7 @@ export default function useTipping(initialUserId = '') {
   // Tips lock at the first game kickoff — applies to both past rounds and the current round.
   // (Unlike the old behaviour where current-round tips were always submittable.)
   const isRoundLocked = (round) => {
-    if (selectedUserId === 'admin') return false;
+    if (isAdmin) return false;
     if (round > currentRound) return false;
     const roundFixs = fixtures.filter(f => f.RoundNumber === round);
     if (roundFixs.length === 0) return false;
@@ -69,7 +69,7 @@ export default function useTipping(initialUserId = '') {
   // True when the round's first game has passed but it's still the current round
   // and the user hasn't already submitted before lockout.
   const isLateSubmission = (round) => {
-    if (selectedUserId === 'admin') return false;
+    if (isAdmin) return false;
     if (round !== currentRound) return false;
     if (!roundInfo.isLocked) return false;
     if (lastEditedTime && roundInfo.lockoutDate) {
@@ -184,11 +184,11 @@ export default function useTipping(initialUserId = '') {
   const handleTipSelect = (matchNumber, team) => {
     console.log(`Setting tip for match ${matchNumber} to ${team} (isEditing: ${isEditing})`);
 
-    if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
+    if (!isEditing || (isRoundLocked(localRound) && !isAdmin)) {
       console.log("Can't edit - editing is locked");
       return;
     }
-    
+
     // Keep everything in editedTips immutable
     setEditedTips(prev => {
       const newTips = { ...prev };
@@ -213,7 +213,7 @@ export default function useTipping(initialUserId = '') {
   const handleDeadCertToggle = (matchNumber) => {
     console.log(`Toggling dead cert for match ${matchNumber} (isEditing: ${isEditing})`);
 
-    if (!isEditing || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
+    if (!isEditing || (isRoundLocked(localRound) && !isAdmin)) {
       console.log("Can't edit - editing is locked");
       return;
     }
@@ -230,7 +230,7 @@ export default function useTipping(initialUserId = '') {
 
   // Save tips
   const saveTips = async () => {
-    if (!selectedUserId || (isRoundLocked(localRound) && selectedUserId !== 'admin')) {
+    if (!selectedUserId || (isRoundLocked(localRound) && !isAdmin)) {
       console.log("Can't save - no user selected or round is locked");
       return false;
     }
@@ -284,10 +284,10 @@ export default function useTipping(initialUserId = '') {
 
   // Start editing
   const startEditing = () => {
-    console.log("Starting editing, isLocked:", isRoundLocked(localRound), "userId:", selectedUserId);
-    
+    console.log("Starting editing, isLocked:", isRoundLocked(localRound), "isAdmin:", isAdmin, "userId:", selectedUserId);
+
     // Admin can always edit, or regular users if not locked and user is selected
-    if ((selectedUserId === 'admin' || !isRoundLocked(localRound)) && selectedUserId) {
+    if ((isAdmin || !isRoundLocked(localRound)) && selectedUserId) {
       console.log("Setting isEditing to true");
       // Ensure we're working with the latest data
       setEditedTips({ ...tips });
