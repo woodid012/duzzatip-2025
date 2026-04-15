@@ -1,27 +1,80 @@
-﻿name: DuzzaTip Backup Trigger
+name: DuzzaTip Backup Trigger
 
 on:
   schedule:
-    # Every 20 mins during AFL lockout windows (Wed–Sun AEST)
-    - cron: '*/20 8-11 * * 3'   # Wed 6pm-9pm AEST (teams announced for Thu games)
-    - cron: '*/20 8-11 * * 4'   # Thu 6pm-9pm AEST
-    - cron: '*/20 8-11 * * 5'   # Fri 6pm-9pm AEST
-    - cron: '*/20 1-11 * * 6'   # Sat 11am-9pm AEST
-    - cron: '*/20 1-8 * * 0'    # Sun 11am-6pm AEST
+    # Broad AFL season coverage — fixture-aware gate inside the job handles timing.
+    # No need to manually maintain per-round schedules; the fixture JSON drives it.
+    #
+    # All days  5pm–midnight AEST / 6pm–1am AEDT  (07:00–14:00 UTC)
+    #   → catches team announcements (24h before first game) + evening first games
+    - cron: '*/20 7-14 * * *'
+    # Sat + Sun  9am–5pm AEST  (23:00 Fri – 07:00 UTC)
+    #   → catches early-afternoon first games and their 24h-prior windows
+    - cron: '*/20 23-23 * * 5'   # Sat 9am AEST (Fri 23:00 UTC)
+    - cron: '*/20 0-7 * * 0,6'   # Sat/Sun 10am–5pm AEST (00:00–07:59 UTC)
   workflow_dispatch:
 
 jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out repo (for fixture data)
+        uses: actions/checkout@v4
+
+      - name: Check fixture window
+        id: fixture
+        run: |
+          python3 - <<'PYEOF'
+          import json, sys, os
+          from datetime import datetime, timezone, timedelta
+
+          with open('public/afl-2026.json') as f:
+              fixtures = json.load(f)
+
+          now = datetime.now(timezone.utc)
+          aest = timezone(timedelta(hours=10))
+
+          # Find the next upcoming round and its first game
+          upcoming = sorted(
+              [f for f in fixtures
+               if f['RoundNumber'] >= 0
+               and datetime.fromisoformat(f['DateUtc'].replace('Z', '+00:00')) > now],
+              key=lambda x: x['DateUtc']
+          )
+
+          if not upcoming:
+              print("Off-season — no upcoming fixtures, skipping")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                  fh.write("in_window=false\n")
+              sys.exit(0)
+
+          rn = upcoming[0]['RoundNumber']
+          rf = sorted(
+              [f for f in fixtures if f['RoundNumber'] == rn],
+              key=lambda x: x['DateUtc']
+          )
+          first = datetime.fromisoformat(rf[0]['DateUtc'].replace('Z', '+00:00'))
+          hours = (first - now).total_seconds() / 3600
+
+          print(f"Round {rn}: {rf[0]['HomeTeam']} vs {rf[0]['AwayTeam']}")
+          print(f"First game: {first.astimezone(aest).strftime('%a %d %b, %I:%M %p AEST')}")
+          print(f"Hours until lockout: {hours:.1f}h")
+          print(f"In 24h window: {0 < hours <= 24}")
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f"in_window={'true' if 0 < hours <= 24 else 'false'}\n")
+          PYEOF
+
       - name: Probe teams
         id: probe
+        if: steps.fixture.outputs.in_window == 'true'
         run: |
           RESULT=$(curl -s "https://duzzatip.vercel.app/api/lockout-notify?probe=1&token=${{ secrets.NOTIFY_SECRET }}")
           echo "result=$RESULT" >> $GITHUB_OUTPUT
           echo $RESULT
 
       - name: Trigger if announced and not locked
+        if: steps.fixture.outputs.in_window == 'true'
         run: |
           ANNOUNCED=$(echo '${{ steps.probe.outputs.result }}' | jq '.announced')
           LOCKED=$(echo '${{ steps.probe.outputs.result }}' | jq '.lockout.locked')
