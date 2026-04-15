@@ -2,7 +2,8 @@
 
 on:
   schedule:
-    # Every 20 mins during AFL lockout windows (Thu/Fri/Sat/Sun AEST)
+    # Every 20 mins during AFL lockout windows (Wed–Sun AEST)
+    - cron: '*/20 8-11 * * 3'   # Wed 6pm-9pm AEST (teams announced for Thu games)
     - cron: '*/20 8-11 * * 4'   # Thu 6pm-9pm AEST
     - cron: '*/20 8-11 * * 5'   # Fri 6pm-9pm AEST
     - cron: '*/20 1-11 * * 6'   # Sat 11am-9pm AEST
