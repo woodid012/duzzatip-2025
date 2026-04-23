@@ -594,7 +594,10 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
 
           const tippedPct = parseFloat(t.confidence);
           if (Number.isNaN(tippedPct)) return a + 50;
-          return a + (t.tip === f.HomeTeam ? tippedPct : 100 - tippedPct);
+          // Compare t.tip to t.hteam (both in Squiggle's naming) — t.tip uses
+          // short names (e.g. "Sydney") that won't strict-equal the fixture's
+          // long name (e.g. "Sydney Swans"), which would flip every result.
+          return a + (t.tip === t.hteam ? tippedPct : 100 - tippedPct);
         }, 0) / candidates.length;
         source = `Squiggle(${candidates.length})`;
       }
