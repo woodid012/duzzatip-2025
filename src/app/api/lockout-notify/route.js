@@ -630,8 +630,10 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
       dateUtc: f.DateUtc, favourite, confidence, homeOdds, awayOdds, favOdds, source,
     };
   });
+  // Dead Cert: +6 correct / -12 wrong → break-even at p = 12/18 = 66.7%
+  // Flag every match with confidence ≥ 67% (positive EV)
   for (const t of tips) {
-    if (t.confidence >= 75) t.suggestDC = true;
+    if (t.confidence >= 67) t.suggestDC = true;
   }
   return tips;
 }
