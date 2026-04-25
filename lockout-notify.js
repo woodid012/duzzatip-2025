@@ -644,9 +644,8 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
              favourite, homeOdds, awayOdds, confidence, favOdds, source };
   });
 
-  // Dead Cert: +6 correct / -12 wrong → break-even at p = 12/18 = 66.7%
-  // Flag every match with confidence ≥ 67% (positive EV)
-  tips.forEach(t => { if (t.confidence >= 67) t.suggestDC = true; });
+  // Dead Cert threshold: only flag matches with confidence ≥ 75%
+  tips.forEach(t => { if (t.confidence >= 75) t.suggestDC = true; });
   return tips;
 }
 
