@@ -516,14 +516,23 @@ function buildSelectionStatus(squadPlayers, fwSelections) {
 
 // ── Tips ──────────────────────────────────────────────────────────────────────
 async function fetchSquiggleTips(round) {
-  try {
-    const res = await fetch(`https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`, {
-      headers: { "User-Agent": "DuzzaTip-Notify/1.0 (afl fantasy assistant)" },
-      signal: AbortSignal.timeout(8000),
-    });
-    const data = await res.json();
-    return data?.tips?.length ? data.tips : null;
-  } catch (_) { return null; }
+  const url = `https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "DuzzaTip-Notify/1.0 (afl fantasy assistant)" },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data?.tips?.length) return data.tips;
+      lastErr = new Error("empty tips array");
+    } catch (e) { lastErr = e; }
+    if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+  }
+  console.error(`[Squiggle] fetch failed after 3 attempts: ${lastErr?.message || lastErr}`);
+  return null;
 }
 
 async function fetchSportsbetOdds() {
@@ -659,18 +668,33 @@ async function saveTeamSelection(db, round, result) {
 }
 async function saveTips(db, round, tips) {
   const col = db.collection(`${YEAR}_tips`);
+
+  // Preserve any user-set tips (IsDefault: false) — auto-save must not overwrite them
+  const existing = await col.find({ User: MY_USER, Round: round, Active: 1 }).toArray();
+  const userSetMatches = new Set(
+    existing.filter(t => t.IsDefault === false).map(t => t.MatchNumber)
+  );
+  const entries = Object.entries(tips).filter(([m]) => !userSetMatches.has(parseInt(m)));
+  const preservedMatches = Object.keys(tips).map(m => parseInt(m)).filter(m => userSetMatches.has(m));
+
+  if (entries.length === 0) {
+    return { savedCount: 0, preservedMatches };
+  }
+
+  const matchNums = entries.map(([m]) => parseInt(m));
   const bulkOps = [
-    { updateMany: { filter: { User: MY_USER, Round: round }, update: { $set: { Active: 0 } } } },
-    ...Object.entries(tips).map(([matchNum, tip]) => ({
+    { updateMany: { filter: { User: MY_USER, Round: round, MatchNumber: { $in: matchNums } }, update: { $set: { Active: 0 } } } },
+    ...entries.map(([matchNum, tip]) => ({
       updateOne: {
         filter: { User: MY_USER, Round: round, MatchNumber: parseInt(matchNum) },
-        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: false } },
+        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: true } },
         upsert: true,
       }
     }))
   ];
   await col.bulkWrite(bulkOps, { ordered: false });
   try { await db.collection(`${YEAR}_tipping_ladder_cache`).deleteMany({ year: YEAR, upToRound: { $gte: round } }); } catch (_) {}
+  return { savedCount: entries.length, preservedMatches };
 }
 
 // ── Notify state (MongoDB-backed, no local file on Vercel) ────────────────────
@@ -707,7 +731,7 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, tipsSaveResult, dry, injuries, isFinal }) {
   const lines = [];
   const hrs  = Math.floor(Math.abs(lockout.minsUntil) / 60);
   const mins = Math.abs(lockout.minsUntil) % 60;
@@ -770,6 +794,7 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   }
 
   // ── Tips ──
+  const preservedSet = new Set(tipsSaveResult?.preservedMatches || []);
   if (tipSuggestions?.length) {
     lines.push(`🏈 *TIPS — Round ${round}*`);
     lines.push("");
@@ -782,17 +807,23 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
       const oddsStr = t.homeOdds && t.awayOdds
         ? `  _($${t.homeOdds.toFixed(2)} / $${t.awayOdds.toFixed(2)})_`
         : "";
-      lines.push(`*Pick:* *${t.favourite}*  ${t.confidence}%${dc}${oddsStr}`);
+      const keptTag = preservedSet.has(t.matchNumber) ? " 🔒 _(your pick kept)_" : "";
+      lines.push(`*Pick:* *${t.favourite}*  ${t.confidence}%${dc}${oddsStr}${keptTag}`);
       lines.push(`${matchup}`);
       lines.push(`_${formatGameTime(t.dateUtc)}_`);
       lines.push("");
     }
   }
 
+  const preservedCount = preservedSet.size;
+  const savedCount = tipsSaveResult?.savedCount || 0;
+  const tipsStatus = savedTips
+    ? (preservedCount > 0
+        ? `✅ Tips: ${savedCount} saved, ${preservedCount} of your picks kept`
+        : `✅ Tips saved`)
+    : `⚠ Tips not saved`;
   lines.push(dry ? `_(dry-run: nothing saved)_` :
-    savedTeam && savedTips ? `✅ Team + tips saved` :
-    savedTeam ? `✅ Team saved  ⚠ Tips not saved` :
-    savedTips ? `⚠ Team not saved  ✅ Tips saved` : `⚠ Nothing saved`);
+    savedTeam ? `✅ Team saved  ${tipsStatus}` : `⚠ Team not saved  ${tipsStatus}`);
 
   return lines.join("\n");
 }
@@ -995,18 +1026,19 @@ async function handler(request) {
 
   // ── Save ──
   let savedTeam = false, savedTips = false;
+  let tipsSaveResult = { savedCount: 0, preservedMatches: [] };
   if (!dry) {
     try { await saveTeamSelection(db, round, result); savedTeam = true; } catch (_) {}
     try {
       const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
-      await saveTips(db, round, tipsToSave);
+      tipsSaveResult = await saveTips(db, round, tipsToSave);
       savedTips = true;
     } catch (_) {}
   }
 
   // ── Send ──
   const isFinal = sendType === "final";
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, tipsSaveResult, dry, injuries, isFinal });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }

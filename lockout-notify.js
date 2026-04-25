@@ -531,14 +531,18 @@ async function fetchTeamSelections(roundNumber) {
 
 // ===== Tips =====
 async function fetchSquiggleTips(round) {
-  try {
-    const axios = require("axios");
-    const res = await axios.get(`https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`, {
-      timeout: 8000,
-      headers: { "User-Agent": "DuzzaTip-Notify/1.0" }
-    });
-    if (res.data?.tips?.length) return res.data.tips;
-  } catch (_) {}
+  const axios = require("axios");
+  const url = `https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await axios.get(url, { timeout: 15000, headers: { "User-Agent": "DuzzaTip-Notify/1.0" } });
+      if (res.data?.tips?.length) return res.data.tips;
+      lastErr = new Error("empty tips array");
+    } catch (e) { lastErr = e; }
+    if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+  }
+  console.error(`[Squiggle] fetch failed after 3 attempts: ${lastErr?.message || lastErr}`);
   return null;
 }
 
@@ -668,20 +672,40 @@ async function saveTeamSelection(db, round, result) {
   }
   await col.bulkWrite(bulkOps, { ordered: false });
 }
-async function saveTips(db, round, tips) {
+async function saveTips(db, round, tips, { autoSave = false } = {}) {
   const col = db.collection(`${YEAR}_tips`);
+
+  let entries = Object.entries(tips);
+  let preservedMatches = [];
+  if (autoSave) {
+    // Auto-save: never overwrite a tip the user picked manually (IsDefault: false)
+    const existing = await col.find({ User: MY_USER, Round: round, Active: 1 }).toArray();
+    const userSetMatches = new Set(
+      existing.filter(t => t.IsDefault === false).map(t => t.MatchNumber)
+    );
+    preservedMatches = Object.keys(tips).map(m => parseInt(m)).filter(m => userSetMatches.has(m));
+    entries = entries.filter(([m]) => !userSetMatches.has(parseInt(m)));
+  }
+
+  if (entries.length === 0) {
+    return { savedCount: 0, preservedMatches };
+  }
+
+  const matchNums = entries.map(([m]) => parseInt(m));
+  const isDefaultFlag = autoSave;
   const bulkOps = [
-    { updateMany: { filter: { User: MY_USER, Round: round }, update: { $set: { Active: 0 } } } },
-    ...Object.entries(tips).map(([matchNum, tip]) => ({
+    { updateMany: { filter: { User: MY_USER, Round: round, MatchNumber: { $in: matchNums } }, update: { $set: { Active: 0 } } } },
+    ...entries.map(([matchNum, tip]) => ({
       updateOne: {
         filter: { User: MY_USER, Round: round, MatchNumber: parseInt(matchNum) },
-        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: false } },
+        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: isDefaultFlag } },
         upsert: true,
       }
     }))
   ];
   await col.bulkWrite(bulkOps, { ordered: false });
   try { await db.collection(`${YEAR}_tipping_ladder_cache`).deleteMany({ year: YEAR, upToRound: { $gte: round } }); } catch (_) {}
+  return { savedCount: entries.length, preservedMatches };
 }
 
 // ===== Format Telegram message =====
@@ -1316,9 +1340,10 @@ async function main() {
         for (const t of tipSuggestions) {
           tipsToSave[t.matchNumber] = { team: t.favourite, deadCert: !!t.suggestDC };
         }
-        await saveTips(db, round, tipsToSave);
+        const { savedCount, preservedMatches } = await saveTips(db, round, tipsToSave, { autoSave: true });
         savedTips = true;
-        console.log("   \u2705 Tips saved");
+        const kept = preservedMatches.length;
+        console.log(`   \u2705 Tips: ${savedCount} saved${kept ? `, ${kept} of your manual picks kept` : ""}`);
       } catch (e) {
         console.error("   \u274C Tips save failed:", e.message);
       }
