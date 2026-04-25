@@ -20,7 +20,10 @@ function aggHomePct(squiggleTips, homeTeam, awayTeam) {
     if (!Number.isNaN(h)) return a + h;
     const c = parseFloat(t.confidence);
     if (Number.isNaN(c)) return a + 50;
-    return a + (t.tip === homeTeam ? c : 100 - c);
+    // Compare t.tip to t.hteam (Squiggle's own naming) — comparing to homeTeam
+    // (fixture naming) flips orientation for teams whose Squiggle short name
+    // differs from the fixture name (e.g. "Sydney" vs "Sydney Swans").
+    return a + (t.tip === t.hteam ? c : 100 - c);
   }, 0);
   return sum / cands.length;
 }
