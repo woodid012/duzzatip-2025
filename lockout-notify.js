@@ -1334,7 +1334,7 @@ async function main() {
         console.error("   \u274C Team save failed:", e.message);
       }
     }
-    if (!dryRun && doTips && tipSuggestions) {
+    if (!dryRun && doTips && tipSuggestions && !tipSuggestions.every(t => t.source === "default")) {
       try {
         const tipsToSave = {};
         for (const t of tipSuggestions) {
@@ -1347,6 +1347,8 @@ async function main() {
       } catch (e) {
         console.error("   \u274C Tips save failed:", e.message);
       }
+    } else if (!dryRun && doTips && tipSuggestions) {
+      console.error("   ⚠ Skipping tip save — all tips are 50/50 fallback (Squiggle + Sportsbet both failed)");
     }
 
     await client.close();

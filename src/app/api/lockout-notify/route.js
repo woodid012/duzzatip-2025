@@ -18,6 +18,10 @@
 // This endpoint is time-sensitive; disable caching.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// Hobby caps at 10s — not enough for AFL scrape + Squiggle + Sportsbet + DB writes.
+// On Pro this raises it to 60s; on Hobby it's silently capped at 10s (but tip
+// fetches are fired in parallel below so they still get the full window).
+export const maxDuration = 60;
 
 import { connectToDatabase } from "@/app/lib/mongodb";
 import { INJURIES } from "@/app/lib/injuries_2026";
@@ -795,8 +799,10 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
 
   // ── Tips ──
   const preservedSet = new Set(tipsSaveResult?.preservedMatches || []);
+  const allDefaults = tipSuggestions?.length && tipSuggestions.every(t => t.source === "default");
   if (tipSuggestions?.length) {
     lines.push(`🏈 *TIPS — Round ${round}*`);
+    if (allDefaults) lines.push(`🚨 _Squiggle + Sportsbet unavailable — 50/50 home-team fallback. Review manually!_`);
     lines.push("");
     for (const t of tipSuggestions) {
       const dc = t.suggestDC ? " 💀 *DC*" : "";
@@ -904,6 +910,11 @@ async function handler(request) {
     const isFinalWindow = lockout && lockout.minsUntil <= FINAL_WINDOW_MINS;
     sendType = isFinalWindow ? "final" : "early";
   }
+
+  // ── Kick off external tip fetches NOW, in parallel with everything below ──
+  // Squiggle + Sportsbet are slow external calls; don't leave them till the end
+  // where the Vercel function timeout can kill them.
+  const tipFetches = Promise.all([fetchSquiggleTips(round), fetchSportsbetOdds()]);
 
   // ── Squad ──
   const squadDocs = await db.collection(`${YEAR}_squads`).find({ user_id: MY_USER, Active: 1 }).toArray();
@@ -1018,22 +1029,24 @@ async function handler(request) {
       result.reserveB = [...afterResA].sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
     }
   }
-  const [squiggleTips, sportsbetOdds] = await Promise.all([
-    fetchSquiggleTips(round),
-    fetchSportsbetOdds(),
-  ]);
+  const [squiggleTips, sportsbetOdds] = await tipFetches;
   const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds);
 
   // ── Save ──
   let savedTeam = false, savedTips = false;
   let tipsSaveResult = { savedCount: 0, preservedMatches: [] };
+  const allTipsAreDefault = tipSuggestions.length > 0 && tipSuggestions.every(t => t.source === "default");
   if (!dry) {
     try { await saveTeamSelection(db, round, result); savedTeam = true; } catch (_) {}
-    try {
-      const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
-      tipsSaveResult = await saveTips(db, round, tipsToSave);
-      savedTips = true;
-    } catch (_) {}
+    if (allTipsAreDefault) {
+      console.error("[lockout-notify] Skipping tip save — all tips are 50/50 fallback (Squiggle + Sportsbet both failed)");
+    } else {
+      try {
+        const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
+        tipsSaveResult = await saveTips(db, round, tipsToSave);
+        savedTips = true;
+      } catch (_) {}
+    }
   }
 
   // ── Send ──
