@@ -644,8 +644,11 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
              favourite, homeOdds, awayOdds, confidence, favOdds, source };
   });
 
-  // Dead Cert threshold: only flag matches with confidence ≥ 75%
-  tips.forEach(t => { if (t.confidence >= 75) t.suggestDC = true; });
+  // Dead Cert: +6 correct / -12 wrong → break-even at p = 12/18 = 66.7%.
+  // Backtest (2024–25, 189 matches) shows a calibration cliff at 67%: the
+  // 60-66% bin is ~63% accurate (negative EV) while 67-69% jumps to ~81%.
+  // Threshold ≥67% gives +354 net pts vs +252 at ≥75% over two seasons.
+  tips.forEach(t => { if (t.confidence >= 67) t.suggestDC = true; });
   return tips;
 }
 
