@@ -20,7 +20,8 @@ function aggHomePct(squig, h, a) {
     if (!Number.isNaN(hc)) return s + hc;
     const cc = parseFloat(t.confidence);
     if (Number.isNaN(cc)) return s + 50;
-    return s + (t.tip === h ? cc : 100 - cc);
+    // Compare t.tip to t.hteam (Squiggle's own naming); see backtest-dc.js note.
+    return s + (t.tip === t.hteam ? cc : 100 - cc);
   }, 0) / c.length;
 }
 
