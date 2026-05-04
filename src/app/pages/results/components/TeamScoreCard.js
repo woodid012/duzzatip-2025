@@ -62,7 +62,7 @@ export default function TeamScoreCard({
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+    <div id={`team-card-${userId}`} className="bg-white rounded-lg shadow-md p-3 sm:p-4 scroll-mt-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h2 className="text-lg sm:text-xl font-bold text-black">{userName}</h2>

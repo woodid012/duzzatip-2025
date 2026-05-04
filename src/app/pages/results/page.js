@@ -311,7 +311,7 @@ export default function ResultsPage() {
             // Don't render if scores aren't calculated yet (prevents flashing)
             if (!userTeamScores || loading) {
               return (
-                <div key={userId} className="bg-white rounded-lg shadow-md p-2">
+                <div key={userId} id={`team-card-${userId}`} className="bg-white rounded-lg shadow-md p-2 scroll-mt-4">
                   <div className="flex items-center justify-between mb-2">
                     <h2 className="text-sm font-bold text-black truncate">{USER_NAMES[userId]}</h2>
                     <div className="text-right font-bold text-sm text-black">
@@ -321,9 +321,9 @@ export default function ResultsPage() {
                 </div>
               );
             }
-            
+
             return (
-              <MobileTeamScoreCard 
+              <MobileTeamScoreCard
                 key={userId}
                 userId={userId}
                 userName={USER_NAMES[userId]}
@@ -349,7 +349,7 @@ export default function ResultsPage() {
             // Don't render if scores aren't calculated yet (prevents flashing)
             if (!userTeamScores || loading) {
               return (
-                <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+                <div key={userId} id={`team-card-${userId}`} className="bg-white rounded-lg shadow-md p-3 sm:p-4 scroll-mt-4">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId]}</h2>
                     <div className="text-right font-bold text-lg border-t pt-2 text-black">
@@ -390,7 +390,7 @@ function MobileTeamScoreCard({
   isRoundComplete
 }) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-2 sm:p-4">
+    <div id={`team-card-${userId}`} className="bg-white rounded-lg shadow-md p-2 sm:p-4 scroll-mt-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <h2 className="text-sm sm:text-lg font-bold text-black truncate">{userName}</h2>
