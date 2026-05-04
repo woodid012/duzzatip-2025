@@ -793,10 +793,14 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     }
   }
 
-  lines.push(dry ? `_(dry-run: nothing saved)_` :
-    savedTeam && savedTips ? `✅ Team + tips saved` :
-    savedTeam ? `✅ Team saved  ⚠ Tips not saved` :
-    savedTips ? `⚠ Team not saved  ✅ Tips saved` : `⚠ Nothing saved`);
+  lines.push(
+    dry ? `_(dry-run: nothing saved)_`
+    : isFinal ? `🔒 _Final window — review only (rolling lockout, DB not overwritten)_`
+    : savedTeam && savedTips ? `✅ Team + tips saved`
+    : savedTeam ? `✅ Team saved  ⚠ Tips not saved`
+    : savedTips ? `⚠ Team not saved  ✅ Tips saved`
+    : `⚠ Nothing saved`
+  );
 
   return lines.join("\n");
 }
@@ -832,6 +836,29 @@ async function handler(request) {
   const force    = searchParams.get("force") === "1";
   const dry      = searchParams.get("dry")   === "1";
   const probe    = searchParams.get("probe") === "1";
+  const warn     = searchParams.get("warn")  === "1";
+
+  // ── Warn mode: forward a message to Telegram (used by the scheduled routine
+  // to surface curl/HTTP/parse errors). Body or ?msg= param carries the text. ──
+  if (warn) {
+    let msg = searchParams.get("msg") || "";
+    if (!msg) {
+      try {
+        const body = await request.json();
+        msg = body?.message || body?.msg || "";
+      } catch (_) {
+        try { msg = await request.text(); } catch (_) {}
+      }
+    }
+    msg = (msg || "(no message)").toString().slice(0, 3500);
+    try {
+      await sendTelegram(`🚨 *DuzzaTip routine warning*\n${msg}`);
+      return Response.json({ ok: true, sent: true });
+    } catch (e) {
+      return Response.json({ ok: false, error: e.message }, { status: 500 });
+    }
+  }
+
   // preteams=1: allow lineup generation before AFL team selections are announced.
   // Still excludes bye players and long-term injuries (MONTHS/SEASON), but does NOT exclude "out" based on team selection.
   const preteams = searchParams.get("preteams") === "1";
@@ -998,8 +1025,12 @@ async function handler(request) {
   const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds);
 
   // ── Save ──
+  // Rolling lockout: only persist team + tips on the EARLY (first) window.
+  // The FINAL window is review-only — sends Telegram with recommendations but
+  // does NOT overwrite the DB, so any mid-weekend manual edits stick.
   let savedTeam = false, savedTips = false;
-  if (!dry) {
+  const shouldSave = !dry && sendType === "early";
+  if (shouldSave) {
     try { await saveTeamSelection(db, round, result); savedTeam = true; } catch (_) {}
     try {
       const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
