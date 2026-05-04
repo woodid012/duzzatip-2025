@@ -793,14 +793,10 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     }
   }
 
-  lines.push(
-    dry ? `_(dry-run: nothing saved)_`
-    : isFinal ? `🔒 _Final window — review only (rolling lockout, DB not overwritten)_`
-    : savedTeam && savedTips ? `✅ Team + tips saved`
-    : savedTeam ? `✅ Team saved  ⚠ Tips not saved`
-    : savedTips ? `⚠ Team not saved  ✅ Tips saved`
-    : `⚠ Nothing saved`
-  );
+  lines.push(dry ? `_(dry-run: nothing saved)_` :
+    savedTeam && savedTips ? `✅ Team + tips saved` :
+    savedTeam ? `✅ Team saved  ⚠ Tips not saved` :
+    savedTips ? `⚠ Team not saved  ✅ Tips saved` : `⚠ Nothing saved`);
 
   return lines.join("\n");
 }
@@ -1025,12 +1021,13 @@ async function handler(request) {
   const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds);
 
   // ── Save ──
-  // Rolling lockout: only persist team + tips on the EARLY (first) window.
-  // The FINAL window is review-only — sends Telegram with recommendations but
-  // does NOT overwrite the DB, so any mid-weekend manual edits stick.
+  // Two commits per round, both before the round's first bounce:
+  //   EARLY (~24h before first game): full save (team + tips).
+  //   FINAL (~45m before first game, all teams out): full save again to pick
+  //                                                  up late AFL team changes.
+  // Server-side dedup (notify_state) prevents either window from firing twice.
   let savedTeam = false, savedTips = false;
-  const shouldSave = !dry && sendType === "early";
-  if (shouldSave) {
+  if (!dry) {
     try { await saveTeamSelection(db, round, result); savedTeam = true; } catch (_) {}
     try {
       const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
