@@ -131,13 +131,15 @@ function hasLiveGames(teamScoreData) {
     teamScoreData.benchScores?.some(b => b.isGameLive);
 }
 
-// Scroll the matching team card into view
+// Scroll the matching team card into view. Both mobile and desktop variants
+// share the same id, so pick the one currently visible (display: block).
 function scrollToTeamCard(userId) {
   if (!userId) return;
   if (typeof document === 'undefined') return;
-  const el = document.getElementById(`team-card-${userId}`);
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const candidates = document.querySelectorAll(`[id="team-card-${userId}"]`);
+  const visible = Array.from(candidates).find(el => el.offsetParent !== null) || candidates[0];
+  if (visible) {
+    visible.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
@@ -159,26 +161,24 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
         const awayLive = hasLiveGames(awayTeamData);
         const matchHasLive = homeLive || awayLive;
 
-        // Click target: jump to the user's team if they're in this match,
-        // otherwise to the home team.
+        // Click jumps to the user's team if they're in this match, otherwise
+        // to the home team — its card sits next to the away team's in the grid.
         const jumpTarget = (selectedUserId && String(fixture.away) === String(selectedUserId))
           ? fixture.away
           : fixture.home;
 
         return (
-          <div
+          <button
+            type="button"
             key={fixture.home + '-' + fixture.away}
-            role="button"
-            tabIndex={0}
             onClick={() => scrollToTeamCard(jumpTarget)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToTeamCard(jumpTarget); } }}
             className={`${
               isSelectedUserMatch
                 ? 'bg-blue-50 border-blue-200'
                 : matchHasLive
                   ? 'bg-amber-50 border-amber-200'
                   : 'bg-white'
-            } rounded-lg shadow-md p-2 sm:p-3 order-${index} cursor-pointer hover:brightness-95 active:brightness-90 transition`}
+            } text-left rounded-lg shadow-md p-2 sm:p-3 order-${index} cursor-pointer hover:shadow-xl hover:ring-2 hover:ring-blue-400 active:shadow-md transition`}
           >
             <div className="text-center text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
               Game {index + 1}
@@ -189,10 +189,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
               )}
             </div>
             <div className="flex justify-between items-center">
-              <div
-                onClick={(e) => { e.stopPropagation(); scrollToTeamCard(fixture.home); }}
-                className="text-center flex-1 rounded p-1 -m-1 hover:bg-black/5 active:bg-black/10 transition-colors"
-              >
+              <div className="text-center flex-1">
                 <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[fixture.home]}</div>
                 <div className={`font-medium text-xs sm:text-sm truncate ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.home] || fixture.home}
@@ -203,10 +200,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 </div>
               </div>
               <div className="text-center text-gray-500 px-1 sm:px-2 text-xs sm:text-base">vs</div>
-              <div
-                onClick={(e) => { e.stopPropagation(); scrollToTeamCard(fixture.away); }}
-                className="text-center flex-1 rounded p-1 -m-1 hover:bg-black/5 active:bg-black/10 transition-colors"
-              >
+              <div className="text-center flex-1">
                 <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[fixture.away]}</div>
                 <div className={`font-medium text-xs sm:text-sm truncate ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.away] || fixture.away}
@@ -217,7 +211,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 </div>
               </div>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -280,19 +274,17 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
       : fixture.home;
 
     return (
-      <div
+      <button
+        type="button"
         key={`finals-${index}`}
-        role="button"
-        tabIndex={0}
         onClick={() => scrollToTeamCard(finalsJumpTarget)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToTeamCard(finalsJumpTarget); } }}
         className={`${
           isSelectedUserMatch
             ? 'bg-blue-50 border-blue-300 border-2'
             : matchHasLive
               ? 'bg-amber-50 border-amber-200 border-2'
               : 'bg-white border-gray-200 border'
-        } rounded-lg shadow-md p-4 cursor-pointer hover:brightness-95 active:brightness-90 transition`}
+        } w-full text-left rounded-lg shadow-md p-4 cursor-pointer hover:shadow-xl hover:ring-2 hover:ring-blue-400 active:shadow-md transition`}
       >
         <div className="text-center text-sm font-semibold text-gray-700 mb-3">
           {fixture.name || `Match ${index + 1}`}
@@ -304,8 +296,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
         </div>
         <div className="flex justify-between items-center">
           <div
-            onClick={(e) => { e.stopPropagation(); scrollToTeamCard(fixture.home); }}
-            className={`text-center flex-1 cursor-pointer hover:bg-black/5 active:bg-black/10 rounded transition-colors p-1 -m-1 ${homeWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
+            className={`text-center flex-1 ${homeWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
           >
             <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.home]}</div>
             <div className={`font-medium text-sm ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
@@ -326,8 +317,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
           </div>
           <div className="text-center text-gray-500 px-2">vs</div>
           <div
-            onClick={(e) => { e.stopPropagation(); scrollToTeamCard(fixture.away); }}
-            className={`text-center flex-1 cursor-pointer hover:bg-black/5 active:bg-black/10 rounded transition-colors p-1 -m-1 ${awayWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
+            className={`text-center flex-1 ${awayWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
           >
             <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.away]}</div>
             <div className={`font-medium text-sm ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
@@ -352,7 +342,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
             {fixture.note}
           </div>
         )}
-      </div>
+      </button>
     );
   };
   
