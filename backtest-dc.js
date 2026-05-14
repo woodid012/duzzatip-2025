@@ -7,12 +7,36 @@ const axios = require("axios");
 const YEARS = [2024, 2025];
 const WIN_PTS = 6, LOSS_PTS = -12;
 
+// Squiggle's 18 team names → our fixture-file team names. See route.js for the
+// full explanation; we match by translating Squiggle's name to the fixture's.
+const SQUIGGLE_TEAMS = {
+  "Adelaide":                "Adelaide Crows",
+  "Brisbane Lions":          "Brisbane Lions",
+  "Carlton":                 "Carlton",
+  "Collingwood":             "Collingwood",
+  "Essendon":                "Essendon",
+  "Fremantle":               "Fremantle",
+  "Geelong":                 "Geelong Cats",
+  "Gold Coast":              "Gold Coast SUNS",
+  "Greater Western Sydney":  "GWS GIANTS",
+  "Hawthorn":                "Hawthorn",
+  "Melbourne":               "Melbourne",
+  "North Melbourne":         "North Melbourne",
+  "Port Adelaide":           "Port Adelaide",
+  "Richmond":                "Richmond",
+  "St Kilda":                "St Kilda",
+  "Sydney":                  "Sydney Swans",
+  "West Coast":              "West Coast Eagles",
+  "Western Bulldogs":        "Western Bulldogs",
+};
+
 function aggHomePct(squiggleTips, homeTeam, awayTeam) {
+  // Case-insensitive on the fixture side because 2024 used "GWS Giants" /
+  // "Gold Coast Suns" while 2025+ uses "GWS GIANTS" / "Gold Coast SUNS".
+  const h = homeTeam.toLowerCase(), a = awayTeam.toLowerCase();
   const cands = squiggleTips.filter(t =>
-    (t.hteam?.toLowerCase().includes(homeTeam.split(" ")[0].toLowerCase()) ||
-     homeTeam.toLowerCase().includes((t.hteam || "").split(" ")[0].toLowerCase())) &&
-    (t.ateam?.toLowerCase().includes(awayTeam.split(" ")[0].toLowerCase()) ||
-     awayTeam.toLowerCase().includes((t.ateam || "").split(" ")[0].toLowerCase()))
+    SQUIGGLE_TEAMS[t.hteam]?.toLowerCase() === h &&
+    SQUIGGLE_TEAMS[t.ateam]?.toLowerCase() === a
   );
   if (!cands.length) return null;
   const sum = cands.reduce((a, t) => {

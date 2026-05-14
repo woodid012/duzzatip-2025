@@ -530,6 +530,54 @@ async function fetchTeamSelections(roundNumber) {
 }
 
 // ===== Tips =====
+// Squiggle's 18 team names → our fixture-file team names.
+// Source: https://api.squiggle.com.au/?q=teams ("name" field).
+// The two systems disagree on several names (e.g. Squiggle "Greater Western
+// Sydney" vs fixture "GWS GIANTS") so we match through this dictionary.
+const SQUIGGLE_TEAMS = {
+  "Adelaide":                "Adelaide Crows",
+  "Brisbane Lions":          "Brisbane Lions",
+  "Carlton":                 "Carlton",
+  "Collingwood":             "Collingwood",
+  "Essendon":                "Essendon",
+  "Fremantle":               "Fremantle",
+  "Geelong":                 "Geelong Cats",
+  "Gold Coast":              "Gold Coast SUNS",
+  "Greater Western Sydney":  "GWS GIANTS",
+  "Hawthorn":                "Hawthorn",
+  "Melbourne":               "Melbourne",
+  "North Melbourne":         "North Melbourne",
+  "Port Adelaide":           "Port Adelaide",
+  "Richmond":                "Richmond",
+  "St Kilda":                "St Kilda",
+  "Sydney":                  "Sydney Swans",
+  "West Coast":              "West Coast Eagles",
+  "Western Bulldogs":        "Western Bulldogs",
+};
+
+// Sportsbet names are scraped from HTML and inconsistent — use a fuzzy alias
+// map keyed by lowercase nickname/short form, pointing at the fixture name.
+const SPORTSBET_ALIASES = {
+  "adelaide": "Adelaide Crows", "crows": "Adelaide Crows",
+  "brisbane": "Brisbane Lions", "brisbane lions": "Brisbane Lions", "lions": "Brisbane Lions",
+  "carlton": "Carlton", "blues": "Carlton",
+  "collingwood": "Collingwood", "magpies": "Collingwood",
+  "essendon": "Essendon", "bombers": "Essendon",
+  "fremantle": "Fremantle", "dockers": "Fremantle",
+  "geelong": "Geelong Cats", "geelong cats": "Geelong Cats", "cats": "Geelong Cats",
+  "gold coast": "Gold Coast SUNS", "gold coast suns": "Gold Coast SUNS", "suns": "Gold Coast SUNS",
+  "gws": "GWS GIANTS", "gws giants": "GWS GIANTS", "greater western sydney": "GWS GIANTS", "giants": "GWS GIANTS",
+  "hawthorn": "Hawthorn", "hawks": "Hawthorn",
+  "melbourne": "Melbourne", "demons": "Melbourne",
+  "north melbourne": "North Melbourne", "kangaroos": "North Melbourne",
+  "port adelaide": "Port Adelaide", "power": "Port Adelaide",
+  "richmond": "Richmond", "tigers": "Richmond",
+  "st kilda": "St Kilda", "saints": "St Kilda",
+  "sydney": "Sydney Swans", "sydney swans": "Sydney Swans", "swans": "Sydney Swans",
+  "west coast": "West Coast Eagles", "west coast eagles": "West Coast Eagles", "eagles": "West Coast Eagles",
+  "western bulldogs": "Western Bulldogs", "bulldogs": "Western Bulldogs",
+};
+
 async function fetchSquiggleTips(round) {
   try {
     const axios = require("axios");
@@ -596,10 +644,8 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
     // Try Squiggle (win probability aggregated from tipsters)
     if (squiggleTips) {
       const candidates = squiggleTips.filter(t =>
-        (t.hteam?.toLowerCase().includes(f.HomeTeam.split(" ")[0].toLowerCase()) ||
-         f.HomeTeam.toLowerCase().includes((t.hteam || "").split(" ")[0].toLowerCase())) &&
-        (t.ateam?.toLowerCase().includes(f.AwayTeam.split(" ")[0].toLowerCase()) ||
-         f.AwayTeam.toLowerCase().includes((t.ateam || "").split(" ")[0].toLowerCase()))
+        SQUIGGLE_TEAMS[t.hteam] === f.HomeTeam &&
+        SQUIGGLE_TEAMS[t.ateam] === f.AwayTeam
       );
       if (candidates.length > 0) {
         homePct = candidates.reduce((a, t) => {
@@ -618,14 +664,8 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
 
     // Try Sportsbet (direct odds — overrides Squiggle if available)
     if (sportsbetOdds) {
-      const homeKey = Object.keys(sportsbetOdds).find(k =>
-        f.HomeTeam.toLowerCase().includes(k.toLowerCase().split(" ")[0]) ||
-        k.toLowerCase().includes(f.HomeTeam.toLowerCase().split(" ")[0])
-      );
-      const awayKey = Object.keys(sportsbetOdds).find(k =>
-        f.AwayTeam.toLowerCase().includes(k.toLowerCase().split(" ")[0]) ||
-        k.toLowerCase().includes(f.AwayTeam.toLowerCase().split(" ")[0])
-      );
+      const homeKey = Object.keys(sportsbetOdds).find(k => SPORTSBET_ALIASES[k.toLowerCase().trim()] === f.HomeTeam);
+      const awayKey = Object.keys(sportsbetOdds).find(k => SPORTSBET_ALIASES[k.toLowerCase().trim()] === f.AwayTeam);
       if (homeKey && awayKey) {
         homeOdds = sportsbetOdds[homeKey];
         awayOdds = sportsbetOdds[awayKey];
