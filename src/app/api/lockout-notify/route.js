@@ -568,7 +568,7 @@ const SPORTSBET_ALIASES = {
 // a diagnostic when we can't get tips so the handler can surface it.
 async function fetchSquiggleTips(round) {
   const url = `https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`;
-  const headers = { "User-Agent": "DuzzaTip-Notify/1.0 (afl fantasy assistant; contact: duzzatip)" };
+  const headers = { "User-Agent": "DuzzaTip/1.0 (+https://duzzatip.vercel.app; expense.woodenduck@gmail.com)" };
   let lastError = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
