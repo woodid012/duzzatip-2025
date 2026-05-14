@@ -713,17 +713,23 @@ async function saveTeamSelection(db, round, result) {
 async function saveTips(db, round, tips) {
   const col = db.collection(`${YEAR}_tips`);
 
-  // Preserve any manual tips. We treat IsDefault===false on an active doc as
-  // "user picked this in the UI" — the cron-written tips are marked
-  // IsDefault:true so subsequent runs can freely overwrite them.
+  // The UI uses IsDefault===true to mean "this is just a fallback, not a real
+  // submission" (renders as "(Def)" italic). So all cron-written tips MUST be
+  // IsDefault:false to display as submitted. To still tell auto from manual,
+  // cron writes set AutoPicked:true; manual UI saves leave it absent.
   const existing = await col.find({ User: MY_USER, Round: round, Active: 1 }).toArray();
   const manualMatches = new Set(
-    existing.filter(d => d.IsDefault === false).map(d => d.MatchNumber)
+    existing.filter(d => d.AutoPicked !== true).map(d => d.MatchNumber)
   );
 
   const bulkOps = [
-    // Only deactivate prior auto-picks; manual tips stay Active:1.
-    { updateMany: { filter: { User: MY_USER, Round: round, IsDefault: true }, update: { $set: { Active: 0 } } } },
+    // Deactivate prior auto-picks so a stale auto pick from a previous cron
+    // run gets cleared (the new write below will reactivate the slot).
+    { updateMany: { filter: { User: MY_USER, Round: round, AutoPicked: true }, update: { $set: { Active: 0 } } } },
+    // Heal data written by the buggy v8 cron: any existing active tip with
+    // IsDefault:true was a cron save mislabelled as a fallback. Flip it back
+    // so the UI shows it as a real submission.
+    { updateMany: { filter: { User: MY_USER, Round: round, Active: 1, IsDefault: true }, update: { $set: { IsDefault: false } } } },
   ];
   const written = [], preserved = [];
   for (const [matchNumStr, tip] of Object.entries(tips)) {
@@ -733,7 +739,7 @@ async function saveTips(db, round, tips) {
     bulkOps.push({
       updateOne: {
         filter: { User: MY_USER, Round: round, MatchNumber: matchNum },
-        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: true } },
+        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: false, AutoPicked: true } },
         upsert: true,
       }
     });
