@@ -530,6 +530,34 @@ async function fetchTeamSelections(roundNumber) {
 }
 
 // ===== Tips =====
+// Canonical AFL team IDs. Squiggle ("Greater Western Sydney"), fixtures
+// ("GWS GIANTS") and Sportsbet ("Giants") all use different naming, and the
+// previous prefix-includes match silently failed for those cases — falling
+// back to 50% confidence.
+const TEAM_ID = {
+  "adelaide": "adelaide", "adelaide crows": "adelaide", "crows": "adelaide",
+  "brisbane": "brisbane", "brisbane lions": "brisbane", "lions": "brisbane",
+  "carlton": "carlton", "blues": "carlton",
+  "collingwood": "collingwood", "magpies": "collingwood", "pies": "collingwood",
+  "essendon": "essendon", "bombers": "essendon", "dons": "essendon",
+  "fremantle": "fremantle", "dockers": "fremantle", "freo": "fremantle",
+  "geelong": "geelong", "geelong cats": "geelong", "cats": "geelong",
+  "gold coast": "gold-coast", "gold coast suns": "gold-coast", "suns": "gold-coast",
+  "gws": "gws", "gws giants": "gws", "greater western sydney": "gws", "giants": "gws",
+  "hawthorn": "hawthorn", "hawks": "hawthorn",
+  "melbourne": "melbourne", "demons": "melbourne", "dees": "melbourne",
+  "north melbourne": "north-melbourne", "north": "north-melbourne", "kangaroos": "north-melbourne", "roos": "north-melbourne",
+  "port adelaide": "port-adelaide", "port": "port-adelaide", "power": "port-adelaide",
+  "richmond": "richmond", "tigers": "richmond",
+  "st kilda": "st-kilda", "saints": "st-kilda",
+  "sydney": "sydney", "sydney swans": "sydney", "swans": "sydney",
+  "west coast": "west-coast", "west coast eagles": "west-coast", "eagles": "west-coast",
+  "western bulldogs": "western-bulldogs", "bulldogs": "western-bulldogs", "footscray": "western-bulldogs",
+};
+function teamId(name) {
+  return name ? TEAM_ID[name.toLowerCase().trim()] || null : null;
+}
+
 async function fetchSquiggleTips(round) {
   try {
     const axios = require("axios");
@@ -595,11 +623,9 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
 
     // Try Squiggle (win probability aggregated from tipsters)
     if (squiggleTips) {
+      const hId = teamId(f.HomeTeam), aId = teamId(f.AwayTeam);
       const candidates = squiggleTips.filter(t =>
-        (t.hteam?.toLowerCase().includes(f.HomeTeam.split(" ")[0].toLowerCase()) ||
-         f.HomeTeam.toLowerCase().includes((t.hteam || "").split(" ")[0].toLowerCase())) &&
-        (t.ateam?.toLowerCase().includes(f.AwayTeam.split(" ")[0].toLowerCase()) ||
-         f.AwayTeam.toLowerCase().includes((t.ateam || "").split(" ")[0].toLowerCase()))
+        hId && aId && teamId(t.hteam) === hId && teamId(t.ateam) === aId
       );
       if (candidates.length > 0) {
         homePct = candidates.reduce((a, t) => {
@@ -618,14 +644,9 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
 
     // Try Sportsbet (direct odds — overrides Squiggle if available)
     if (sportsbetOdds) {
-      const homeKey = Object.keys(sportsbetOdds).find(k =>
-        f.HomeTeam.toLowerCase().includes(k.toLowerCase().split(" ")[0]) ||
-        k.toLowerCase().includes(f.HomeTeam.toLowerCase().split(" ")[0])
-      );
-      const awayKey = Object.keys(sportsbetOdds).find(k =>
-        f.AwayTeam.toLowerCase().includes(k.toLowerCase().split(" ")[0]) ||
-        k.toLowerCase().includes(f.AwayTeam.toLowerCase().split(" ")[0])
-      );
+      const hId = teamId(f.HomeTeam), aId = teamId(f.AwayTeam);
+      const homeKey = Object.keys(sportsbetOdds).find(k => teamId(k) === hId);
+      const awayKey = Object.keys(sportsbetOdds).find(k => teamId(k) === aId);
       if (homeKey && awayKey) {
         homeOdds = sportsbetOdds[homeKey];
         awayOdds = sportsbetOdds[awayKey];

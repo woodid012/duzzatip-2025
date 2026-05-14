@@ -7,12 +7,35 @@ const MY_USER = 4;
 const YEAR = 2026;
 const WIN = 6, LOSS = -12;
 
+// See lockout-notify.js for why a strict alias map is needed (GWS / Bulldogs / etc.).
+const TEAM_ID = {
+  "adelaide": "adelaide", "adelaide crows": "adelaide", "crows": "adelaide",
+  "brisbane": "brisbane", "brisbane lions": "brisbane", "lions": "brisbane",
+  "carlton": "carlton", "blues": "carlton",
+  "collingwood": "collingwood", "magpies": "collingwood", "pies": "collingwood",
+  "essendon": "essendon", "bombers": "essendon", "dons": "essendon",
+  "fremantle": "fremantle", "dockers": "fremantle", "freo": "fremantle",
+  "geelong": "geelong", "geelong cats": "geelong", "cats": "geelong",
+  "gold coast": "gold-coast", "gold coast suns": "gold-coast", "suns": "gold-coast",
+  "gws": "gws", "gws giants": "gws", "greater western sydney": "gws", "giants": "gws",
+  "hawthorn": "hawthorn", "hawks": "hawthorn",
+  "melbourne": "melbourne", "demons": "melbourne", "dees": "melbourne",
+  "north melbourne": "north-melbourne", "north": "north-melbourne", "kangaroos": "north-melbourne", "roos": "north-melbourne",
+  "port adelaide": "port-adelaide", "port": "port-adelaide", "power": "port-adelaide",
+  "richmond": "richmond", "tigers": "richmond",
+  "st kilda": "st-kilda", "saints": "st-kilda",
+  "sydney": "sydney", "sydney swans": "sydney", "swans": "sydney",
+  "west coast": "west-coast", "west coast eagles": "west-coast", "eagles": "west-coast",
+  "western bulldogs": "western-bulldogs", "bulldogs": "western-bulldogs", "footscray": "western-bulldogs",
+};
+function teamId(name) {
+  return name ? TEAM_ID[name.toLowerCase().trim()] || null : null;
+}
+
 function aggHomePct(squig, h, a) {
+  const hId = teamId(h), aId = teamId(a);
   const c = squig.filter(t =>
-    (t.hteam?.toLowerCase().includes(h.split(" ")[0].toLowerCase()) ||
-     h.toLowerCase().includes((t.hteam || "").split(" ")[0].toLowerCase())) &&
-    (t.ateam?.toLowerCase().includes(a.split(" ")[0].toLowerCase()) ||
-     a.toLowerCase().includes((t.ateam || "").split(" ")[0].toLowerCase()))
+    hId && aId && teamId(t.hteam) === hId && teamId(t.ateam) === aId
   );
   if (!c.length) return null;
   return c.reduce((s, t) => {
