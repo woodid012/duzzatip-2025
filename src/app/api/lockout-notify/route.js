@@ -563,15 +563,25 @@ const SPORTSBET_ALIASES = {
   "western bulldogs": "Western Bulldogs", "bulldogs": "Western Bulldogs",
 };
 
+// Squiggle is reachable from Vercel but the AU→US-East round trip is slow
+// and occasionally drops; retry once with a longer timeout, and always return
+// a diagnostic when we can't get tips so the handler can surface it.
 async function fetchSquiggleTips(round) {
-  try {
-    const res = await fetch(`https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`, {
-      headers: { "User-Agent": "DuzzaTip-Notify/1.0 (afl fantasy assistant)" },
-      signal: AbortSignal.timeout(8000),
-    });
-    const data = await res.json();
-    return data?.tips?.length ? data.tips : null;
-  } catch (_) { return null; }
+  const url = `https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`;
+  const headers = { "User-Agent": "DuzzaTip-Notify/1.0 (afl fantasy assistant; contact: duzzatip)" };
+  let lastError = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+      if (!res.ok) { lastError = `HTTP ${res.status}`; continue; }
+      const data = await res.json();
+      if (data?.tips?.length) return { tips: data.tips, fetchError: null };
+      lastError = "empty tips array";
+    } catch (e) {
+      lastError = e?.name === "TimeoutError" ? "timeout after 15s" : (e?.message || "fetch failed");
+    }
+  }
+  return { tips: null, fetchError: `Squiggle fetch failed (round ${round}): ${lastError}` };
 }
 
 async function fetchSportsbetOdds() {
@@ -1079,18 +1089,26 @@ async function handler(request) {
       result.reserveB = [...afterResA].sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
     }
   }
-  const [squiggleTips, sportsbetOdds] = await Promise.all([
+  const [squiggleResult, sportsbetOdds] = await Promise.all([
     fetchSquiggleTips(round),
     fetchSportsbetOdds(),
   ]);
+  const { tips: squiggleTips, fetchError: squiggleFetchError } = squiggleResult;
   const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds);
 
-  // 50/50 from Squiggle = team-name dictionary bug. Surface as a JSON error so
-  // the cron routine fires its warn-to-Telegram path.
+  // Surface any Squiggle problem as an error so the cron routine fires its
+  // warn-to-Telegram path. Two failure modes:
+  //   1. fetchError: request to Squiggle failed (timeout / non-200 / parse) —
+  //      every tip falls through to home-team 50%, silent until now.
+  //   2. squiggleUnmatched: request succeeded but no candidates matched a
+  //      fixture by name — always a dictionary bug.
   const squiggleUnmatched = tipSuggestions.filter(t => t.squiggleUnmatched);
-  const squiggleError = squiggleUnmatched.length
-    ? `Squiggle name match failed for ${squiggleUnmatched.length}/${tipSuggestions.length} match(es) — update SQUIGGLE_TEAMS: ${squiggleUnmatched.map(t => `"${t.homeTeam}" v "${t.awayTeam}"`).join("; ")}`
-    : null;
+  const errors = [];
+  if (squiggleFetchError) errors.push(squiggleFetchError);
+  if (squiggleUnmatched.length) {
+    errors.push(`Squiggle name match failed for ${squiggleUnmatched.length}/${tipSuggestions.length} match(es) — update SQUIGGLE_TEAMS: ${squiggleUnmatched.map(t => `"${t.homeTeam}" v "${t.awayTeam}"`).join("; ")}`);
+  }
+  const squiggleError = errors.length ? errors.join(" | ") : null;
   if (squiggleError) console.error(squiggleError);
 
   // ── Save ──
