@@ -710,18 +710,36 @@ async function saveTeamSelection(db, round, result) {
 }
 async function saveTips(db, round, tips) {
   const col = db.collection(`${YEAR}_tips`);
+
+  // Preserve any manual tips. We treat IsDefault===false on an active doc as
+  // "user picked this in the UI" — the cron-written tips are marked
+  // IsDefault:true so subsequent runs can freely overwrite them.
+  const existing = await col.find({ User: MY_USER, Round: round, Active: 1 }).toArray();
+  const manualMatches = new Set(
+    existing.filter(d => d.IsDefault === false).map(d => d.MatchNumber)
+  );
+
   const bulkOps = [
-    { updateMany: { filter: { User: MY_USER, Round: round }, update: { $set: { Active: 0 } } } },
-    ...Object.entries(tips).map(([matchNum, tip]) => ({
+    // Only deactivate prior auto-picks; manual tips stay Active:1.
+    { updateMany: { filter: { User: MY_USER, Round: round, IsDefault: true }, update: { $set: { Active: 0 } } } },
+  ];
+  const written = [], preserved = [];
+  for (const [matchNumStr, tip] of Object.entries(tips)) {
+    const matchNum = parseInt(matchNumStr);
+    if (manualMatches.has(matchNum)) { preserved.push(matchNum); continue; }
+    written.push(matchNum);
+    bulkOps.push({
       updateOne: {
-        filter: { User: MY_USER, Round: round, MatchNumber: parseInt(matchNum) },
-        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: false } },
+        filter: { User: MY_USER, Round: round, MatchNumber: matchNum },
+        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: true } },
         upsert: true,
       }
-    }))
-  ];
+    });
+  }
+
   await col.bulkWrite(bulkOps, { ordered: false });
   try { await db.collection(`${YEAR}_tipping_ladder_cache`).deleteMany({ year: YEAR, upToRound: { $gte: round } }); } catch (_) {}
+  return { written, preserved };
 }
 
 // ── Notify state (MongoDB-backed, no local file on Vercel) ────────────────────
@@ -1082,11 +1100,14 @@ async function handler(request) {
   //                                                  up late AFL team changes.
   // Server-side dedup (notify_state) prevents either window from firing twice.
   let savedTeam = false, savedTips = false;
+  let tipsWritten = [], tipsPreserved = [];
   if (!dry) {
     try { await saveTeamSelection(db, round, result); savedTeam = true; } catch (_) {}
     try {
       const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
-      await saveTips(db, round, tipsToSave);
+      const saveResult = await saveTips(db, round, tipsToSave);
+      tipsWritten = saveResult.written;
+      tipsPreserved = saveResult.preserved;
       savedTips = true;
     } catch (_) {}
   }
@@ -1107,6 +1128,7 @@ async function handler(request) {
     autoExcluded: [...autoExcluded],
     byePlayers: byePlayers.map(p => p.name),
     savedTeam, savedTips, sent,
+    tipsWritten, tipsPreserved,
     lineup: Object.fromEntries(MAIN_POSITIONS.map(pos => [pos, result.lineup[pos]?.name || null])),
     tips: tipSuggestions.map(t => ({ match: `${t.homeTeam} v ${t.awayTeam}`, tip: t.favourite, confidence: t.confidence, dc: !!t.suggestDC, homeOdds: t.homeOdds, awayOdds: t.awayOdds, source: t.source })),
     error: squiggleError || undefined,
