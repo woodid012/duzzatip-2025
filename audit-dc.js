@@ -7,35 +7,34 @@ const MY_USER = 4;
 const YEAR = 2026;
 const WIN = 6, LOSS = -12;
 
-// See lockout-notify.js for why a strict alias map is needed (GWS / Bulldogs / etc.).
-const TEAM_ID = {
-  "adelaide": "adelaide", "adelaide crows": "adelaide", "crows": "adelaide",
-  "brisbane": "brisbane", "brisbane lions": "brisbane", "lions": "brisbane",
-  "carlton": "carlton", "blues": "carlton",
-  "collingwood": "collingwood", "magpies": "collingwood", "pies": "collingwood",
-  "essendon": "essendon", "bombers": "essendon", "dons": "essendon",
-  "fremantle": "fremantle", "dockers": "fremantle", "freo": "fremantle",
-  "geelong": "geelong", "geelong cats": "geelong", "cats": "geelong",
-  "gold coast": "gold-coast", "gold coast suns": "gold-coast", "suns": "gold-coast",
-  "gws": "gws", "gws giants": "gws", "greater western sydney": "gws", "giants": "gws",
-  "hawthorn": "hawthorn", "hawks": "hawthorn",
-  "melbourne": "melbourne", "demons": "melbourne", "dees": "melbourne",
-  "north melbourne": "north-melbourne", "north": "north-melbourne", "kangaroos": "north-melbourne", "roos": "north-melbourne",
-  "port adelaide": "port-adelaide", "port": "port-adelaide", "power": "port-adelaide",
-  "richmond": "richmond", "tigers": "richmond",
-  "st kilda": "st-kilda", "saints": "st-kilda",
-  "sydney": "sydney", "sydney swans": "sydney", "swans": "sydney",
-  "west coast": "west-coast", "west coast eagles": "west-coast", "eagles": "west-coast",
-  "western bulldogs": "western-bulldogs", "bulldogs": "western-bulldogs", "footscray": "western-bulldogs",
+// Squiggle's 18 team names → our fixture-file team names. See route.js for the
+// full explanation; we match by translating Squiggle's name to the fixture's.
+const SQUIGGLE_TEAMS = {
+  "Adelaide":                "Adelaide Crows",
+  "Brisbane Lions":          "Brisbane Lions",
+  "Carlton":                 "Carlton",
+  "Collingwood":             "Collingwood",
+  "Essendon":                "Essendon",
+  "Fremantle":               "Fremantle",
+  "Geelong":                 "Geelong Cats",
+  "Gold Coast":              "Gold Coast SUNS",
+  "Greater Western Sydney":  "GWS GIANTS",
+  "Hawthorn":                "Hawthorn",
+  "Melbourne":               "Melbourne",
+  "North Melbourne":         "North Melbourne",
+  "Port Adelaide":           "Port Adelaide",
+  "Richmond":                "Richmond",
+  "St Kilda":                "St Kilda",
+  "Sydney":                  "Sydney Swans",
+  "West Coast":              "West Coast Eagles",
+  "Western Bulldogs":        "Western Bulldogs",
 };
-function teamId(name) {
-  return name ? TEAM_ID[name.toLowerCase().trim()] || null : null;
-}
 
 function aggHomePct(squig, h, a) {
-  const hId = teamId(h), aId = teamId(a);
+  const hl = h.toLowerCase(), al = a.toLowerCase();
   const c = squig.filter(t =>
-    hId && aId && teamId(t.hteam) === hId && teamId(t.ateam) === aId
+    SQUIGGLE_TEAMS[t.hteam]?.toLowerCase() === hl &&
+    SQUIGGLE_TEAMS[t.ateam]?.toLowerCase() === al
   );
   if (!c.length) return null;
   return c.reduce((s, t) => {

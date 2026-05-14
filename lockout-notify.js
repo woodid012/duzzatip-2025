@@ -530,33 +530,53 @@ async function fetchTeamSelections(roundNumber) {
 }
 
 // ===== Tips =====
-// Canonical AFL team IDs. Squiggle ("Greater Western Sydney"), fixtures
-// ("GWS GIANTS") and Sportsbet ("Giants") all use different naming, and the
-// previous prefix-includes match silently failed for those cases — falling
-// back to 50% confidence.
-const TEAM_ID = {
-  "adelaide": "adelaide", "adelaide crows": "adelaide", "crows": "adelaide",
-  "brisbane": "brisbane", "brisbane lions": "brisbane", "lions": "brisbane",
-  "carlton": "carlton", "blues": "carlton",
-  "collingwood": "collingwood", "magpies": "collingwood", "pies": "collingwood",
-  "essendon": "essendon", "bombers": "essendon", "dons": "essendon",
-  "fremantle": "fremantle", "dockers": "fremantle", "freo": "fremantle",
-  "geelong": "geelong", "geelong cats": "geelong", "cats": "geelong",
-  "gold coast": "gold-coast", "gold coast suns": "gold-coast", "suns": "gold-coast",
-  "gws": "gws", "gws giants": "gws", "greater western sydney": "gws", "giants": "gws",
-  "hawthorn": "hawthorn", "hawks": "hawthorn",
-  "melbourne": "melbourne", "demons": "melbourne", "dees": "melbourne",
-  "north melbourne": "north-melbourne", "north": "north-melbourne", "kangaroos": "north-melbourne", "roos": "north-melbourne",
-  "port adelaide": "port-adelaide", "port": "port-adelaide", "power": "port-adelaide",
-  "richmond": "richmond", "tigers": "richmond",
-  "st kilda": "st-kilda", "saints": "st-kilda",
-  "sydney": "sydney", "sydney swans": "sydney", "swans": "sydney",
-  "west coast": "west-coast", "west coast eagles": "west-coast", "eagles": "west-coast",
-  "western bulldogs": "western-bulldogs", "bulldogs": "western-bulldogs", "footscray": "western-bulldogs",
+// Squiggle's 18 team names → our fixture-file team names.
+// Source: https://api.squiggle.com.au/?q=teams ("name" field).
+// The two systems disagree on several names (e.g. Squiggle "Greater Western
+// Sydney" vs fixture "GWS GIANTS") so we match through this dictionary.
+const SQUIGGLE_TEAMS = {
+  "Adelaide":                "Adelaide Crows",
+  "Brisbane Lions":          "Brisbane Lions",
+  "Carlton":                 "Carlton",
+  "Collingwood":             "Collingwood",
+  "Essendon":                "Essendon",
+  "Fremantle":               "Fremantle",
+  "Geelong":                 "Geelong Cats",
+  "Gold Coast":              "Gold Coast SUNS",
+  "Greater Western Sydney":  "GWS GIANTS",
+  "Hawthorn":                "Hawthorn",
+  "Melbourne":               "Melbourne",
+  "North Melbourne":         "North Melbourne",
+  "Port Adelaide":           "Port Adelaide",
+  "Richmond":                "Richmond",
+  "St Kilda":                "St Kilda",
+  "Sydney":                  "Sydney Swans",
+  "West Coast":              "West Coast Eagles",
+  "Western Bulldogs":        "Western Bulldogs",
 };
-function teamId(name) {
-  return name ? TEAM_ID[name.toLowerCase().trim()] || null : null;
-}
+
+// Sportsbet names are scraped from HTML and inconsistent — use a fuzzy alias
+// map keyed by lowercase nickname/short form, pointing at the fixture name.
+const SPORTSBET_ALIASES = {
+  "adelaide": "Adelaide Crows", "crows": "Adelaide Crows",
+  "brisbane": "Brisbane Lions", "brisbane lions": "Brisbane Lions", "lions": "Brisbane Lions",
+  "carlton": "Carlton", "blues": "Carlton",
+  "collingwood": "Collingwood", "magpies": "Collingwood",
+  "essendon": "Essendon", "bombers": "Essendon",
+  "fremantle": "Fremantle", "dockers": "Fremantle",
+  "geelong": "Geelong Cats", "geelong cats": "Geelong Cats", "cats": "Geelong Cats",
+  "gold coast": "Gold Coast SUNS", "gold coast suns": "Gold Coast SUNS", "suns": "Gold Coast SUNS",
+  "gws": "GWS GIANTS", "gws giants": "GWS GIANTS", "greater western sydney": "GWS GIANTS", "giants": "GWS GIANTS",
+  "hawthorn": "Hawthorn", "hawks": "Hawthorn",
+  "melbourne": "Melbourne", "demons": "Melbourne",
+  "north melbourne": "North Melbourne", "kangaroos": "North Melbourne",
+  "port adelaide": "Port Adelaide", "power": "Port Adelaide",
+  "richmond": "Richmond", "tigers": "Richmond",
+  "st kilda": "St Kilda", "saints": "St Kilda",
+  "sydney": "Sydney Swans", "sydney swans": "Sydney Swans", "swans": "Sydney Swans",
+  "west coast": "West Coast Eagles", "west coast eagles": "West Coast Eagles", "eagles": "West Coast Eagles",
+  "western bulldogs": "Western Bulldogs", "bulldogs": "Western Bulldogs",
+};
 
 async function fetchSquiggleTips(round) {
   try {
@@ -623,9 +643,9 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
 
     // Try Squiggle (win probability aggregated from tipsters)
     if (squiggleTips) {
-      const hId = teamId(f.HomeTeam), aId = teamId(f.AwayTeam);
       const candidates = squiggleTips.filter(t =>
-        hId && aId && teamId(t.hteam) === hId && teamId(t.ateam) === aId
+        SQUIGGLE_TEAMS[t.hteam] === f.HomeTeam &&
+        SQUIGGLE_TEAMS[t.ateam] === f.AwayTeam
       );
       if (candidates.length > 0) {
         homePct = candidates.reduce((a, t) => {
@@ -644,9 +664,8 @@ function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
 
     // Try Sportsbet (direct odds — overrides Squiggle if available)
     if (sportsbetOdds) {
-      const hId = teamId(f.HomeTeam), aId = teamId(f.AwayTeam);
-      const homeKey = Object.keys(sportsbetOdds).find(k => teamId(k) === hId);
-      const awayKey = Object.keys(sportsbetOdds).find(k => teamId(k) === aId);
+      const homeKey = Object.keys(sportsbetOdds).find(k => SPORTSBET_ALIASES[k.toLowerCase().trim()] === f.HomeTeam);
+      const awayKey = Object.keys(sportsbetOdds).find(k => SPORTSBET_ALIASES[k.toLowerCase().trim()] === f.AwayTeam);
       if (homeKey && awayKey) {
         homeOdds = sportsbetOdds[homeKey];
         awayOdds = sportsbetOdds[awayKey];
