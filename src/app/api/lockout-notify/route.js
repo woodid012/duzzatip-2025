@@ -95,6 +95,14 @@ function formatGameTime(dateUtc) {
     hour: "numeric", minute: "2-digit", hour12: true,
   });
 }
+function melbDay(date) {
+  return date ? date.toLocaleDateString("en-AU", { timeZone: "Australia/Melbourne", weekday: "short" }) : "";
+}
+// AFL only publishes a match's named22 a few hours before bounce. For players
+// whose match is more than this many hours away, treat "not in named22" as
+// "team not yet selected" rather than "dropped" — keep them in the lineup
+// but flag the day in the message.
+const LATE_MATCH_THRESHOLD_HOURS = 6;
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 function loadFixtures() {
@@ -792,7 +800,17 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch }) {
+  const lockoutDay = lockout?.firstGame ? melbDay(lockout.firstGame) : "";
+  // Day-of-week tag for any player whose match is on a different Melbourne day
+  // than the round's first bounce (e.g. lineup is Thu but player plays Sun).
+  // Signals "AFL hasn't named this team yet, double-check before lockout".
+  const dayTag = (name) => {
+    const f = playerMatch?.get(name);
+    if (!f) return "";
+    const md = melbDay(new Date(f.DateUtc));
+    return md && md !== lockoutDay ? ` _(${md})_` : "";
+  };
   const lines = [];
   const hrs  = Math.floor(Math.abs(lockout.minsUntil) / 60);
   const mins = Math.abs(lockout.minsUntil) % 60;
@@ -814,16 +832,16 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     if (typeof pts === "number") totalPts += pts;
     const injTag = injSeverity(p.name, injuries) >= 1 ? ` ⚠` : "";
     const srcTag = p.statsSource ? ` _[${p.statsSource}]_` : "";
-    teamLines.push(`*${POS_SHORT[pos]}* — *${dn(p.name)}* _(${pts}pts)_${injTag}${srcTag}`);
+    teamLines.push(`*${POS_SHORT[pos]}* — *${dn(p.name)}* _(${pts}pts)_${injTag}${dayTag(p.name)}${srcTag}`);
   }
   lines.push(`📋 *YOUR TEAM* — _~${totalPts}pts projected_`);
   for (const l of teamLines) lines.push(l);
   if (result.bench) {
     const gainStr = result.benchExpectedGain > 0 ? ` _(+${result.benchExpectedGain}pts exp)_` : "";
-    lines.push(`🪑 *Bench* — *${dn(result.bench.name)}* → ${POS_SHORT[result.benchBackup] || "?"}${gainStr}`);
+    lines.push(`🪑 *Bench* — *${dn(result.bench.name)}*${dayTag(result.bench.name)} → ${POS_SHORT[result.benchBackup] || "?"}${gainStr}`);
   }
-  if (result.reserveA) lines.push(`🅰 *Res A* — *${dn(result.reserveA.name)}*`);
-  if (result.reserveB) lines.push(`🅱 *Res B* — *${dn(result.reserveB.name)}*`);
+  if (result.reserveA) lines.push(`🅰 *Res A* — *${dn(result.reserveA.name)}*${dayTag(result.reserveA.name)}`);
+  if (result.reserveB) lines.push(`🅱 *Res B* — *${dn(result.reserveB.name)}*${dayTag(result.reserveB.name)}`);
   lines.push("");
 
   // ── Alerts ──
@@ -1039,6 +1057,20 @@ async function handler(request) {
   const playingTeams  = getPlayingTeams(roundFixtures);
   const byePlayers    = squad.filter(p => !teamIsPlaying(p.team, playingTeams));
 
+  // Map each squad player to their team's fixture in this round, so we can
+  // (a) skip auto-exclude for players whose match is days away and the AFL
+  //     hasn't published the named22 yet, and
+  // (b) flag the day of the match in the team-line of the Telegram message.
+  const playerMatch = new Map();
+  for (const p of squad) {
+    for (const f of roundFixtures) {
+      if (teamIsPlaying(p.team, new Set([f.HomeTeam, f.AwayTeam]))) {
+        playerMatch.set(p.name, f); break;
+      }
+    }
+  }
+  const now = new Date();
+
   const { selections: fwSelections, teamsFound } = await fetchAFLTeamSelections(round);
   const selectionStatus = fwSelections ? buildSelectionStatus(squad, fwSelections) : null;
   const effectiveSelectionStatus = preteams ? null : selectionStatus;
@@ -1046,15 +1078,20 @@ async function handler(request) {
   // ── Re-check dedup (sendType already determined above) ──
 
   // ── Auto-exclude ──
-  // Exclude: bye players, serious injuries, and anyone NOT named in team selections
+  // Exclude: bye players, serious injuries, and anyone NOT named in team
+  // selections IF their match is imminent. If their match is still many hours
+  // away the AFL likely hasn't published a named22 yet — keep them in.
   const autoExcluded = new Set();
   for (const p of squad) {
     if (!teamIsPlaying(p.team, playingTeams)) autoExcluded.add(p.name);
     else if (injSeverity(p.name, injuries) >= 3) autoExcluded.add(p.name);
     else if (effectiveSelectionStatus) {
       const sel = effectiveSelectionStatus.get(p.name);
-      // Only include players confirmed as "playing"; exclude "out", "emergency", "unknown"
-      if (sel && sel !== "playing") autoExcluded.add(p.name);
+      if (sel && sel !== "playing") {
+        const f = playerMatch.get(p.name);
+        const hoursUntilMatch = f ? (new Date(f.DateUtc) - now) / 36e5 : 0;
+        if (hoursUntilMatch <= LATE_MATCH_THRESHOLD_HOURS) autoExcluded.add(p.name);
+      }
     }
   }
 
@@ -1138,7 +1175,7 @@ async function handler(request) {
 
   // ── Send ──
   const isFinal = sendType === "final";
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
