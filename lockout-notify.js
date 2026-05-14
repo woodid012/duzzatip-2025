@@ -712,18 +712,36 @@ async function saveTeamSelection(db, round, result) {
 }
 async function saveTips(db, round, tips) {
   const col = db.collection(`${YEAR}_tips`);
+
+  // Preserve any manual tips. We treat IsDefault===false on an active doc as
+  // "user picked this in the UI" — the cron-written tips are marked
+  // IsDefault:true so subsequent runs can freely overwrite them.
+  const existing = await col.find({ User: MY_USER, Round: round, Active: 1 }).toArray();
+  const manualMatches = new Set(
+    existing.filter(d => d.IsDefault === false).map(d => d.MatchNumber)
+  );
+
   const bulkOps = [
-    { updateMany: { filter: { User: MY_USER, Round: round }, update: { $set: { Active: 0 } } } },
-    ...Object.entries(tips).map(([matchNum, tip]) => ({
+    // Only deactivate prior auto-picks; manual tips stay Active:1.
+    { updateMany: { filter: { User: MY_USER, Round: round, IsDefault: true }, update: { $set: { Active: 0 } } } },
+  ];
+  const written = [], preserved = [];
+  for (const [matchNumStr, tip] of Object.entries(tips)) {
+    const matchNum = parseInt(matchNumStr);
+    if (manualMatches.has(matchNum)) { preserved.push(matchNum); continue; }
+    written.push(matchNum);
+    bulkOps.push({
       updateOne: {
-        filter: { User: MY_USER, Round: round, MatchNumber: parseInt(matchNum) },
-        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: false } },
+        filter: { User: MY_USER, Round: round, MatchNumber: matchNum },
+        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: true } },
         upsert: true,
       }
-    }))
-  ];
+    });
+  }
+
   await col.bulkWrite(bulkOps, { ordered: false });
   try { await db.collection(`${YEAR}_tipping_ladder_cache`).deleteMany({ year: YEAR, upToRound: { $gte: round } }); } catch (_) {}
+  return { written, preserved };
 }
 
 // ===== Format Telegram message =====
