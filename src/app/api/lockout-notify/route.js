@@ -1071,6 +1071,20 @@ async function handler(request) {
   }
   const now = new Date();
 
+  // "Played last round" set. AFL often publishes Sunday teams as just
+  // "ins and outs" — if a player ran out last week and isn't on the outs
+  // list (i.e. not marked as a multi-week injury), they're likely playing.
+  let playedLastRound = new Set();
+  if (round > 1) {
+    try {
+      const prev = await db.collection(`${YEAR}_game_results`)
+        .find({ player_name: { $in: squad.map(p => p.name) }, round: round - 1 })
+        .project({ player_name: 1, _id: 0 })
+        .toArray();
+      playedLastRound = new Set(prev.map(d => d.player_name));
+    } catch (_) {}
+  }
+
   const { selections: fwSelections, teamsFound } = await fetchAFLTeamSelections(round);
   const selectionStatus = fwSelections ? buildSelectionStatus(squad, fwSelections) : null;
   const effectiveSelectionStatus = preteams ? null : selectionStatus;
@@ -1079,8 +1093,10 @@ async function handler(request) {
 
   // ── Auto-exclude ──
   // Exclude: bye players, serious injuries, and anyone NOT named in team
-  // selections IF their match is imminent. If their match is still many hours
-  // away the AFL likely hasn't published a named22 yet — keep them in.
+  // selections IF their match is imminent. If the match is hours away and AFL
+  // hasn't published a named22 yet, keep the player in when they played last
+  // round and aren't on a known weeks-or-longer injury (likely an unchanged
+  // selection, even if AFL only announced ins/outs).
   const autoExcluded = new Set();
   for (const p of squad) {
     if (!teamIsPlaying(p.team, playingTeams)) autoExcluded.add(p.name);
@@ -1090,7 +1106,9 @@ async function handler(request) {
       if (sel && sel !== "playing") {
         const f = playerMatch.get(p.name);
         const hoursUntilMatch = f ? (new Date(f.DateUtc) - now) / 36e5 : 0;
-        if (hoursUntilMatch <= LATE_MATCH_THRESHOLD_HOURS) autoExcluded.add(p.name);
+        const matchImminent = hoursUntilMatch <= LATE_MATCH_THRESHOLD_HOURS;
+        const likelyPlaying = playedLastRound.has(p.name) && injSeverity(p.name, injuries) < 2;
+        if (matchImminent || !likelyPlaying) autoExcluded.add(p.name);
       }
     }
   }
