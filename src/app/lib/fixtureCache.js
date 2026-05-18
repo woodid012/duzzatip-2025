@@ -70,8 +70,13 @@ async function fetchAflApiScoresForRound(apiRound, token) {
 
   const scoreMap = {};
   for (const m of matches) {
-    const homeNorm = normaliseTeam(m.home?.team?.name);
-    const awayNorm = normaliseTeam(m.away?.team?.name);
+    // Prefer team.club.name (stable English name) over team.name, which the
+    // AFL API rotates through Indigenous-language equivalents (Walyalup,
+    // Yartapuulti, etc.). Fall back to team.name if club is missing.
+    const homeApiName = m.home?.team?.club?.name || m.home?.team?.name;
+    const awayApiName = m.away?.team?.club?.name || m.away?.team?.name;
+    const homeNorm = normaliseTeam(homeApiName);
+    const awayNorm = normaliseTeam(awayApiName);
     if (!homeNorm || !awayNorm) continue;
 
     // Score can live at different paths depending on API version
@@ -147,11 +152,13 @@ async function overlayAflScores(fixtures, year) {
   }
 
   // Apply scores to matching fixtures
+  const matchedKeys = new Set();
   let updated = 0;
   const result = fixtures.map(f => {
     const key = `${normaliseTeam(f.HomeTeam)}|${normaliseTeam(f.AwayTeam)}`;
     const score = combinedScores[key];
     if (!score) return f;
+    matchedKeys.add(key);
     if (score.homeScore === null && score.awayScore === null) return f;
     updated++;
     return {
@@ -160,6 +167,18 @@ async function overlayAflScores(fixtures, year) {
       AwayTeamScore: score.awayScore,
     };
   });
+
+  // Loud warning if AFL API returned scores we couldn't tie back to a fixture —
+  // catches future team-name rotations (Indigenous rounds, rebrands) without us
+  // noticing scores silently failing to land.
+  const unmatchedApiKeys = Object.keys(combinedScores).filter(k => !matchedKeys.has(k));
+  if (unmatchedApiKeys.length > 0) {
+    console.warn(
+      `AFL API: ${unmatchedApiKeys.length} match(es) had no fixture-side match. ` +
+      `Unmatched keys: ${unmatchedApiKeys.join(', ')}. ` +
+      `Check team.club.name in the AFL API response and the normaliseTeam mappings.`
+    );
+  }
 
   console.log(`AFL API: overlaid scores on ${updated}/${fixtures.length} fixtures`);
   return result;
