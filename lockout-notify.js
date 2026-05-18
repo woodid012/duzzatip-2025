@@ -476,62 +476,11 @@ async function fetchAFLAPISelections(roundNumber) {
   }
 }
 
-// — Footywire fallback —
-function slugToName(slug) {
-  return slug.split("-").map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : "").join(" ");
-}
-async function fetchFootywireSelections() {
-  try {
-    const axios = require("axios");
-    const res = await axios.get("https://www.footywire.com/afl/footy/afl_team_selections", {
-      timeout: 12000,
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept": "text/html,application/xhtml+xml" }
-    });
-    const html = res.data;
-    const result = {};
-    const bTagRe = /<b>([^<]{1,60})<\/b>/g;
-    const bTags = [];
-    let m;
-    while ((m = bTagRe.exec(html)) !== null) bTags.push({ pos: m.index, text: m[1].trim() });
-    const POS_LABELS = new Set(["FB", "HB", "C", "HF", "FF", "Fol", "Ruck", "BP", "CP"]);
-    const markers = bTags
-      .filter(b => /^interchange$|^emergenc|^ins$|^outs$/i.test(b.text) || POS_LABELS.has(b.text))
-      .map(b => {
-        let kind;
-        if (/^interchange$/i.test(b.text)) kind = "interchange";
-        else if (/^emergenc/i.test(b.text)) kind = "emergencies";
-        else if (/^ins$/i.test(b.text)) kind = "interchange";
-        else if (/^outs$/i.test(b.text)) kind = "outs";
-        else kind = "starting18";
-        return { pos: b.pos, kind };
-      });
-    const playerLinkRe = /href="(pp-([a-z0-9-]+)--([a-z0-9-]+))"/g;
-    while ((m = playerLinkRe.exec(html)) !== null) {
-      const teamSlug = m[2], playerSlug = m[3];
-      const fullName = slugToName(playerSlug);
-      if (!result[teamSlug]) result[teamSlug] = { named22: [], emergencies: [] };
-      let sect = "starting18";
-      for (const marker of markers) { if (marker.pos < m.index) sect = marker.kind; }
-      if (sect === "interchange" || sect === "starting18") result[teamSlug].named22.push(fullName);
-      else if (sect === "emergencies") result[teamSlug].emergencies.push(fullName);
-    }
-    for (const d of Object.values(result)) {
-      d.named22 = [...new Set(d.named22)];
-      d.emergencies = [...new Set(d.emergencies)];
-    }
-    return Object.keys(result).length > 0 ? result : null;
-  } catch (_) { return null; }
-}
-
-// — Combined: AFL API first, Footywire fallback —
+// — Team selections from official AFL API —
 async function fetchTeamSelections(roundNumber) {
   const { selections: aflSel, teamsFound, ppCount, error } = await fetchAFLAPISelections(roundNumber);
   if (aflSel && teamsFound > 0) {
     return { selections: aflSel, source: `AFL API (${teamsFound} teams, ${ppCount} players)` };
-  }
-  const fwSel = await fetchFootywireSelections();
-  if (fwSel) {
-    return { selections: fwSel, source: `Footywire (${Object.keys(fwSel).length} teams)` };
   }
   return { selections: null, source: `unavailable${error ? `: ${error}` : ""}` };
 }

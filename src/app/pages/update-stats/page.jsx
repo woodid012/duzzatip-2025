@@ -8,7 +8,6 @@ function UpdateStatsPage() {
   const { selectedUserId } = useUserContext();
   const { currentRound } = useAppContext();
   const [round, setRound] = useState(null);
-  const [source, setSource] = useState(''); // '' = auto, 'afl', 'dfs'
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState('idle'); // 'idle', 'loading', 'success', 'error'
@@ -63,17 +62,14 @@ function UpdateStatsPage() {
     try {
       setLoading(true);
       setStatus('loading');
-      const sourceLabel = source ? source.toUpperCase() : 'AFL API (with DFS fallback)';
-      setMessage(`Fetching stats for Round ${round} from ${sourceLabel}...`);
+      setMessage(`Fetching stats for Round ${round} from AFL API...`);
 
-      const params = new URLSearchParams({ round });
-      if (source) params.set('source', source);
-      const response = await fetch(`/api/update-round-stats?${params}`);
+      const response = await fetch(`/api/update-round-stats?round=${round}`);
       const data = await response.json();
 
       if (response.ok) {
         setStatus('success');
-        setMessage(`Round ${round} updated from ${(data.source || '?').toUpperCase()}`);
+        setMessage(`Round ${round} updated from AFL API`);
         setResult(data.stats);
       } else {
         setStatus('error');
@@ -107,17 +103,6 @@ function UpdateStatsPage() {
                   Round {i}
                 </option>
               ))}
-            </select>
-            
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="p-2 border rounded w-40"
-              disabled={loading}
-            >
-              <option value="">Auto (AFL → DFS)</option>
-              <option value="afl">AFL API only</option>
-              <option value="dfs">DFS Australia only</option>
             </select>
 
             <button
@@ -158,7 +143,7 @@ function UpdateStatsPage() {
         
         <div className="mt-6 text-sm text-gray-600">
           <p className="mb-2">
-            Fetches player stats and saves them to the database. <strong>Auto</strong> tries the AFL API first (live stats), then falls back to DFS Australia.
+            Fetches player stats from the official AFL API and saves them to the database.
           </p>
           <p>
             Note: This will replace all existing data for the selected round.
