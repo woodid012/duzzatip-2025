@@ -41,8 +41,13 @@ export async function fetchAFLRoundStats(round, providedToken = null) {
         const providerId = match.providerId;
         if (!providerId) return;
 
-        const homeTeamName = match.home?.team?.name || '';
-        const awayTeamName = match.away?.team?.name || '';
+        // Use the stable English club name, not team.name (which rotates
+        // through Indigenous-language variants like Walyalup / Narrm). The
+        // results page keys "game started" lookups off the fixture's English
+        // team name, so storing the Indigenous variant here would break the
+        // match and show players as "Game not started".
+        const homeTeamName = match.home?.team?.club?.name || match.home?.team?.name || '';
+        const awayTeamName = match.away?.team?.club?.name || match.away?.team?.name || '';
 
         const statsRes = await fetch(
             `https://api.afl.com.au/cfs/afl/playerStats/match/${providerId}`,
