@@ -7,14 +7,29 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { getAflFixtures, isRoundComplete as checkRoundComplete } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
 
-// Map 3-letter abbreviations (from 2026_players) to full fixture names
+// Map team abbreviations (from 2026_players) to full fixture names.
+// Includes both our canonical 3-letter codes and the AFL API's 4-letter
+// codes (MELB/ADEL/PORT/etc.) that pre-fix update-players runs may have
+// stored when team.name was an Indigenous variant.
 const ABBREV_TO_FULL = {
-    ADE: 'Adelaide Crows', BRL: 'Brisbane Lions', CAR: 'Carlton',
-    COL: 'Collingwood', ESS: 'Essendon', FRE: 'Fremantle',
-    GEE: 'Geelong Cats', GCS: 'Gold Coast SUNS', GWS: 'GWS GIANTS',
-    HAW: 'Hawthorn', MEL: 'Melbourne', NTH: 'North Melbourne',
-    PTA: 'Port Adelaide', RIC: 'Richmond', STK: 'St Kilda',
-    SYD: 'Sydney Swans', WCE: 'West Coast Eagles', WBD: 'Western Bulldogs',
+    ADE: 'Adelaide Crows',     ADEL: 'Adelaide Crows',
+    BRL: 'Brisbane Lions',     BL:   'Brisbane Lions',
+    CAR: 'Carlton',            CARL: 'Carlton',
+    COL: 'Collingwood',        COLL: 'Collingwood',
+    ESS: 'Essendon',
+    FRE: 'Fremantle',
+    GEE: 'Geelong Cats',       GEEL: 'Geelong Cats',
+    GCS: 'Gold Coast SUNS',    GCFC: 'Gold Coast SUNS',
+    GWS: 'GWS GIANTS',
+    HAW: 'Hawthorn',
+    MEL: 'Melbourne',          MELB: 'Melbourne',
+    NTH: 'North Melbourne',    NMFC: 'North Melbourne',
+    PTA: 'Port Adelaide',      PORT: 'Port Adelaide',
+    RIC: 'Richmond',           RICH: 'Richmond',
+    STK: 'St Kilda',
+    SYD: 'Sydney Swans',
+    WCE: 'West Coast Eagles',
+    WBD: 'Western Bulldogs',   WB:   'Western Bulldogs',
 };
 
 export async function GET(request) {
@@ -51,18 +66,22 @@ export async function GET(request) {
             roundCompleteWithTimeout,
         ]);
 
-        // Build player → full team name map from game_results (these already use full names)
+        // Build player → fixture-name team map. Prefer the 2026_players
+        // collection: it's the authoritative current-team list and is always
+        // keyed by 3-letter codes that map cleanly to fixture names. Falls
+        // back to game_results.team_name only for players missing from the
+        // players roster — that avoids stale Indigenous-language team names
+        // ("Waalitj Marawar"/"Narrm") still sitting in older game_results
+        // rows from breaking the "game started/finished" lookup.
         const playerTeamMap = {};
-        playerStats.forEach(stat => {
-            if (stat.player_name && stat.team_name) {
-                playerTeamMap[stat.player_name] = stat.team_name;
-            }
-        });
-
-        // For players NOT in stats (game hasn't started or DNP), look up from players collection
         for (const p of playersData) {
-            if (!playerTeamMap[p.player_name] && p.team_name) {
+            if (p.player_name && p.team_name) {
                 playerTeamMap[p.player_name] = ABBREV_TO_FULL[p.team_name] || p.team_name;
+            }
+        }
+        for (const stat of playerStats) {
+            if (stat.player_name && stat.team_name && !playerTeamMap[stat.player_name]) {
+                playerTeamMap[stat.player_name] = stat.team_name;
             }
         }
 
