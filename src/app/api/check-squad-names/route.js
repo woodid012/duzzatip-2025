@@ -107,7 +107,9 @@ export async function GET(request) {
           { headers, signal: AbortSignal.timeout(10000) }
         );
         const data = await squadRes.json();
-        const abbrev = TEAM_ABBREV[team.name] || team.abbreviation;
+        // team.name can be Indigenous (Walyalup/Narrm/etc.); club.name is stable English.
+        const englishName = team.club?.name || team.name;
+        const abbrev = TEAM_ABBREV[englishName] || team.abbreviation;
         return (data.squad?.players || []).map(p => ({
           name: `${p.player.firstName} ${p.player.surname}`.trim(),
           team: abbrev,

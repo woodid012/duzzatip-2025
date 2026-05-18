@@ -321,24 +321,27 @@ function printLineup(result, excluded = new Set()) {
 }
 
 // ===== AFL Team Selections =====
+// Indigenous-language names (Walyalup, Narrm, etc.) are included so the AFL
+// roster API matches even when the API returns the themed team.name; we also
+// prefer team.club.name when reading the AFL response, so this is a backstop.
 const TEAM_ALIASES = {
-  "adelaide-crows":    ["ADE", "Adelaide", "Adelaide Crows"],
+  "adelaide-crows":    ["ADE", "Adelaide", "Adelaide Crows", "Kuwarna"],
   "brisbane-lions":    ["BRL", "BL", "Brisbane", "Brisbane Lions"],
   "carlton":           ["CAR", "Carlton", "Carlton Blues"],
   "collingwood":       ["COL", "Collingwood", "Collingwood Magpies"],
   "essendon":          ["ESS", "Essendon", "Essendon Bombers"],
-  "fremantle":         ["FRE", "Fremantle", "Fremantle Dockers"],
+  "fremantle":         ["FRE", "Fremantle", "Fremantle Dockers", "Walyalup"],
   "geelong-cats":      ["GEE", "Geelong", "Geelong Cats"],
   "gold-coast-suns":   ["GCS", "GC", "Gold Coast", "Gold Coast SUNS", "Gold Coast Suns"],
   "gws-giants":        ["GWS", "GWS Giants", "GWS GIANTS", "Greater Western Sydney"],
   "hawthorn":          ["HAW", "Hawthorn", "Hawthorn Hawks"],
-  "melbourne":         ["MEL", "Melbourne", "Melbourne Demons"],
+  "melbourne":         ["MEL", "Melbourne", "Melbourne Demons", "Narrm"],
   "north-melbourne":   ["NTH", "North", "North Melbourne", "North Melbourne Kangaroos"],
-  "port-adelaide":     ["PTA", "Port", "Port Adelaide", "Port Adelaide Power"],
+  "port-adelaide":     ["PTA", "Port", "Port Adelaide", "Port Adelaide Power", "Yartapuulti"],
   "richmond":          ["RIC", "Richmond", "Richmond Tigers"],
-  "st-kilda":          ["STK", "St Kilda", "St Kilda Saints"],
+  "st-kilda":          ["STK", "St Kilda", "St Kilda Saints", "Euro-Yroke"],
   "sydney-swans":      ["SYD", "Sydney", "Sydney Swans"],
-  "west-coast-eagles": ["WCE", "West Coast", "West Coast Eagles"],
+  "west-coast-eagles": ["WCE", "West Coast", "West Coast Eagles", "Waalitj Marawar"],
   "western-bulldogs":  ["WBD", "WB", "Western Bulldogs"],
 };
 const AFL_COMP_SEASON_ID = 85;
@@ -442,7 +445,11 @@ async function fetchAFLAPISelections(roundNumber) {
         for (const side of ["homeTeam", "awayTeam"]) {
           const teamData = roster[side];
           if (!teamData) continue;
-          const teamName = teamData.teamName?.teamName || match[side.replace("Team", "")]?.team?.name || "";
+          const matchSide = match[side.replace("Team", "")];
+          const teamName = matchSide?.team?.club?.name
+            || teamData.teamName?.teamName
+            || matchSide?.team?.name
+            || "";
           const slug = aflTeamNameToSlug(teamName);
           if (!slug) continue;
           const named22 = [], emergencies = [];

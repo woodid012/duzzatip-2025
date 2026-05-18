@@ -76,12 +76,16 @@ export async function GET(request) {
         );
         const data = await squadRes.json();
         const players = data.squad?.players || [];
-        const abbrev = TEAM_ABBREV[team.name] || team.abbreviation;
+        // Use stable English club name. team.name rotates through Indigenous
+        // variants (Walyalup/Narrm/etc.) and team.abbreviation on this endpoint
+        // is 4-letter (MELB/ADEL/PORT), neither matching our 3-letter DB codes.
+        const englishName = team.club?.name || team.name;
+        const abbrev = TEAM_ABBREV[englishName] || team.abbreviation;
 
         return players.map(p => ({
           player_name: `${p.player.firstName} ${p.player.surname}`,
           team_name: abbrev,
-          team_full: team.name,
+          team_full: englishName,
           afl_id: p.player.id,
           provider_id: p.player.providerId,
           position: p.position || "",
