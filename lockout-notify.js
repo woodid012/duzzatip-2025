@@ -321,55 +321,20 @@ function printLineup(result, excluded = new Set()) {
 }
 
 // ===== AFL Team Selections =====
-// Indigenous-language names (Walyalup, Narrm, etc.) are included so the AFL
-// roster API matches even when the API returns the themed team.name; we also
-// prefer team.club.name when reading the AFL response, so this is a backstop.
-const TEAM_ALIASES = {
-  "adelaide-crows":    ["ADE", "Adelaide", "Adelaide Crows", "Kuwarna"],
-  "brisbane-lions":    ["BRL", "BL", "Brisbane", "Brisbane Lions"],
-  "carlton":           ["CAR", "Carlton", "Carlton Blues"],
-  "collingwood":       ["COL", "Collingwood", "Collingwood Magpies"],
-  "essendon":          ["ESS", "Essendon", "Essendon Bombers"],
-  "fremantle":         ["FRE", "Fremantle", "Fremantle Dockers", "Walyalup"],
-  "geelong-cats":      ["GEE", "Geelong", "Geelong Cats"],
-  "gold-coast-suns":   ["GCS", "GC", "Gold Coast", "Gold Coast SUNS", "Gold Coast Suns"],
-  "gws-giants":        ["GWS", "GWS Giants", "GWS GIANTS", "Greater Western Sydney"],
-  "hawthorn":          ["HAW", "Hawthorn", "Hawthorn Hawks"],
-  "melbourne":         ["MEL", "Melbourne", "Melbourne Demons", "Narrm"],
-  "north-melbourne":   ["NTH", "North", "North Melbourne", "North Melbourne Kangaroos"],
-  "port-adelaide":     ["PTA", "Port", "Port Adelaide", "Port Adelaide Power", "Yartapuulti"],
-  "richmond":          ["RIC", "Richmond", "Richmond Tigers"],
-  "st-kilda":          ["STK", "St Kilda", "St Kilda Saints", "Euro-Yroke"],
-  "sydney-swans":      ["SYD", "Sydney", "Sydney Swans"],
-  "west-coast-eagles": ["WCE", "West Coast", "West Coast Eagles", "Waalitj Marawar"],
-  "western-bulldogs":  ["WBD", "WB", "Western Bulldogs"],
-};
-const AFL_COMP_SEASON_ID = 85;
+// Team aliases, slug helpers, AFL/Squiggle/Sportsbet fetchers and the
+// tip-suggestion builder live in src/app/lib/lockoutShared.js so the CLI and
+// the /api/lockout-notify route stay in sync (prior duplication caused real
+// outages whenever AFL rotated to Indigenous-language team names).
+const {
+  TEAM_ALIASES,
+  normName,
+  findTeamSlug,
+  fetchAFLTeamSelections,
+  fetchSquiggleTips: fetchSquiggleTipsShared,
+  fetchSportsbetOdds,
+  buildTipSuggestions,
+} = require("./src/app/lib/lockoutShared");
 
-function normName(n) {
-  return (n || "").toLowerCase().replace(/'/g, " ").replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
-}
-function findTeamSlug(dbTeam) {
-  const dbT = (dbTeam || "").toLowerCase().trim();
-  for (const [slug, aliases] of Object.entries(TEAM_ALIASES)) {
-    if (aliases.some(a => a.toLowerCase() === dbT)) return slug;
-  }
-  for (const [slug, aliases] of Object.entries(TEAM_ALIASES)) {
-    if (aliases.some(a => dbT.includes(a.toLowerCase()) || a.toLowerCase().includes(dbT))) return slug;
-    if (slug.replace(/-/g, " ").includes(dbT) || dbT.includes(slug.replace(/-/g, " "))) return slug;
-  }
-  return null;
-}
-function aflTeamNameToSlug(aflName) {
-  const n = (aflName || "").toLowerCase().trim();
-  for (const [slug, aliases] of Object.entries(TEAM_ALIASES)) {
-    if (aliases.some(a => a.toLowerCase() === n)) return slug;
-  }
-  for (const [slug] of Object.entries(TEAM_ALIASES)) {
-    if (slug.replace(/-/g, " ") === n) return slug;
-  }
-  return null;
-}
 function playerNameMatches(dbName, names) {
   const norm = normName(dbName);
   if (names.some(n => normName(n) === norm)) return true;
@@ -396,252 +361,18 @@ function buildSelectionStatus(squadPlayers, selections) {
   return status;
 }
 
-// — AFL.com.au API —
-async function getAFLToken() {
-  const axios = require("axios");
-  const res = await axios.post("https://api.afl.com.au/cfs/afl/WMCTok", "{}", {
-    headers: { "Content-Type": "application/json", "Origin": "https://www.afl.com.au" },
-    timeout: 8000,
-  });
-  return res.data.token;
-}
-async function fetchAFLAPISelections(roundNumber) {
-  const axios = require("axios");
-  try {
-    const token = await getAFLToken();
-    const headers = { "x-media-mis-token": token };
-    const matchesRes = await axios.get(
-      `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${roundNumber}&pageSize=20`,
-      { headers, timeout: 10000 }
-    );
-    const matches = matchesRes.data.matches || [];
-    const result = {};
-    let ppCount = 0, teamsFound = 0;
-
-    await Promise.all(matches.map(async (match) => {
-      const providerId = match.providerId;
-      if (!providerId) return;
-      try {
-        let roster = null, usedFull = false;
-        try {
-          const fullRes = await axios.get(
-            `https://api.afl.com.au/cfs/afl/matchRoster/full/${providerId}`,
-            { headers, timeout: 10000 }
-          );
-          const fullData = fullRes.data;
-          if ((fullData.homeTeam?.positions?.length || 0) + (fullData.awayTeam?.positions?.length || 0) > 0) {
-            roster = fullData; usedFull = true;
-          }
-        } catch (_) {}
-        if (!roster) {
-          const baseRes = await axios.get(
-            `https://api.afl.com.au/cfs/afl/matchRoster/${providerId}`,
-            { headers, timeout: 10000 }
-          );
-          roster = baseRes.data;
-        }
-        if (!roster) return;
-
-        for (const side of ["homeTeam", "awayTeam"]) {
-          const teamData = roster[side];
-          if (!teamData) continue;
-          const matchSide = match[side.replace("Team", "")];
-          const teamName = matchSide?.team?.club?.name
-            || teamData.teamName?.teamName
-            || matchSide?.team?.name
-            || "";
-          const slug = aflTeamNameToSlug(teamName);
-          if (!slug) continue;
-          const named22 = [], emergencies = [];
-          for (const player of (teamData.positions || [])) {
-            const givenName = usedFull ? (player.givenName || "") : (player.player?.playerName?.givenName || "");
-            const surname = usedFull ? (player.surname || "") : (player.player?.playerName?.surname || "");
-            const name = `${givenName} ${surname}`.trim();
-            if (!name) continue;
-            if (player.position === "EMERG") emergencies.push(name);
-            else named22.push(name);
-          }
-          if (named22.length > 0 || emergencies.length > 0) {
-            result[slug] = { named22, emergencies };
-            ppCount += named22.length + emergencies.length;
-            teamsFound++;
-          }
-        }
-      } catch (_) {}
-    }));
-
-    return { selections: teamsFound > 0 ? result : null, teamsFound, ppCount };
-  } catch (e) {
-    return { selections: null, teamsFound: 0, ppCount: 0, error: e.message };
-  }
-}
-
 // — Team selections from official AFL API —
 async function fetchTeamSelections(roundNumber) {
-  const { selections: aflSel, teamsFound, ppCount, error } = await fetchAFLAPISelections(roundNumber);
+  const { selections: aflSel, teamsFound, ppCount, error } = await fetchAFLTeamSelections(roundNumber);
   if (aflSel && teamsFound > 0) {
     return { selections: aflSel, source: `AFL API (${teamsFound} teams, ${ppCount} players)` };
   }
   return { selections: null, source: `unavailable${error ? `: ${error}` : ""}` };
 }
 
-// ===== Tips =====
-// Squiggle's 18 team names → our fixture-file team names.
-// Source: https://api.squiggle.com.au/?q=teams ("name" field).
-// The two systems disagree on several names (e.g. Squiggle "Greater Western
-// Sydney" vs fixture "GWS GIANTS") so we match through this dictionary.
-const SQUIGGLE_TEAMS = {
-  "Adelaide":                "Adelaide Crows",
-  "Brisbane Lions":          "Brisbane Lions",
-  "Carlton":                 "Carlton",
-  "Collingwood":             "Collingwood",
-  "Essendon":                "Essendon",
-  "Fremantle":               "Fremantle",
-  "Geelong":                 "Geelong Cats",
-  "Gold Coast":              "Gold Coast SUNS",
-  "Greater Western Sydney":  "GWS GIANTS",
-  "Hawthorn":                "Hawthorn",
-  "Melbourne":               "Melbourne",
-  "North Melbourne":         "North Melbourne",
-  "Port Adelaide":           "Port Adelaide",
-  "Richmond":                "Richmond",
-  "St Kilda":                "St Kilda",
-  "Sydney":                  "Sydney Swans",
-  "West Coast":              "West Coast Eagles",
-  "Western Bulldogs":        "Western Bulldogs",
-};
-
-// Sportsbet names are scraped from HTML and inconsistent — use a fuzzy alias
-// map keyed by lowercase nickname/short form, pointing at the fixture name.
-const SPORTSBET_ALIASES = {
-  "adelaide": "Adelaide Crows", "crows": "Adelaide Crows",
-  "brisbane": "Brisbane Lions", "brisbane lions": "Brisbane Lions", "lions": "Brisbane Lions",
-  "carlton": "Carlton", "blues": "Carlton",
-  "collingwood": "Collingwood", "magpies": "Collingwood",
-  "essendon": "Essendon", "bombers": "Essendon",
-  "fremantle": "Fremantle", "dockers": "Fremantle",
-  "geelong": "Geelong Cats", "geelong cats": "Geelong Cats", "cats": "Geelong Cats",
-  "gold coast": "Gold Coast SUNS", "gold coast suns": "Gold Coast SUNS", "suns": "Gold Coast SUNS",
-  "gws": "GWS GIANTS", "gws giants": "GWS GIANTS", "greater western sydney": "GWS GIANTS", "giants": "GWS GIANTS",
-  "hawthorn": "Hawthorn", "hawks": "Hawthorn",
-  "melbourne": "Melbourne", "demons": "Melbourne",
-  "north melbourne": "North Melbourne", "kangaroos": "North Melbourne",
-  "port adelaide": "Port Adelaide", "power": "Port Adelaide",
-  "richmond": "Richmond", "tigers": "Richmond",
-  "st kilda": "St Kilda", "saints": "St Kilda",
-  "sydney": "Sydney Swans", "sydney swans": "Sydney Swans", "swans": "Sydney Swans",
-  "west coast": "West Coast Eagles", "west coast eagles": "West Coast Eagles", "eagles": "West Coast Eagles",
-  "western bulldogs": "Western Bulldogs", "bulldogs": "Western Bulldogs",
-};
-
+// Thin wrappers so the rest of this script keeps its current call signatures.
 async function fetchSquiggleTips(round) {
-  try {
-    const axios = require("axios");
-    const res = await axios.get(`https://api.squiggle.com.au/?q=tips;year=${YEAR};round=${round}`, {
-      timeout: 8000,
-      headers: { "User-Agent": "DuzzaTip-Notify/1.0" }
-    });
-    if (res.data?.tips?.length) return res.data.tips;
-  } catch (_) {}
-  return null;
-}
-
-async function fetchSportsbetOdds() {
-  try {
-    const axios = require("axios");
-    const cheerio = require("cheerio");
-    const res = await axios.get("https://www.sportsbet.com.au/betting/australian-rules", {
-      timeout: 12000,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-AU,en;q=0.9",
-      }
-    });
-    const $ = cheerio.load(res.data);
-    const odds = {};
-
-    $("[data-automation-id]").each((_, el) => {
-      const id = $(el).attr("data-automation-id") || "";
-      if (id.includes("price") || id.includes("participant")) {
-        const text = $(el).text().trim();
-        const price = parseFloat(text);
-        if (!isNaN(price) && price > 1) {
-          const name = $(el).closest("[data-automation-id*='event']").find("[data-automation-id*='name']").first().text().trim();
-          if (name) odds[name] = price;
-        }
-      }
-    });
-
-    if (Object.keys(odds).length === 0) {
-      $("script").each((_, el) => {
-        const txt = $(el).html() || "";
-        const match = txt.match(/"name"\s*:\s*"([^"]+)"[^}]+"win"\s*:\s*(\d+\.?\d*)/g);
-        if (match) {
-          match.forEach(mm => {
-            const nm = mm.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
-            const price = parseFloat(mm.match(/"win"\s*:\s*(\d+\.?\d*)/)?.[1]);
-            if (nm && !isNaN(price) && price > 1) odds[nm] = price;
-          });
-        }
-      });
-    }
-
-    if (Object.keys(odds).length > 0) return odds;
-  } catch (_) {}
-  return null;
-}
-
-function buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds) {
-  const tips = roundFixtures.map(f => {
-    let homePct = 50, source = "home-default";
-    let homeOdds = null, awayOdds = null;
-
-    // Try Squiggle (win probability aggregated from tipsters)
-    if (squiggleTips) {
-      const candidates = squiggleTips.filter(t =>
-        SQUIGGLE_TEAMS[t.hteam] === f.HomeTeam &&
-        SQUIGGLE_TEAMS[t.ateam] === f.AwayTeam
-      );
-      if (candidates.length > 0) {
-        homePct = candidates.reduce((a, t) => {
-          const explicitHomePct = parseFloat(t.hconfidence);
-          if (!Number.isNaN(explicitHomePct)) return a + explicitHomePct;
-          const tippedPct = parseFloat(t.confidence);
-          if (Number.isNaN(tippedPct)) return a + 50;
-          // Compare t.tip to t.hteam (both in Squiggle's naming) — t.tip uses
-          // short names (e.g. "Sydney") that won't strict-equal the fixture's
-          // long name (e.g. "Sydney Swans"), which would flip every result.
-          return a + (t.tip === t.hteam ? tippedPct : 100 - tippedPct);
-        }, 0) / candidates.length;
-        source = `Squiggle(${candidates.length})`;
-      }
-    }
-
-    // Try Sportsbet (direct odds — overrides Squiggle if available)
-    if (sportsbetOdds) {
-      const homeKey = Object.keys(sportsbetOdds).find(k => SPORTSBET_ALIASES[k.toLowerCase().trim()] === f.HomeTeam);
-      const awayKey = Object.keys(sportsbetOdds).find(k => SPORTSBET_ALIASES[k.toLowerCase().trim()] === f.AwayTeam);
-      if (homeKey && awayKey) {
-        homeOdds = sportsbetOdds[homeKey];
-        awayOdds = sportsbetOdds[awayKey];
-        const hProb = 1 / homeOdds;
-        const aProb = 1 / awayOdds;
-        homePct = Math.round((hProb / (hProb + aProb)) * 100);
-        source = `Sportsbet ($${homeOdds}/$${awayOdds})`;
-      }
-    }
-
-    const favourite  = homePct >= 50 ? f.HomeTeam : f.AwayTeam;
-    const confidence = Math.round(Math.max(homePct, 100 - homePct));
-    const favOdds    = favourite === f.HomeTeam ? homeOdds : awayOdds;
-
-    return { matchNumber: f.MatchNumber, homeTeam: f.HomeTeam, awayTeam: f.AwayTeam, dateUtc: f.DateUtc,
-             favourite, homeOdds, awayOdds, confidence, favOdds, source };
-  });
-
-  // Dead Cert threshold: only flag matches with confidence ≥ 75%
-  tips.forEach(t => { if (t.confidence >= 75) t.suggestDC = true; });
+  const { tips } = await fetchSquiggleTipsShared(round, YEAR);
   return tips;
 }
 
