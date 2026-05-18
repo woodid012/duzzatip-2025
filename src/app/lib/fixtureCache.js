@@ -5,6 +5,7 @@
 
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { connectToDatabase } from '@/app/lib/mongodb';
+import { refreshGameResultsForRound } from '@/app/lib/refreshGameResults';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -208,6 +209,22 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
         if (ops.length > 0) {
           await collection.bulkWrite(ops);
           console.log(`Wrote ${ops.length} new scores to MongoDB fixtures`);
+
+          // Same data source for live AFL stats as live scores: whenever a
+          // fixture's final scores newly land, kick off a player-stats refresh
+          // for that round. Best-effort, throttled, fire-and-forget.
+          if (year === CURRENT_YEAR) {
+            const roundsToRefresh = [...new Set(
+              ops.map(op => {
+                const matchNumber = op.updateOne.filter.MatchNumber;
+                const f = updated.find(x => x.MatchNumber === matchNumber);
+                return f?.RoundNumber;
+              }).filter(r => r !== undefined && r !== null)
+            )];
+            for (const r of roundsToRefresh) {
+              refreshGameResultsForRound(r).catch(() => {});
+            }
+          }
         }
         fixtures = updated;
       } catch (err) {

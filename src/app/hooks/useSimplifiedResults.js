@@ -43,10 +43,12 @@ export default function useSimplifiedResults() {
     activeRoundRef.current = round;
     setIsRefreshing(false);
 
-    // Check cache first — but skip for live rounds (current or future)
-    // so auto-refresh can fetch updated stats
-    const isPastRound = currentRound !== undefined && round < currentRound;
-    if (isPastRound && roundCache.has(round)) {
+    // Only short-circuit on cache for clearly historical rounds (>1 behind current).
+    // The most-recently-completed round still needs a fresh fetch in case scores
+    // or player stats landed late — fixtureCache auto-triggers a game_results
+    // refresh whenever new fixture scores arrive, so the API call is the gate.
+    const isHistoricalRound = currentRound !== undefined && round < currentRound - 1;
+    if (isHistoricalRound && roundCache.has(round)) {
       const cachedData = roundCache.get(round);
       setRoundData(cachedData.roundData);
       setFixtures(cachedData.fixtures);
@@ -54,7 +56,6 @@ export default function useSimplifiedResults() {
       setLoadingMessage('');
       return;
     }
-    // Clear stale cache for this round before refreshing
     roundCache.delete(round);
 
     try {
@@ -99,20 +100,8 @@ export default function useSimplifiedResults() {
       setLoadingStage('complete');
       setLoadingMessage('');
 
-      // For live rounds: kick off background stats refresh, then silently re-fetch results
-      if (!isPastRound) {
-        setIsRefreshing(true);
-        fetch(`/api/update-round-stats?round=${round}&source=afl&ifStale=1`)
-          .then(() => fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`))
-          .then(res => res.ok ? res.json() : Promise.reject())
-          .then(freshData => {
-            if (round !== activeRoundRef.current) return;
-            roundCache.set(round, { roundData: freshData, fixtures: fixturesData });
-            setRoundData(freshData);
-          })
-          .catch(() => {}) // silent fail
-          .finally(() => setIsRefreshing(false));
-      }
+      // game_results now auto-refresh from fixtureCache whenever new AFL scores
+      // land, so no separate manual stats-refresh fetch is needed here.
 
     } catch (err) {
       console.error('Error loading round data:', err);
