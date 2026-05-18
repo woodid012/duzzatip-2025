@@ -19,11 +19,23 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const roundStatusCache = new Map();
 const STATUS_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 
-// Normalise team names for fuzzy matching between local file and AFL API
+// Normalise team names for fuzzy matching between local file and AFL API.
+// The AFL API switched to Indigenous-language names for several clubs in 2026
+// (Walyalup, Yartapuulti, etc.); map those to the English equivalents first
+// so the suffix-based replacements below produce a matching key.
 function normaliseTeam(name = '') {
-  return name
-    .toLowerCase()
-    .replace(/\s+/g, '')
+  let n = name.toLowerCase().replace(/\s+/g, '').replace(/-/g, '');
+  // Indigenous name → English equivalent (pre-suffix-rewrite)
+  const indigenous = {
+    walyalup: 'fremantle',
+    yartapuulti: 'portadelaide',
+    kuwarna: 'adelaidecrows',
+    euroyroke: 'stkilda',
+    narrm: 'melbourne',
+    waalitjmarawar: 'westcoasteagles',
+  };
+  if (indigenous[n]) n = indigenous[n];
+  return n
     .replace('suns', 'goldcoast')
     .replace('giants', 'gws')
     .replace('swans', 'sydney')
