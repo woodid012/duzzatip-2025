@@ -16,7 +16,7 @@ export default function InstallPage() {
     const isAndroid = /Android/i.test(ua);
     if (isIOS) setPlatform('ios');
     else if (isAndroid) setPlatform('android');
-    else setPlatform('desktop');
+    else setPlatform('unknown');
 
     const standalone =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -172,42 +172,6 @@ export default function InstallPage() {
           </ol>
         </section>
 
-        {/* Desktop */}
-        <section
-          className={`bg-white rounded-lg shadow border p-5 md:col-span-2 ${
-            platform === 'desktop' ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'
-          }`}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-2xl"></span>
-            <h2 className="text-lg font-bold text-gray-900">Desktop (Chrome / Edge)</h2>
-            {platform === 'desktop' && (
-              <span className="ml-auto text-xs font-medium px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
-                You&apos;re here
-              </span>
-            )}
-          </div>
-          <ol className="space-y-3 text-sm text-gray-800">
-            <li className="flex gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
-                1
-              </span>
-              <span>
-                Look for the <strong>install icon</strong> in the address bar (a small monitor with a down arrow), or open the
-                browser menu.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
-                2
-              </span>
-              <span>
-                Click <strong>Install DuzzaTip</strong>. The app opens in its own window and gets a shortcut on your desktop /
-                start menu.
-              </span>
-            </li>
-          </ol>
-        </section>
       </div>
 
       <div className="mt-8 text-center text-sm text-gray-500">
