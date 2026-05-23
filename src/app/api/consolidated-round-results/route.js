@@ -644,7 +644,11 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             }
         }
         
-        // Step 2: If player didn't play, their game has started (or team has a bye), and no bench sub, try reserves
+        // Step 2: Reserve sub. Fires once the starter's game has started and
+        // EITHER the starter didn't play (DNP fallback) OR a reserve beats the
+        // starter's score (best-of, mirroring Step 1 bench-sub). The DNP case
+        // is kept even when the reserve also has 0 — it keeps the substitution
+        // visible in the UI so users can see their reserve has been used.
         const playerTeam = playerTeamMap[playerName];
         const teamHasGame = playerTeam ? playerTeam in teamGameStarted : false;
         const roundHasStartedGames = Object.values(teamGameStarted).some(v => v);
@@ -652,17 +656,17 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
         const gameStarted = teamHasGame
             ? (teamGameStarted[playerTeam] ?? false)
             : (playerTeam ? roundHasStartedGames : false);
-        if (!isSubstitution && !hasPlayed && gameStarted) {
+        if (!isSubstitution && gameStarted) {
             const isReserveAPosition = RESERVE_A_POSITIONS.includes(position);
             const isReserveBPosition = RESERVE_B_POSITIONS.includes(position);
-            
+
             const eligibleReserves = reservePlayers
                 .filter(r => {
                     if (usedReservePlayers.has(r.playerName)) return false;
                     if (r.backupPosition === position) return true;
                     return (r.isReserveA && isReserveAPosition) || (!r.isReserveA && isReserveBPosition);
                 });
-            
+
             if (eligibleReserves.length > 0) {
                 const reserveScores = eligibleReserves.map(reserve => {
                     const positionType = position.toUpperCase().replace(/\s+/g, '_');
@@ -674,29 +678,32 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
                         priority: reserve.backupPosition === position ? 2 : 1
                     };
                 });
-                
+
                 reserveScores.sort((a, b) => {
                     if (a.priority !== b.priority) return b.priority - a.priority;
                     return b.calculatedScore - a.calculatedScore;
                 });
-                
+
                 if (reserveScores.length > 0) {
                     const bestReserve = reserveScores[0];
-                    finalScore = bestReserve.calculatedScore;
-                    finalPlayerName = bestReserve.playerName;
-                    finalBreakdown = bestReserve.breakdown || '';
-                    isSubstitution = true;
-                    substitutionType = bestReserve.position;
-                    usedReservePlayers.add(bestReserve.playerName);
-                    
-                    substitutionsUsed.push({
-                        position,
-                        originalPlayer: playerName,
-                        replacementPlayer: bestReserve.playerName,
-                        type: bestReserve.position,
-                        originalScore,
-                        replacementScore: bestReserve.calculatedScore
-                    });
+                    const reserveShouldSub = !hasPlayed || bestReserve.calculatedScore > finalScore;
+                    if (reserveShouldSub) {
+                        finalScore = bestReserve.calculatedScore;
+                        finalPlayerName = bestReserve.playerName;
+                        finalBreakdown = bestReserve.breakdown || '';
+                        isSubstitution = true;
+                        substitutionType = bestReserve.position;
+                        usedReservePlayers.add(bestReserve.playerName);
+
+                        substitutionsUsed.push({
+                            position,
+                            originalPlayer: playerName,
+                            replacementPlayer: bestReserve.playerName,
+                            type: bestReserve.position,
+                            originalScore,
+                            replacementScore: bestReserve.calculatedScore
+                        });
+                    }
                 }
             }
         }
