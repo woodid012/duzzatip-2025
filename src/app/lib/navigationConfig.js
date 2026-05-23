@@ -17,6 +17,9 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
     ...(includeSquadManagement ? [{ name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' }] : []),
   ],
+  [
+    { name: 'Install App', path: '/pages/install', id: 'install' },
+  ],
 ];
 
 export const debugNavigationItems = [

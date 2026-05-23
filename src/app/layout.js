@@ -15,6 +15,18 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Duzzatip",
   description: "DuzzaTip 2026 — AFL Fantasy Tipping",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "DuzzaTip",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport = {
+  themeColor: "#2563eb",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }) {
