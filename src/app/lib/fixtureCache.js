@@ -139,21 +139,13 @@ async function overlayAflScores(fixtures, year) {
     roundOffset = 1; // assume offset if detection fails
   }
 
-  // Build a combined score map across all started rounds.
-  // Also track which local rounds have any LIVE matches — the AFL API
-  // doesn't include a score field for LIVE matches (scores only appear once
-  // status flips to CONCLUDED), so we can't rely on a "scores landed"
-  // transition to trigger the player-stats refresh during a live game.
+  // Build a combined score map across all started rounds
   const combinedScores = {};
-  const liveRounds = new Set();
   for (const localRound of startedRounds) {
     const apiRound = localRound + roundOffset;
     try {
       const { scoreMap } = await fetchAflApiScoresForRound(apiRound, token);
       Object.assign(combinedScores, scoreMap);
-      if (Object.values(scoreMap).some(s => s.status === 'LIVE')) {
-        liveRounds.add(localRound);
-      }
     } catch (err) {
       console.warn(`AFL API scores failed for round ${apiRound}: ${err.message}`);
     }
@@ -189,7 +181,7 @@ async function overlayAflScores(fixtures, year) {
   }
 
   console.log(`AFL API: overlaid scores on ${updated}/${fixtures.length} fixtures`);
-  return { fixtures: result, liveRounds };
+  return result;
 }
 
 export async function getAflFixtures(year = CURRENT_YEAR) {
@@ -229,7 +221,7 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
 
     if (needsScore.length > 0) {
       try {
-        const { fixtures: updated, liveRounds } = await overlayAflScores(fixtures, year);
+        const updated = await overlayAflScores(fixtures, year);
         // Write any newly-acquired scores back to MongoDB
         const ops = [];
         for (const f of updated) {
@@ -248,22 +240,21 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
         if (ops.length > 0) {
           await collection.bulkWrite(ops);
           console.log(`Wrote ${ops.length} new scores to MongoDB fixtures`);
-        }
 
-        // Kick off player-stats refresh whenever either (a) a fixture's final
-        // scores newly land, or (b) any match in the round is currently LIVE.
-        // The AFL API omits the score field on LIVE matches, so we can't gate
-        // refreshes on "scores landed" alone — that would never fire mid-game
-        // and leave live stats stuck empty. Throttled + fire-and-forget.
-        if (year === CURRENT_YEAR) {
-          const roundsFromOps = ops.map(op => {
-            const matchNumber = op.updateOne.filter.MatchNumber;
-            const f = updated.find(x => x.MatchNumber === matchNumber);
-            return f?.RoundNumber;
-          }).filter(r => r !== undefined && r !== null);
-          const roundsToRefresh = new Set([...roundsFromOps, ...liveRounds]);
-          for (const r of roundsToRefresh) {
-            refreshGameResultsForRound(r).catch(() => {});
+          // Same data source for live AFL stats as live scores: whenever a
+          // fixture's final scores newly land, kick off a player-stats refresh
+          // for that round. Best-effort, throttled, fire-and-forget.
+          if (year === CURRENT_YEAR) {
+            const roundsToRefresh = [...new Set(
+              ops.map(op => {
+                const matchNumber = op.updateOne.filter.MatchNumber;
+                const f = updated.find(x => x.MatchNumber === matchNumber);
+                return f?.RoundNumber;
+              }).filter(r => r !== undefined && r !== null)
+            )];
+            for (const r of roundsToRefresh) {
+              refreshGameResultsForRound(r).catch(() => {});
+            }
           }
         }
         fixtures = updated;
