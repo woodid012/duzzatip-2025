@@ -169,16 +169,19 @@ function getPlayingTeams(roundFixtures) {
 }
 function teamIsPlaying(dbTeam, playingTeams) {
   if (!dbTeam) return true;
+  // Substring matching collides on shared fragments (e.g. "Gold Coast SUNS"
+  // was matching "St Kilda" because "coast" contains "st"). Slug both sides
+  // and compare canonically.
+  const dbSlug = findTeamSlug(dbTeam);
+  if (dbSlug) {
+    for (const t of playingTeams) {
+      if (findTeamSlug(t) === dbSlug) return true;
+    }
+    return false;
+  }
   const dbT = dbTeam.toLowerCase().trim();
   for (const t of playingTeams) {
-    if (t.toLowerCase().includes(dbT) || dbT.includes(t.toLowerCase().split(" ")[0])) return true;
-  }
-  const slug = findTeamSlug(dbTeam);
-  if (slug) {
-    const aliases = TEAM_ALIASES[slug] || [];
-    for (const t of playingTeams) {
-      if (aliases.some(a => t.toLowerCase().includes(a.toLowerCase()) || a.toLowerCase().includes(t.toLowerCase().split(" ")[0]))) return true;
-    }
+    if (t.toLowerCase().trim() === dbT) return true;
   }
   return false;
 }
