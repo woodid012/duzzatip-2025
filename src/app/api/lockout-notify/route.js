@@ -150,16 +150,19 @@ function getPlayingTeams(roundFixtures) {
 }
 function teamIsPlaying(dbTeam, playingTeams) {
   if (!dbTeam) return true;
+  // Substring matching collides on shared fragments (e.g. "Gold Coast SUNS"
+  // was matching "St Kilda" because "coast" contains "st"). Slug both sides
+  // and compare canonically.
+  const dbSlug = findTeamSlug(dbTeam);
+  if (dbSlug) {
+    for (const t of playingTeams) {
+      if (findTeamSlug(t) === dbSlug) return true;
+    }
+    return false;
+  }
   const dbT = dbTeam.toLowerCase().trim();
   for (const t of playingTeams) {
-    if (t.toLowerCase().includes(dbT) || dbT.includes(t.toLowerCase().split(" ")[0])) return true;
-  }
-  const slug = findTeamSlug(dbTeam);
-  if (slug) {
-    const aliases = TEAM_ALIASES[slug] || [];
-    for (const t of playingTeams) {
-      if (aliases.some(a => t.toLowerCase().includes(a.toLowerCase()) || a.toLowerCase().includes(t.toLowerCase().split(" ")[0]))) return true;
-    }
+    if (t.toLowerCase().trim() === dbT) return true;
   }
   return false;
 }
@@ -787,18 +790,19 @@ async function handler(request) {
   // ── Re-check dedup (sendType already determined above) ──
 
   // ── Auto-exclude ──
-  // Exclude: bye players, serious injuries, and anyone NOT named in team
-  // selections IF their match is imminent. If the match is hours away and AFL
-  // hasn't published a named22 yet, keep the player in when they played last
-  // round and aren't on a known weeks-or-longer injury (likely an unchanged
-  // selection, even if AFL only announced ins/outs).
+  // Exclude: bye players, serious injuries, and anyone confirmed OUT or
+  // listed as EMERGENCY by AFL. "unknown" (team's named22 not yet published)
+  // is not a signal — leave those players in until AFL publishes. For
+  // confirmed-out players whose match isn't imminent, fall back to "played
+  // last round and not multi-week injured" so a stale ins/outs feed doesn't
+  // drop a healthy regular.
   const autoExcluded = new Set();
   for (const p of squad) {
     if (!teamIsPlaying(p.team, playingTeams)) autoExcluded.add(p.name);
     else if (injSeverity(p.name, injuries) >= 3) autoExcluded.add(p.name);
     else if (effectiveSelectionStatus) {
       const sel = effectiveSelectionStatus.get(p.name);
-      if (sel && sel !== "playing") {
+      if (sel === "out" || sel === "emergency") {
         const f = playerMatch.get(p.name);
         const hoursUntilMatch = f ? (new Date(f.DateUtc) - now) / 36e5 : 0;
         const matchImminent = hoursUntilMatch <= LATE_MATCH_THRESHOLD_HOURS;
