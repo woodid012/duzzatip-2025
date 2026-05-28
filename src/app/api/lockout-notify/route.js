@@ -90,6 +90,14 @@ function injSeverity(name, injuries) {
   if (!inj) return 0;
   return { SEASON: 4, MONTHS: 3, WEEKS: 2, DOUBT: 1, MANAGED: 0 }[inj.status] ?? 0;
 }
+// Parse the lower-bound week count from an injury detail like "2 weeks",
+// "1-2 weeks", "Hamstring, 2-3 weeks". Returns 0 if no number is present.
+function injWeeksLower(detail) {
+  if (!detail) return 0;
+  const nums = detail.match(/\d+/g);
+  if (!nums?.length) return 0;
+  return Math.min(...nums.map(Number));
+}
 function injNote(name, injuries) {
   const inj = findInjury(name, injuries);
   if (!inj) return "";
@@ -813,25 +821,36 @@ async function handler(request) {
   // ── Re-check dedup (sendType already determined above) ──
 
   // ── Auto-exclude ──
-  // Exclude: bye players, serious injuries, and anyone confirmed OUT or
-  // listed as EMERGENCY by AFL. "unknown" (team's named22 not yet published)
-  // is not a signal — leave those players in until AFL publishes. For
-  // confirmed-out players whose match isn't imminent, fall back to "played
-  // last round and not multi-week injured" so a stale ins/outs feed doesn't
-  // drop a healthy regular.
+  // Precedence:
+  //  1. Bye → exclude
+  //  2. Named in AFL 22 → INCLUDE (overrides stale injury data; "test" players
+  //     often get named)
+  //  3. MONTHS/SEASON injury → exclude
+  //  4. WEEKS injury with lower-bound > 1 week → exclude (1-week / 1-2 week
+  //     listings might still play; 2+ weeks definitely won't)
+  //  5. AFL says "out" or "emergency" → exclude (with the "played-last-round
+  //     and not multi-week-injured" backup so a stale ins/outs feed doesn't
+  //     drop a healthy regular when the match is days away)
   const autoExcluded = new Set();
   for (const p of squad) {
-    if (!teamIsPlaying(p.team, playingTeams)) autoExcluded.add(p.name);
-    else if (injSeverity(p.name, injuries) >= 3) autoExcluded.add(p.name);
-    else if (effectiveSelectionStatus) {
-      const sel = effectiveSelectionStatus.get(p.name);
-      if (sel === "out" || sel === "emergency") {
-        const f = playerMatch.get(p.name);
-        const hoursUntilMatch = f ? (new Date(f.DateUtc) - now) / 36e5 : 0;
-        const matchImminent = hoursUntilMatch <= LATE_MATCH_THRESHOLD_HOURS;
-        const likelyPlaying = playedLastRound.has(p.name) && injSeverity(p.name, injuries) < 2;
-        if (matchImminent || !likelyPlaying) autoExcluded.add(p.name);
-      }
+    if (!teamIsPlaying(p.team, playingTeams)) { autoExcluded.add(p.name); continue; }
+
+    const sel = effectiveSelectionStatus?.get(p.name);
+    if (sel === "playing") continue;
+
+    const sev = injSeverity(p.name, injuries);
+    if (sev >= 3) { autoExcluded.add(p.name); continue; }
+    if (sev === 2) {
+      const inj = findInjury(p.name, injuries);
+      if (injWeeksLower(inj?.detail) > 1) { autoExcluded.add(p.name); continue; }
+    }
+
+    if (effectiveSelectionStatus && (sel === "out" || sel === "emergency")) {
+      const f = playerMatch.get(p.name);
+      const hoursUntilMatch = f ? (new Date(f.DateUtc) - now) / 36e5 : 0;
+      const matchImminent = hoursUntilMatch <= LATE_MATCH_THRESHOLD_HOURS;
+      const likelyPlaying = playedLastRound.has(p.name) && sev < 2;
+      if (matchImminent || !likelyPlaying) autoExcluded.add(p.name);
     }
   }
 
