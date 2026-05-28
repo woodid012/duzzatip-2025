@@ -498,7 +498,7 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad }) {
   const lockoutDay = lockout?.firstGame ? melbDay(lockout.firstGame) : "";
   // Day-of-week tag for any player whose match is on a different Melbourne day
   // than the round's first bounce (e.g. lineup is Thu but player plays Sun).
@@ -568,6 +568,29 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     lines.push(`⚠️ *ALERTS*`);
     for (const a of alerts) lines.push(a);
     lines.push("");
+  }
+
+  // ── Spare ──
+  // Squad players who are available (not bye/out/excluded) but didn't make
+  // the team (lineup + bench + reserves) — their "best position" gives a
+  // hint at what they could cover if a late change is needed.
+  if (squad?.length) {
+    const inTeam = new Set(
+      [...Object.values(result.lineup), result.bench, result.reserveA, result.reserveB]
+        .filter(Boolean).map(p => p.name)
+    );
+    const spares = squad
+      .filter(p => !inTeam.has(p.name) && !autoExcluded.has(p.name))
+      .sort((a, b) => (b.bestScore || 0) - (a.bestScore || 0));
+    if (spares.length) {
+      lines.push(`🔄 *SPARE*`);
+      for (const p of spares) {
+        const posShort = POS_SHORT[p.bestPos] || "?";
+        const pts = p.bestScore ? Math.round(p.bestScore) : "?";
+        lines.push(`*${posShort}* — *${dn(p.name)}* _(${pts}pts)_${dayTag(p.name)}`);
+      }
+      lines.push("");
+    }
   }
 
   // ── Tips ──
@@ -892,7 +915,7 @@ async function handler(request) {
 
   // ── Send ──
   const isFinal = sendType === "final";
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
