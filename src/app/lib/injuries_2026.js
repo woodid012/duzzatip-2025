@@ -164,7 +164,7 @@ export const INJURIES = {
   "Liam Duggan":           { status: "DOUBT",  detail: "Concussion, test" },
   "Harry Edwards":         { status: "MONTHS", detail: "Concussion, TBC" },
   "Reuben Ginbey":         { status: "DOUBT",  detail: "Foot, test" },
-  "Jack Graham":           { status: "DOUBT",  detail: "Hamstring, test" },
+  "Jack Graham":           { status: "WEEKS",  detail: "Hamstring, 2-3 weeks" },
   "Tom Gross":             { status: "WEEKS",  detail: "Hamstring, 5-7 weeks" },
   "Jack Hutchinson":       { status: "WEEKS",  detail: "Ankle, 7-9 weeks" },
   "Tim Kelly":             { status: "DOUBT",  detail: "Hamstring, test" },
