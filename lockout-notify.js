@@ -243,35 +243,43 @@ async function loadPlayerStats(db, names) {
 }
 
 // ===== Optimal lineup =====
-function findOptimalLineup(squadPlayers, excluded = new Set()) {
-  const pool = squadPlayers.filter(p => !excluded.has(p.name) && p.scores && Object.keys(p.scores).length > 0);
-  const assigned = {};
-  const used = new Set();
-  const remaining = [...MAIN_POSITIONS];
-
-  while (remaining.length > 0) {
-    let bestPos = null, bestPlayer = null, bestMargin = -Infinity;
-    for (const pos of remaining) {
-      const candidates = pool.filter(p => !used.has(p.name)).sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0));
-      if (!candidates.length) continue;
-      const top = candidates[0].scores[pos] || 0;
-      const second = candidates[1]?.scores[pos] || 0;
-      const margin = top - second;
-      if (margin > bestMargin || (margin === bestMargin && top > (bestPlayer?.scores[bestPos] || 0))) {
-        bestMargin = margin; bestPos = pos; bestPlayer = candidates[0];
+// Exact max-weight assignment of players to positions (keeps the CLI in sync
+// with the /api/lockout-notify route). Replaces the old greedy "margin" pick,
+// which was a heuristic and could leave points on the table. With only 6
+// positions, a classic assignment DP over a bitmask of filled positions is cheap.
+function popcount(n) { let c = 0; while (n) { n &= n - 1; c++; } return c; }
+function optimalAssignment(pool, positions) {
+  const P = positions.length;
+  const FULL = (1 << P) - 1;
+  let dp = new Map([[0, { score: 0, assign: {} }]]);
+  for (const player of pool) {
+    const next = new Map(dp);
+    for (const [mask, state] of dp) {
+      for (let i = 0; i < P; i++) {
+        const bit = 1 << i;
+        if (mask & bit) continue;
+        const nmask = mask | bit;
+        const nscore = state.score + (player.scores[positions[i]] || 0);
+        const cur = next.get(nmask);
+        if (!cur || nscore > cur.score) {
+          next.set(nmask, { score: nscore, assign: { ...state.assign, [positions[i]]: player } });
+        }
       }
     }
-    if (!bestPos) break;
-    assigned[bestPos] = bestPlayer;
-    used.add(bestPlayer.name);
-    remaining.splice(remaining.indexOf(bestPos), 1);
+    dp = next;
   }
-  for (const pos of MAIN_POSITIONS) {
-    if (!assigned[pos]) {
-      const best = pool.filter(p => !used.has(p.name)).sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0))[0];
-      if (best) { assigned[pos] = best; used.add(best.name); }
-    }
+  let best = dp.get(FULL);
+  if (!best) {
+    best = [...dp.entries()]
+      .sort(([am, a], [bm, b]) => popcount(bm) - popcount(am) || b.score - a.score)[0]?.[1]
+      || { score: 0, assign: {} };
   }
+  return { assign: best.assign, used: new Set(Object.values(best.assign).map(p => p.name)) };
+}
+
+function findOptimalLineup(squadPlayers, excluded = new Set()) {
+  const pool = squadPlayers.filter(p => !excluded.has(p.name) && p.scores && Object.keys(p.scores).length > 0);
+  const { assign: assigned, used } = optimalAssignment(pool, MAIN_POSITIONS);
 
   // Bench: pick the player+position combo that best covers the weakest starter
   const benchPool = pool.filter(p => !used.has(p.name));

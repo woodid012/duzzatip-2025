@@ -269,54 +269,74 @@ async function fetchSquad2025Scores() {
 }
 
 // ── Optimal lineup ─────────────────────────────────────────────────────────────
+function popcount(n) { let c = 0; while (n) { n &= n - 1; c++; } return c; }
+
+// Exact max-weight assignment of players to positions. The old code assigned
+// greedily by "margin" (biggest top-vs-2nd gap first), which is a heuristic and
+// can leave points on the table — and, worse, shove a genuinely strong player
+// down onto the bench/reserves, since those are picked from the leftovers.
+// With only 6 positions the optimum is cheap: a classic assignment DP over a
+// bitmask of filled positions, O(players × 2^positions). Returns the best
+// (ideally fully-filled) lineup that maximises total projected points.
+function optimalAssignment(pool, positions) {
+  const P = positions.length;
+  const FULL = (1 << P) - 1;
+  // dp: bitmask of filled positions → best { score, assign }. Transitions are
+  // taken from the previous layer only, so each player is used at most once.
+  let dp = new Map([[0, { score: 0, assign: {} }]]);
+  for (const player of pool) {
+    const next = new Map(dp);
+    for (const [mask, state] of dp) {
+      for (let i = 0; i < P; i++) {
+        const bit = 1 << i;
+        if (mask & bit) continue;
+        const nmask = mask | bit;
+        const nscore = state.score + (player.scores[positions[i]] || 0);
+        const cur = next.get(nmask);
+        if (!cur || nscore > cur.score) {
+          next.set(nmask, { score: nscore, assign: { ...state.assign, [positions[i]]: player } });
+        }
+      }
+    }
+    dp = next;
+  }
+  // Prefer a fully-filled lineup; otherwise the most-filled, highest-scoring one
+  // (happens only when fewer eligible players than positions).
+  let best = dp.get(FULL);
+  if (!best) {
+    best = [...dp.entries()]
+      .sort(([am, a], [bm, b]) => popcount(bm) - popcount(am) || b.score - a.score)[0]?.[1]
+      || { score: 0, assign: {} };
+  }
+  return { assign: best.assign, used: new Set(Object.values(best.assign).map(p => p.name)) };
+}
+
 function findOptimalLineup(squadPlayers, excluded = new Set()) {
   // If we have no scores (common early season), fall back to squad order so we still fill all 9 slots.
   const eligible = squadPlayers.filter(p => !excluded.has(p.name));
   const scoredPool = eligible.filter(p => Object.keys(p.scores).length > 0);
   const useFallback = scoredPool.length === 0;
+  const pool = useFallback ? eligible : scoredPool;
 
-  const pool = useFallback
-    ? eligible
-    : scoredPool;
-
-  const assigned = {}, used = new Set(), remaining = [...MAIN_POSITIONS];
-
-  while (remaining.length > 0) {
-    let bestPos = null, bestPlayer = null, bestMargin = -Infinity;
-
-    if (useFallback) {
-      // Just fill in order across positions.
-      bestPos = remaining[0];
-      bestPlayer = pool.find(p => !used.has(p.name)) || null;
-      if (!bestPlayer) break;
-    } else {
-      for (const pos of remaining) {
-        const candidates = pool
-          .filter(p => !used.has(p.name))
-          .sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0));
-        if (!candidates.length) continue;
-        const margin = (candidates[0].scores[pos] || 0) - (candidates[1]?.scores[pos] || 0);
-        if (margin > bestMargin) { bestMargin = margin; bestPos = pos; bestPlayer = candidates[0]; }
-      }
-      if (!bestPos) break;
+  let assigned, used;
+  if (useFallback) {
+    assigned = {}; used = new Set();
+    for (const pos of MAIN_POSITIONS) {
+      const p = pool.find(x => !used.has(x.name));
+      if (!p) break;
+      assigned[pos] = p; used.add(p.name);
     }
+  } else {
+    ({ assign: assigned, used } = optimalAssignment(pool, MAIN_POSITIONS));
+  }
 
-    assigned[bestPos] = bestPlayer; used.add(bestPlayer.name);
-    remaining.splice(remaining.indexOf(bestPos), 1);
-  }
-  for (const pos of MAIN_POSITIONS) {
-    if (!assigned[pos]) {
-      const best = useFallback
-        ? pool.find(p => !used.has(p.name))
-        : pool.filter(p => !used.has(p.name)).sort((a, b) => (b.scores[pos] || 0) - (a.scores[pos] || 0))[0];
-      if (best) { assigned[pos] = best; used.add(best.name); }
-    }
-  }
+  // Bench / reserves: sensible defaults from the leftover pool. The route refines
+  // the bench (and re-picks the reserves) with the option-value model below.
+  const leftover = () => pool.filter(p => !used.has(p.name));
 
   const bench = useFallback
-    ? (pool.find(p => !used.has(p.name)) || null)
-    : (pool.filter(p => !used.has(p.name))
-        .sort((a, b) => Math.max(...Object.values(b.scores)) - Math.max(...Object.values(a.scores)))[0] || null);
+    ? (leftover()[0] || null)
+    : (leftover().sort((a, b) => Math.max(0, ...Object.values(b.scores)) - Math.max(0, ...Object.values(a.scores)))[0] || null);
   if (bench) used.add(bench.name);
 
   let benchBackup = MAIN_POSITIONS[0];
@@ -327,16 +347,16 @@ function findOptimalLineup(squadPlayers, excluded = new Set()) {
     }
   }
 
-  const resAScore = p => Math.max(...RESERVE_A_COVERS.map(pos => p.scores[pos] || 0));
+  const resAScore = p => Math.max(0, ...RESERVE_A_COVERS.map(pos => p.scores[pos] || 0));
   const resA = useFallback
-    ? (pool.find(p => !used.has(p.name)) || null)
-    : (pool.filter(p => !used.has(p.name)).sort((a, b) => resAScore(b) - resAScore(a))[0] || null);
+    ? (leftover()[0] || null)
+    : (leftover().sort((a, b) => resAScore(b) - resAScore(a))[0] || null);
   if (resA) used.add(resA.name);
 
-  const resBScore = p => Math.max(...RESERVE_B_COVERS.map(pos => p.scores[pos] || 0));
+  const resBScore = p => Math.max(0, ...RESERVE_B_COVERS.map(pos => p.scores[pos] || 0));
   const resB = useFallback
-    ? (pool.find(p => !used.has(p.name)) || null)
-    : (pool.filter(p => !used.has(p.name)).sort((a, b) => resBScore(b) - resBScore(a))[0] || null);
+    ? (leftover()[0] || null)
+    : (leftover().sort((a, b) => resBScore(b) - resBScore(a))[0] || null);
 
   return { lineup: assigned, bench, benchBackup, reserveA: resA, reserveB: resB };
 }
@@ -371,24 +391,24 @@ function expectedBenchGain(benchGames, mainGames, pos) {
   return count > 0 ? Math.round((totalGain / count) * 10) / 10 : 0;
 }
 
-// Returns { pos, gain } — the backup position that maximises expected bench gain.
-// Falls back to the bench player's own best position if no game data is available.
-function findBestBenchBackup(lineup, bench, statsMap) {
-  if (!bench) return { pos: MAIN_POSITIONS[0], gain: 0 };
-  const benchGames = statsMap[bench.name]?.games || [];
-  if (!benchGames.length) {
-    // No game data — fall back to bench player's best scoring position
-    return { pos: bench.bestPos || MAIN_POSITIONS[0], gain: 0 };
+// Bench "option value" for backing up `starter` at `pos` with `candidate`.
+// When both players have a usable game sample we use the game-level
+// E[max(bench − starter, 0)] (the exact expected gain for the real "bench swaps
+// in if it outscores the starter" rule). When the sample is thin we fall back to
+// the *same blended season scores* used to pick the lineup, rather than the old
+// behaviour where expectedBenchGain returned 0 for any data-less player — which
+// made every no-game candidate tie at 0 and let squad order (an essentially
+// arbitrary pick) decide the bench. The fallback keeps the bench judged on the
+// same basis as the rest of the team.
+const BENCH_MIN_GAMES = 3;
+function benchGainFor(candidate, starter, pos, statsMap) {
+  const cg = statsMap[candidate.name]?.games || [];
+  const mg = statsMap[starter.name]?.games || [];
+  if (cg.length >= BENCH_MIN_GAMES && mg.length >= BENCH_MIN_GAMES) {
+    return expectedBenchGain(cg, mg, pos);
   }
-  let bestPos = null, bestGain = -Infinity;
-  for (const pos of MAIN_POSITIONS) {
-    const mainPlayer = lineup[pos];
-    if (!mainPlayer) continue;
-    const mainGames = statsMap[mainPlayer.name]?.games || [];
-    const gain = expectedBenchGain(benchGames, mainGames, pos);
-    if (gain > bestGain) { bestGain = gain; bestPos = pos; }
-  }
-  return { pos: bestPos || bench.bestPos || MAIN_POSITIONS[0], gain: bestGain };
+  // Thin game data — use the blended season-score edge over the starter.
+  return Math.max((candidate.scores[pos] || 0) - (starter.scores[pos] || 0), 0);
 }
 
 function buildSelectionStatus(squadPlayers, fwSelections) {
@@ -857,22 +877,21 @@ async function handler(request) {
   // ── Lineup + tips ──
   const result = findOptimalLineup(squad, autoExcluded);
 
-  // ── Variance-based bench player + backup selection ──
+  // ── Option-value bench player + backup selection ──
   // Re-pick bench from all remaining eligible players (not just the one findOptimalLineup chose).
-  // For each candidate × each backup position, compute E[max(bench,main)−main].
-  // Pick the (player, position) pair with the highest expected gain, then re-pick ResA/ResB.
+  // For each candidate × each backup position, score the option value via benchGainFor
+  // (game-level E[max(bench−starter,0)] when data allows, else the blended season-score
+  // edge). Pick the (player, position) pair with the highest gain, then re-pick ResA/ResB.
   {
     const mainAssigned = new Set(Object.values(result.lineup).filter(Boolean).map(p => p.name));
     const remainingPool = squad.filter(p => !autoExcluded.has(p.name) && !mainAssigned.has(p.name));
 
     let bestBench = null, bestBackup = null, bestGain = -Infinity;
     for (const candidate of remainingPool) {
-      const candidateGames = statsMap[candidate.name]?.games || [];
       for (const pos of MAIN_POSITIONS) {
         const mainPlayer = result.lineup[pos];
         if (!mainPlayer) continue;
-        const mainGames = statsMap[mainPlayer.name]?.games || [];
-        const gain = expectedBenchGain(candidateGames, mainGames, pos);
+        const gain = benchGainFor(candidate, mainPlayer, pos, statsMap);
         if (gain > bestGain) { bestGain = gain; bestBench = candidate; bestBackup = pos; }
       }
     }
