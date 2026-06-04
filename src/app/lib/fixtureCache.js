@@ -140,6 +140,11 @@ async function overlayAflScores(fixtures, year) {
   }
 
   // Build a combined score map across all started rounds.
+  // Keys are namespaced by local round (`${round}|home|away`) — NOT by team
+  // matchup alone. The same fixture can recur in two rounds (e.g. Hawthorn v
+  // Western Bulldogs plays in both round 5 and round 13 of 2026), and a bare
+  // matchup key would let one round's result bleed onto the other round's
+  // fixture (and get written back to MongoDB, permanently corrupting it).
   // Also track which local rounds have any LIVE matches — the AFL API
   // doesn't include a score field for LIVE matches (scores only appear once
   // status flips to CONCLUDED), so we can't rely on a "scores landed"
@@ -150,7 +155,9 @@ async function overlayAflScores(fixtures, year) {
     const apiRound = localRound + roundOffset;
     try {
       const { scoreMap } = await fetchAflApiScoresForRound(apiRound, token);
-      Object.assign(combinedScores, scoreMap);
+      for (const [matchup, score] of Object.entries(scoreMap)) {
+        combinedScores[`${localRound}|${matchup}`] = score;
+      }
       if (Object.values(scoreMap).some(s => s.status === 'LIVE')) {
         liveRounds.add(localRound);
       }
@@ -159,11 +166,13 @@ async function overlayAflScores(fixtures, year) {
     }
   }
 
-  // Apply scores to matching fixtures
+  // Apply scores to matching fixtures. The score key is namespaced by the
+  // fixture's own round so a recurring matchup only ever picks up the score
+  // from the round it actually belongs to.
   const matchedKeys = new Set();
   let updated = 0;
   const result = fixtures.map(f => {
-    const key = `${normaliseTeam(f.HomeTeam)}|${normaliseTeam(f.AwayTeam)}`;
+    const key = `${f.RoundNumber}|${normaliseTeam(f.HomeTeam)}|${normaliseTeam(f.AwayTeam)}`;
     const score = combinedScores[key];
     if (!score) return f;
     matchedKeys.add(key);
@@ -230,12 +239,18 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
     if (needsScore.length > 0) {
       try {
         const { fixtures: updated, liveRounds } = await overlayAflScores(fixtures, year);
-        // Write any newly-acquired scores back to MongoDB
+        // Write back any score that is newly-acquired OR differs from what's
+        // stored. The mismatch case self-heals fixtures that were previously
+        // corrupted by the old matchup-only key (e.g. a round-13 fixture left
+        // holding a round-5 result): once the real game concludes, the correct
+        // round-namespaced score overwrites the stale one.
         const ops = [];
         for (const f of updated) {
           if (f.HomeTeamScore !== null && f.AwayTeamScore !== null) {
             const orig = fixtures.find(o => o.MatchNumber === f.MatchNumber);
-            if (!orig || orig.HomeTeamScore === null || orig.AwayTeamScore === null) {
+            if (!orig ||
+                orig.HomeTeamScore !== f.HomeTeamScore ||
+                orig.AwayTeamScore !== f.AwayTeamScore) {
               ops.push({
                 updateOne: {
                   filter: { MatchNumber: f.MatchNumber, year },
