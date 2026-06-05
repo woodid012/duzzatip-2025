@@ -43,6 +43,16 @@ const NOTIFY_WINDOW_HOURS = 24;
 const TELEGRAM_CHAT_ID = "8600335192";
 const STATE_FILE = pathMod.join(__dirname, ".notified-rounds.json");
 
+// MongoDB connection — prefer env var; fall back to the shared league cluster.
+const MONGODB_URI = process.env.MONGODB_URI ||
+  "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+
+// Short team names for trade reporting (keyed by user_id)
+const USER_SHORT = {
+  1: "Feathers", 2: "Sharky", 3: "Miguel", 4: "Quack",
+  5: "Randy", 6: "Milky Briz", 7: "String Theory", 8: "Pinga",
+};
+
 // ===== Scoring formulas =====
 const SCORE_FNS = {
   "Full Forward": (s) => s.goals * 9 + s.behinds,
@@ -240,6 +250,166 @@ async function loadPlayerStats(db, names) {
     }
   }
   return stats;
+}
+
+// ===== Trade performance analysis =====
+// Each traded player's contribution is measured by their best-position DuzzaTip
+// score for that single game (the position they'd be most valuable in), summed
+// over every round from the trade's first effective round to the latest
+// completed round. Games missed (bye/injury/omission) are tracked too — a
+// player who isn't on the park scores nothing, which is part of the trade cost.
+
+function bestGameScore(stats) {
+  let best = 0;
+  for (const fn of Object.values(SCORE_FNS)) {
+    const v = fn(stats);
+    if (v > best) best = v;
+  }
+  return best;
+}
+
+// Latest round whose final fixture has already started (i.e. fully under way /
+// complete). In-progress rounds are excluded so comparisons use whole rounds.
+function getLastCompletedRound(fixtures) {
+  const now = new Date();
+  const rounds = [...new Set(fixtures.filter(f => f.RoundNumber > 0).map(f => f.RoundNumber))].sort((a, b) => a - b);
+  let last = 0;
+  for (const r of rounds) {
+    const rf = fixtures.filter(f => f.RoundNumber === r);
+    const lastGame = Math.max(...rf.map(f => new Date(f.DateUtc).getTime()));
+    if (lastGame < now.getTime()) last = r; else break;
+  }
+  return last;
+}
+
+// First round a trade takes effect: the earliest round whose opening fixture
+// starts strictly after the trade was made.
+function getEffectiveRound(fixtures, tradeDate) {
+  const t = new Date(tradeDate).getTime();
+  const rounds = [...new Set(fixtures.filter(f => f.RoundNumber > 0).map(f => f.RoundNumber))].sort((a, b) => a - b);
+  for (const r of rounds) {
+    const firstGame = Math.min(...fixtures.filter(f => f.RoundNumber === r).map(f => new Date(f.DateUtc).getTime()));
+    if (firstGame > t) return r;
+  }
+  return rounds[rounds.length - 1] + 1;
+}
+
+// Load trade transactions and collapse the two mirrored per-user records (and
+// multiple same-day swaps between the same pair) into one event each.
+async function loadTradeEvents(db, fixtures) {
+  const docs = await db.collection(`${YEAR}_squad_transactions`)
+    .find({ type: "trade", Active: 1 })
+    .sort({ transaction_date: 1 })
+    .toArray();
+
+  const events = new Map(); // key: "low-high|day"
+  for (const d of docs) {
+    const partner = d.trade_with_user_id;
+    if (partner == null) continue;
+    const a = parseInt(d.user_id), b = parseInt(partner);
+    const low = Math.min(a, b), high = Math.max(a, b);
+    const day = new Date(d.transaction_date).toISOString().slice(0, 10);
+    const key = `${low}-${high}|${day}`;
+
+    if (!events.has(key)) {
+      events.set(key, {
+        day, userLow: low, userHigh: high,
+        lowReceives: new Set(), highReceives: new Set(),
+        earliest: new Date(d.transaction_date),
+      });
+    }
+    const ev = events.get(key);
+    const dt = new Date(d.transaction_date);
+    if (dt < ev.earliest) ev.earliest = dt;
+
+    // players_in are received by d.user_id; players_out go to the partner.
+    const inNames = (d.players_in || []).map(p => typeof p === "string" ? p : p.name);
+    const outNames = (d.players_out || []).map(p => typeof p === "string" ? p : p.name);
+    if (a === low) { inNames.forEach(n => ev.lowReceives.add(n)); outNames.forEach(n => ev.highReceives.add(n)); }
+    else           { inNames.forEach(n => ev.highReceives.add(n)); outNames.forEach(n => ev.lowReceives.add(n)); }
+  }
+
+  return [...events.values()]
+    .map(ev => ({
+      ...ev,
+      lowReceives: [...ev.lowReceives],
+      highReceives: [...ev.highReceives],
+      roundEff: getEffectiveRound(fixtures, ev.earliest),
+    }))
+    .sort((a, b) => a.earliest - b.earliest);
+}
+
+// Score every involved player's best-position output per round, then tally each
+// side of every trade across its window.
+async function evaluateTradeEvents(db, fixtures, events, lastRound) {
+  const names = [...new Set(events.flatMap(e => [...e.lowReceives, ...e.highReceives]))];
+  const docs = await db.collection(`${YEAR}_game_results`).find({
+    player_name: { $in: names },
+    round: { $gte: 1, $lte: lastRound },
+  }).toArray();
+
+  // player -> round -> best score (dedupe duplicate rows per round)
+  const byPlayer = {};
+  for (const d of docs) {
+    const m = (byPlayer[d.player_name] ||= {});
+    if (m[d.round] == null) m[d.round] = bestGameScore(d);
+  }
+
+  const tally = (name, start) => {
+    let pts = 0, played = 0;
+    const rounds = byPlayer[name] || {};
+    for (let r = start; r <= lastRound; r++) {
+      if (rounds[r] != null) { pts += rounds[r]; played++; }
+    }
+    const window = Math.max(0, lastRound - start + 1);
+    return { name, pts: Math.round(pts), played, missed: window - played,
+             avg: played ? Math.round(pts / played * 10) / 10 : 0 };
+  };
+
+  return events.map(ev => {
+    const window = Math.max(0, lastRound - ev.roundEff + 1);
+    const low = ev.lowReceives.map(n => tally(n, ev.roundEff));
+    const high = ev.highReceives.map(n => tally(n, ev.roundEff));
+    const lowPts = low.reduce((s, p) => s + p.pts, 0);
+    const highPts = high.reduce((s, p) => s + p.pts, 0);
+    const diff = lowPts - highPts;
+    const winner = Math.abs(diff) < 1 ? null : (diff > 0 ? ev.userLow : ev.userHigh);
+    return { ev, window, low, high, lowPts, highPts, diff, winner };
+  });
+}
+
+function buildTradeMessage(reports, lastRound) {
+  const lines = [];
+  lines.push(`\u{1F501} *DuzzaTip Trade Report* — through Rd${lastRound}`);
+  lines.push(`_Best-position pts since each trade. (g=played, m=missed)_`);
+  lines.push("");
+
+  if (!reports.length) { lines.push("_No trades recorded this season._"); return lines.join("\n"); }
+
+  const fmtDay = (day) => new Date(day + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+  const sideLines = (label, name, players, pts) => {
+    const out = [`  *${label} ${name}* got ⇒ *${pts}* pts`];
+    if (!players.length) out.push(`     • —`);
+    for (const p of players) out.push(`     • ${p.name} — *${p.pts}* _(${p.played}g, ${p.missed}m)_`);
+    return out;
+  };
+
+  for (const rep of reports) {
+    const { ev } = rep;
+    const lowN = USER_SHORT[ev.userLow] || `U${ev.userLow}`;
+    const highN = USER_SHORT[ev.userHigh] || `U${ev.userHigh}`;
+    lines.push(`\u{1F4C5} *${fmtDay(ev.day)}*  ${lowN} ⇄ ${highN}  _(R${ev.roundEff}–${lastRound})_`);
+    lines.push(...sideLines("⬅", lowN, rep.low, rep.lowPts));
+    lines.push(...sideLines("➡", highN, rep.high, rep.highPts));
+    if (rep.winner == null) {
+      lines.push(`  ⚖️ *Dead even*`);
+    } else {
+      const wn = USER_SHORT[rep.winner] || `U${rep.winner}`;
+      lines.push(`  \u{1F3C6} *${wn} winning by ${Math.abs(rep.diff)}*`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n").trim();
 }
 
 // ===== Optimal lineup =====
@@ -615,6 +785,41 @@ function sendTelegram(message, dryRun) {
   }
 }
 
+// ===== Trade report runner =====
+async function runTradeReport({ fixtures, dryRun }) {
+  console.log("\n\u{1F501} DuzzaTip Trade Report");
+  process.stdout.write("   Connecting to MongoDB...");
+  const client = new MongoClient(MONGODB_URI, { connectTimeoutMS: 10000 });
+  await client.connect();
+  const db = client.db("afl_database");
+  console.log(" connected");
+
+  const lastRound = getLastCompletedRound(fixtures);
+  console.log(`   Latest completed round: ${lastRound}`);
+
+  const events = await loadTradeEvents(db, fixtures);
+  console.log(`   Trades found: ${events.length}`);
+
+  const reports = await evaluateTradeEvents(db, fixtures, events, lastRound);
+  await client.close();
+
+  // Console summary
+  for (const rep of reports) {
+    const { ev } = rep;
+    const lowN = USER_SHORT[ev.userLow], highN = USER_SHORT[ev.userHigh];
+    section(`${ev.day}  ${lowN} v ${highN}  (R${ev.roundEff}-${lastRound})`);
+    const fmt = arr => arr.map(p => `${dn(p.name)} ${p.pts}pts (${p.played}g/${p.missed}m)`).join(", ");
+    console.log(`  ${lowN} got: ${fmt(rep.low) || "-"}  => ${rep.lowPts}`);
+    console.log(`  ${highN} got: ${fmt(rep.high) || "-"}  => ${rep.highPts}`);
+    if (rep.winner == null) console.log(`  ${C.yellow}Dead even${C.reset}`);
+    else console.log(`  ${C.green}Winner: ${USER_SHORT[rep.winner]} by ${Math.abs(rep.diff)}${C.reset}`);
+  }
+
+  const message = buildTradeMessage(reports, lastRound);
+  await sendTelegram(message, dryRun);
+  console.log("\n✅ Done.");
+}
+
 // ===== Main =====
 async function main() {
   const args        = process.argv.slice(2);
@@ -624,8 +829,18 @@ async function main() {
   const doTeam      = !args.includes("--tips");
   const doTips      = !args.includes("--team");
   const roundArg    = args.find(a => a.startsWith("--round="));
+  const tradesOnly  = args.includes("--trades");
 
   const fixtures = loadFixtures();
+
+  // ═══════════════════════════════════════════════
+  //  TRADE REPORT  (node lockout-notify.js --trades)
+  // ═══════════════════════════════════════════════
+  if (tradesOnly) {
+    await runTradeReport({ fixtures, dryRun });
+    return;
+  }
+
   const round    = roundArg ? parseInt(roundArg.split("=")[1]) : getCurrentRound(fixtures);
   const lockout  = getLockoutInfo(fixtures, round);
 
@@ -676,7 +891,7 @@ async function main() {
   // Connect to MongoDB
   if (interactive) process.stdout.write(`\n${C.dim}Connecting to MongoDB...${C.reset}`);
   else process.stdout.write("   Connecting to MongoDB...");
-  const client = new MongoClient(process.env.MONGODB_URI, { connectTimeoutMS: 10000 });
+  const client = new MongoClient(MONGODB_URI, { connectTimeoutMS: 10000 });
   await client.connect();
   const db = client.db("afl_database");
   if (interactive) console.log(` ${C.green}connected${C.reset}`);
@@ -1133,7 +1348,15 @@ async function main() {
   console.log("\n\u2705 Done.");
 }
 
-main().catch(err => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.error("Fatal error:", err);
+    process.exit(1);
+  });
+}
+
+// Exported for tests (trade-report logic is pure / DB-injectable).
+module.exports = {
+  bestGameScore, getLastCompletedRound, getEffectiveRound,
+  loadTradeEvents, evaluateTradeEvents, buildTradeMessage,
+};
