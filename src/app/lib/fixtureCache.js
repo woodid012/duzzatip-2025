@@ -45,6 +45,71 @@ function normaliseTeam(name = '') {
     .replace('kangaroos', 'northmelbourne');
 }
 
+// Normalised "home|away" key for a fixture (orientation-sensitive — a return
+// fixture with home/away swapped is a different key and never collides).
+export function matchupKey(f) {
+  return `${normaliseTeam(f.HomeTeam)}|${normaliseTeam(f.AwayTeam)}`;
+}
+
+// The set of matchup keys (home|away) that appear in more than one round with
+// the SAME orientation. These are the only fixtures at risk of cross-round
+// score contamination: under the old matchup-only score key, the second
+// occurrence of e.g. "Hawthorn v Western Bulldogs" (rounds 5 and 13 of 2026)
+// would inherit the other round's result. We re-validate them against their
+// own round on every refresh so a stale value can't linger.
+export function recurringMatchupKeys(fixtures) {
+  const rounds = new Map(); // matchup -> Set(roundNumbers)
+  for (const f of fixtures) {
+    if (f.RoundNumber < 1) continue;
+    const k = matchupKey(f);
+    if (!rounds.has(k)) rounds.set(k, new Set());
+    rounds.get(k).add(f.RoundNumber);
+  }
+  const recurring = new Set();
+  for (const [k, rs] of rounds) if (rs.size > 1) recurring.add(k);
+  return recurring;
+}
+
+// Apply AFL API scores to fixtures authoritatively, per round. combinedScores
+// is keyed by `${round}|${homeNorm}|${awayNorm}`. For every fixture we have
+// own-round API data for:
+//   • concluded with a score          → set that score
+//   • not yet concluded (live/sched.) → ensure the fixture holds NO score; if
+//     it currently does, that's cross-round contamination from the old
+//     matchup-only key, so clear it back to null.
+// Fixtures with no own-round API entry are left untouched. Returns the new
+// fixtures array plus the set of MatchNumbers we had authoritative data for
+// (the caller only writes those back) and the matched-key set for diagnostics.
+export function applyAflScores(fixtures, combinedScores) {
+  const matchedKeys = new Set();
+  const evaluated = new Set();
+  let updated = 0;
+  const result = fixtures.map(f => {
+    const key = `${f.RoundNumber}|${matchupKey(f)}`;
+    const score = combinedScores[key];
+    if (!score) return f; // no own-round API data — leave as-is
+    matchedKeys.add(key);
+    evaluated.add(f.MatchNumber);
+
+    const hasScore = score.homeScore !== null && score.awayScore !== null;
+    if (hasScore) {
+      if (f.HomeTeamScore !== score.homeScore || f.AwayTeamScore !== score.awayScore) updated++;
+      return { ...f, HomeTeamScore: score.homeScore, AwayTeamScore: score.awayScore };
+    }
+
+    // Own-round game has no score yet. Only clear a stored value when the API
+    // positively reports the game as not concluded (guards against briefly
+    // wiping a real score during an API hiccup where status is unknown).
+    const notConcluded = score.status && score.status !== 'CONCLUDED';
+    if (notConcluded && (f.HomeTeamScore !== null || f.AwayTeamScore !== null)) {
+      updated++;
+      return { ...f, HomeTeamScore: null, AwayTeamScore: null };
+    }
+    return f;
+  });
+  return { fixtures: result, matchedKeys, evaluated, updated };
+}
+
 async function getAflToken() {
   const res = await fetch('https://api.afl.com.au/cfs/afl/WMCTok', {
     method: 'POST',
@@ -168,22 +233,9 @@ async function overlayAflScores(fixtures, year) {
 
   // Apply scores to matching fixtures. The score key is namespaced by the
   // fixture's own round so a recurring matchup only ever picks up the score
-  // from the round it actually belongs to.
-  const matchedKeys = new Set();
-  let updated = 0;
-  const result = fixtures.map(f => {
-    const key = `${f.RoundNumber}|${normaliseTeam(f.HomeTeam)}|${normaliseTeam(f.AwayTeam)}`;
-    const score = combinedScores[key];
-    if (!score) return f;
-    matchedKeys.add(key);
-    if (score.homeScore === null && score.awayScore === null) return f;
-    updated++;
-    return {
-      ...f,
-      HomeTeamScore: score.homeScore,
-      AwayTeamScore: score.awayScore,
-    };
-  });
+  // from the round it actually belongs to — and a fixture left holding a stale
+  // cross-round score gets cleared once we have its own round's status.
+  const { fixtures: result, matchedKeys, evaluated, updated } = applyAflScores(fixtures, combinedScores);
 
   // Loud warning if AFL API returned scores we couldn't tie back to a fixture —
   // catches future team-name rotations (Indigenous rounds, rebrands) without us
@@ -198,7 +250,7 @@ async function overlayAflScores(fixtures, year) {
   }
 
   console.log(`AFL API: overlaid scores on ${updated}/${fixtures.length} fixtures`);
-  return { fixtures: result, liveRounds };
+  return { fixtures: result, liveRounds, evaluated };
 }
 
 export async function getAflFixtures(year = CURRENT_YEAR) {
@@ -231,33 +283,37 @@ export async function getAflFixtures(year = CURRENT_YEAR) {
   // For current year, refresh scores from AFL API for games that have started
   // but don't yet have both scores recorded.
   if (year === CURRENT_YEAR) {
-    const needsScore = fixtures.filter(
-      f => new Date(f.DateUtc) <= now &&
-           (f.HomeTeamScore === null || f.AwayTeamScore === null)
-    );
+    // Re-validate a started fixture when it's missing a score OR when its
+    // matchup recurs in another round — the latter can be holding a stale
+    // cross-round result that must be checked against its own round and cleared.
+    const recurring = recurringMatchupKeys(fixtures);
+    const needsScore = fixtures.filter(f => {
+      if (new Date(f.DateUtc) > now) return false;
+      if (f.HomeTeamScore === null || f.AwayTeamScore === null) return true;
+      return recurring.has(matchupKey(f));
+    });
 
     if (needsScore.length > 0) {
       try {
-        const { fixtures: updated, liveRounds } = await overlayAflScores(fixtures, year);
-        // Write back any score that is newly-acquired OR differs from what's
-        // stored. The mismatch case self-heals fixtures that were previously
-        // corrupted by the old matchup-only key (e.g. a round-13 fixture left
-        // holding a round-5 result): once the real game concludes, the correct
-        // round-namespaced score overwrites the stale one.
+        const { fixtures: updated, liveRounds, evaluated } = await overlayAflScores(fixtures, year);
+        // Write back any fixture whose score differs from what's stored — for
+        // the fixtures we had authoritative own-round data for. This both lands
+        // newly-acquired scores AND self-heals fixtures previously corrupted by
+        // the old matchup-only key (e.g. a round-13 fixture left holding a
+        // round-5 result): the round-namespaced lookup either overwrites it
+        // with the right score or clears it to null until its real game plays.
         const ops = [];
         for (const f of updated) {
-          if (f.HomeTeamScore !== null && f.AwayTeamScore !== null) {
-            const orig = fixtures.find(o => o.MatchNumber === f.MatchNumber);
-            if (!orig ||
-                orig.HomeTeamScore !== f.HomeTeamScore ||
-                orig.AwayTeamScore !== f.AwayTeamScore) {
-              ops.push({
-                updateOne: {
-                  filter: { MatchNumber: f.MatchNumber, year },
-                  update: { $set: { HomeTeamScore: f.HomeTeamScore, AwayTeamScore: f.AwayTeamScore } },
-                }
-              });
-            }
+          if (!evaluated.has(f.MatchNumber)) continue;
+          const orig = fixtures.find(o => o.MatchNumber === f.MatchNumber);
+          if (!orig) continue;
+          if (orig.HomeTeamScore !== f.HomeTeamScore || orig.AwayTeamScore !== f.AwayTeamScore) {
+            ops.push({
+              updateOne: {
+                filter: { MatchNumber: f.MatchNumber, year },
+                update: { $set: { HomeTeamScore: f.HomeTeamScore, AwayTeamScore: f.AwayTeamScore } },
+              }
+            });
           }
         }
         if (ops.length > 0) {
