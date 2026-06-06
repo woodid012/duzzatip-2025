@@ -108,10 +108,31 @@ export async function fetchAFLRoundStats(round, providedToken = null) {
     return allPlayers;
 }
 
+// Guard against a degraded AFL API response wiping good data. Within a round
+// the stored record count only ever grows as games are played, so an empty or
+// drastically smaller incoming set signals a bad response — not real data — and
+// must not be allowed to replace what's already there. Returns true when the
+// incoming set should be rejected.
+export function isSuspectRefresh(existingCount, newCount) {
+    if (newCount === 0) return existingCount > 0;
+    return existingCount > 0 && newCount < existingCount * 0.5;
+}
+
 export async function updateGameResults(statsData, round) {
     const { db } = await connectToDatabase();
     const collection = db.collection(`${CURRENT_YEAR}_game_results`);
     const processedData = statsData.filter(r => r && typeof r === 'object');
+
+    // Never let a partial/degraded refresh replace a fuller stored set.
+    const existingCount = await collection.countDocuments({ round, year: CURRENT_YEAR });
+    if (isSuspectRefresh(existingCount, processedData.length)) {
+        console.warn(
+            `[guard] Skipping round ${round} game_results overwrite: ` +
+            `${processedData.length} incoming vs ${existingCount} stored — suspect AFL response.`
+        );
+        return { insertedCount: 0, skipped: true, reason: 'suspect_shrink', existingCount, newCount: processedData.length };
+    }
+
     await collection.deleteMany({ round: round, year: CURRENT_YEAR });
     const result = await collection.insertMany(processedData);
     return { insertedCount: result.insertedCount };
