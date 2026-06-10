@@ -30,8 +30,24 @@ function isValidTeam(uid) {
   return Number.isInteger(uid) && Boolean(USER_NAMES[uid]);
 }
 
-// GET — "me"
+// GET — "me", or the list of already-registered teams (?registered=1)
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+
+  if (searchParams.get('registered')) {
+    try {
+      const { db } = await connectToDatabase();
+      const recs = await db
+        .collection(COLLECTION)
+        .find({ passwordHash: { $exists: true, $ne: null } }, { projection: { user_id: 1 } })
+        .toArray();
+      return NextResponse.json({ registered: recs.map((r) => r.user_id) });
+    } catch (error) {
+      console.error('Auth registered-list error:', error);
+      return NextResponse.json({ registered: [] });
+    }
+  }
+
   const sess = sessionFromRequest(request);
   if (!sess || !isValidTeam(sess.uid)) {
     return NextResponse.json({ user: null });

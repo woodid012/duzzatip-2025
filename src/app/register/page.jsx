@@ -22,12 +22,37 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [registered, setRegistered] = useState([]);
 
   // Prefill the team from ?team=<id> if the link carried one.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('team');
     if (t && USER_NAMES[Number(t)]) setUserId(String(Number(t)));
   }, []);
+
+  // Load which teams already have an account so we can hide them.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth?registered=1')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setRegistered(Array.isArray(d.registered) ? d.registered : []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // If a prefilled / chosen team turns out to be already registered, clear it.
+  useEffect(() => {
+    if (userId && registered.includes(Number(userId))) {
+      setUserId('');
+      setConfirmedTeam(false);
+    }
+  }, [registered, userId]);
+
+  const availableTeams = Object.entries(USER_NAMES).filter(
+    ([id]) => !registered.includes(Number(id))
+  );
 
   const uid = Number(userId);
   const teamName = USER_NAMES[uid];
@@ -108,10 +133,19 @@ export default function RegisterPage() {
                 </label>
                 <select id="team" value={userId} onChange={handleTeamChange} className="dz-select w-full">
                   <option value="">Select your team…</option>
-                  {Object.entries(USER_NAMES).map(([id, name]) => (
+                  {availableTeams.map(([id, name]) => (
                     <option key={id} value={id}>{name}</option>
                   ))}
                 </select>
+                {availableTeams.length === 0 && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    Every team is already registered.{' '}
+                    <Link href="/pages/results" className="font-medium text-blue-600 hover:underline">
+                      Go to the app
+                    </Link>
+                    .
+                  </p>
+                )}
               </div>
 
               {/* Step 2 — confirm team */}

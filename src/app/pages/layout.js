@@ -288,19 +288,25 @@ export default function PagesLayout({ children }) {
     </div>
   );
 
-  const UserSelect = ({ className = '' }) => (
-    <select
-      value={selectedUserId}
-      onChange={handleUserChange}
-      className={`dz-select ${className}`}
-    >
-      <option value="">Select Player</option>
-      {Object.entries(USER_NAMES).map(([id, name]) => (
-        <option key={id} value={id}>{name}</option>
-      ))}
-      <option value="admin">Admin</option>
-    </select>
-  );
+  const UserSelect = ({ className = '' }) => {
+    // Once signed in, the team is locked — sign out to switch.
+    const locked = authedUserId !== null;
+    return (
+      <select
+        value={selectedUserId}
+        onChange={handleUserChange}
+        disabled={locked}
+        title={locked ? 'Signed in — sign out to switch teams' : undefined}
+        className={`dz-select ${locked ? 'cursor-not-allowed opacity-90' : ''} ${className}`}
+      >
+        <option value="">Select Player</option>
+        {Object.entries(USER_NAMES).map(([id, name]) => (
+          <option key={id} value={id}>{name}</option>
+        ))}
+        <option value="admin">Admin</option>
+      </select>
+    );
+  };
 
   const NavLink = ({ item, onClick }) => {
     const active = pathname === item.path;
