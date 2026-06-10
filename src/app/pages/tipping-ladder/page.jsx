@@ -15,6 +15,7 @@ export default function TippingLadderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [isLive, setIsLive] = useState(false);
 
   // Sync selected round when currentRound loads (unless user manually changed it)
   useEffect(() => {
@@ -30,9 +31,18 @@ export default function TippingLadderPage() {
     }
   }, [selectedRound, selectedYear]);
 
-  const loadTippingLadder = async (round) => {
+  // Auto-refresh while a round is live so the ladder stays current as games play
+  useEffect(() => {
+    if (!isLive || selectedRound === undefined || selectedRound === null) return;
+    const interval = setInterval(() => {
+      loadTippingLadder(selectedRound, { silent: true });
+    }, 60000); // 60s
+    return () => clearInterval(interval);
+  }, [isLive, selectedRound, selectedYear]);
+
+  const loadTippingLadder = async (round, { silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
 
       console.log(`Loading tipping ladder data for round ${round}`);
@@ -64,6 +74,7 @@ export default function TippingLadderPage() {
       
       setLadderData(transformedLadder);
       setRoundResults(data.roundResults);
+      setIsLive(Boolean(data.live));
       const formatDate = (d) => new Date(d).toLocaleString('en-AU', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
@@ -79,7 +90,7 @@ export default function TippingLadderPage() {
       console.error('Error loading tipping ladder:', err);
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -128,26 +139,37 @@ export default function TippingLadderPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-black">Tipping Ladder {selectedYear}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="dz-title">Tipping Ladder {selectedYear}</h1>
+            {isLive && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600"></span>
+                </span>
+                LIVE
+              </span>
+            )}
+          </div>
           <p className="text-gray-600">
-            Season standings after {formatRoundName(selectedRound)}
+            Season standings {isLive ? 'including' : 'after'} {formatRoundName(selectedRound)}
           </p>
           {lastUpdated && (
             <p className="text-sm text-gray-500">
-              Last updated: {lastUpdated.toLocaleString()}
+              {isLive ? 'Updating live · ' : ''}Last updated: {lastUpdated.toLocaleString()}
             </p>
           )}
         </div>
         
         <div className="flex items-center gap-2">
-          <label htmlFor="round-select" className="text-sm font-medium text-black">
-            Round:
+          <label htmlFor="round-select" className="text-sm font-medium text-slate-600">
+            Round
           </label>
-          <select 
+          <select
             id="round-select"
             value={selectedRound || 0}
             onChange={handleRoundChange}
-            className="p-2 border rounded text-sm text-black bg-white"
+            className="dz-select"
           >
             {[...Array(25)].map((_, i) => (
               <option key={i} value={i}>
@@ -160,93 +182,61 @@ export default function TippingLadderPage() {
 
       {/* Desktop Ladder Table */}
       <div className="hidden md:block">
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="dz-surface overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
+            <table className="dz-table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pos
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipper
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
-                    Season Tips
-                  </th>
+                  <th className="!text-center">Pos</th>
+                  <th>Tipper</th>
+                  <th className="!text-center !bg-blue-50/70 !text-blue-700">Season Tips</th>
                   {selectedRound > 0 && (
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
-                      Round {selectedRound} Tips
-                    </th>
+                    <th className="!text-center !bg-blue-50/70 !text-blue-700">Round {selectedRound} Tips</th>
                   )}
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-orange-50">
-                    Season DCs
-                  </th>
+                  <th className="!text-center !bg-orange-50/70 !text-orange-700">Season DCs</th>
                   {selectedRound > 0 && (
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-orange-50">
-                      Round DCs
-                    </th>
+                    <th className="!text-center !bg-orange-50/70 !text-orange-700">Round DCs</th>
                   )}
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-orange-50">
-                    Season Correct
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-orange-50">
-                    Season Wrong
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-orange-50">
-                    Season Net
-                  </th>
+                  <th className="!text-center !bg-orange-50/70 !text-orange-700">Season Correct</th>
+                  <th className="!text-center !bg-orange-50/70 !text-orange-700">Season Wrong</th>
+                  <th className="!text-center !bg-orange-50/70 !text-orange-700">Season Net</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {ladderData.map((tipper, index) => {
                   const isLeader = index === 0;
                   const isTop3 = index < 3;
-                  
+
                   return (
-                    <tr 
-                      key={tipper.userId} 
-                      className={`hover:bg-gray-50 ${isLeader ? 'bg-yellow-50' : isTop3 ? 'bg-green-50' : ''}`}
+                    <tr
+                      key={tipper.userId}
+                      className={isLeader ? 'bg-amber-50/60' : isTop3 ? 'bg-emerald-50/50' : ''}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm font-bold flex items-center gap-2 ${
-                          isLeader ? 'text-yellow-600' : isTop3 ? 'text-green-700' : 'text-gray-900'
+                      <td className="!text-center">
+                        <div className={`flex items-center justify-center gap-1.5 font-bold ${
+                          isLeader ? 'text-amber-600' : isTop3 ? 'text-emerald-700' : 'text-slate-900'
                         }`}>
                           {index + 1}
-                          {isLeader && <span className="text-lg">👑</span>}
-                          {index === 1 && <span className="text-lg">🥈</span>}
-                          {index === 2 && <span className="text-lg">🥉</span>}
+                          {isLeader && <span className="text-base">👑</span>}
+                          {index === 1 && <span className="text-base">🥈</span>}
+                          {index === 2 && <span className="text-base">🥉</span>}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{tipper.userName}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900 bg-blue-50">
-                        {tipper.yearCorrectTips}
-                      </td>
+                      <td className="font-medium text-slate-900">{tipper.userName}</td>
+                      <td className="!text-center font-bold text-slate-900 bg-blue-50/50">{tipper.yearCorrectTips}</td>
                       {selectedRound > 0 && (
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700 bg-blue-50">
-                          {tipper.roundCorrectTips}
-                        </td>
+                        <td className="!text-center bg-blue-50/50">{tipper.roundCorrectTips}</td>
                       )}
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700 bg-orange-50">
-                        {tipper.yearTotalDCCount}
-                      </td>
+                      <td className="!text-center bg-orange-50/40">{tipper.yearTotalDCCount}</td>
                       {selectedRound > 0 && (
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700 bg-orange-50">
-                          {tipper.roundTotalDCCount}
-                        </td>
+                        <td className="!text-center bg-orange-50/40">{tipper.roundTotalDCCount}</td>
                       )}
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-green-600 font-medium bg-orange-50">
-                        {tipper.yearCorrectDCCount}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-red-600 font-medium bg-orange-50">
-                        {tipper.yearWrongDCCount}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center bg-orange-50">
-                        <span className={`text-sm font-medium ${
-                          tipper.yearNetDCScore > 0 ? 'text-green-600' : 
-                          tipper.yearNetDCScore < 0 ? 'text-red-600' : 'text-gray-600'
+                      <td className="!text-center font-medium text-emerald-600 bg-orange-50/40">{tipper.yearCorrectDCCount}</td>
+                      <td className="!text-center font-medium text-red-600 bg-orange-50/40">{tipper.yearWrongDCCount}</td>
+                      <td className="!text-center bg-orange-50/40">
+                        <span className={`font-semibold ${
+                          tipper.yearNetDCScore > 0 ? 'text-emerald-600' :
+                          tipper.yearNetDCScore < 0 ? 'text-red-600' : 'text-slate-500'
                         }`}>
                           {tipper.yearNetDCScore > 0 ? '+' : ''}{tipper.yearNetDCScore}
                         </span>
@@ -267,11 +257,11 @@ export default function TippingLadderPage() {
           const isTop3 = index < 3;
           
           return (
-            <div 
+            <div
               key={tipper.userId}
-              className={`rounded-lg p-4 shadow ${
-                isLeader ? 'bg-yellow-50 border-yellow-200' : 
-                isTop3 ? 'bg-green-50 border-green-200' : 'bg-white'
+              className={`rounded-2xl border p-4 shadow-sm ${
+                isLeader ? 'bg-amber-50 border-amber-200' :
+                isTop3 ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'
               }`}
             >
               <div className="flex items-center justify-between mb-3">
@@ -393,9 +383,9 @@ export default function TippingLadderPage() {
       </div>
 
       {/* Scoring Rules Info */}
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-blue-800 font-semibold mb-2">Tipping Scoring Rules</h3>
-        <ul className="list-disc pl-5 text-blue-700 text-sm space-y-1">
+      <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
+        <h3 className="text-blue-900 font-semibold mb-2">Tipping Scoring Rules</h3>
+        <ul className="list-disc pl-5 text-blue-800 text-sm space-y-1">
           <li><strong>Correct Tips:</strong> 1 point per correct tip</li>
           <li><strong>Dead Cert Correct:</strong> +6 points (instead of +1)</li>
           <li><strong>Dead Cert Incorrect:</strong> -12 points (instead of 0)</li>

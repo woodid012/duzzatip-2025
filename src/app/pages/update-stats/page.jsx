@@ -86,16 +86,16 @@ function UpdateStatsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Update AFL Stats</h1>
-      
-      <div className="bg-white rounded-lg shadow p-6">
+      <h1 className="dz-title mb-6">Update AFL Stats</h1>
+
+      <div className="dz-surface p-6">
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Select Round:</label>
           <div className="flex gap-2">
             <select
               value={round}
               onChange={(e) => setRound(Number(e.target.value))}
-              className="p-2 border rounded w-32"
+              className="dz-select w-32"
               disabled={loading}
             >
               {[...Array(25)].map((_, i) => (
@@ -108,10 +108,10 @@ function UpdateStatsPage() {
             <button
               onClick={handleUpdateStats}
               disabled={loading}
-              className={`px-4 py-2 rounded ${
+              className={`${
                 loading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  ? 'dz-btn-ghost cursor-not-allowed'
+                  : 'dz-btn-primary'
               }`}
             >
               {loading ? 'Updating...' : 'Update Stats'}
@@ -120,11 +120,11 @@ function UpdateStatsPage() {
         </div>
         
         {message && (
-          <div className={`p-4 rounded mt-4 ${
-            status === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
+          <div className={`p-4 rounded-2xl mt-4 ${
+            status === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
             status === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
             status === 'loading' ? 'bg-blue-50 text-blue-800 border border-blue-200' :
-            'bg-gray-50 text-gray-800 border border-gray-200'
+            'bg-slate-50 text-slate-800 border border-slate-200'
           }`}>
             <p className="font-medium">{message}</p>
             
@@ -141,7 +141,7 @@ function UpdateStatsPage() {
           </div>
         )}
         
-        <div className="mt-6 text-sm text-gray-600">
+        <div className="mt-6 text-sm text-slate-600">
           <p className="mb-2">
             Fetches player stats from the official AFL API and saves them to the database.
           </p>

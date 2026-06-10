@@ -323,8 +323,8 @@ export default function LadderConsolidatedPage() {
           </div>
         </div>
         {/* Skeleton table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="h-10 bg-gray-100 animate-pulse"></div>
+        <div className="dz-surface overflow-hidden">
+          <div className="h-10 bg-slate-100 animate-pulse"></div>
           {[...Array(8)].map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-6 py-4 border-b">
               <div className="h-5 w-6 bg-gray-200 rounded animate-pulse"></div>
@@ -363,8 +363,8 @@ export default function LadderConsolidatedPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-black">Season Ladder</h1>
-          <p className="text-gray-600">
+          <h1 className="dz-title">Season Ladder</h1>
+          <p className="dz-subtitle">
             {selectedRound === 0 
               ? "Opening Round - No ladder yet" 
               : `After ${formatRoundName(selectedRound)}`}
@@ -381,11 +381,11 @@ export default function LadderConsolidatedPage() {
             <label htmlFor="round-select" className="text-sm font-medium text-black">
               Round:
             </label>
-            <select 
+            <select
               id="round-select"
               value={selectedRound || 0}
               onChange={handleRoundChange}
-              className="p-2 border rounded text-sm text-black bg-white"
+              className="dz-select"
             >
               {[...Array(25)].map((_, i) => (
                 <option key={i} value={i}>
@@ -400,7 +400,7 @@ export default function LadderConsolidatedPage() {
 
       {/* Opening Round Message */}
       {selectedRound === 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 mb-6">
           <h3 className="text-blue-800 font-semibold mb-2">Opening Round</h3>
           <p className="text-blue-700">
             The season ladder will begin after Round 1. The Opening Round is used for initial team rankings.
@@ -410,52 +410,55 @@ export default function LadderConsolidatedPage() {
 
       {/* Desktop Ladder Table */}
       <div className="hidden md:block">
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="dz-surface overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-slate-50/80">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Pos
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Team
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       P
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       W
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       L
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       D
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       PF
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       PA
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       %
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Pts
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       High/Low
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Form
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <div className="flex flex-col items-center leading-tight">
+                        <span>Form</span>
+                        <span className="text-[10px] font-medium normal-case tracking-normal text-slate-400">→ latest</span>
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       ⭐/🦀
                     </th>
                     {selectedRound > 0 && (
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         {formatRoundName(selectedRound)}
                       </th>
                     )}
@@ -513,7 +516,7 @@ export default function LadderConsolidatedPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <div className="flex justify-center gap-0.5">
-                            {(team.form || []).map((result, i) => (
+                            {(team.form || []).slice().reverse().map((result, i) => (
                               <span key={i} className={`text-xs font-bold px-1 py-0.5 rounded ${
                                 result === 'W' ? 'bg-green-100 text-green-700' :
                                 result === 'L' ? 'bg-red-100 text-red-700' :
@@ -570,9 +573,9 @@ export default function LadderConsolidatedPage() {
             const isTopFour = index < 4;
             
             return (
-              <div 
+              <div
                 key={team.userId}
-                className={`rounded-lg p-4 shadow ${isTopFour ? 'bg-green-50 border-green-200' : 'bg-white'}`}
+                className={`rounded-2xl border p-4 shadow-sm ${isTopFour ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -632,9 +635,9 @@ export default function LadderConsolidatedPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-gray-500 mb-1">Form</div>
+                    <div className="text-gray-500 mb-1">Form <span className="text-[10px] text-gray-400">→ latest</span></div>
                     <div className="flex justify-center gap-0.5">
-                      {(team.form || []).map((result, i) => (
+                      {(team.form || []).slice().reverse().map((result, i) => (
                         <span key={i} className={`text-xs font-bold px-1 py-0.5 rounded ${
                           result === 'W' ? 'bg-green-100 text-green-700' :
                           result === 'L' ? 'bg-red-100 text-red-700' :
@@ -669,7 +672,7 @@ export default function LadderConsolidatedPage() {
 
       {/* Finals Info */}
       {selectedRound >= 21 && ladderData.length > 0 && (
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="mt-8 bg-blue-50/70 border border-blue-200 rounded-2xl p-4">
           <h3 className="text-blue-800 font-semibold mb-2">Finals Qualification</h3>
           <div className="text-blue-700">
             <p className="mb-2">Top 4 teams qualify for finals:</p>
@@ -689,7 +692,7 @@ export default function LadderConsolidatedPage() {
 
       {/* Final Standings & Draft Order */}
       {finalsStandings.length > 0 && (
-        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="mt-4 bg-blue-50/70 border border-blue-200 rounded-2xl p-4">
           <h3 className="text-blue-800 font-semibold mb-3">Final Standings & Draft Order</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

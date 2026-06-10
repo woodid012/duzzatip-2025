@@ -160,7 +160,7 @@ export default function SquadManagementPage() {
       case 'initial':
         return { color: 'bg-blue-100 text-blue-800', icon: User, label: 'Initial Draft' };
       case 'midseason_draft_1':
-        return { color: 'bg-green-100 text-green-800', icon: UserPlus, label: 'Mid-Season Draft 1' };
+        return { color: 'bg-emerald-100 text-emerald-800', icon: UserPlus, label: 'Mid-Season Draft 1' };
       case 'midseason_draft_2':
         return { color: 'bg-purple-100 text-purple-800', icon: UserPlus, label: 'Mid-Season Draft 2' };
       case 'trade':
@@ -168,7 +168,7 @@ export default function SquadManagementPage() {
       case 'delist':
         return { color: 'bg-red-100 text-red-800', icon: UserMinus, label: 'Delisted' };
       default:
-        return { color: 'bg-gray-100 text-gray-800', icon: User, label: type };
+        return { color: 'bg-slate-100 text-slate-800', icon: User, label: type };
     }
   };
 
@@ -419,7 +419,7 @@ export default function SquadManagementPage() {
     return (
       <div className="text-center p-10">
         <h2 className="text-2xl font-bold mb-4">Please Select a Player</h2>
-        <p className="text-gray-600">
+        <p className="text-slate-600">
           Use the dropdown in the top right to select which player's squad you want to manage.
         </p>
       </div>
@@ -429,7 +429,7 @@ export default function SquadManagementPage() {
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-3">
-        <h1 className="text-2xl font-bold">{USER_NAMES[selectedUserId]} - Squad</h1>
+        <h1 className="dz-title">{USER_NAMES[selectedUserId]} - Squad</h1>
         {!isPastYear && (
           <div className="flex gap-2">
             {isEditing && (
@@ -488,7 +488,7 @@ export default function SquadManagementPage() {
               setNewPlayerName('');
               setNewPlayerTeam('');
             }}
-            className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-green-500 text-white"
+            className="px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 bg-emerald-500 text-white"
           >
             <UserPlus className="h-4 w-4" />
             Mid Draft 1
@@ -522,7 +522,7 @@ export default function SquadManagementPage() {
       
       {/* Trade selection mode message */}
       {isEditing && transactionType === 'trade' && !editingPlayer && (
-        <div className="bg-orange-50 p-3 rounded-lg border border-orange-200 mb-4">
+        <div className="bg-orange-50 p-3 rounded-2xl border border-orange-200 mb-4">
           <p className="flex items-center gap-2 text-orange-800">
             <ArrowRightLeft className="h-5 w-5 text-orange-500" />
             Press the <RefreshCw className="h-4 w-4 inline text-orange-700" /> button on the player you wish to trade
@@ -532,9 +532,9 @@ export default function SquadManagementPage() {
 
       {/* Draft Form - Moved above squad */}
       {isEditing && !editingPlayer && (transactionType === 'initial' || transactionType === 'midseason_draft_1' || transactionType === 'midseason_draft_2') && (
-        <div className="bg-gray-50 rounded-lg shadow p-4 mb-4">
+        <div className="bg-slate-50 rounded-2xl border border-slate-200 shadow-sm p-4 mb-4">
           <h2 className="text-lg font-semibold mb-2">
-            {transactionType === 'initial' ? 'Initial Draft' : 
+            {transactionType === 'initial' ? 'Initial Draft' :
              transactionType === 'midseason_draft_1' ? 'Mid-Season Draft 1' :
              transactionType === 'midseason_draft_2' ? 'Mid-Season Draft 2' : 'Draft Player'}
           </h2>
@@ -555,7 +555,7 @@ export default function SquadManagementPage() {
                     setNewPlayerTeam(selectedPlayer.teamName || selectedPlayer.team);
                   }
                 }}
-                className="w-full p-2 text-sm border rounded"
+                className="dz-select w-full text-sm"
               >
                 <option value="">Select a player</option>
                 {availablePlayers.map((player, index) => (
@@ -573,7 +573,7 @@ export default function SquadManagementPage() {
                   setNewPlayerName('');
                   setNewPlayerTeam('');
                 }}
-                className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                className="dz-btn-ghost text-sm"
               >
                 Cancel
               </button>
@@ -582,8 +582,8 @@ export default function SquadManagementPage() {
                 disabled={!transactionType || !newPlayerName}
                 className={`px-3 py-1.5 text-sm rounded flex items-center gap-1 ${
                   transactionType && newPlayerName
-                    ? 'bg-green-500 text-white hover:bg-green-600'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                    : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
                 <Save className="h-4 w-4" />
@@ -596,14 +596,14 @@ export default function SquadManagementPage() {
       
       {/* Delist Player Confirmation UI */}
       {editingPlayer && transactionType === 'delist' && (
-        <div className="bg-red-50 rounded-lg shadow p-4 mb-4 border border-red-200">
+        <div className="bg-red-50 rounded-2xl shadow-sm p-4 mb-4 border border-red-200">
           <h2 className="text-lg font-semibold mb-2 text-red-800">Confirm Player Delisting</h2>
           <div className="mb-3 p-3 bg-white rounded border border-red-200">
             <div className="flex items-center gap-2">
               <UserMinus className="h-5 w-5 text-red-600" />
-              <div>
-                <p className="font-semibold text-red-800">{editingPlayer.name}</p>
-                <p className="text-sm text-gray-600">{editingPlayer.team}</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-red-800 truncate">{editingPlayer.name}</p>
+                <p className="text-sm text-slate-600 truncate">{editingPlayer.team}</p>
               </div>
             </div>
           </div>
@@ -614,7 +614,7 @@ export default function SquadManagementPage() {
                 setEditingPlayer(null);
                 setTransactionType('');
               }}
-              className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              className="dz-btn-ghost text-sm"
             >
               Cancel
             </button>
@@ -631,10 +631,10 @@ export default function SquadManagementPage() {
       
       {/* Trade Player Form - Moved above squad */}
       {editingPlayer && transactionType === 'trade' && (
-        <div className="bg-gray-50 rounded-lg shadow p-4 mb-4">
+        <div className="bg-slate-50 rounded-2xl border border-slate-200 shadow-sm p-4 mb-4">
           <h2 className="text-lg font-semibold mb-2">Trade Player</h2>
           <div className="mb-2 text-sm">
-            <span className="text-gray-600">Trading:</span>
+            <span className="text-slate-600">Trading:</span>
             <span className="font-semibold ml-1">{editingPlayer.name}</span> ({editingPlayer.team})
           </div>
           
@@ -648,7 +648,7 @@ export default function SquadManagementPage() {
                   setNewPlayerName('');
                   setNewPlayerTeam('');
                 }}
-                className="w-full p-2 text-sm border rounded"
+                className="dz-select w-full text-sm"
               >
                 <option value="">Select Team</option>
                 {Object.keys(allUserSquads)
@@ -674,7 +674,7 @@ export default function SquadManagementPage() {
                       setNewPlayerTeam(selectedPlayer.team);
                     }
                   }}
-                  className="w-full p-2 text-sm border rounded"
+                  className="dz-select w-full text-sm"
                 >
                   <option value="">Select Player</option>
                   {allUserSquads[tradeWithUserId]?.players
@@ -691,7 +691,7 @@ export default function SquadManagementPage() {
             <div className="flex items-end gap-2 mt-auto">
               <button
                 onClick={() => setEditingPlayer(null)}
-                className="px-3 py-1.5 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                className="dz-btn-ghost text-sm"
               >
                 Cancel
               </button>
@@ -700,8 +700,8 @@ export default function SquadManagementPage() {
                 disabled={!tradeWithUserId || !newPlayerName}
                 className={`px-3 py-1.5 text-sm rounded flex items-center gap-1 ${
                   tradeWithUserId && newPlayerName
-                    ? 'bg-green-500 text-white hover:bg-green-600'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                    : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
                 <Save className="h-4 w-4" />
@@ -711,13 +711,13 @@ export default function SquadManagementPage() {
           </div>
           
           {tradeWithUserId && newPlayerName && (
-            <div className="mt-3 p-2 bg-gray-100 rounded-lg text-sm">
+            <div className="mt-3 p-2 bg-slate-100 rounded-2xl text-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">You Send:</p>
                   <p>{editingPlayer.name} ({editingPlayer.team})</p>
                 </div>
-                <div className="text-gray-500">↔️</div>
+                <div className="text-slate-500">↔️</div>
                 <div>
                   <p className="font-medium">You Receive:</p>
                   <p>{newPlayerName} ({newPlayerTeam})</p>
@@ -729,7 +729,7 @@ export default function SquadManagementPage() {
       )}
       
       {/* Current Squad with Color Coding - Made more compact */}
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
+      <div className="dz-surface p-4 mb-4">
         <h2 className="text-lg font-semibold mb-2">Current Squad</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {squadData.currentSquad.map((player, index) => {
@@ -742,7 +742,7 @@ export default function SquadManagementPage() {
                 }`}
               >
                 <div className="flex justify-between items-center">
-                  <div className="flex-1 truncate">
+                  <div className="flex-1 min-w-0 truncate">
                     <p className="font-medium text-sm truncate">{player.name}</p>
                     <p className="text-xs truncate">{player.team}</p>
                   </div>
@@ -771,7 +771,7 @@ export default function SquadManagementPage() {
         </div>
         
         {/* Legend */}
-        <div className="mt-3 pt-2 border-t border-gray-200">
+        <div className="mt-3 pt-2 border-t border-slate-200">
           <div className="flex flex-wrap gap-2 text-xs">
             {['initial', 'midseason_draft_1', 'midseason_draft_2', 'trade'].map((type) => {
               const typeInfo = getAcquisitionTypeInfo(type);
@@ -788,22 +788,22 @@ export default function SquadManagementPage() {
 
 
       {/* Squad History - More compact */}
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="dz-surface p-4">
         <h2 className="text-lg font-semibold mb-2">Squad History</h2>
         <div className="space-y-2 max-h-60 overflow-y-auto">
           {/* Display transactions */}
           {squadData.transactions.map((transaction, index) => {
             const typeInfo = getAcquisitionTypeInfo(transaction.type);
             return (
-              <div key={index} className="border-l-2 border-gray-200 pl-3 py-1">
+              <div key={index} className="border-l-2 border-slate-200 pl-3 py-1">
                 <div className="flex items-center gap-1 text-xs">
-                  <Calendar className="h-3 w-3 text-gray-500" />
+                  <Calendar className="h-3 w-3 text-slate-500" />
                   <span className="font-medium">{formatDate(transaction.date)}</span>
                   <span className={`px-1.5 py-0.5 rounded ${typeInfo.color}`}>
                     {typeInfo.label}
                   </span>
                   {transaction.tradeWithUser && (
-                    <span className="text-gray-600">
+                    <span className="text-slate-600">
                       with {transaction.tradeWithUser}
                     </span>
                   )}
@@ -811,8 +811,8 @@ export default function SquadManagementPage() {
                 <div className="flex flex-wrap gap-2 text-xs mt-1">
                   {transaction.players_in?.length > 0 && (
                     <div className="flex-1">
-                      <span className="font-medium text-green-700">In:</span>
-                      <span className="text-green-600 ml-1">
+                      <span className="font-medium text-emerald-700">In:</span>
+                      <span className="text-emerald-600 ml-1">
                         {transaction.players_in.join(', ')}
                       </span>
                     </div>

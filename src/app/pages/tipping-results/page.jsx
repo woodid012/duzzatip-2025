@@ -214,7 +214,7 @@ const TippingResultsGrid = () => {
   
   if (error) return (
     <div className="p-4 sm:p-8 text-center text-red-600">
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
         Error: {error}
       </div>
     </div>
@@ -286,37 +286,37 @@ function MobileTippingResults({
   return (
     <div className="p-3 space-y-4">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow">
+      <div className="dz-surface p-4">
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-black">Tip Results</h1>
-            <select 
+            <h1 className="dz-title">Tip Results</h1>
+            <select
               value={selectedRound}
               onChange={(e) => setSelectedRound(e.target.value)}
-              className="border rounded p-2 text-sm text-black bg-white"
+              className="dz-select text-sm"
             >
               {Array.from({ length: 25 }, (_, i) => (
-                <option key={i} value={i.toString()} className="text-black">
+                <option key={i} value={i.toString()} className="text-slate-900">
                   {displayRound(i.toString())}
                 </option>
               ))}
             </select>
           </div>
-          
-          <div className="text-sm font-medium text-black">
+
+          <div className="text-sm font-medium text-slate-900">
             {displayRound(selectedRound)}
           </div>
-          
+
           {/* Lockout status */}
           {selectedRoundInfo && (
             <div className="text-xs">
               <span className="font-medium">Lockout: </span>
-              <span className={isLockoutPassed ? "text-green-600" : "text-red-600"}>
-                {selectedRoundInfo.lockoutTime || "Not set"} 
+              <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
+                {selectedRoundInfo.lockoutTime || "Not set"}
                 {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
               </span>
               {!isLockoutPassed && (
-                <div className="text-gray-600 mt-1">
+                <div className="text-slate-600 mt-1">
                   Tips will be visible after lockout
                 </div>
               )}
@@ -326,24 +326,24 @@ function MobileTippingResults({
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="dz-surface overflow-hidden">
         <div className="flex">
           <button
             onClick={() => setActiveTab('leaderboard')}
-            className={`flex-1 py-3 px-4 text-sm font-medium rounded-tl-lg ${
+            className={`flex-1 py-3 px-4 text-sm font-medium ${
               activeTab === 'leaderboard'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             Leaderboard
           </button>
           <button
             onClick={() => setActiveTab('fixtures')}
-            className={`flex-1 py-3 px-4 text-sm font-medium rounded-tr-lg ${
+            className={`flex-1 py-3 px-4 text-sm font-medium ${
               activeTab === 'fixtures'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             Fixtures & Tips
@@ -381,32 +381,32 @@ function MobileLeaderboard({ getSortedUsers, yearTotals, allUserTips, currentRou
   const isCurrentRound = parseInt(selectedRound) === currentRound;
   
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="p-4 border-b">
-        <h2 className="font-semibold text-black">Season Leaderboard</h2>
+    <div className="dz-surface">
+      <div className="p-4 border-b border-slate-100">
+        <h2 className="font-semibold text-slate-900">Season Leaderboard</h2>
       </div>
-      <div className="divide-y">
+      <div className="divide-y divide-slate-100">
         {getSortedUsers().map(([userId, userName], index) => {
           const userResults = allUserTips[userId];
           return (
-            <div key={userId} className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+            <div key={userId} className="p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${
                   index === 0 ? 'bg-yellow-500 text-white' :
                   index === 1 ? 'bg-gray-400 text-white' :
                   index === 2 ? 'bg-orange-600 text-white' :
-                  'bg-gray-100 text-gray-600'
+                  'bg-slate-100 text-slate-600'
                 }`}>
                   {index + 1}
                 </div>
-                <div>
-                  <div className="font-medium text-black">{userName}</div>
-                  <div className="text-xs text-gray-500">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-900 truncate">{userName}</div>
+                  <div className="text-xs text-slate-500">
                     {isCurrentRound ? (
                       <>
                         Current Round: {userResults?.correctTips || 0} Tips
                         {userResults?.deadCertScore !== 0 && (
-                          <span className={userResults?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                          <span className={userResults?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
                             , {userResults?.deadCertScore > 0 ? "+" : ""}{userResults?.deadCertScore || 0} DCs
                           </span>
                         )}
@@ -415,7 +415,7 @@ function MobileLeaderboard({ getSortedUsers, yearTotals, allUserTips, currentRou
                       <>
                         Round: {userResults?.correctTips || 0}
                         {userResults?.deadCertScore !== 0 && (
-                          <span className={userResults?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                          <span className={userResults?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
                             {userResults?.deadCertScore > 0 ? " +" : " "}{userResults?.deadCertScore || 0}
                           </span>
                         )}
@@ -424,12 +424,12 @@ function MobileLeaderboard({ getSortedUsers, yearTotals, allUserTips, currentRou
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="font-bold text-lg text-black">
+              <div className="text-right shrink-0">
+                <div className="font-bold text-lg text-slate-900">
                   {yearTotals[userId]?.correctTips || 0}
                 </div>
                 {yearTotals[userId]?.deadCertScore !== 0 && (
-                  <div className={`text-sm ${yearTotals[userId]?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}`}>
+                  <div className={`text-sm ${yearTotals[userId]?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}`}>
                     {yearTotals[userId]?.deadCertScore > 0 ? "+" : ""}{yearTotals[userId]?.deadCertScore || 0}
                   </div>
                 )}
@@ -451,47 +451,47 @@ function MobileFixtures({ fixtures, getTeamAbbreviation, getWinningTeam, allUser
         const winner = getWinningTeam(fixture);
         
         return (
-          <div key={fixture.MatchNumber} className="bg-white rounded-lg shadow">
+          <div key={fixture.MatchNumber} className="dz-surface">
             {/* Fixture Header */}
-            <div className="p-4 border-b">
-              <div className="text-sm text-gray-600 mb-3">Game {fixture.MatchNumber}</div>
-              
+            <div className="p-4 border-b border-slate-100">
+              <div className="text-sm text-slate-600 mb-3">Game {fixture.MatchNumber}</div>
+
               <div className="grid grid-cols-3 gap-4 items-center">
                 {/* Home Team */}
                 <div className="text-center">
                   <div className={`font-medium text-lg ${
-                    isMatchCompleted 
-                      ? (winner === fixture.HomeTeam ? 'text-green-600' : 'text-black')
+                    isMatchCompleted
+                      ? (winner === fixture.HomeTeam ? 'text-emerald-600' : 'text-slate-900')
                       : 'text-blue-600'
                   }`}>
                     {getTeamAbbreviation(fixture.HomeTeam)}
                   </div>
-                  <div className="text-xs text-gray-500 mb-1">HOME</div>
+                  <div className="text-xs text-slate-500 mb-1">HOME</div>
                   <div className="text-xl font-bold">
                     {fixture.HomeTeamScore ?? '-'}
                   </div>
                 </div>
-                
+
                 {/* VS */}
                 <div className="text-center">
-                  <div className="text-gray-400 font-medium">VS</div>
+                  <div className="text-slate-400 font-medium">VS</div>
                   {isMatchCompleted && (
-                    <div className="text-xs text-green-600 font-medium mt-1">
+                    <div className="text-xs text-emerald-600 font-medium mt-1">
                       Winner: {getTeamAbbreviation(winner)}
                     </div>
                   )}
                 </div>
-                
+
                 {/* Away Team */}
                 <div className="text-center">
                   <div className={`font-medium text-lg ${
-                    isMatchCompleted 
-                      ? (winner === fixture.AwayTeam ? 'text-green-600' : 'text-black')
-                      : 'text-black'
+                    isMatchCompleted
+                      ? (winner === fixture.AwayTeam ? 'text-emerald-600' : 'text-slate-900')
+                      : 'text-slate-900'
                   }`}>
                     {getTeamAbbreviation(fixture.AwayTeam)}
                   </div>
-                  <div className="text-xs text-gray-500 mb-1">AWAY</div>
+                  <div className="text-xs text-slate-500 mb-1">AWAY</div>
                   <div className="text-xl font-bold">
                     {fixture.AwayTeamScore ?? '-'}
                   </div>
@@ -501,7 +501,7 @@ function MobileFixtures({ fixtures, getTeamAbbreviation, getWinningTeam, allUser
 
             {/* Player Tips */}
             <div className="p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Player Tips</h4>
+              <h4 className="text-sm font-medium text-slate-700 mb-3">Player Tips</h4>
               <div className="space-y-2">
                 {getSortedUsers().map(([userId, userName]) => {
                   const userResults = allUserTips[userId];
@@ -511,37 +511,37 @@ function MobileFixtures({ fixtures, getTeamAbbreviation, getWinningTeam, allUser
                   const isDefault = matchTip?.isDefault;
                   
                   return (
-                    <div key={userId} className="flex items-center justify-between py-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-black w-20 truncate">
+                    <div key={userId} className="flex items-center justify-between py-1 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium text-slate-900 w-20 truncate">
                           {userName}
                         </span>
                         {isDeadCert && (
                           <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            isMatchCompleted ? 
-                              (isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') :
+                            isMatchCompleted ?
+                              (isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700') :
                               'bg-yellow-100 text-yellow-700'
                           }`}>
-                            {isMatchCompleted ? 
+                            {isMatchCompleted ?
                               (isCorrect ? '+6' : '-12') :
                               'DC'
                             }
                           </span>
                         )}
                       </div>
-                      
-                      <div className="text-right">
+
+                      <div className="text-right shrink-0">
                         {isLockoutPassed ? (
                           <span className={`text-sm font-medium ${
-                            isMatchCompleted ? 
-                              (isCorrect ? 'text-green-600' : 'text-red-600') :
-                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-black')
+                            isMatchCompleted ?
+                              (isCorrect ? 'text-emerald-600' : 'text-red-600') :
+                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-slate-900')
                           }`}>
                             {matchTip?.tip ? getTeamAbbreviation(matchTip.tip) : '-'}
-                            {isDefault && <span className="text-xs text-gray-500 ml-1">(Def)</span>}
+                            {isDefault && <span className="text-xs text-slate-500 ml-1">(Def)</span>}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-500 italic">Locked</span>
+                          <span className="text-xs text-slate-500 italic">Locked</span>
                         )}
                       </div>
                     </div>
@@ -570,12 +570,12 @@ function MobileIndividualTips({
   return (
     <div className="space-y-4">
       {/* User Selection */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <label className="block text-sm font-medium text-black mb-2">Select Player:</label>
+      <div className="dz-surface p-4">
+        <label className="block text-sm font-medium text-slate-900 mb-2">Select Player:</label>
         <select
           value={selectedUser}
           onChange={(e) => setSelectedUser(e.target.value)}
-          className="w-full border rounded p-2 text-black bg-white"
+          className="dz-select w-full"
         >
           <option value="">Choose a player</option>
           {getSortedUsers().map(([userId, userName]) => (
@@ -589,14 +589,14 @@ function MobileIndividualTips({
       {/* Individual Tips */}
       {selectedUser && allUserTips[selectedUser] && (
         <div className="space-y-3">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold text-black mb-2">
+          <div className="dz-surface p-4">
+            <h3 className="font-semibold text-slate-900 mb-2">
               {USER_NAMES[selectedUser]}'s Tips
             </h3>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-slate-600">
               Round Score: {allUserTips[selectedUser]?.correctTips || 0}
               {allUserTips[selectedUser]?.deadCertScore !== 0 && (
-                <span className={allUserTips[selectedUser]?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                <span className={allUserTips[selectedUser]?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
                   {allUserTips[selectedUser]?.deadCertScore > 0 ? " +" : " "}{allUserTips[selectedUser]?.deadCertScore || 0}
                 </span>
               )}
@@ -611,13 +611,13 @@ function MobileIndividualTips({
             const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
             
             return (
-              <div key={fixture.MatchNumber} className="bg-white rounded-lg shadow p-4">
+              <div key={fixture.MatchNumber} className="dz-surface p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <div className="text-sm text-gray-600">Game {fixture.MatchNumber}</div>
+                  <div className="text-sm text-slate-600">Game {fixture.MatchNumber}</div>
                   {isDeadCert && (
                     <div className={`text-xs px-2 py-1 rounded ${
-                      isMatchCompleted ? 
-                        (isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') :
+                      isMatchCompleted ?
+                        (isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800') :
                         'bg-yellow-100 text-yellow-800'
                     }`}>
                       {isMatchCompleted ? 
@@ -632,9 +632,9 @@ function MobileIndividualTips({
                   {/* Home Team */}
                   <div className="text-center">
                     <div className={`font-medium ${
-                      matchTip?.tip === fixture.HomeTeam ? 
-                        (isCorrect ? 'text-green-600' : isMatchCompleted ? 'text-red-600' : 'text-blue-600') :
-                        (isMatchCompleted ? 'text-black' : 'text-blue-600')
+                      matchTip?.tip === fixture.HomeTeam ?
+                        (isCorrect ? 'text-emerald-600' : isMatchCompleted ? 'text-red-600' : 'text-blue-600') :
+                        (isMatchCompleted ? 'text-slate-900' : 'text-blue-600')
                     }`}>
                       {getTeamAbbreviation(fixture.HomeTeam)}
                       {matchTip?.tip === fixture.HomeTeam && (
@@ -643,7 +643,7 @@ function MobileIndividualTips({
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-500">HOME</div>
+                    <div className="text-sm text-slate-500">HOME</div>
                     <div className="text-lg font-bold">
                       {fixture.HomeTeamScore ?? '-'}
                     </div>
@@ -651,33 +651,33 @@ function MobileIndividualTips({
                   
                   {/* VS */}
                   <div className="text-center">
-                    <div className="text-gray-400 font-medium">VS</div>
+                    <div className="text-slate-400 font-medium">VS</div>
                     {isLockoutPassed ? (
                       <div className="text-xs mt-1">
                         {matchTip?.tip ? (
                           <span className={`font-medium ${
-                            isMatchCompleted ? 
-                              (isCorrect ? 'text-green-600' : 'text-red-600') :
-                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-black')
+                            isMatchCompleted ?
+                              (isCorrect ? 'text-emerald-600' : 'text-red-600') :
+                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-slate-900')
                           }`}>
                             {getTeamAbbreviation(matchTip.tip)}
                             {isDefault && ' (Def)'}
                           </span>
                         ) : (
-                          <span className="text-gray-500">No tip</span>
+                          <span className="text-slate-500">No tip</span>
                         )}
                       </div>
                     ) : (
-                      <div className="text-xs text-gray-500 mt-1">Locked</div>
+                      <div className="text-xs text-slate-500 mt-1">Locked</div>
                     )}
                   </div>
                   
                   {/* Away Team */}
                   <div className="text-center">
                     <div className={`font-medium ${
-                      matchTip?.tip === fixture.AwayTeam ? 
-                        (isCorrect ? 'text-green-600' : isMatchCompleted ? 'text-red-600' : 'text-black') :
-                        (isMatchCompleted ? 'text-black' : 'text-black')
+                      matchTip?.tip === fixture.AwayTeam ?
+                        (isCorrect ? 'text-emerald-600' : isMatchCompleted ? 'text-red-600' : 'text-slate-900') :
+                        (isMatchCompleted ? 'text-slate-900' : 'text-slate-900')
                     }`}>
                       {getTeamAbbreviation(fixture.AwayTeam)}
                       {matchTip?.tip === fixture.AwayTeam && (
@@ -686,7 +686,7 @@ function MobileIndividualTips({
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-500">AWAY</div>
+                    <div className="text-sm text-slate-500">AWAY</div>
                     <div className="text-lg font-bold">
                       {fixture.AwayTeamScore ?? '-'}
                     </div>
@@ -722,30 +722,30 @@ function DesktopTippingResults({
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <h1 className="text-3xl font-bold text-black">Round Summary - {displayRound(selectedRound)}</h1>
-          <select 
+          <h1 className="dz-title text-3xl">Round Summary - {displayRound(selectedRound)}</h1>
+          <select
             value={selectedRound}
             onChange={(e) => setSelectedRound(e.target.value)}
-            className="border rounded p-2 text-black"
+            className="dz-select"
           >
             {Array.from({ length: 25 }, (_, i) => (
-              <option key={i} value={i.toString()} className="text-black">
+              <option key={i} value={i.toString()} className="text-slate-900">
                 {displayRound(i.toString())}
               </option>
             ))}
           </select>
         </div>
-        
+
         {/* Show lockout status */}
         {selectedRoundInfo && (
           <div className="mt-2 text-sm">
             <span className="font-medium">Lockout: </span>
-            <span className={isLockoutPassed ? "text-green-600" : "text-red-600"}>
-              {selectedRoundInfo.lockoutTime || "Not set"} 
+            <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
+              {selectedRoundInfo.lockoutTime || "Not set"}
               {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
             </span>
             {!isLockoutPassed && (
-              <span className="ml-2 text-gray-600">
+              <span className="ml-2 text-slate-600">
                 • Tips will be visible after lockout
               </span>
             )}
@@ -753,47 +753,47 @@ function DesktopTippingResults({
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border">
+      <div className="dz-surface overflow-x-auto">
+        <table className="min-w-full">
           <thead>
             <tr>
-              <th className="py-2 px-4 border sticky left-0 bg-gray-100 z-10 text-black" rowSpan={3}>Team</th>
-              <th className="py-2 px-4 border bg-gray-100 text-black" rowSpan={3}>Total (Year) | (Round)</th>
+              <th className="py-2 px-4 border border-slate-200 sticky left-0 bg-slate-100 z-10 text-slate-900" rowSpan={3}>Team</th>
+              <th className="py-2 px-4 border border-slate-200 bg-slate-100 text-slate-900" rowSpan={3}>Total (Year) | (Round)</th>
               {fixtures.map(fixture => {
                 const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
-                
+
                 return (
-                  <th key={fixture.MatchNumber} className={`py-1 px-2 border text-center text-black ${isMatchCompleted ? 'bg-green-50' : 'bg-gray-100'}`}>
+                  <th key={fixture.MatchNumber} className={`py-1 px-2 border border-slate-200 text-center text-slate-900 ${isMatchCompleted ? 'bg-emerald-50' : 'bg-slate-100'}`}>
                     Game {fixture.MatchNumber}
                   </th>
                 );
               })}
             </tr>
-            <tr className="bg-gray-50">
+            <tr className="bg-slate-50">
               {fixtures.map(fixture => {
                 const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
-                
+
                 return (
-                  <td key={`h-${fixture.MatchNumber}`} className={`py-1 px-2 border text-center whitespace-nowrap ${
-                    isMatchCompleted ? 'bg-green-50 text-black' : 'bg-gray-50 text-blue-600'
+                  <td key={`h-${fixture.MatchNumber}`} className={`py-1 px-2 border border-slate-200 text-center whitespace-nowrap ${
+                    isMatchCompleted ? 'bg-emerald-50 text-slate-900' : 'bg-slate-50 text-blue-600'
                   }`}>
                     H - {getTeamAbbreviation(fixture.HomeTeam)} ({fixture.HomeTeamScore ?? '-'})
                   </td>
                 );
               })}
             </tr>
-            <tr className="bg-gray-50">
+            <tr className="bg-slate-50">
               {fixtures.map(fixture => {
                 const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
-                
+
                 return (
-                  <td key={`a-${fixture.MatchNumber}`} className={`py-1 px-2 border text-center whitespace-nowrap ${
-                    isMatchCompleted ? 'bg-green-50 text-black' : 'bg-gray-50 text-black'
+                  <td key={`a-${fixture.MatchNumber}`} className={`py-1 px-2 border border-slate-200 text-center whitespace-nowrap ${
+                    isMatchCompleted ? 'bg-emerald-50 text-slate-900' : 'bg-slate-50 text-slate-900'
                   }`}>
                     A - {getTeamAbbreviation(fixture.AwayTeam)} ({fixture.AwayTeamScore ?? '-'})
                     <div className="text-xs font-medium">
-                      {isMatchCompleted && 
-                        <span className="text-green-600">W - {getTeamAbbreviation(getWinningTeam(fixture))}</span>
+                      {isMatchCompleted &&
+                        <span className="text-emerald-600">W - {getTeamAbbreviation(getWinningTeam(fixture))}</span>
                       }
                     </div>
                   </td>
@@ -805,27 +805,27 @@ function DesktopTippingResults({
             {getSortedUsers().map(([userId, userName]) => {
               const userResults = allUserTips[userId];
               return (
-                <tr key={userId} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border sticky left-0 bg-white z-10 font-medium text-black">
+                <tr key={userId} className="hover:bg-slate-50">
+                  <td className="py-2 px-4 border border-slate-200 sticky left-0 bg-white z-10 font-medium text-slate-900">
                     {userName}
                   </td>
-                  <td className="py-2 px-4 border text-center font-medium">
+                  <td className="py-2 px-4 border border-slate-200 text-center font-medium">
                     <div className="flex flex-col sm:flex-row justify-center items-center gap-1">
-                      <span className="text-black">
+                      <span className="text-slate-900">
                         {yearTotals[userId]?.correctTips || 0}
                       </span>
                       {yearTotals[userId]?.deadCertScore !== 0 && (
-                        <span className={yearTotals[userId]?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                        <span className={yearTotals[userId]?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
                           ({yearTotals[userId]?.deadCertScore > 0 ? "+" : ""}{yearTotals[userId]?.deadCertScore || 0})
                         </span>
                       )}
-                      <span className="text-gray-400 mx-1">|</span>
-                      <span className="text-gray-700">
+                      <span className="text-slate-400 mx-1">|</span>
+                      <span className="text-slate-700">
                         {isCurrentRound ? (
                           <>
                             {userResults?.correctTips || 0} Tips
                             {userResults?.deadCertScore !== 0 && (
-                              <span className={userResults?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                              <span className={userResults?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
                                 , {userResults?.deadCertScore > 0 ? "+" : ""}{userResults?.deadCertScore || 0} DCs
                               </span>
                             )}
@@ -834,7 +834,7 @@ function DesktopTippingResults({
                           <>
                             {userResults?.correctTips || 0}
                             {userResults?.deadCertScore !== 0 && (
-                              <span className={userResults?.deadCertScore > 0 ? "text-green-600" : "text-red-600"}>
+                              <span className={userResults?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
                                 ({userResults?.deadCertScore > 0 ? "+" : ""}{userResults?.deadCertScore || 0})
                               </span>
                             )}
@@ -853,15 +853,15 @@ function DesktopTippingResults({
                     const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
                     
                     return (
-                      <td key={fixture.MatchNumber} className="py-2 px-4 border text-center">
-                        <div 
+                      <td key={fixture.MatchNumber} className="py-2 px-4 border border-slate-200 text-center">
+                        <div
                           className={`
-                            ${isMatchCompleted ? 
-                              (isCorrect ? 'text-green-600' : 'text-red-600') : 
-                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-black')
+                            ${isMatchCompleted ?
+                              (isCorrect ? 'text-emerald-600' : 'text-red-600') :
+                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-slate-900')
                             }
-                            ${!matchTip?.tip ? 'text-black' : ''}
-                            ${isDefault ? 'italic text-gray-500' : 'font-medium'}
+                            ${!matchTip?.tip ? 'text-slate-900' : ''}
+                            ${isDefault ? 'italic text-slate-500' : 'font-medium'}
                           `}
                         >
                           {/* Check if lockout has passed before showing tips */}
@@ -871,17 +871,17 @@ function DesktopTippingResults({
                               {isDefault && <span className="ml-1">(Def)</span>}
                               {isDeadCert && (
                                 <span className="ml-1 text-sm font-medium">
-                                  {isMatchCompleted ? 
-                                    <span className={isCorrect ? 'text-green-600' : 'text-red-600'}>
+                                  {isMatchCompleted ?
+                                    <span className={isCorrect ? 'text-emerald-600' : 'text-red-600'}>
                                       ({isCorrect ? '+6' : '-12'})
-                                    </span> : 
+                                    </span> :
                                     <span className="text-yellow-600">(DC)</span>
                                   }
                                 </span>
                               )}
                             </>
                           ) : (
-                            <span className="text-gray-500 italic">Locked</span>
+                            <span className="text-slate-500 italic">Locked</span>
                           )}
                         </div>
                       </td>

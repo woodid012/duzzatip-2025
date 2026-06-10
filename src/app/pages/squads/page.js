@@ -156,20 +156,20 @@ export default function Squads() {
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-black">DuzzaTip Squads {selectedYear}</h1>
+        <h1 className="dz-title">DuzzaTip Squads {selectedYear}</h1>
         {!isPastYear && (
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             {isEditing ? (
               <>
                 <button
                   onClick={handleSave}
-                  className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-green-600 text-white rounded hover:bg-green-700 text-lg sm:text-base"
+                  className="dz-btn-primary w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
                 >
                   Save Changes
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-lg sm:text-base"
+                  className="dz-btn-ghost w-full sm:w-auto"
                 >
                   Cancel
                 </button>
@@ -178,7 +178,7 @@ export default function Squads() {
               <select
                 onChange={(e) => handleEditStart(e.target.value)}
                 value=""
-                className="w-full sm:w-auto px-4 py-3 sm:py-2 border rounded text-lg sm:text-base"
+                className="dz-select w-full sm:w-auto"
                 disabled={loadingPlayers}
               >
                 <option value="">Select User to Edit</option>
@@ -197,17 +197,17 @@ export default function Squads() {
         {['1', '2', '3', '4', '5', '6', '7', '8'].map((userId) => {
           const user = displaySquads[userId] || { players: Array(SQUAD_SIZE).fill(null).map(() => ({ name: '', team: '' })) };
           return (
-          <div key={userId} className="bg-white rounded-lg shadow-md p-3 sm:p-4">
+          <div key={userId} className="dz-surface p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId] || `User ${userId}`}</h2>
-              <button 
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 min-w-0 truncate">{USER_NAMES[userId] || `User ${userId}`}</h2>
+              <button
                 onClick={() => {
                   const element = document.getElementById(`squad-${userId}`);
                   if (element) {
                     element.classList.toggle('hidden');
                   }
                 }}
-                className="text-black hover:text-black sm:hidden"
+                className="text-slate-900 hover:text-slate-900 sm:hidden"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -222,14 +222,14 @@ export default function Squads() {
                 >
                   {isEditing && userId === selectedUserId ? (
                     loadingPlayers ? (
-                      <div className="w-full p-2 text-sm text-black border border-gray-200 rounded bg-white">
+                      <div className="w-full p-2 text-sm text-slate-900 border border-slate-200 rounded bg-white">
                         Loading players...
                       </div>
                     ) : (
                       <select
                         value={player.name || ''}
                         onChange={(e) => handlePlayerChange(userId, index, e.target.value)}
-                        className="w-full p-2 text-sm border rounded bg-white text-black"
+                        className="dz-select w-full text-sm"
                       >
                         <option value="">Select Player</option>
                         {Object.values(players)
@@ -243,8 +243,8 @@ export default function Squads() {
                       </select>
                     )
                   ) : (
-                    <div className="w-full p-2 text-sm border border-gray-200 rounded bg-white">
-                      <span className="text-black">
+                    <div className="w-full min-w-0 p-2 text-sm border border-slate-200 rounded bg-white">
+                      <span className="text-slate-900">
                         {player.name
                           ? <>
                               {player.name} ({player.team})
@@ -259,7 +259,7 @@ export default function Squads() {
                                 ) : null;
                               })()}
                             </>
-                          : <span className="text-gray-400">Empty slot</span>
+                          : <span className="text-slate-400">Empty slot</span>
                         }
                       </span>
                     </div>

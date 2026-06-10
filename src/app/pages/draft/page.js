@@ -261,7 +261,7 @@ export default function DraftPage() {
   if (loading) {
     return (
       <div className="p-4">
-        <div className="text-center text-gray-500">Loading draft...</div>
+        <div className="text-center text-slate-500">Loading draft...</div>
       </div>
     );
   }
@@ -280,11 +280,11 @@ export default function DraftPage() {
   return (
     <div className="p-2 md:p-4 space-y-4">
       {/* Status Banner */}
-      <div className="bg-gray-800 text-white rounded-lg p-3 md:p-4">
+      <div className="bg-slate-800 text-white rounded-2xl p-3 md:p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-lg md:text-xl font-bold">Player Draft</h1>
-            <div className="text-sm text-gray-300">
+            <div className="text-sm text-slate-300">
               {draftState?.status === 'not_started' && 'Draft has not started yet'}
               {draftState?.status === 'in_progress' && (
                 <>
@@ -296,8 +296,8 @@ export default function DraftPage() {
           </div>
           {draftState?.status !== 'completed' && currentPickUser && (
             <div className="text-right">
-              <div className="text-xs text-gray-400">On the clock</div>
-              <div className="text-sm md:text-base font-semibold text-green-400">{currentPickUser}</div>
+              <div className="text-xs text-slate-400">On the clock</div>
+              <div className="text-sm md:text-base font-semibold text-emerald-400">{currentPickUser}</div>
             </div>
           )}
         </div>
@@ -305,8 +305,8 @@ export default function DraftPage() {
 
       {/* Pick UI — shown when it's the user's turn */}
       {isMyTurn && (
-        <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3 md:p-4">
-          <h2 className="text-base font-bold text-green-800 mb-2">
+        <div className="bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-3 md:p-4">
+          <h2 className="text-base font-bold text-emerald-800 mb-2">
             Your pick! (#{draftState.nextPickNumber})
           </h2>
           <div className="flex flex-col md:flex-row gap-2 mb-3">
@@ -314,7 +314,7 @@ export default function DraftPage() {
             <select
               value={teamFilter}
               onChange={e => { setTeamFilter(e.target.value); setSelectedPlayer(null); }}
-              className="p-2 border rounded text-sm text-black bg-white md:w-48"
+              className="dz-select text-sm md:w-48"
             >
               <option value="">All Teams</option>
               {teams.map(t => (
@@ -331,7 +331,7 @@ export default function DraftPage() {
                 const player = filteredPlayers.find(p => p.name === name && p.teamName === team);
                 setSelectedPlayer(player || null);
               }}
-              className="p-2 border rounded text-sm text-black bg-white flex-1"
+              className="dz-select text-sm flex-1 min-w-0"
             >
               <option value="">Select a player...</option>
               {filteredPlayers.map(p => {
@@ -350,7 +350,7 @@ export default function DraftPage() {
               <div className="flex items-center gap-2">
                 <InjuryBadge playerName={selectedPlayer.name} />
                 {INJURIES[selectedPlayer.name] && (
-                  <span className="text-xs text-gray-600">{INJURIES[selectedPlayer.name].detail}</span>
+                  <span className="text-xs text-slate-600">{INJURIES[selectedPlayer.name].detail}</span>
                 )}
               </div>
             )}
@@ -359,7 +359,7 @@ export default function DraftPage() {
             <button
               onClick={handleSubmitPick}
               disabled={!selectedPlayer || submitting}
-              className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed md:w-32"
+              className="dz-btn-primary bg-emerald-600 hover:bg-emerald-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed md:w-32"
             >
               {submitting ? 'Submitting...' : 'Submit Pick'}
             </button>
@@ -369,7 +369,7 @@ export default function DraftPage() {
 
       {/* Admin Controls */}
       {isAdmin && (
-        <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-amber-800">Admin Controls</h3>
             <button
@@ -386,13 +386,13 @@ export default function DraftPage() {
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+          <div className="dz-surface p-6 w-full max-w-sm">
             <h3 className="text-lg font-bold mb-2">Reset Draft?</h3>
-            <p className="text-sm text-gray-600 mb-4">This will delete ALL picks. This cannot be undone.</p>
+            <p className="text-sm text-slate-600 mb-4">This will delete ALL picks. This cannot be undone.</p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowResetConfirm(false)}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                className="dz-btn-ghost text-sm"
               >
                 Cancel
               </button>
@@ -410,15 +410,15 @@ export default function DraftPage() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+          <div className="dz-surface p-6 w-full max-w-sm">
             <h3 className="text-lg font-bold mb-2">Delete Pick #{showDeleteConfirm}?</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-slate-600 mb-4">
               This will also delete all picks after #{showDeleteConfirm}, since they may have been influenced by this pick.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                className="dz-btn-ghost text-sm"
               >
                 Cancel
               </button>
@@ -436,16 +436,16 @@ export default function DraftPage() {
       {/* Edit Pick Modal */}
       {editingPick && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="dz-surface p-6 w-full max-w-md">
             <h3 className="text-lg font-bold mb-2">Edit Pick #{editingPick.pickNumber}</h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-slate-600 mb-3">
               Current: {editingPick.playerName} ({editingPick.teamName})
             </p>
             <div className="space-y-2 mb-4">
               <select
                 value={editTeamName}
                 onChange={e => setEditTeamName(e.target.value)}
-                className="w-full p-2 border rounded text-sm text-black bg-white"
+                className="dz-select w-full text-sm"
               >
                 <option value="">Select Team</option>
                 {teams.map(t => (
@@ -455,7 +455,7 @@ export default function DraftPage() {
               <select
                 value={editPlayerName}
                 onChange={e => setEditPlayerName(e.target.value)}
-                className="w-full p-2 border rounded text-sm text-black bg-white"
+                className="dz-select w-full text-sm"
               >
                 <option value="">Select Player</option>
                 {(editTeamName ? (players[editTeamName] || []) : allPlayers)
@@ -479,14 +479,14 @@ export default function DraftPage() {
                   setEditPlayerName('');
                   setEditTeamName('');
                 }}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                className="dz-btn-ghost text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEditPick}
                 disabled={!editPlayerName || !editTeamName}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-50"
+                className="dz-btn-primary text-sm disabled:opacity-50"
               >
                 Save
               </button>
@@ -500,7 +500,7 @@ export default function DraftPage() {
         <table className="w-full text-xs md:text-sm border-collapse min-w-[700px]">
           <thead>
             <tr>
-              <th className="p-1 md:p-2 bg-gray-100 border text-left w-12">Rd</th>
+              <th className="p-1 md:p-2 bg-slate-100 border text-left w-12">Rd</th>
               {(draftState?.draftOrder || []).map(userId => (
                 <th
                   key={userId}
@@ -516,7 +516,7 @@ export default function DraftPage() {
           <tbody>
             {boardData.map(row => (
               <tr key={row.round}>
-                <td className="p-1 md:p-2 bg-gray-50 border font-medium text-center">
+                <td className="p-1 md:p-2 bg-slate-50 border font-medium text-center">
                   {row.round}
                 </td>
                 {(draftState?.draftOrder || []).map(userId => {
@@ -528,7 +528,7 @@ export default function DraftPage() {
                   const cellClass = pick
                     ? `${USER_COLORS[userId]} border`
                     : isNext
-                    ? 'bg-green-200 border-2 border-green-500 animate-pulse'
+                    ? 'bg-emerald-200 border-2 border-emerald-500 animate-pulse'
                     : 'bg-white border';
 
                   return (
@@ -550,21 +550,21 @@ export default function DraftPage() {
                       }}
                     >
                       {pick ? (
-                        <div>
+                        <div className="min-w-0">
                           <div className="font-medium truncate" title={pick.playerName}>
                             {pick.playerName}
                           </div>
-                          <div className="text-gray-500 text-xs truncate">{pick.teamName}</div>
+                          <div className="text-slate-500 text-xs truncate">{pick.teamName}</div>
                           <div className="mt-0.5">
                             <InjuryBadge playerName={pick.playerName} />
                           </div>
                         </div>
                       ) : isNext ? (
-                        <div className="text-center text-green-700 font-medium text-xs">
+                        <div className="text-center text-emerald-700 font-medium text-xs">
                           #{cell.pickNumber}
                         </div>
                       ) : (
-                        <div className="text-center text-gray-300 text-xs">
+                        <div className="text-center text-slate-300 text-xs">
                           #{cell.pickNumber}
                         </div>
                       )}
@@ -578,7 +578,7 @@ export default function DraftPage() {
       </div>
 
       {isAdmin && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-slate-500">
           Admin: Click a pick to edit. Right-click a pick to delete it and all subsequent picks.
         </p>
       )}
@@ -593,11 +593,11 @@ export default function DraftPage() {
                 key={pick.pickNumber}
                 className={`flex items-center gap-2 text-xs p-1 rounded ${USER_COLORS[pick.userId]}`}
               >
-                <span className="font-mono w-8 text-right">#{pick.pickNumber}</span>
-                <span className="font-medium">{pick.playerName}</span>
-                <span className="text-gray-500">({pick.teamName})</span>
+                <span className="font-mono w-8 text-right shrink-0">#{pick.pickNumber}</span>
+                <span className="font-medium min-w-0 truncate">{pick.playerName}</span>
+                <span className="text-slate-500 shrink-0">({pick.teamName})</span>
                 <InjuryBadge playerName={pick.playerName} />
-                <span className="text-gray-400 ml-auto">{USER_NAMES[pick.userId]}</span>
+                <span className="text-slate-400 ml-auto shrink-0">{USER_NAMES[pick.userId]}</span>
               </div>
             ))}
           </div>
@@ -605,7 +605,7 @@ export default function DraftPage() {
       )}
 
       {/* Available Players count */}
-      <div className="text-xs text-gray-500 mt-2">
+      <div className="text-xs text-slate-500 mt-2">
         {availablePlayers.length} players available — {draftState?.picks?.length || 0} / {TOTAL_PICKS} picks made
       </div>
     </div>

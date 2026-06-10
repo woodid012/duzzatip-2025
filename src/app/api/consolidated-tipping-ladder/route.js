@@ -1,6 +1,6 @@
 import { createApiHandler, getCollection, getCollectionForYear, parseYearParam } from '../../lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
-import { getAflFixtures } from '@/app/lib/fixtureCache';
+import { getAflFixtures, isRoundComplete } from '@/app/lib/fixtureCache';
 
 // Efficiently calculate entire tipping ladder with minimal database queries
 export const GET = createApiHandler(async (request, db) => {
@@ -11,12 +11,38 @@ export const GET = createApiHandler(async (request, db) => {
   try {
     console.log(`Calculating consolidated tipping ladder up to round ${upToRound} (year ${year})`);
 
-    // Check cache — invalidate if game_results or tips have been updated since cache was built
-    const cachedLadder = await getCollectionForYear(db, 'tipping_ladder_cache', year)
-      .findOne({
-        upToRound: upToRound,
-        year: year
-      });
+    // Get AFL fixtures data for match results (uses local file first, falls back
+    // to external API). Fetched up front because it carries live scores for the
+    // current round and lets us decide whether that round is still in progress.
+    const fixtures = await getAflFixtures(year);
+
+    // Is the requested round live — started, but not all games final? While it's
+    // live we bypass the cache entirely (both read and write) so in-progress
+    // scores flow straight through and the ladder updates as games are played.
+    let roundLive = false;
+    if (year === CURRENT_YEAR) {
+      const now = Date.now();
+      const roundStarted = fixtures.some(
+        f => f.RoundNumber === upToRound && new Date(f.DateUtc) <= now
+      );
+      if (roundStarted) {
+        try {
+          roundLive = !(await isRoundComplete(upToRound, year));
+        } catch {
+          roundLive = false;
+        }
+      }
+    }
+
+    // Check cache — invalidate if game_results or tips have been updated since
+    // cache was built. Skipped entirely while the round is live.
+    const cachedLadder = roundLive
+      ? null
+      : await getCollectionForYear(db, 'tipping_ladder_cache', year)
+          .findOne({
+            upToRound: upToRound,
+            year: year
+          });
 
     if (cachedLadder && cachedLadder.cachedAt) {
       const cachedAt = new Date(cachedLadder.cachedAt);
@@ -37,6 +63,7 @@ export const GET = createApiHandler(async (request, db) => {
         return Response.json({
           upToRound,
           cached: true,
+          live: false,
           ladder: cachedLadder.ladder,
           roundResults: cachedLadder.roundResults || {},
           cachedAt: cachedLadder.cachedAt,
@@ -46,9 +73,6 @@ export const GET = createApiHandler(async (request, db) => {
 
       console.log(`Tipping ladder cache stale (tips updated after cache), recalculating...`);
     }
-
-    // Get AFL fixtures data for match results (uses local file first, falls back to external API)
-    const fixtures = await getAflFixtures(year);
 
     // Get all tips for all users and rounds in one query
     const allTips = await getCollectionForYear(db, 'tips', year)
@@ -196,34 +220,38 @@ export const GET = createApiHandler(async (request, db) => {
     const responseData = {
       upToRound,
       cached: false,
+      live: roundLive,
       ladder: ladderData,
       roundResults,
       calculatedAt: new Date().toISOString()
     };
 
-    // Cache the results directly to database
-    try {
-      const tippingLadderCache = getCollectionForYear(db, 'tipping_ladder_cache', year);
+    // Cache the results directly to database — but never while the round is
+    // live, otherwise the live snapshot would be served back as stale data.
+    if (!roundLive) {
+      try {
+        const tippingLadderCache = getCollectionForYear(db, 'tipping_ladder_cache', year);
 
-      await tippingLadderCache.updateOne(
-        { upToRound: upToRound, year: year },
-        {
-          $set: {
-            upToRound,
-            year: year,
-            ladder: ladderData,
-            roundResults: roundResults || {},
-            cachedAt: new Date(),
-            lastUpdated: new Date()
-          }
-        },
-        { upsert: true }
-      );
-      
-      console.log(`Cached tipping ladder up to round ${upToRound}`);
-    } catch (cacheError) {
-      console.error(`Error caching tipping ladder:`, cacheError);
-      // Don't fail the response if caching fails
+        await tippingLadderCache.updateOne(
+          { upToRound: upToRound, year: year },
+          {
+            $set: {
+              upToRound,
+              year: year,
+              ladder: ladderData,
+              roundResults: roundResults || {},
+              cachedAt: new Date(),
+              lastUpdated: new Date()
+            }
+          },
+          { upsert: true }
+        );
+
+        console.log(`Cached tipping ladder up to round ${upToRound}`);
+      } catch (cacheError) {
+        console.error(`Error caching tipping ladder:`, cacheError);
+        // Don't fail the response if caching fails
+      }
     }
 
     return Response.json(responseData);

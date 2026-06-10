@@ -90,8 +90,8 @@ function OpeningRoundSummary({ allTeamScores, selectedUserId }) {
               key={userId}
               onClick={() => scrollToTeamCard(userId)}
               className={`${
-                isTopFour ? 'bg-green-50 border-green-200' : 'bg-white'
-              } rounded-lg shadow-md p-2 sm:p-3 text-left w-full cursor-pointer hover:brightness-95 active:brightness-90 transition`}
+                isTopFour ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'
+              } border rounded-xl shadow-sm p-2 sm:p-3 text-left w-full cursor-pointer hover:brightness-95 active:brightness-90 transition`}
             >
               <div className="text-center font-medium text-xs sm:text-base">
                 <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[userId]}</div>
@@ -177,8 +177,8 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 ? 'bg-blue-50 border-blue-200'
                 : matchHasLive
                   ? 'bg-amber-50 border-amber-200'
-                  : 'bg-white'
-            } text-left rounded-lg shadow-md p-2 sm:p-3 order-${index} cursor-pointer hover:shadow-xl hover:ring-2 hover:ring-blue-400 active:shadow-md transition`}
+                  : 'bg-white border-slate-200'
+            } border text-left rounded-xl shadow-sm p-2 sm:p-3 order-${index} cursor-pointer hover:shadow-md hover:ring-2 hover:ring-blue-400 active:shadow-sm transition`}
           >
             <div className="text-center text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
               Game {index + 1}
@@ -189,7 +189,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
               )}
             </div>
             <div className="flex justify-between items-center">
-              <div className="text-center flex-1">
+              <div className="text-center flex-1 min-w-0">
                 <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[fixture.home]}</div>
                 <div className={`font-medium text-xs sm:text-sm truncate ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.home] || fixture.home}
@@ -200,7 +200,7 @@ function RoundFixtures({ fixtures, allTeamScores, selectedUserId, displayedRound
                 </div>
               </div>
               <div className="text-center text-gray-500 px-1 sm:px-2 text-xs sm:text-base">vs</div>
-              <div className="text-center flex-1">
+              <div className="text-center flex-1 min-w-0">
                 <div className="text-lg sm:text-2xl mb-0.5 sm:mb-1">{TEAM_LOGOS[fixture.away]}</div>
                 <div className={`font-medium text-xs sm:text-sm truncate ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
                   {USER_NAMES[fixture.away] || fixture.away}
@@ -236,13 +236,13 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
             {fixture.name || `Match ${index + 1}`}
           </div>
           <div className="flex justify-between items-center">
-            <div className="text-center flex-1">
+            <div className="text-center flex-1 min-w-0">
               <div className="text-sm text-gray-500">
                 {fixture.homeName || 'TBD'}
               </div>
             </div>
             <div className="text-center text-gray-400 px-2">vs</div>
-            <div className="text-center flex-1">
+            <div className="text-center flex-1 min-w-0">
               <div className="text-sm text-gray-500">
                 {fixture.awayName || 'TBD'}
               </div>
@@ -296,7 +296,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
         </div>
         <div className="flex justify-between items-center">
           <div
-            className={`text-center flex-1 ${homeWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
+            className={`text-center flex-1 min-w-0 ${homeWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
           >
             <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.home]}</div>
             <div className={`font-medium text-sm ${String(fixture.home) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>
@@ -317,7 +317,7 @@ function FinalsFixtures({ fixtures, allTeamScores, selectedUserId, displayedRoun
           </div>
           <div className="text-center text-gray-500 px-2">vs</div>
           <div
-            className={`text-center flex-1 ${awayWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
+            className={`text-center flex-1 min-w-0 ${awayWins ? 'opacity-100' : hasResult ? 'opacity-50' : ''}`}
           >
             <div className="text-2xl mb-1">{TEAM_LOGOS[fixture.away]}</div>
             <div className={`font-medium text-sm ${String(fixture.away) === String(selectedUserId) ? 'text-blue-600 font-bold' : ''}`}>

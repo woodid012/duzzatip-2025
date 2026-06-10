@@ -9,6 +9,33 @@ import { getNavigationGroups, debugNavigationItems } from '@/app/lib/navigationC
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { ToastProvider } from '@/app/components/Toast';
 import RoundStatus from '@/app/components/RoundStatus';
+import {
+  Menu, X, Trophy, ClipboardList, Target, ListOrdered, TrendingUp,
+  CheckCircle2, Shuffle, HeartPulse, Users, Settings, BarChart3,
+  RefreshCw, UserCog, Lock, ChevronRight,
+} from 'lucide-react';
+
+// Icon per nav id — keeps the sidebar scannable on web and mobile.
+const NAV_ICONS = {
+  results: Trophy,
+  'team-selection': ClipboardList,
+  tipping: Target,
+  ladder: ListOrdered,
+  'tipping-ladder': TrendingUp,
+  'tipping-results': CheckCircle2,
+  draft: Shuffle,
+  injuries: HeartPulse,
+  squads: Users,
+  'squad-management': Settings,
+  'round-by-round': BarChart3,
+  'update-stats': RefreshCw,
+  'update-players': UserCog,
+};
+
+const NavIcon = ({ id, className }) => {
+  const Icon = NAV_ICONS[id] || ChevronRight;
+  return <Icon className={className} />;
+};
 
 // Create context for selected user and admin authentication
 export const UserContext = createContext({
@@ -28,7 +55,7 @@ export default function PagesLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { roundInfo, loading } = useAppContext();
-  
+
   // State for selected user - initialize from localStorage if available
   const [selectedUserId, setSelectedUserId] = useState('');
 
@@ -57,7 +84,7 @@ export default function PagesLayout({ children }) {
       }
     }
   }, []);
-  
+
   // Save selectedUserId to localStorage when it changes
   useEffect(() => {
     if (selectedUserId && typeof window !== 'undefined') {
@@ -87,7 +114,7 @@ export default function PagesLayout({ children }) {
   // Handle user selection change
   const handleUserChange = (e) => {
     const newUserId = e.target.value;
-    
+
     if (newUserId === 'admin') {
       // Show admin password modal when admin is selected
       setShowAdminModal(true);
@@ -96,11 +123,11 @@ export default function PagesLayout({ children }) {
       setIsAdminAuthenticated(false);
     }
   };
-  
+
   // Handle admin password submission
   const handleAdminPasswordSubmit = (e) => {
     e.preventDefault();
-    
+
     if (adminPassword === 'Duz') {
       setIsAdminAuthenticated(true);
       setSelectedUserId('admin');
@@ -124,6 +151,62 @@ export default function PagesLayout({ children }) {
   // Determine if we should show round info yet
   const showRoundInfo = !loading.fixtures && roundInfo && roundInfo.currentRound !== undefined;
 
+  // Shared bits ----------------------------------------------------------
+
+  const YearToggle = ({ size = 'sm' }) => (
+    <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5">
+      {[2025, CURRENT_YEAR].map((yr) => (
+        <button
+          key={yr}
+          onClick={() => setSelectedYear(yr)}
+          className={`rounded-md px-2.5 ${size === 'sm' ? 'py-0.5 text-xs' : 'py-1 text-sm'} font-semibold transition-colors ${
+            selectedYear === yr
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          {yr}
+        </button>
+      ))}
+    </div>
+  );
+
+  const UserSelect = ({ className = '' }) => (
+    <select
+      value={selectedUserId}
+      onChange={handleUserChange}
+      className={`dz-select ${className}`}
+    >
+      <option value="">Select Player</option>
+      {Object.entries(USER_NAMES).map(([id, name]) => (
+        <option key={id} value={id}>{name}</option>
+      ))}
+      <option value="admin">Admin</option>
+    </select>
+  );
+
+  const NavLink = ({ item, onClick }) => {
+    const active = pathname === item.path;
+    return (
+      <Link
+        key={item.id}
+        href={item.path}
+        onClick={onClick}
+        className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+          active
+            ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <NavIcon
+          id={item.id}
+          className={`h-[18px] w-[18px] flex-shrink-0 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`}
+        />
+        <span className="truncate">{item.name}</span>
+      </Link>
+    );
+  };
+
   return (
     <ToastProvider>
     <UserContext.Provider value={{
@@ -135,15 +218,20 @@ export default function PagesLayout({ children }) {
       setSelectedYear,
       isPastYear,
     }}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         {/* Admin Password Modal */}
         {showAdminModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-xl font-bold mb-4">Admin Authentication</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-fade-in">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Admin Authentication</h3>
+              </div>
               <form onSubmit={handleAdminPasswordSubmit}>
                 <div className="mb-4">
-                  <label htmlFor="adminPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="adminPassword" className="mb-1.5 block text-sm font-medium text-slate-700">
                     Admin Password
                   </label>
                   <input
@@ -151,7 +239,7 @@ export default function PagesLayout({ children }) {
                     id="adminPassword"
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
-                    className="w-full p-2 border rounded text-black"
+                    className="dz-select w-full"
                     placeholder="Enter password"
                     autoFocus
                   />
@@ -162,7 +250,6 @@ export default function PagesLayout({ children }) {
                     onClick={() => {
                       setShowAdminModal(false);
                       setAdminPassword('');
-                      // Reset dropdown to previous value
                       if (typeof window !== 'undefined') {
                         const savedUserId = localStorage.getItem('selectedUserId');
                         if (savedUserId && savedUserId !== 'admin') {
@@ -172,363 +259,236 @@ export default function PagesLayout({ children }) {
                         }
                       }
                     }}
-                    className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                    className="dz-btn-ghost"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    Login
-                  </button>
+                  <button type="submit" className="dz-btn-primary">Login</button>
                 </div>
               </form>
             </div>
           </div>
         )}
-      
-        {/* Mobile Header */}
-        <div className="md:hidden bg-white shadow-sm">
-          <div className="flex items-center justify-between p-3">
-            {/* Hamburger and page name */}
-            <div className="flex items-center gap-2">
+
+        {/* ===================== Mobile Header ===================== */}
+        <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur-md md:hidden">
+          <div className="flex items-center justify-between gap-2 p-3">
+            <div className="flex min-w-0 items-center gap-2">
               <button
                 onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
-                className="p-2 rounded-md hover:bg-gray-100"
+                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+                aria-label="Open navigation"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+                <Menu className="h-6 w-6" />
               </button>
-              <span className="font-semibold text-sm text-gray-900 truncate">
+              <span className="truncate text-sm font-semibold text-slate-900">
                 {currentPageName || 'DuzzaTip'}
               </span>
             </div>
-            
-            {/* User selector + year toggle - mobile optimized */}
-            <div className="flex-1 max-w-xs ml-3">
-              <select
-                value={selectedUserId}
-                onChange={handleUserChange}
-                className="w-full p-2 text-sm border rounded text-black bg-white"
-              >
-                <option value="">Select Player</option>
-                {Object.entries(USER_NAMES).map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-                <option value="admin">Admin</option>
-              </select>
 
-              {/* Year toggle */}
-              <div className="flex items-center gap-1 mt-1">
-                {[2025, CURRENT_YEAR].map((yr) => (
-                  <button
-                    key={yr}
-                    onClick={() => setSelectedYear(yr)}
-                    className={`px-2 py-0.5 text-xs rounded font-medium transition-colors ${
-                      selectedYear === yr
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {yr}
-                  </button>
-                ))}
-              </div>
-
-              {/* Admin indicator */}
-              {selectedUserId === 'admin' && isAdminAuthenticated && (
-                <div className="text-xs text-amber-600 font-medium mt-1">
-                  Admin Mode
-                </div>
-              )}
+            <div className="flex flex-col items-end gap-1">
+              <UserSelect className="w-40 py-1.5 text-sm" />
+              <YearToggle />
             </div>
           </div>
-          
+
+          {selectedUserId === 'admin' && isAdminAuthenticated && (
+            <div className="px-3 pb-2">
+              <span className="dz-badge bg-amber-100 text-amber-700">Admin Mode</span>
+            </div>
+          )}
+
           {/* Past year banner - mobile */}
           {isPastYear && (
-            <div className="px-3 py-1.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800 font-medium text-center">
+            <div className="border-t border-amber-200 bg-amber-50 px-3 py-1.5 text-center text-xs font-medium text-amber-800">
               Viewing {selectedYear} season (read-only)
             </div>
           )}
 
           {/* Mobile round info */}
           {showRoundInfo && !isPastYear && (
-            <div className="px-3 pb-3 text-xs space-y-1 border-t bg-gray-50">
+            <div className="space-y-1 border-t border-slate-100 bg-slate-50/70 px-3 pb-3 pt-2 text-xs text-slate-600">
               <div className="flex items-center justify-between">
-                <span className="font-medium">Season {CURRENT_YEAR}</span>
-                <span className="font-medium">{roundInfo.currentRoundDisplay}</span>
+                <span className="font-semibold text-slate-700">Season {CURRENT_YEAR}</span>
+                <span className="font-semibold text-slate-900">{roundInfo.currentRoundDisplay}</span>
               </div>
-              
               {roundInfo.lockoutTime && (
                 <div className="flex items-center justify-between">
                   <span>Lockout:</span>
                   <div>
-                    <span className="font-medium">{roundInfo.lockoutTime}</span>
-                    {roundInfo.isLocked && (
-                      <span className="text-red-600 ml-1">(Locked)</span>
-                    )}
+                    <span className="font-medium text-slate-900">{roundInfo.lockoutTime}</span>
+                    {roundInfo.isLocked && <span className="ml-1 text-red-600">(Locked)</span>}
                   </div>
                 </div>
               )}
-              
               {roundInfo.roundEndTime && (
                 <div className="flex items-center justify-between">
                   <span>Ends:</span>
-                  <span className="font-medium">{roundInfo.roundEndTime}</span>
+                  <span className="font-medium text-slate-900">{roundInfo.roundEndTime}</span>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Mobile Navigation Overlay */}
+        {/* ===================== Mobile Nav Drawer ===================== */}
         {isMobileNavOpen && (
-          <div className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setIsMobileNavOpen(false)}>
-            <div className="absolute left-0 top-0 h-full w-80 max-w-sm bg-white shadow-xl">
-              <div className="p-4 border-b">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Navigation</h2>
-                  <button
-                    onClick={() => setIsMobileNavOpen(false)}
-                    className="p-2 rounded-md hover:bg-gray-100"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+          <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden" onClick={() => setIsMobileNavOpen(false)}>
+            <div
+              className="animate-slide-in-right absolute left-0 top-0 h-full w-80 max-w-[85%] bg-white shadow-2xl"
+              style={{ animation: 'slide-in-right .25s ease-out' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 p-4">
+                <div className="flex items-center gap-2">
+                  <Logo width={36} height={36} className="rounded-lg" />
+                  <h2 className="text-lg font-bold text-slate-900">DuzzaTip</h2>
                 </div>
+                <button
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                  aria-label="Close navigation"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              
-              <nav className="p-4">
-                <div className="space-y-1">
-                  {navigationGroups.map((group, groupIndex) => (
-                    <div key={groupIndex}>
-                      {group.map((item) => (
-                        <Link
-                          key={item.id}
-                          href={item.path}
-                          className={`flex items-center gap-3 px-4 py-3 mb-1 rounded-md transition-colors ${
-                            pathname === item.path
-                              ? 'bg-blue-600 text-white font-medium'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                          onClick={() => setIsMobileNavOpen(false)}
-                        >
-                          {pathname === item.path && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0"></span>
-                          )}
-                          <span>{item.name}</span>
-                        </Link>
-                      ))}
-                      {groupIndex < navigationGroups.length - 1 && (
-                        <div className="border-t border-gray-200 my-2"></div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+
+              <nav className="space-y-1 overflow-y-auto p-3" style={{ maxHeight: 'calc(100vh - 73px)' }}>
+                {navigationGroups.map((group, groupIndex) => (
+                  <div key={groupIndex} className="space-y-1">
+                    {group.map((item) => (
+                      <NavLink key={item.id} item={item} onClick={() => setIsMobileNavOpen(false)} />
+                    ))}
+                    {groupIndex < navigationGroups.length - 1 && (
+                      <div className="my-2 border-t border-slate-100" />
+                    )}
+                  </div>
+                ))}
+                {selectedUserId === 'admin' && (
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Debug</p>
+                    {debugNavigationItems.map((item) => (
+                      <NavLink key={item.id} item={item} onClick={() => setIsMobileNavOpen(false)} />
+                    ))}
+                  </div>
+                )}
               </nav>
             </div>
           </div>
         )}
 
-        {/* Desktop Header */}
-        <div className="hidden md:block bg-white shadow">
-          <div className="w-full p-3 md:p-6">
-            <div className="flex flex-col gap-2">
-              <div className="flex-shrink-0 px-4">
-                <Logo width={176} height={176} className="rounded-lg" />
+        {/* ===================== Desktop Header ===================== */}
+        <header className="sticky top-0 z-30 hidden border-b border-slate-200 bg-white/85 backdrop-blur-md md:block">
+          <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-6 py-3">
+            <div className="flex items-center gap-4">
+              <Logo width={48} height={48} className="rounded-xl" />
+              <div className="leading-tight">
+                <div className="text-lg font-bold tracking-tight text-slate-900">DuzzaTip</div>
+                <div className="text-xs text-slate-500">AFL Fantasy Tipping</div>
               </div>
-              
-              {/* Competition Info Bar */}
-              <div className="flex flex-wrap justify-between items-center px-4 text-sm text-gray-600">
-                <div className="flex flex-wrap gap-4 items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Season:</span>
-                    <div className="flex items-center gap-1">
-                      {[2025, CURRENT_YEAR].map((yr) => (
-                        <button
-                          key={yr}
-                          onClick={() => setSelectedYear(yr)}
-                          className={`px-2 py-0.5 text-xs rounded font-medium transition-colors ${
-                            selectedYear === yr
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          {yr}
-                        </button>
-                      ))}
-                    </div>
-                    {isPastYear && (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
-                        Read-only
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Only show round info when it's fully loaded and not viewing past year */}
-                  {!isPastYear && (showRoundInfo ? (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">Current Round:</span>
-                      <span>{roundInfo.currentRoundDisplay}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">Round:</span>
-                      <span className="animate-pulse">Loading...</span>
-                    </div>
-                  ))}
-                  
-                  <div className="flex items-center gap-2 text-sm">
-                    {!isPastYear && showRoundInfo && roundInfo.lockoutTime && (
-                      <div className="flex gap-1 items-center">
-                        <span className="text-gray-600">Lockout:</span>
-                        <span className="font-medium text-black">{roundInfo.lockoutTime}</span>
-                        {roundInfo.isLocked && (
-                          <span className="text-red-600">(Locked)</span>
-                        )}
-                      </div>
-                    )}
-                    {!isPastYear && showRoundInfo && roundInfo.lockoutTime && roundInfo.roundEndTime && (
-                      <span className="text-gray-400 mx-1">|</span>
-                    )}
-                    {!isPastYear && showRoundInfo && roundInfo.roundEndTime && (
-                      <div className="flex gap-1 items-center">
-                        <span className="text-gray-600">Round Ends:</span>
-                        <span className="font-medium text-black">{roundInfo.roundEndTime}</span>
-                      </div>
-                    )}
-                  </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500">Season</span>
+                <YearToggle size="md" />
+                {isPastYear && (
+                  <span className="dz-badge bg-amber-100 text-amber-700">Read-only</span>
+                )}
+              </div>
+
+              {!isPastYear && (showRoundInfo ? (
+                <div className="hidden items-center gap-2 lg:flex">
+                  <span className="text-slate-500">Round</span>
+                  <span className="font-semibold text-slate-900">{roundInfo.currentRoundDisplay}</span>
                 </div>
-                
-                {/* User Selection Dropdown */}
-                <div className="flex items-center mt-2 sm:mt-0">
-                  <select
-                    value={selectedUserId}
-                    onChange={handleUserChange}
-                    className="p-2 border rounded text-base text-black bg-white w-48"
-                  >
-                    <option value="">Select Player</option>
-                    {Object.entries(USER_NAMES).map(([id, name]) => (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    ))}
-                    <option value="admin">Admin</option>
-                  </select>
-                  
-                  {/* Admin indicator */}
-                  {selectedUserId === 'admin' && isAdminAuthenticated && (
-                    <span className="ml-2 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
-                      Admin Mode
-                    </span>
+              ) : (
+                <div className="hidden items-center gap-2 lg:flex">
+                  <span className="text-slate-500">Round</span>
+                  <span className="animate-pulse text-slate-400">Loading…</span>
+                </div>
+              ))}
+
+              {!isPastYear && showRoundInfo && roundInfo.lockoutTime && (
+                <div className="hidden items-center gap-1.5 xl:flex">
+                  <span className="text-slate-500">Lockout</span>
+                  <span className="font-medium text-slate-900">{roundInfo.lockoutTime}</span>
+                  {roundInfo.isLocked && (
+                    <span className="dz-badge bg-red-100 text-red-700">Locked</span>
                   )}
                 </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <UserSelect className="w-44" />
+                {selectedUserId === 'admin' && isAdminAuthenticated && (
+                  <span className="dz-badge bg-amber-100 text-amber-700">Admin</span>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Round Status Banner */}
         <RoundStatus />
 
-        {/* Main Content Area */}
-        <div className="w-full">
+        {/* ===================== Main Content ===================== */}
+        <div className="mx-auto w-full max-w-[1400px]">
           {/* Desktop Layout with Sidebar */}
-          <div className="hidden md:flex gap-6 p-6">
-            {/* Navigation Sidebar */}
-            <div className="w-48 flex-shrink-0">
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex flex-col gap-2">
+          <div className="hidden gap-6 p-6 md:flex">
+            <aside className="w-56 flex-shrink-0">
+              <div className="sticky top-[88px]">
+                <nav className="dz-surface space-y-1 p-3">
                   {navigationGroups.map((group, groupIndex) => (
-                    <div key={groupIndex}>
+                    <div key={groupIndex} className="space-y-1">
                       {group.map((item) => (
-                        <Link 
-                          key={item.id}
-                          href={item.path}
-                          className={`block px-4 py-2 mb-2 rounded-md transition-colors text-left text-sm ${
-                            pathname === item.path
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          {item.name}
-                        </Link>
+                        <NavLink key={item.id} item={item} />
                       ))}
                       {groupIndex < navigationGroups.length - 1 && (
-                        <div className="border-t border-gray-200 my-1"></div>
+                        <div className="my-2 border-t border-slate-100" />
                       )}
                     </div>
                   ))}
-                </div>
-                {selectedUserId === 'admin' && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Debug</h3>
-                    <div className="flex flex-col gap-2">
+                  {selectedUserId === 'admin' && (
+                    <div className="mt-2 border-t border-slate-100 pt-2">
+                      <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Debug</p>
                       {debugNavigationItems.map((item) => (
-                        <Link
-                          key={item.id}
-                          href={item.path}
-                          className={`block px-4 py-2 rounded-md transition-colors text-left text-sm ${
-                            pathname === item.path
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          {item.name}
-                        </Link>
+                        <NavLink key={item.id} item={item} />
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </nav>
               </div>
-            </div>
+            </aside>
 
-            {/* Main Content */}
-            <div className="flex-1 bg-white rounded-lg shadow p-6">
+            <main className="min-w-0 flex-1 animate-fade-in">
               {selectedUserId === 'admin' && !isAdminAuthenticated ? (
-                // Show a message if somehow the admin access is attempted without auth
-                <div className="p-8 text-center">
-                  <h2 className="text-xl font-bold mb-4">Admin Authentication Required</h2>
-                  <p className="mb-4">You need to authenticate as an admin to view this content.</p>
-                  <button
-                    onClick={() => setShowAdminModal(true)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded"
-                  >
+                <div className="dz-surface p-8 text-center">
+                  <h2 className="mb-4 text-xl font-bold">Admin Authentication Required</h2>
+                  <p className="mb-4 text-slate-600">You need to authenticate as an admin to view this content.</p>
+                  <button onClick={() => setShowAdminModal(true)} className="dz-btn-primary mx-auto">
                     Authenticate
                   </button>
                 </div>
               ) : (
-                // Show the content if authorized or not an admin
                 children
               )}
-            </div>
+            </main>
           </div>
 
-          {/* Mobile Layout - Full Width Content */}
+          {/* Mobile Layout - Full Width Content (pages provide their own cards) */}
           <div className="md:hidden">
-            <div className="bg-white">
-              {selectedUserId === 'admin' && !isAdminAuthenticated ? (
-                // Show a message if somehow the admin access is attempted without auth
-                <div className="p-6 text-center">
-                  <h2 className="text-xl font-bold mb-4">Admin Authentication Required</h2>
-                  <p className="mb-4">You need to authenticate as an admin to view this content.</p>
-                  <button
-                    onClick={() => setShowAdminModal(true)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded"
-                  >
-                    Authenticate
-                  </button>
-                </div>
-              ) : (
-                // Show the content if authorized or not an admin
-                children
-              )}
-            </div>
+            {selectedUserId === 'admin' && !isAdminAuthenticated ? (
+              <div className="m-3 dz-surface p-6 text-center">
+                <h2 className="mb-4 text-xl font-bold">Admin Authentication Required</h2>
+                <p className="mb-4 text-slate-600">You need to authenticate as an admin to view this content.</p>
+                <button onClick={() => setShowAdminModal(true)} className="dz-btn-primary mx-auto">
+                  Authenticate
+                </button>
+              </div>
+            ) : (
+              <div className="animate-fade-in">{children}</div>
+            )}
           </div>
         </div>
       </div>

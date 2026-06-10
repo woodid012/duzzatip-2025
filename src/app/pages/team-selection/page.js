@@ -270,7 +270,7 @@ export default function TeamSelectionPage() {
           <div className="h-10 w-28 bg-gray-200 rounded animate-pulse"></div>
         </div>
       </div>
-      <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="dz-surface p-4">
         <div className="h-6 w-40 bg-gray-200 rounded animate-pulse mb-4"></div>
         {[...Array(9)].map((_, i) => (
           <div key={i} className="mb-3">
@@ -283,7 +283,7 @@ export default function TeamSelectionPage() {
   );
   if (error) return (
     <div className="p-4 sm:p-6">
-      <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+      <div className="bg-red-50 border border-red-300 rounded-2xl p-4">
         <h3 className="font-bold text-lg mb-2 text-red-800">Couldn&apos;t load team selections</h3>
         <p className="text-red-700 mb-3">{error}</p>
         <p className="text-red-600 text-sm mb-4">Check your internet connection and try again.</p>
@@ -300,8 +300,8 @@ export default function TeamSelectionPage() {
   if (!loading && !error && Object.keys(squads).length === 0) {
     return (
       <div className="text-center p-10">
-        <h2 className="text-2xl font-bold mb-4">No Squads Available</h2>
-        <p className="text-gray-600">
+        <h2 className="dz-title mb-4">No Squads Available</h2>
+        <p className="dz-subtitle">
           The draft hasn&apos;t happened yet. Squads will appear here once the draft is complete.
         </p>
       </div>
@@ -312,8 +312,8 @@ export default function TeamSelectionPage() {
   if (!selectedUserId) {
     return (
       <div className="text-center p-10">
-        <h2 className="text-2xl font-bold mb-4">Please Select a Player</h2>
-        <p className="text-gray-600">
+        <h2 className="dz-title mb-4">Please Select a Player</h2>
+        <p className="dz-subtitle">
           Use the dropdown in the top right to select which player's team you want to view or edit.
         </p>
       </div>
@@ -347,16 +347,16 @@ export default function TeamSelectionPage() {
       `}</style>
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
         <div className="flex flex-col">
-          <h1 className="text-2xl font-bold text-black">
-            {selectedUserId && selectedUserId !== 'admin' 
-              ? `${USER_NAMES[selectedUserId]}'s Team` 
+          <h1 className="dz-title">
+            {selectedUserId && selectedUserId !== 'admin'
+              ? `${USER_NAMES[selectedUserId]}'s Team`
               : 'Team Selection'}
           </h1>
-          
+
           {/* Show which round we're displaying with improved formatting - matching tipping page style */}
           <div className="flex flex-col gap-1 mt-1">
             <div className="text-sm font-medium">
-              <span className={(isForFunOnly || isLateSubmission) && !isAdmin ? "text-orange-600" : "text-green-600"}>
+              <span className={(isForFunOnly || isLateSubmission) && !isAdmin ? "text-orange-600" : "text-emerald-600"}>
                 Showing {formatRoundName(localRound)}
               </span>
               {isForFunOnly && !isAdmin && (
@@ -397,7 +397,7 @@ export default function TeamSelectionPage() {
               if (isRoundPartiallyLocked && nextLockout && !isAdmin) {
                 return (
                   <div className="text-sm">
-                    <span className="text-gray-600">Next lockout:</span>
+                    <span className="text-slate-600">Next lockout:</span>
                     <span className="font-medium text-orange-600 ml-1">
                       {nextLockout.toLocaleString('en-AU', {
                         timeZone: 'Australia/Melbourne',
@@ -409,17 +409,17 @@ export default function TeamSelectionPage() {
               }
               return (
                 <div className="text-sm">
-                  <span className="text-gray-600">Lockout:</span>
-                  <span className="font-medium text-black ml-1">{localInfo.lockoutTime}</span>
+                  <span className="text-slate-600">Lockout:</span>
+                  <span className="font-medium text-slate-900 ml-1">{localInfo.lockoutTime}</span>
                 </div>
               );
             })()}
-            
+
             {/* Last update info, matching tipping page style exactly */}
             {lastUpdatedTime && (
               <div className="text-sm">
-                <span className="text-gray-600">Last Submitted:</span>
-                <span className="font-medium text-black ml-1">
+                <span className="text-slate-600">Last Submitted:</span>
+                <span className="font-medium text-slate-900 ml-1">
                   {formatDate(lastUpdatedTime)}
                 </span>
               </div>
@@ -429,12 +429,12 @@ export default function TeamSelectionPage() {
         
         <div className="flex items-center gap-4">
           <div className="flex items-center">
-            <label htmlFor="round-select" className="text-sm font-medium text-black mr-2">Round:</label>
-            <select 
+            <label htmlFor="round-select" className="text-sm font-medium text-slate-900 mr-2">Round:</label>
+            <select
               id="round-select"
               value={localRound}
               onChange={(e) => handleRoundChange(Number(e.target.value))}
-              className="p-2 border rounded w-24 text-sm text-black"
+              className="dz-select w-24 text-sm"
               disabled={inEditMode && !isAdmin} // Only disable for non-admin when editing
             >
               {[...Array(29)].map((_, i) => (
@@ -448,15 +448,15 @@ export default function TeamSelectionPage() {
           <div className="flex flex-col sm:flex-row gap-2">
             {inEditMode ? (
               <>
-                <button 
+                <button
                   onClick={handleSaveWithWarning}
-                  className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                  className="w-full sm:w-auto px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600"
                 >
                   Save Changes
                 </button>
-                <button 
+                <button
                   onClick={handleAdminCancel}
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                  className="dz-btn-ghost w-full sm:w-auto justify-center"
                 >
                   Cancel
                 </button>
@@ -480,7 +480,7 @@ export default function TeamSelectionPage() {
       
       {/* Display warning for duplicate players */}
       {duplicateWarnings.length > 0 && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-2xl">
           <div className="flex items-center gap-2 mb-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
@@ -561,7 +561,7 @@ export default function TeamSelectionPage() {
       </div>
       
       {/* Reserve Rules Info - Moved below the teams */}
-      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="mt-8 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl">
         <h3 className="text-lg font-semibold mb-2 text-blue-800">Reserve System</h3>
         <ul className="list-disc pl-5 text-blue-700 text-sm space-y-1">
           <li><strong>Reserve A</strong> automatically covers: Full Forward, Tall Forward, and Ruck positions if a player doesn't play</li>
@@ -573,13 +573,13 @@ export default function TeamSelectionPage() {
       
       {/* Admin Controls Section - Only shown when admin is active */}
       {isAdmin && (
-        <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
           <h3 className="text-lg font-semibold mb-2 text-amber-800">Admin Controls</h3>
           <p className="text-amber-700">
             As an admin user, you can edit and save team selections for any round, regardless of whether 
             it's locked for regular users. This allows you to fix issues or make adjustments as needed.
           </p>
-          <div className="mt-4 bg-white p-3 rounded border border-amber-200">
+          <div className="mt-4 bg-white p-3 rounded-lg border border-amber-200">
             <p className="font-medium text-amber-800">Current Admin Settings:</p>
             <ul className="list-disc pl-5 mt-2 text-sm space-y-1">
               <li><span className="font-medium">Round Status:</span> {isRoundLocked ? 'Locked for regular users' : 'Unlocked'}</li>
@@ -655,21 +655,21 @@ function TeamCard({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg sm:text-xl font-bold text-black">{userName}</h2>
-        <div className="flex items-center gap-2">
+    <div className="dz-surface p-3 sm:p-4">
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 min-w-0 truncate">{userName}</h2>
+        <div className="flex items-center gap-2 shrink-0">
           {isEditing && (
             <button
               onClick={handleCopyFromPrevious}
-              className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
+              className="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded"
             >
               Copy Previous
             </button>
           )}
-          <button 
+          <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-black hover:text-black sm:hidden"
+            className="text-slate-900 hover:text-slate-900 sm:hidden"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isExpanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
@@ -693,7 +693,7 @@ function TeamCard({
 
             return (
               <div key={position} className="flex flex-col gap-1">
-                <label className={`text-sm font-medium ${posLocked ? 'text-gray-400' : 'text-black'}`}>
+                <label className={`text-sm font-medium ${posLocked ? 'text-slate-400' : 'text-slate-900'}`}>
                   {displayPosition}
                   {posLocked && isEditing && (
                     <span className="text-xs text-red-400 ml-1">
@@ -721,7 +721,7 @@ function TeamCard({
                         <select
                           value={playerData?.backup_position || ''}
                           onChange={(e) => onBackupPositionChange(userId, position, e.target.value)}
-                          className="w-full sm:w-1/3 p-2 text-sm border rounded bg-white text-black"
+                          className="dz-select w-full sm:w-1/3 text-sm"
                           disabled={posLocked || isRoundPartiallyLocked}
                         >
                           <option value="">Backup Position</option>
@@ -736,16 +736,16 @@ function TeamCard({
                   ) : (
                     <div className={`w-full p-2 text-sm border rounded ${
                       isDuplicate ? 'border-red-500 bg-red-50' :
-                      posLocked ? 'bg-gray-100 border-gray-300 opacity-75' :
-                      'bg-white border-gray-200'
+                      posLocked ? 'bg-slate-100 border-slate-300 opacity-75' :
+                      'bg-white border-slate-200'
                     }`}>
                       {playerData ? (
-                        <div className="flex justify-between items-center">
-                          <span className={`${isDuplicate ? 'text-red-600 font-semibold' : posLocked ? 'text-gray-500' : 'text-black'}`}>
+                        <div className="flex justify-between items-center gap-2">
+                          <span className={`min-w-0 truncate ${isDuplicate ? 'text-red-600 font-semibold' : posLocked ? 'text-slate-500' : 'text-slate-900'}`}>
                             {posLocked && <span className="mr-1 text-xs">🔒</span>}
                             {playerData.player_name}
                             {posLocked && lockReason && (
-                              <span className="ml-1 text-xs text-gray-400">({lockReason})</span>
+                              <span className="ml-1 text-xs text-slate-400">({lockReason})</span>
                             )}
                             {isDuplicate && " (Duplicate)"}
                             {(() => {
@@ -765,7 +765,7 @@ function TeamCard({
                             )}
                           </span>
                           {position === 'Bench' && playerData.backup_position && (
-                            <span className={`text-xs ${posLocked ? 'text-gray-400' : 'text-black'}`}>
+                            <span className={`text-xs shrink-0 ${posLocked ? 'text-slate-400' : 'text-slate-900'}`}>
                               {playerData.backup_position}
                             </span>
                           )}

@@ -239,11 +239,11 @@ export default function ResultsPage() {
     <div className="p-4 sm:p-6 w-full mx-auto">
       {/* Mobile-optimized header */}
       <div className="block sm:hidden mb-4">
-        <select 
+        <select
           id="round-select-mobile"
           value={displayedRound || ""}
           onChange={handleRoundChange}
-          className="w-full p-3 border rounded-lg text-base text-black bg-white"
+          className="dz-select w-full text-base"
         >
           {[...Array(25)].map((_, i) => (
             <option key={i} value={i}>
@@ -256,14 +256,14 @@ export default function ResultsPage() {
       {/* Desktop header */}
       <div className="hidden sm:flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <h1 className="text-2xl font-bold text-black">Team Scores</h1>
+          <h1 className="dz-title">Team Scores</h1>
           <div className="w-full sm:w-auto flex items-center gap-2">
-            <label htmlFor="round-select" className="text-sm font-medium text-black">Round:</label>
-            <select 
+            <label htmlFor="round-select" className="text-sm font-medium text-slate-600">Round</label>
+            <select
               id="round-select"
               value={displayedRound || ""}
               onChange={handleRoundChange}
-              className="p-2 border rounded w-32 text-sm text-black"
+              className="dz-select w-32"
             >
               {[...Array(25)].map((_, i) => (
                 <option key={i} value={i}>
@@ -273,7 +273,7 @@ export default function ResultsPage() {
             </select>
           </div>
         </div>
-        <Link href="/pages/ladder" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <Link href="/pages/ladder" className="dz-btn-primary">
           View Ladder
         </Link>
       </div>
@@ -311,10 +311,10 @@ export default function ResultsPage() {
             // Don't render if scores aren't calculated yet (prevents flashing)
             if (!userTeamScores || loading) {
               return (
-                <div key={userId} id={`team-card-${userId}`} className="bg-white rounded-lg shadow-md p-2 scroll-mt-4">
+                <div key={userId} id={`team-card-${userId}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 scroll-mt-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-sm font-bold text-black truncate">{USER_NAMES[userId]}</h2>
-                    <div className="text-right font-bold text-sm text-black">
+                    <h2 className="text-sm font-bold text-slate-900 truncate">{USER_NAMES[userId]}</h2>
+                    <div className="text-right font-bold text-sm text-slate-400">
                       Loading...
                     </div>
                   </div>
@@ -349,10 +349,10 @@ export default function ResultsPage() {
             // Don't render if scores aren't calculated yet (prevents flashing)
             if (!userTeamScores || loading) {
               return (
-                <div key={userId} id={`team-card-${userId}`} className="bg-white rounded-lg shadow-md p-3 sm:p-4 scroll-mt-4">
+                <div key={userId} id={`team-card-${userId}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 scroll-mt-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg sm:text-xl font-bold text-black">{USER_NAMES[userId]}</h2>
-                    <div className="text-right font-bold text-lg border-t pt-2 text-black">
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900">{USER_NAMES[userId]}</h2>
+                    <div className="text-right font-bold text-lg text-slate-400">
                       Final Total: Loading...
                     </div>
                   </div>
@@ -390,10 +390,10 @@ function MobileTeamScoreCard({
   isRoundComplete
 }) {
   return (
-    <div id={`team-card-${userId}`} className="bg-white rounded-lg shadow-md p-2 sm:p-4 scroll-mt-4">
+    <div id={`team-card-${userId}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 sm:p-4 scroll-mt-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1 min-w-0 flex-1">
-          <h2 className="text-sm sm:text-lg font-bold text-black truncate">{userName}</h2>
+          <h2 className="text-sm sm:text-lg font-bold text-slate-900 truncate">{userName}</h2>
           {isHighestScore && <span className="text-yellow-500 text-xs sm:text-base">⭐</span>}
           {isLowestScore && <span className="text-red-500 text-xs sm:text-base">🦀</span>}
           {isSelectedUser &&

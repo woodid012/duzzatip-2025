@@ -98,8 +98,8 @@ export default function InjuriesPage() {
     <div className="p-2 md:p-4 space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h1 className="text-xl font-bold">AFL Injury List</h1>
-        <div className="text-sm text-gray-500">
+        <h1 className="dz-title">AFL Injury List</h1>
+        <div className="dz-subtitle">
           {updated
             ? `Updated: ${new Date(updated).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}`
             : 'No data yet'}
@@ -120,7 +120,7 @@ export default function InjuriesPage() {
           </span>
         ))}
         {statusFilter && (
-          <button onClick={() => setStatusFilter('')} className="text-xs text-gray-500 underline">Clear</button>
+          <button onClick={() => setStatusFilter('')} className="text-xs text-slate-500 underline">Clear</button>
         )}
       </div>
 
@@ -131,12 +131,12 @@ export default function InjuriesPage() {
           placeholder="Search player..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="border rounded px-3 py-1.5 text-sm flex-1 min-w-0"
+          className="dz-select flex-1 min-w-0"
         />
         <select
           value={teamFilter}
           onChange={e => setTeamFilter(e.target.value)}
-          className="border rounded px-3 py-1.5 text-sm"
+          className="dz-select"
         >
           <option value="">All Teams</option>
           {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
@@ -145,23 +145,23 @@ export default function InjuriesPage() {
 
       {/* Injury cards grouped by team */}
       {teams.length === 0 ? (
-        <div className="text-center text-gray-500 py-8">No injuries match your filters</div>
+        <div className="text-center text-slate-500 py-8">No injuries match your filters</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {teams.map(([team, players]) => (
-            <div key={team} className="border rounded-lg overflow-hidden">
-              <div className="bg-gray-100 px-3 py-2 font-semibold text-sm border-b flex items-center justify-between">
+            <div key={team} className="dz-surface overflow-hidden">
+              <div className="bg-slate-100 px-3 py-2 font-semibold text-sm border-b flex items-center justify-between">
                 <span>{team}</span>
-                <span className="text-xs text-gray-500 font-normal">{players.length}</span>
+                <span className="text-xs text-slate-500 font-normal">{players.length}</span>
               </div>
-              <div className="divide-y">
+              <div className="divide-y divide-slate-100">
                 {players.map(p => {
                   const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.MANAGED;
                   return (
                     <div key={p.name} className="px-3 py-2 flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="font-medium text-sm truncate">{p.name}</div>
-                        <div className="text-xs text-gray-500 truncate">{p.detail}</div>
+                        <div className="text-xs text-slate-500 truncate">{p.detail}</div>
                       </div>
                       <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border font-medium whitespace-nowrap shrink-0 ${cfg.badge}`}>
                         <span className={`inline-block w-2 h-2 rounded-full ${cfg.dot}`} />
