@@ -20,6 +20,16 @@ export default function useSimplifiedResults() {
   // Ref to track which round is active, to guard against stale background refreshes
   const activeRoundRef = useRef(null);
 
+  // Minute ticker so "has the round ended" re-evaluates while the page stays
+  // open across the round-end moment (roundInfo from context is only recomputed
+  // on round change / hourly, so reserves would otherwise stay locked for up to
+  // an hour after the last game finishes).
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   // Cache for round data to prevent refetching
   const roundCache = useRef(new Map()).current;
 
@@ -121,15 +131,23 @@ export default function useSimplifiedResults() {
   // Determine if round is complete
   const isRoundComplete = useMemo(() => {
     if (!displayRound || !currentRound) return false;
-    
+
     // Past rounds are complete
     if (displayRound < currentRound) return true;
-    
-    // Current round check from context
-    if (displayRound === currentRound && roundInfo?.isRoundEnded) return true;
-    
+
+    // Current round: evaluate the round-end cutoff live against the wall clock
+    // (re-checked every minute via nowTick) rather than trusting the possibly
+    // stale roundInfo.isRoundEnded boolean. Fall back to the context flag if no
+    // end date is available.
+    if (displayRound === currentRound) {
+      if (roundInfo?.roundEndDate) {
+        return nowTick >= new Date(roundInfo.roundEndDate).getTime();
+      }
+      return Boolean(roundInfo?.isRoundEnded);
+    }
+
     return false;
-  }, [displayRound, currentRound, roundInfo]);
+  }, [displayRound, currentRound, roundInfo, nowTick]);
 
   // Transform consolidated data to match original format for compatibility
   const transformedData = useMemo(() => {
