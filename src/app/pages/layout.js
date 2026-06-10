@@ -9,10 +9,11 @@ import { getNavigationGroups, debugNavigationItems } from '@/app/lib/navigationC
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { ToastProvider } from '@/app/components/Toast';
 import RoundStatus from '@/app/components/RoundStatus';
+import AuthModal from '@/app/components/AuthModal';
 import {
   Menu, X, Trophy, ClipboardList, Target, ListOrdered, TrendingUp,
   CheckCircle2, Shuffle, HeartPulse, Users, Settings, BarChart3,
-  RefreshCw, UserCog, Lock, ChevronRight,
+  RefreshCw, UserCog, Lock, ChevronRight, LogOut,
 } from 'lucide-react';
 
 // Icon per nav id — keeps the sidebar scannable on web and mobile.
@@ -42,6 +43,8 @@ export const UserContext = createContext({
   selectedUserId: '',
   setSelectedUserId: () => {},
   isAdminAuthenticated: false,
+  authedUserId: null,
+  logout: () => {},
   selectedYear: CURRENT_YEAR,
   setSelectedYear: () => {},
   isPastYear: false,
@@ -49,6 +52,12 @@ export const UserContext = createContext({
 
 // Custom hook to use the user context
 export const useUserContext = () => useContext(UserContext);
+
+// Master switch for the in-app login/gating. Kept OFF for now: everyone is
+// registering via /register first; once accounts exist we flip this to true to
+// require login when picking a team. The /register page and /api/auth stay
+// active regardless of this flag.
+const AUTH_GATING_ENABLED = false;
 
 
 export default function PagesLayout({ children }) {
@@ -64,25 +73,43 @@ export default function PagesLayout({ children }) {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
 
+  // First-party auth: the user_id the server-verified cookie says we are, plus
+  // the create/login modal state for a team that isn't authenticated yet.
+  const [authedUserId, setAuthedUserId] = useState(null);
+  const [authModal, setAuthModal] = useState(null); // { userId, mode:'create'|'login', error, busy }
+
   // Mobile navigation state
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // Year selection state - from AppContext
   const { selectedYear, setSelectedYear, isPastYear } = useAppContext();
 
-  // Load selectedUserId and selectedYear from localStorage on initial render
+  // On load: with gating OFF, restore the last selection from localStorage (the
+  // original pre-auth behaviour). With gating ON, instead ask the server who the
+  // signed cookie says we are and remember that verified user_id (so picking that
+  // team later skips the password) without auto-selecting it.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedUserId = localStorage.getItem('selectedUserId');
-      if (savedUserId) {
-        // If user was previously admin, we need to revalidate
-        if (savedUserId === 'admin') {
-          setShowAdminModal(true);
-        } else {
-          setSelectedUserId(savedUserId);
-        }
+    if (!AUTH_GATING_ENABLED) {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('selectedUserId');
+        if (saved === 'admin') setShowAdminModal(true);
+        else if (saved) setSelectedUserId(saved);
       }
+      return;
     }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth');
+        const data = await res.json();
+        if (!cancelled && data.user) {
+          setAuthedUserId(data.user.userId);
+        }
+      } catch {
+        // ignore — nothing to restore
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Save selectedUserId to localStorage when it changes
@@ -111,17 +138,100 @@ export default function PagesLayout({ children }) {
     setIsMobileNavOpen(false);
   }, [pathname]);
 
-  // Handle user selection change
-  const handleUserChange = (e) => {
+  // Handle user selection change. Players must authenticate (create a password
+  // the first time, then log in) before their team is selected; once a team is
+  // authenticated on this device it's selected straight away.
+  const handleUserChange = async (e) => {
     const newUserId = e.target.value;
 
     if (newUserId === 'admin') {
-      // Show admin password modal when admin is selected
       setShowAdminModal(true);
-    } else {
+      return;
+    }
+
+    // Gating off: original behaviour — just select the team, no login.
+    if (!AUTH_GATING_ENABLED) {
       setSelectedUserId(newUserId);
       setIsAdminAuthenticated(false);
+      return;
     }
+
+    if (newUserId === '') {
+      setSelectedUserId('');
+      return;
+    }
+
+    const uid = Number(newUserId);
+    setIsAdminAuthenticated(false);
+
+    if (authedUserId === uid) {
+      setSelectedUserId(newUserId);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'status', userId: uid }),
+      });
+      const data = await res.json();
+      if (data.authenticated) {
+        setAuthedUserId(uid);
+        setSelectedUserId(newUserId);
+        return;
+      }
+      // Has an account → log in here; no account yet → funnel to /register.
+      setAuthModal({ userId: uid, mode: data.hasPassword ? 'login' : 'register', error: '', busy: false });
+    } catch {
+      setAuthModal({ userId: uid, mode: 'login', error: 'Could not reach the server', busy: false });
+    }
+  };
+
+  // Submit the in-app login modal (registration happens on the /register page).
+  const submitAuth = async (password) => {
+    if (!authModal) return;
+    const { userId } = authModal;
+    setAuthModal((m) => ({ ...m, busy: true, error: '' }));
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', userId, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        // No account yet → switch the modal to point at /register.
+        setAuthModal((m) => ({
+          ...m,
+          busy: false,
+          error: data.error || 'Something went wrong',
+          mode: data.needsRegister ? 'register' : m.mode,
+        }));
+        return;
+      }
+      setAuthedUserId(userId);
+      setSelectedUserId(String(userId));
+      setAuthModal(null);
+    } catch {
+      setAuthModal((m) => ({ ...m, busy: false, error: 'Could not reach the server' }));
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' }),
+      });
+    } catch {
+      // ignore — clear locally regardless
+    }
+    setAuthedUserId(null);
+    setSelectedUserId('');
+    setIsAdminAuthenticated(false);
+    if (typeof window !== 'undefined') localStorage.removeItem('selectedUserId');
   };
 
   // Handle admin password submission
@@ -214,11 +324,26 @@ export default function PagesLayout({ children }) {
       setSelectedUserId,
       isAdminAuthenticated,
       setIsAdminAuthenticated,
+      authedUserId,
+      logout: handleLogout,
       selectedYear,
       setSelectedYear,
       isPastYear,
     }}>
       <div className="min-h-screen bg-background">
+        {/* Player login modal (only when gating is enabled) */}
+        {AUTH_GATING_ENABLED && authModal && (
+          <AuthModal
+            userName={USER_NAMES[authModal.userId]}
+            userId={authModal.userId}
+            mode={authModal.mode}
+            error={authModal.error}
+            busy={authModal.busy}
+            onSubmit={submitAuth}
+            onCancel={() => setAuthModal(null)}
+          />
+        )}
+
         {/* Admin Password Modal */}
         {showAdminModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
@@ -288,7 +413,17 @@ export default function PagesLayout({ children }) {
 
             <div className="flex flex-col items-end gap-1">
               <UserSelect className="w-40 py-1.5 text-sm" />
-              <YearToggle />
+              <div className="flex items-center gap-2">
+                {AUTH_GATING_ENABLED && authedUserId !== null && (
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> Sign out
+                  </button>
+                )}
+                <YearToggle />
+              </div>
             </div>
           </div>
 
@@ -423,6 +558,16 @@ export default function PagesLayout({ children }) {
                 <UserSelect className="w-44" />
                 {selectedUserId === 'admin' && isAdminAuthenticated && (
                   <span className="dz-badge bg-amber-100 text-amber-700">Admin</span>
+                )}
+                {AUTH_GATING_ENABLED && authedUserId !== null && (
+                  <button
+                    onClick={handleLogout}
+                    title="Sign out"
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden xl:inline">Sign out</span>
+                  </button>
                 )}
               </div>
             </div>
