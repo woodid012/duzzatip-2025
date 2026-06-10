@@ -53,10 +53,14 @@ export const UserContext = createContext({
 // Custom hook to use the user context
 export const useUserContext = () => useContext(UserContext);
 
-// Master switch for the in-app login/gating. Kept OFF for now: everyone is
-// registering via /register first; once accounts exist we flip this to true to
-// require login when picking a team. The /register page and /api/auth stay
-// active regardless of this flag.
+// Two independent auth switches:
+//  • AUTH_RECOGNIZE_LOGIN — honour an existing session: registering signs you
+//    in, a returning registered user is auto-resumed into their team and gets a
+//    Sign out button. This is ON now so registrations "keep a login".
+//  • AUTH_GATING_ENABLED — ENFORCE login when picking a team (password wall +
+//    funnel-to-register). This is OFF now, so anyone (registered or not) can
+//    still freely choose any team like before. Flip it on in a future step.
+const AUTH_RECOGNIZE_LOGIN = true;
 const AUTH_GATING_ENABLED = false;
 
 
@@ -84,29 +88,32 @@ export default function PagesLayout({ children }) {
   // Year selection state - from AppContext
   const { selectedYear, setSelectedYear, isPastYear } = useAppContext();
 
-  // On load: with gating OFF, restore the last selection from localStorage (the
-  // original pre-auth behaviour). With gating ON, instead ask the server who the
-  // signed cookie says we are and remember that verified user_id (so picking that
-  // team later skips the password) without auto-selecting it.
+  // On load: if login recognition is on, ask the server who the signed cookie
+  // says we are. A logged-in (registered) user is remembered — auto-resumed into
+  // their team with a Sign out button — even though nothing is gated. If there's
+  // no session (or recognition is off), fall back to the original behaviour of
+  // restoring the last selection from localStorage, so unregistered users keep
+  // picking teams exactly as before.
   useEffect(() => {
-    if (!AUTH_GATING_ENABLED) {
-      if (typeof window !== 'undefined') {
+    let cancelled = false;
+    (async () => {
+      if (AUTH_RECOGNIZE_LOGIN) {
+        try {
+          const res = await fetch('/api/auth');
+          const data = await res.json();
+          if (!cancelled && data.user) {
+            setAuthedUserId(data.user.userId);
+            setSelectedUserId(String(data.user.userId));
+            return;
+          }
+        } catch {
+          // ignore — fall through to localStorage restore
+        }
+      }
+      if (!cancelled && typeof window !== 'undefined') {
         const saved = localStorage.getItem('selectedUserId');
         if (saved === 'admin') setShowAdminModal(true);
         else if (saved) setSelectedUserId(saved);
-      }
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/auth');
-        const data = await res.json();
-        if (!cancelled && data.user) {
-          setAuthedUserId(data.user.userId);
-        }
-      } catch {
-        // ignore — nothing to restore
       }
     })();
     return () => { cancelled = true; };
@@ -414,7 +421,7 @@ export default function PagesLayout({ children }) {
             <div className="flex flex-col items-end gap-1">
               <UserSelect className="w-40 py-1.5 text-sm" />
               <div className="flex items-center gap-2">
-                {AUTH_GATING_ENABLED && authedUserId !== null && (
+                {authedUserId !== null && (
                   <button
                     onClick={handleLogout}
                     className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
@@ -559,7 +566,7 @@ export default function PagesLayout({ children }) {
                 {selectedUserId === 'admin' && isAdminAuthenticated && (
                   <span className="dz-badge bg-amber-100 text-amber-700">Admin</span>
                 )}
-                {AUTH_GATING_ENABLED && authedUserId !== null && (
+                {authedUserId !== null && (
                   <button
                     onClick={handleLogout}
                     title="Sign out"
