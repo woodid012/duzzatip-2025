@@ -12,18 +12,19 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { USER_NAMES } from '@/app/lib/constants';
 import {
   AUTH_COOKIE,
+  ADMIN_UID,
+  checkAdminPassword,
   hashPassword,
   verifyPassword,
   signSession,
-  verifySession,
+  getSessionUser,
   sessionCookieOptions,
 } from '@/app/lib/auth';
 
 const COLLECTION = 'user_auth';
 
 function sessionFromRequest(request) {
-  const token = request.cookies.get(AUTH_COOKIE)?.value;
-  return verifySession(token); // { uid } | null
+  return getSessionUser(request); // { uid } | null  (uid 0 = admin)
 }
 
 function isValidTeam(uid) {
@@ -49,6 +50,9 @@ export async function GET(request) {
   }
 
   const sess = sessionFromRequest(request);
+  if (sess && sess.uid === ADMIN_UID) {
+    return NextResponse.json({ user: { userId: ADMIN_UID, userName: 'Admin', admin: true } });
+  }
   if (!sess || !isValidTeam(sess.uid)) {
     return NextResponse.json({ user: null });
   }
@@ -123,6 +127,15 @@ export async function POST(request) {
       await col.updateOne({ user_id: uid }, { $set: { lastLogin: new Date() } });
       const res = NextResponse.json({ ok: true, user: { userId: uid, userName: USER_NAMES[uid] } });
       res.cookies.set(AUTH_COOKIE, signSession(uid), sessionCookieOptions());
+      return res;
+    }
+
+    if (action === 'admin-login') {
+      if (!checkAdminPassword(body?.password)) {
+        return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
+      }
+      const res = NextResponse.json({ ok: true, user: { userId: ADMIN_UID, userName: 'Admin', admin: true } });
+      res.cookies.set(AUTH_COOKIE, signSession(ADMIN_UID), sessionCookieOptions());
       return res;
     }
 

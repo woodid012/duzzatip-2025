@@ -61,7 +61,10 @@ export const useUserContext = () => useContext(UserContext);
 //    funnel-to-register). This is OFF now, so anyone (registered or not) can
 //    still freely choose any team like before. Flip it on in a future step.
 const AUTH_RECOGNIZE_LOGIN = true;
-const AUTH_GATING_ENABLED = false;
+const AUTH_GATING_ENABLED = true;
+
+// Pages a not-logged-in visitor may see (everything else requires login).
+const PUBLIC_PATHS = ['/pages/results', '/pages/ladder'];
 
 
 export default function PagesLayout({ children }) {
@@ -80,7 +83,10 @@ export default function PagesLayout({ children }) {
   // First-party auth: the user_id the server-verified cookie says we are, plus
   // the create/login modal state for a team that isn't authenticated yet.
   const [authedUserId, setAuthedUserId] = useState(null);
-  const [authModal, setAuthModal] = useState(null); // { userId, mode:'create'|'login', error, busy }
+  const [authModal, setAuthModal] = useState(null); // { userId, mode:'login'|'register', error, busy }
+  // True once we've checked the session cookie, so route-guarding doesn't fire
+  // (and redirect) before we know whether the visitor is logged in.
+  const [authReady, setAuthReady] = useState(false);
 
   // Mobile navigation state
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -102,22 +108,39 @@ export default function PagesLayout({ children }) {
           const res = await fetch('/api/auth');
           const data = await res.json();
           if (!cancelled && data.user) {
-            setAuthedUserId(data.user.userId);
-            setSelectedUserId(String(data.user.userId));
+            if (data.user.admin) {
+              setIsAdminAuthenticated(true);
+              setSelectedUserId('admin');
+            } else {
+              setAuthedUserId(data.user.userId);
+              setSelectedUserId(String(data.user.userId));
+            }
+            setAuthReady(true);
             return;
           }
         } catch {
           // ignore — fall through to localStorage restore
         }
       }
-      if (!cancelled && typeof window !== 'undefined') {
+      if (!cancelled && typeof window !== 'undefined' && !AUTH_GATING_ENABLED) {
         const saved = localStorage.getItem('selectedUserId');
         if (saved === 'admin') setShowAdminModal(true);
         else if (saved) setSelectedUserId(saved);
       }
+      if (!cancelled) setAuthReady(true);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Route guard: once we know the session, send not-logged-in visitors away
+  // from protected pages to the public results view.
+  useEffect(() => {
+    if (!AUTH_GATING_ENABLED || !authReady) return;
+    const isLoggedIn = isAdminAuthenticated || authedUserId !== null;
+    if (!isLoggedIn && pathname?.startsWith('/pages') && !PUBLIC_PATHS.includes(pathname)) {
+      router.replace('/pages/results');
+    }
+  }, [authReady, authedUserId, isAdminAuthenticated, pathname, router]);
 
   // Save selectedUserId to localStorage when it changes
   useEffect(() => {
@@ -241,20 +264,38 @@ export default function PagesLayout({ children }) {
     if (typeof window !== 'undefined') localStorage.removeItem('selectedUserId');
   };
 
-  // Handle admin password submission
-  const handleAdminPasswordSubmit = (e) => {
+  // Handle admin password submission — server-verified so admin also gets a
+  // signed session cookie that bypasses the server-side privacy filters.
+  const handleAdminPasswordSubmit = async (e) => {
     e.preventDefault();
-
-    if (adminPassword === 'Duz') {
-      setIsAdminAuthenticated(true);
-      setSelectedUserId('admin');
-      setShowAdminModal(false);
-    } else {
-      alert('Incorrect password');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin-login', password: adminPassword }),
+      });
+      if (res.ok) {
+        setIsAdminAuthenticated(true);
+        setSelectedUserId('admin');
+        setShowAdminModal(false);
+        setAdminPassword('');
+      } else {
+        alert('Incorrect password');
+      }
+    } catch {
+      alert('Could not reach the server');
     }
   };
 
   const navigationGroups = getNavigationGroups(true); // Include Squad Management
+
+  // Not-logged-in visitors only get the public pages in the nav.
+  const isLoggedIn = isAdminAuthenticated || authedUserId !== null;
+  const visibleGroups = (!AUTH_GATING_ENABLED || isLoggedIn)
+    ? navigationGroups
+    : navigationGroups
+        .map((group) => group.filter((item) => PUBLIC_PATHS.includes(item.path)))
+        .filter((group) => group.length > 0);
 
   // Get current page name for mobile header
   const currentPageName = navigationGroups
@@ -290,7 +331,7 @@ export default function PagesLayout({ children }) {
 
   const UserSelect = ({ className = '' }) => {
     // Once signed in, the team is locked — sign out to switch.
-    const locked = authedUserId !== null;
+    const locked = authedUserId !== null || isAdminAuthenticated;
     return (
       <select
         value={selectedUserId}
@@ -427,7 +468,7 @@ export default function PagesLayout({ children }) {
             <div className="flex flex-col items-end gap-1">
               <UserSelect className="w-40 py-1.5 text-sm" />
               <div className="flex items-center gap-2">
-                {authedUserId !== null && (
+                {(authedUserId !== null || isAdminAuthenticated) && (
                   <button
                     onClick={handleLogout}
                     className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
@@ -502,7 +543,7 @@ export default function PagesLayout({ children }) {
               </div>
 
               <nav className="space-y-1 overflow-y-auto p-3" style={{ maxHeight: 'calc(100vh - 73px)' }}>
-                {navigationGroups.map((group, groupIndex) => (
+                {visibleGroups.map((group, groupIndex) => (
                   <div key={groupIndex} className="space-y-1">
                     {group.map((item) => (
                       <NavLink key={item.id} item={item} onClick={() => setIsMobileNavOpen(false)} />
@@ -572,7 +613,7 @@ export default function PagesLayout({ children }) {
                 {selectedUserId === 'admin' && isAdminAuthenticated && (
                   <span className="dz-badge bg-amber-100 text-amber-700">Admin</span>
                 )}
-                {authedUserId !== null && (
+                {(authedUserId !== null || isAdminAuthenticated) && (
                   <button
                     onClick={handleLogout}
                     title="Sign out"
@@ -597,7 +638,7 @@ export default function PagesLayout({ children }) {
             <aside className="w-56 flex-shrink-0">
               <div className="sticky top-[88px]">
                 <nav className="dz-surface space-y-1 p-3">
-                  {navigationGroups.map((group, groupIndex) => (
+                  {visibleGroups.map((group, groupIndex) => (
                     <div key={groupIndex} className="space-y-1">
                       {group.map((item) => (
                         <NavLink key={item.id} item={item} />

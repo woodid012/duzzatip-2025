@@ -17,6 +17,23 @@ export const AUTH_COOKIE = 'dz_session';
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year — "sign in once"
 export const SESSION_MAX_AGE = Math.floor(SESSION_TTL_MS / 1000);
 
+// Admin sessions use a sentinel uid (0) — no real team is id 0. The admin
+// password is server-verified (was client-only) so admin can also bypass the
+// server-side privacy filters.
+export const ADMIN_UID = 0;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Duz';
+
+export function checkAdminPassword(password) {
+  return String(password || '') === ADMIN_PASSWORD;
+}
+
+// Read the signed session from a request (works with NextRequest.cookies).
+// Returns { uid } for a player, { uid: 0 } for admin, or null.
+export function getSessionUser(request) {
+  const token = request.cookies?.get?.(AUTH_COOKIE)?.value;
+  return verifySession(token);
+}
+
 // ── Password hashing (scrypt) ───────────────────────────────────────────────
 export function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');

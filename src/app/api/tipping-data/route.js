@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
+import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
+import { isRoundLocked } from '@/app/lib/roundAccess';
 
 export async function GET(request) {
   try {
@@ -27,17 +29,24 @@ export async function GET(request) {
           Active: 1
         }).toArray();
 
-      // Get last updated time
-      const lastUpdate = await tipsCollection
-        .find({
-          Round: parseInt(round),
-          User: parseInt(userId),
-          Active: 1
-        })
-        .sort({ LastUpdated: -1 })
-        .limit(1)
-        .toArray();
-        
+      // Privacy: only the owner (or admin, or once the round has locked) sees
+      // real tips; otherwise fall back to defaults so no picks are revealed.
+      const sess = getSessionUser(request);
+      const isAdmin = sess && sess.uid === ADMIN_UID;
+      const ownId = sess && sess.uid ? Number(sess.uid) : null;
+      const canSee =
+        isAdmin || ownId === parseInt(userId) || (await isRoundLocked(parseInt(round), year));
+      const visibleTips = canSee ? tips : [];
+
+      // Get last updated time (only when the viewer may see this user's tips)
+      const lastUpdate = canSee
+        ? await tipsCollection
+            .find({ Round: parseInt(round), User: parseInt(userId), Active: 1 })
+            .sort({ LastUpdated: -1 })
+            .limit(1)
+            .toArray()
+        : [];
+
       const lastUpdated = lastUpdate.length > 0 ? lastUpdate[0].LastUpdated : null;
 
       // Get fixtures for this round
@@ -46,7 +55,7 @@ export async function GET(request) {
       // Build tips object including default Home Team selections for missing tips
       const tipsWithDefaults = {};
       roundFixtures.forEach(fixture => {
-        const existingTip = tips.find(t => t.MatchNumber === fixture.MatchNumber);
+        const existingTip = visibleTips.find(t => t.MatchNumber === fixture.MatchNumber);
         
         if (existingTip) {
           tipsWithDefaults[fixture.MatchNumber] = {

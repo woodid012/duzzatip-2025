@@ -18,10 +18,20 @@ import EnhancedRoundSummary from './components/EnhancedRoundSummary';
 
 export default function ResultsPage() {
   // Get data from our app context
-  const { currentRound, roundInfo } = useAppContext();
-  
-  // Get the selected user from context
-  const { selectedUserId } = useUserContext();
+  const { currentRound, roundInfo, fixtures } = useAppContext();
+
+  // Get the selected user + auth state from context
+  const { selectedUserId, authedUserId, isAdminAuthenticated } = useUserContext();
+  const isLoggedIn = isAdminAuthenticated || authedUserId !== null;
+
+  // Public (not-logged-in) visitors are locked to the live/last started round.
+  const publicRound = useMemo(() => {
+    if (!fixtures || fixtures.length === 0) return currentRound ?? 0;
+    const now = Date.now();
+    const started = fixtures.filter((f) => new Date(f.DateUtc).getTime() <= now);
+    if (started.length === 0) return 0;
+    return Math.max(...started.map((f) => Number(f.RoundNumber)));
+  }, [fixtures, currentRound]);
   
   // Get results functionality from our simplified hook
   const {
@@ -39,6 +49,13 @@ export default function ResultsPage() {
     isRefreshing,
     fixtures: hookFixtures
   } = useSimplifiedResults();
+
+  // Keep public visitors pinned to the live/last round (no round browsing).
+  useEffect(() => {
+    if (isLoggedIn) return;
+    if (!fixtures || fixtures.length === 0) return;
+    if (displayedRound !== publicRound) changeRound(publicRound);
+  }, [isLoggedIn, fixtures, publicRound, displayedRound, changeRound]);
 
   // State for ordered fixtures (prioritizing selected user)
   const [orderedFixtures, setOrderedFixtures] = useState([]);
@@ -238,40 +255,46 @@ export default function ResultsPage() {
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
       {/* Mobile-optimized header */}
-      <div className="block sm:hidden mb-4">
-        <select
-          id="round-select-mobile"
-          value={displayedRound || ""}
-          onChange={handleRoundChange}
-          className="dz-select w-full text-base"
-        >
-          {[...Array(25)].map((_, i) => (
-            <option key={i} value={i}>
-              {displayRoundName(i)}
-            </option>
-          ))}
-        </select>
-      </div>
+      {isLoggedIn && (
+        <div className="block sm:hidden mb-4">
+          <select
+            id="round-select-mobile"
+            value={displayedRound || ""}
+            onChange={handleRoundChange}
+            className="dz-select w-full text-base"
+          >
+            {[...Array(25)].map((_, i) => (
+              <option key={i} value={i}>
+                {displayRoundName(i)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Desktop header */}
       <div className="hidden sm:flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <h1 className="dz-title">Team Scores</h1>
-          <div className="w-full sm:w-auto flex items-center gap-2">
-            <label htmlFor="round-select" className="text-sm font-medium text-slate-600">Round</label>
-            <select
-              id="round-select"
-              value={displayedRound || ""}
-              onChange={handleRoundChange}
-              className="dz-select w-32"
-            >
-              {[...Array(25)].map((_, i) => (
-                <option key={i} value={i}>
-                  {displayRoundName(i)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isLoggedIn ? (
+            <div className="w-full sm:w-auto flex items-center gap-2">
+              <label htmlFor="round-select" className="text-sm font-medium text-slate-600">Round</label>
+              <select
+                id="round-select"
+                value={displayedRound || ""}
+                onChange={handleRoundChange}
+                className="dz-select w-32"
+              >
+                {[...Array(25)].map((_, i) => (
+                  <option key={i} value={i}>
+                    {displayRoundName(i)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="text-sm text-slate-500">{displayRoundName(displayedRound)}</span>
+          )}
         </div>
         <Link href="/pages/ladder" className="dz-btn-primary">
           View Ladder

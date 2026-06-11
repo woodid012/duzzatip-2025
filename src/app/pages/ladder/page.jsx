@@ -2,13 +2,25 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 import { calculateFinalsFixtures, getFinalsResults } from '@/app/lib/finals_utils';
+import { useUserContext } from '../layout';
 
 export default function LadderConsolidatedPage() {
-  const { currentRound, selectedYear } = useAppContext();
+  const { currentRound, selectedYear, fixtures } = useAppContext();
+  const { authedUserId, isAdminAuthenticated } = useUserContext();
+  const isLoggedIn = isAdminAuthenticated || authedUserId !== null;
+
+  // Public visitors are locked to the live/last started round.
+  const publicRound = useMemo(() => {
+    if (!fixtures || fixtures.length === 0) return currentRound ?? 0;
+    const now = Date.now();
+    const started = fixtures.filter((f) => new Date(f.DateUtc).getTime() <= now);
+    if (started.length === 0) return 0;
+    return Math.max(...started.map((f) => Number(f.RoundNumber)));
+  }, [fixtures, currentRound]);
   const [selectedRound, setSelectedRound] = useState(null);
   const [userChangedRound, setUserChangedRound] = useState(false);
   const [ladderData, setLadderData] = useState([]);
@@ -25,6 +37,7 @@ export default function LadderConsolidatedPage() {
 
   // Sync selected round when currentRound loads or year changes
   useEffect(() => {
+    if (!isLoggedIn) return; // public visitors are pinned below
     if (selectedYear !== prevYear) {
       setPrevYear(selectedYear);
       setUserChangedRound(false);
@@ -34,7 +47,13 @@ export default function LadderConsolidatedPage() {
     } else if (currentRound !== null && !userChangedRound) {
       setSelectedRound(currentRound);
     }
-  }, [currentRound, selectedYear, prevYear]);
+  }, [currentRound, selectedYear, prevYear, isLoggedIn]);
+
+  // Public visitors: pin to the live/last round.
+  useEffect(() => {
+    if (isLoggedIn) return;
+    if (selectedRound !== publicRound) setSelectedRound(publicRound);
+  }, [isLoggedIn, publicRound, selectedRound]);
 
   // Calculate finals standings when viewing round 21+
   useEffect(() => {
@@ -376,26 +395,27 @@ export default function LadderConsolidatedPage() {
           )}
         </div>
         
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2">
-            <label htmlFor="round-select" className="text-sm font-medium text-black">
-              Round:
-            </label>
-            <select
-              id="round-select"
-              value={selectedRound || 0}
-              onChange={handleRoundChange}
-              className="dz-select"
-            >
-              {[...Array(25)].map((_, i) => (
-                <option key={i} value={i}>
-                  {formatRoundName(i)}
-                </option>
-              ))}
-            </select>
+        {isLoggedIn && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <label htmlFor="round-select" className="text-sm font-medium text-slate-600">
+                Round
+              </label>
+              <select
+                id="round-select"
+                value={selectedRound || 0}
+                onChange={handleRoundChange}
+                className="dz-select"
+              >
+                {[...Array(25)].map((_, i) => (
+                  <option key={i} value={i}>
+                    {formatRoundName(i)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          
-        </div>
+        )}
       </div>
 
       {/* Opening Round Message */}

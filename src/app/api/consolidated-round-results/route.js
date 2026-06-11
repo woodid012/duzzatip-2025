@@ -6,6 +6,8 @@ import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { getAflFixtures, isRoundComplete as checkRoundComplete } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
+import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
+import { isRoundLocked } from '@/app/lib/roundAccess';
 
 // Map team abbreviations (from 2026_players) to full fixture names.
 // Includes both our canonical 3-letter codes and the AFL API's 4-letter
@@ -210,6 +212,26 @@ export async function GET(request) {
                 console.log(`Auto-cached finals results for round ${round}`);
             } catch (error) {
                 console.error(`Error auto-caching round ${round}:`, error);
+            }
+        }
+
+        // Privacy: before a round locks (its first game starts), a logged-in
+        // player may only see their OWN team. Admin and post-lockout requests
+        // see everyone. A not-logged-in request gets nothing for an unlocked
+        // round (the public view only exposes the live/last round, which is
+        // already locked). Server-side because the browser must never receive
+        // other players' pre-lockout selections.
+        const sess = getSessionUser(request);
+        const isAdmin = sess && sess.uid === ADMIN_UID;
+        if (!isAdmin) {
+            const locked = await isRoundLocked(round, year);
+            if (!locked) {
+                const ownId = sess && sess.uid ? String(sess.uid) : null;
+                const filtered = {};
+                if (ownId && responseData.results[ownId]) filtered[ownId] = responseData.results[ownId];
+                responseData.results = filtered;
+                responseData.summary = { restricted: true, totalPlayers: Object.keys(filtered).length };
+                responseData.restricted = true;
             }
         }
 

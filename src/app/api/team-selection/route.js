@@ -1,6 +1,8 @@
 import { connectToDatabase } from '../../lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
+import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
+import { isRoundLocked } from '@/app/lib/roundAccess';
 
 export async function GET(request) {
     try {
@@ -58,8 +60,24 @@ export async function GET(request) {
             });
         });
 
+        // Privacy: before the round locks, a logged-in player only gets their
+        // own team selection; admin and post-lockout requests get everyone's.
+        const sess = getSessionUser(request);
+        const isAdmin = sess && sess.uid === ADMIN_UID;
+        if (!isAdmin) {
+            const locked = await isRoundLocked(parseInt(round), year);
+            if (!locked) {
+                const ownId = sess && sess.uid ? String(sess.uid) : null;
+                const filtered = {};
+                for (const k of Object.keys(teams)) {
+                    if (ownId && String(k) === ownId) filtered[k] = teams[k];
+                }
+                return Response.json(filtered);
+            }
+        }
+
         return Response.json(teams);
-        
+
     } catch (error) {
         console.error('Database Error:', error);
         return Response.json({ error: 'Failed to load team selection' }, { status: 500 });
