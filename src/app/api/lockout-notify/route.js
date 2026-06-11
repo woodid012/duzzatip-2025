@@ -881,18 +881,27 @@ async function handler(request) {
   // Re-pick bench from all remaining eligible players (not just the one findOptimalLineup chose).
   // For each candidate × each backup position, score the option value via benchGainFor
   // (game-level E[max(bench−starter,0)] when data allows, else the blended season-score
-  // edge). Pick the (player, position) pair with the highest gain, then re-pick ResA/ResB.
+  // edge), plus an insurance term rewarding coverage of a starter at DNP risk (the bench
+  // covers a DNP of its backup position before round-end, unlike the reserves). Pick the
+  // (player, position) pair with the highest value, then re-pick ResA/ResB.
   {
     const mainAssigned = new Set(Object.values(result.lineup).filter(Boolean).map(p => p.name));
     const remainingPool = squad.filter(p => !autoExcluded.has(p.name) && !mainAssigned.has(p.name));
 
-    let bestBench = null, bestBackup = null, bestGain = -Infinity;
+    let bestBench = null, bestBackup = null, bestGain = 0, bestValue = -Infinity;
     for (const candidate of remainingPool) {
       for (const pos of MAIN_POSITIONS) {
         const mainPlayer = result.lineup[pos];
         if (!mainPlayer) continue;
         const gain = benchGainFor(candidate, mainPlayer, pos, statsMap);
-        if (gain > bestGain) { bestGain = gain; bestBench = candidate; bestBackup = pos; }
+        // Insurance: when the starter is a doubt/emergency the bench may have to
+        // cover a 0, so its full score is in play (weighted 0.5). A tiny baseline
+        // (0.05) breaks zero-gain ties toward the bench's strongest backup slot.
+        const atRisk = injSeverity(mainPlayer.name, injuries) >= 1
+          || effectiveSelectionStatus?.get(mainPlayer.name) === "emergency";
+        const insurance = (candidate.scores[pos] || 0) * (atRisk ? 0.5 : 0.05);
+        const value = gain + insurance;
+        if (value > bestValue) { bestValue = value; bestGain = gain; bestBench = candidate; bestBackup = pos; }
       }
     }
 

@@ -219,16 +219,24 @@ async function loadPlayerStats(db, names) {
     }).toArray();
     const byPlayer = {};
     for (const d of docs) {
+      // Skip sub-affected appearances: a low time-on-ground game (early sub-out,
+      // ~20-30% TOG) posts depressed stats that drag the season average and can
+      // cost a player a starting spot. Mirrors the CSV path's tog<50 guard. Guard
+      // on tog>0 so rows that simply lack the field aren't all discarded.
+      const tog = Number(d.timeOnGroundPercentage);
+      if (Number.isFinite(tog) && tog > 0 && tog < 50) continue;
       if (!byPlayer[d.player_name]) byPlayer[d.player_name] = [];
       if (byPlayer[d.player_name].some(g => g.round === d.round)) continue; // deduplicate
       byPlayer[d.player_name].push(d);
     }
     for (const [name, games] of Object.entries(byPlayer)) {
-      if (games.length >= 2) stats[name] = { source: `2026(${games.length}g)`, games: games.length, avg: calcAvgStats(games) };
+      // Keep the per-game array (not just the count) so the bench option-value
+      // model can compute E[max(bench−starter,0)] over real game distributions.
+      if (games.length >= 2) stats[name] = { source: `2026(${games.length}g)`, games, avg: calcAvgStats(games) };
     }
   } catch (_) {}
 
-  const needCsv = names.filter(n => !stats[n] || stats[n].games < 5);
+  const needCsv = names.filter(n => !stats[n] || stats[n].games.length < 5);
   if (needCsv.length > 0 && fs.existsSync("./afl-stats-1771399552485.csv")) {
     const Papa = require("papaparse");
     const raw = fs.readFileSync("./afl-stats-1771399552485.csv", "utf8");
@@ -246,7 +254,7 @@ async function loadPlayerStats(db, names) {
       });
     }
     for (const [name, games] of Object.entries(byPlayer)) {
-      if (games.length >= 3) stats[name] = { source: `2025CSV(${games.length}g)`, games: games.length, avg: calcAvgStats(games) };
+      if (games.length >= 3) stats[name] = { source: `2025CSV(${games.length}g)`, games, avg: calcAvgStats(games) };
     }
   }
   return stats;
@@ -447,23 +455,64 @@ function optimalAssignment(pool, positions) {
   return { assign: best.assign, used: new Set(Object.values(best.assign).map(p => p.name)) };
 }
 
-function findOptimalLineup(squadPlayers, excluded = new Set()) {
+// ===== Bench option-value model =====
+// The bench is ALWAYS active: at scoring time the engine awards max(starter,
+// bench) for the one backed-up position (see src/app/lib/scoreCalculations.js),
+// so the bench's real contribution is the marginal UPLIFT it provides — not its
+// raw score. With per-game samples we measure the exact expected uplift,
+// E[max(bench − starter, 0)], over every game-pair combination ("option value").
+// Mirrors the model in src/app/api/lockout-notify/route.js to keep them in sync.
+function scoreGame(game, pos) {
+  const s = {
+    kicks: +game.kicks || 0, handballs: +game.handballs || 0, marks: +game.marks || 0,
+    tackles: +game.tackles || 0, hitouts: +game.hitouts || 0, goals: +game.goals || 0, behinds: +game.behinds || 0,
+  };
+  return SCORE_FNS[pos](s);
+}
+function expectedBenchGain(benchGames, mainGames, pos) {
+  if (!benchGames?.length || !mainGames?.length) return 0;
+  let total = 0, count = 0;
+  for (const bg of benchGames) {
+    const bs = scoreGame(bg, pos);
+    for (const mg of mainGames) { total += Math.max(bs - scoreGame(mg, pos), 0); count++; }
+  }
+  return count > 0 ? Math.round((total / count) * 10) / 10 : 0;
+}
+const BENCH_MIN_GAMES = 3;
+function benchGainFor(candidate, starter, pos, statsMap) {
+  const cg = statsMap[candidate.name]?.games || [];
+  const mg = statsMap[starter.name]?.games || [];
+  if (cg.length >= BENCH_MIN_GAMES && mg.length >= BENCH_MIN_GAMES) {
+    return expectedBenchGain(cg, mg, pos);
+  }
+  // Thin sample — fall back to the season-score edge over the starter.
+  return Math.max((candidate.scores[pos] || 0) - (starter.scores[pos] || 0), 0);
+}
+
+function findOptimalLineup(squadPlayers, excluded = new Set(), statsMap = {}, selectionStatus = null) {
   const pool = squadPlayers.filter(p => !excluded.has(p.name) && p.scores && Object.keys(p.scores).length > 0);
   const { assign: assigned, used } = optimalAssignment(pool, MAIN_POSITIONS);
 
-  // Bench: pick the player+position combo that best covers the weakest starter
+  // Bench: pick the (player, position) pair with the highest option value — the
+  // expected uplift E[max(bench − starter, 0)] for the position it backs up, plus
+  // an insurance term that rewards covering a starter at DNP risk (the bench also
+  // covers a DNP of its backup position before round-end, unlike the reserves).
   const benchPool = pool.filter(p => !used.has(p.name));
-  let bench = null, benchBackup = MAIN_POSITIONS[0];
+  let bench = null, benchBackup = MAIN_POSITIONS[0], benchGain = 0;
   if (benchPool.length > 0) {
     let bestValue = -Infinity;
     for (const p of benchPool) {
       for (const pos of MAIN_POSITIONS) {
-        const starterScore = assigned[pos]?.scores[pos] || 0;
-        const benchScore = p.scores[pos] || 0;
-        const coverage = benchScore - (starterScore * 0.3);
-        if (coverage > bestValue) {
-          bestValue = coverage; bench = p; benchBackup = pos;
-        }
+        const starter = assigned[pos];
+        if (!starter) continue;
+        const gain = benchGainFor(p, starter, pos, statsMap);
+        const atRisk = injSeverity(starter.name) >= 1 || selectionStatus?.get(starter.name) === "emergency";
+        // Insurance: when the starter is a doubt/emergency the bench may have to
+        // cover a 0, so its full score is in play (weighted 0.5). A tiny baseline
+        // (0.05) breaks zero-gain ties toward the bench's strongest backup slot.
+        const insurance = (p.scores[pos] || 0) * (atRisk ? 0.5 : 0.05);
+        const value = gain + insurance;
+        if (value > bestValue) { bestValue = value; bench = p; benchBackup = pos; benchGain = gain; }
       }
     }
     if (bench) used.add(bench.name);
@@ -476,7 +525,7 @@ function findOptimalLineup(squadPlayers, excluded = new Set()) {
   const resBScore = p => Math.max(...RESERVE_B_COVERS.map(pos => p.scores[pos] || 0));
   const resB = pool.filter(p => !used.has(p.name)).sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
 
-  return { lineup: assigned, bench, benchBackup, reserveA: resA, reserveB: resB };
+  return { lineup: assigned, bench, benchBackup, benchExpectedGain: Math.round(benchGain * 10) / 10, reserveA: resA, reserveB: resB };
 }
 
 // ===== Print lineup (interactive mode) =====
@@ -1052,7 +1101,7 @@ async function main() {
       }
 
       // Compute and show optimal lineup
-      result = findOptimalLineup(squad, excluded);
+      result = findOptimalLineup(squad, excluded, statsMap, selectionStatus);
       section("OPTIMAL LINEUP");
       printLineup(result, excluded);
 
@@ -1144,12 +1193,12 @@ async function main() {
 
     } else {
       // Headless mode — auto lineup
-      result = findOptimalLineup(squad, autoExcluded);
+      result = findOptimalLineup(squad, autoExcluded, statsMap, selectionStatus);
       console.log(`   Lineup: ${Object.values(result.lineup).filter(Boolean).map(p => dn(p.name)).join(", ")}`);
     }
   } else {
     // --tips only: still need a result for message building
-    result = findOptimalLineup(squad, autoExcluded);
+    result = findOptimalLineup(squad, autoExcluded, statsMap, selectionStatus);
   }
 
   // ═══════════════════════════════════════════════
