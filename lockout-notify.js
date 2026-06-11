@@ -210,6 +210,21 @@ function scoreAllPositions(avg) {
   for (const [pos, fn] of Object.entries(SCORE_FNS)) out[pos] = Math.round(fn(avg) * 10) / 10;
   return out;
 }
+// Project per-position scores by averaging each game's score, NOT by scoring the
+// average stat line. The Midfielder and Ruck formulas are convex (disposals >30
+// and bonus marks pay 3×), so scoring the mean understates high-ceiling players
+// at those positions (Jensen's inequality). The linear positions (FF/TF/OFF/TAK)
+// are unaffected — mean-of-scores equals score-of-mean there. Uses the same
+// per-game scoreGame() the bench option-value model relies on.
+function scorePositionsFromGames(games) {
+  if (!games || !games.length) return {};
+  const out = {};
+  for (const pos of Object.keys(SCORE_FNS)) {
+    const sum = games.reduce((a, g) => a + scoreGame(g, pos), 0);
+    out[pos] = Math.round((sum / games.length) * 10) / 10;
+  }
+  return out;
+}
 async function loadPlayerStats(db, names) {
   const stats = {};
   try {
@@ -982,7 +997,7 @@ async function main() {
 
   const squad = squadDocs.map(p => {
     const s = statsMap[p.player_name];
-    const scores = s ? scoreAllPositions(s.avg) : {};
+    const scores = s ? (s.games ? scorePositionsFromGames(s.games) : scoreAllPositions(s.avg)) : {};
     const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
     return { name: p.player_name, team: p.team, scores, statsSource: s?.source || null, bestPos: best?.[0] || null, bestScore: best?.[1] || 0 };
   });
