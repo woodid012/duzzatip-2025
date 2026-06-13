@@ -198,7 +198,10 @@ async function fetchAflApiScoresForRound(apiRound, token) {
       status,
     };
   }
-  return { scoreMap, matchCount: matches.length };
+  // Completion is derived from the RAW match set (before the normalise-drop
+  // above) so a name-mapping miss can't flip .every() to a false "complete".
+  const complete = matches.length > 0 && matches.every(m => m.status === 'CONCLUDED');
+  return { scoreMap, matchCount: matches.length, complete };
 }
 
 // Overlay AFL API scores onto the local fixture array.
@@ -254,12 +257,21 @@ async function overlayAflScores(fixtures, year, roundsToFetch = null) {
   for (const localRound of startedRounds) {
     const apiRound = localRound + roundOffset;
     try {
-      const { scoreMap } = await fetchAflApiScoresForRound(apiRound, token);
+      const { scoreMap, complete } = await fetchAflApiScoresForRound(apiRound, token);
       for (const [matchup, score] of Object.entries(scoreMap)) {
         combinedScores[`${localRound}|${matchup}`] = score;
       }
       if (Object.values(scoreMap).some(s => s.status === 'LIVE')) {
         liveRounds.add(localRound);
+      }
+      // Warm the completion cache from authoritative match statuses so
+      // isRoundComplete (the SOLE gate for star/crab + summary tiles) doesn't
+      // have to risk a separate, timeout-prone AFL call. Latch true — a round
+      // never un-completes — so a later cross-round pass can't drop the award.
+      const ck = `${year}-${localRound}`;
+      const prior = roundStatusCache.get(ck);
+      if (!(prior && prior.complete)) {
+        roundStatusCache.set(ck, { complete, timestamp: now });
       }
     } catch (err) {
       console.warn(`AFL API scores failed for round ${apiRound}: ${err.message}`);

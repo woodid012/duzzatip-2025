@@ -32,13 +32,30 @@ export default function TippingLadderPage() {
     }
   }, [selectedRound, selectedYear]);
 
-  // Auto-refresh while a round is live so the ladder stays current as games play
+  // Auto-refresh while a round is live so the ladder stays current as games
+  // play — but pause the poll when the tab is hidden (no point recomputing the
+  // ladder + hitting the AFL API for a backgrounded tab), and refetch
+  // immediately when it becomes visible again so it's never stale on return.
   useEffect(() => {
     if (!isLive || selectedRound === undefined || selectedRound === null) return;
-    const interval = setInterval(() => {
-      loadTippingLadder(selectedRound, { silent: true });
-    }, 60000); // 60s
-    return () => clearInterval(interval);
+    let interval = null;
+    const tick = () => loadTippingLadder(selectedRound, { silent: true });
+    const start = () => { if (!interval) interval = setInterval(tick, 60000); };
+    const stop = () => { if (interval) { clearInterval(interval); interval = null; } };
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        stop();
+      } else {
+        tick();   // catch up immediately on return
+        start();
+      }
+    };
+    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') start();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [isLive, selectedRound, selectedYear]);
 
   const loadTippingLadder = async (round, { silent = false } = {}) => {

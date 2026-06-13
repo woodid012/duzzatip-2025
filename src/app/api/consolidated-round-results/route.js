@@ -67,18 +67,25 @@ export async function GET(request) {
             }
         }
 
+        // Start the DB reads in parallel, but resolve fixtures FIRST: the AFL
+        // overlay inside getAflFixtures warms the round-completion cache, so the
+        // completion check below becomes a cache hit instead of risking its own
+        // timeout-prone AFL call (which, on timeout, would wrongly hide the
+        // star/crab + summary tiles for a round that's actually complete).
+        const dbReads = Promise.all([
+            db.collection(`${year}_game_results`).find({ round: round }).toArray(),
+            db.collection(`${year}_players`).find({}).toArray(),
+        ]);
+
+        const aflFixtures = await getAflFixtures(year, { force: forceRefresh });
+
         // Race isRoundComplete against a 3s timeout so it doesn't hold up the response
-        const roundCompleteWithTimeout = Promise.race([
+        const allGamesComplete = await Promise.race([
             checkRoundComplete(round, year).catch(() => false),
             new Promise(resolve => setTimeout(() => resolve(false), 3000)),
         ]);
 
-        const [playerStats, aflFixtures, playersData, allGamesComplete] = await Promise.all([
-            db.collection(`${year}_game_results`).find({ round: round }).toArray(),
-            getAflFixtures(year, { force: forceRefresh }),
-            db.collection(`${year}_players`).find({}).toArray(),
-            roundCompleteWithTimeout,
-        ]);
+        const [playerStats, playersData] = await dbReads;
 
         // Build player → fixture-name team map. Prefer the 2026_players
         // collection: it's the authoritative current-team list and is always
