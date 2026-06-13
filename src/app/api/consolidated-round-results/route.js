@@ -8,6 +8,7 @@ import { getAflFixtures, isRoundComplete as checkRoundComplete } from '@/app/lib
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { isRoundLocked } from '@/app/lib/roundAccess';
+import { refreshGameResultsForRound } from '@/app/lib/refreshGameResults';
 // Map team abbreviations (from 2026_players) to full fixture names.
 // Includes both our canonical 3-letter codes and the AFL API's 4-letter
 // codes (MELB/ADEL/PORT/etc.) that pre-fix update-players runs may have
@@ -38,6 +39,7 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const roundParam = searchParams.get('round');
         const year = parseYearParam(searchParams);
+        const forceRefresh = searchParams.get('refresh') === '1';
 
         if (roundParam === null || roundParam === undefined) {
             return Response.json({ error: 'Round parameter is required' }, { status: 400 });
@@ -49,10 +51,20 @@ export async function GET(request) {
             return Response.json({ error: 'Round must be a valid number >= 0' }, { status: 400 });
         }
 
-        console.log(`Getting consolidated results for round ${round} (year ${year})`);
+        console.log(`Getting consolidated results for round ${round} (year ${year})${forceRefresh ? ' [forced refresh]' : ''}`);
 
-        // Pre-fetch all independent data in parallel
         const { db } = await connectToDatabase();
+
+        // Forced refresh (from the Refresh button): pull fresh player stats from
+        // the AFL API now, bypassing the 5-min game_results throttle, so the
+        // numbers below reflect the latest live scores rather than cached ones.
+        if (forceRefresh && year === CURRENT_YEAR) {
+            try {
+                await refreshGameResultsForRound(round, { force: true });
+            } catch (err) {
+                console.warn(`Forced game_results refresh failed for round ${round}: ${err.message}`);
+            }
+        }
 
         // Race isRoundComplete against a 3s timeout so it doesn't hold up the response
         const roundCompleteWithTimeout = Promise.race([
@@ -62,7 +74,7 @@ export async function GET(request) {
 
         const [playerStats, aflFixtures, playersData, allGamesComplete] = await Promise.all([
             db.collection(`${year}_game_results`).find({ round: round }).toArray(),
-            getAflFixtures(year),
+            getAflFixtures(year, { force: forceRefresh }),
             db.collection(`${year}_players`).find({}).toArray(),
             roundCompleteWithTimeout,
         ]);

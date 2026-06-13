@@ -140,7 +140,9 @@ export default function useSimplifiedResults() {
         ? await calculateFinalsFixtures(round, selectedYear)
         : getFixturesForRound(round);
       setFixtures(fixturesData || []);
-      const response = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
+      // refresh=1 forces the server to pull fresh AFL scores/stats (bypassing
+      // its 5-min fixture cache + game_results throttle).
+      const response = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}&refresh=1`);
       if (response.ok) {
         const data = await response.json();
         roundCache.set(round, { roundData: data, fixtures: fixturesData });

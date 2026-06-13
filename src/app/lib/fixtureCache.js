@@ -253,10 +253,10 @@ async function overlayAflScores(fixtures, year) {
   return { fixtures: result, liveRounds, evaluated };
 }
 
-export async function getAflFixtures(year = CURRENT_YEAR) {
+export async function getAflFixtures(year = CURRENT_YEAR, { force = false } = {}) {
   const now = Date.now();
   const cached = fixtureCache.get(year);
-  if (cached && (now - cached.timestamp) < CACHE_TTL) {
+  if (!force && cached && (now - cached.timestamp) < CACHE_TTL) {
     return cached.data;
   }
 
