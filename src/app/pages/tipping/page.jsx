@@ -6,6 +6,7 @@ import { useUserContext } from '../layout';
 import useTipping from '@/app/hooks/useTipping';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 import { useToast } from '@/app/components/Toast';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 export default function TippingPage() {
   // Get data from our app context
@@ -268,43 +269,40 @@ function MobileTippingView({
   return (
     <div className="p-3 space-y-4">
       {/* Compact Header */}
-      <div className="dz-surface p-3">
-        <h1 className="dz-title text-lg mb-2">
-          {currentTeamDisplayName
+      <ScoreboardHeader
+        eyebrow={
+          <>
+            <span className={isLateSubmission && !isAdmin ? "text-orange-300" : undefined}>
+              Showing {formatRoundName(localRound)}
+              {isLateSubmission && !isAdmin && <span className="ml-1">⚠️ Late</span>}
+              {isAdmin && isRoundLocked && <span className="ml-1">(Admin Override)</span>}
+            </span>
+          </>
+        }
+        title={
+          currentTeamDisplayName
             ? `${currentTeamDisplayName}'s Tips${isAdmin ? ' (Admin)' : ''}`
             : isAdmin
               ? `AFL ${CURRENT_YEAR} Tips - Admin`
-              : `AFL ${CURRENT_YEAR} Tips`}
-        </h1>
-
+              : `AFL ${CURRENT_YEAR} Tips`
+        }
+      >
         {/* Round Info */}
-        <div className="text-xs space-y-1 mb-3">
-          <div>
-            <span className={isLateSubmission && !isAdmin ? "text-orange-600 font-medium" : "text-emerald-600 font-medium"}>
-              Showing {formatRoundName(localRound)}
-              {isLateSubmission && !isAdmin && (
-                <span className="ml-1">⚠️ Late submission</span>
-              )}
-              {isAdmin && isRoundLocked && (
-                <span className="ml-1 text-orange-500">(Admin Override)</span>
-              )}
-            </span>
-          </div>
-
+        <div className="text-[11px] text-slate-400 space-y-0.5 text-right">
           {roundInfo.lockoutTime && (
             <div>
-              <span className="text-slate-600">Lockout:</span>
-              <span className="font-medium text-slate-900 ml-1">{roundInfo.lockoutTime}</span>
+              <span>Lockout:</span>
+              <span className="font-medium text-slate-200 ml-1">{roundInfo.lockoutTime}</span>
               {isLateSubmission && !isAdmin && (
-                <span className="text-orange-500 ml-1">(Late)</span>
+                <span className="text-orange-300 ml-1">(Late)</span>
               )}
             </div>
           )}
 
           {lastEditedTime && currentTeamBeingEdited && (
             <div>
-              <span className="text-slate-600">Last:</span>
-              <span className="font-medium ml-1 text-slate-800">
+              <span>Last:</span>
+              <span className="font-medium ml-1 text-slate-200">
                 {formatDate(lastEditedTime)}
               </span>
             </div>
@@ -313,12 +311,12 @@ function MobileTippingView({
 
         {/* Status Messages */}
         {successMessage && (
-          <div className="bg-emerald-50 text-emerald-700 p-2 rounded text-xs mb-2">
+          <div className="bg-emerald-50 text-emerald-700 p-2 rounded text-xs">
             {successMessage}
           </div>
         )}
         {error && (
-          <div className="bg-red-50 text-red-700 p-2 rounded text-xs mb-2">
+          <div className="bg-red-50 text-red-700 p-2 rounded text-xs">
             {error} — check your connection and try again.
           </div>
         )}
@@ -359,7 +357,7 @@ function MobileTippingView({
             )}
           </div>
         )}
-      </div>
+      </ScoreboardHeader>
 
       {/* Controls */}
       <div className="dz-surface p-3 space-y-3">
@@ -571,62 +569,57 @@ function DesktopTippingView({
 }) {
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div className="flex flex-col">
-          <h1 className="dz-title text-3xl">
-            {currentTeamDisplayName
-              ? `${currentTeamDisplayName}'s Tips${isAdmin ? ' (Admin Editing)' : ''}`
-              : isAdmin
-                ? `AFL ${CURRENT_YEAR} Tips - Admin Mode`
-                : `AFL ${CURRENT_YEAR} Tips`}
-          </h1>
+      <ScoreboardHeader
+        eyebrow={
+          <span className={isLateSubmission && !isAdmin ? "text-orange-300" : undefined}>
+            Showing {formatRoundName(localRound)}
+            {isLateSubmission && !isAdmin && <span className="ml-2">⚠️ Late submission</span>}
+            {isAdmin && isRoundLocked && <span className="ml-2">(Admin Override)</span>}
+          </span>
+        }
+        title={
+          currentTeamDisplayName
+            ? `${currentTeamDisplayName}'s Tips${isAdmin ? ' (Admin Editing)' : ''}`
+            : isAdmin
+              ? `AFL ${CURRENT_YEAR} Tips - Admin Mode`
+              : `AFL ${CURRENT_YEAR} Tips`
+        }
+      >
+        <div className="flex items-center gap-3">
+          <select
+            value={localRound}
+            onChange={(e) => handleRoundChange(Number(e.target.value))}
+            className="dz-select-dark"
+          >
+            {[...Array(25)].map((_, i) => (
+              <option key={i} value={i}>
+                {formatRoundName(i)}
+              </option>
+            ))}
+          </select>
 
-          {/* Show round info */}
-          <div className="flex flex-col gap-1 mt-1">
-            <div className="text-sm font-medium">
-              <span className={isLateSubmission && !isAdmin ? "text-orange-600" : "text-emerald-600"}>
-                Showing {formatRoundName(localRound)}
-              </span>
-              {isLateSubmission && !isAdmin && (
-                <span className="ml-2 text-orange-500">⚠️ Late submission</span>
-              )}
-              {isAdmin && isRoundLocked && (
-                <span className="ml-2 text-orange-500 font-medium">
-                  (Admin Override)
-                </span>
-              )}
-            </div>
+          {isAdmin && (
+            <select
+              value={hookSelectedUserId || ''}
+              onChange={(e) => {
+                console.log(`Admin selecting team: ${e.target.value}`);
+                changeUser(e.target.value);
+              }}
+              className="dz-select-dark"
+            >
+              <option value="">
+                {currentTeamDisplayName
+                  ? `Currently Editing: ${currentTeamDisplayName}`
+                  : 'Select a team to edit'}
+              </option>
+              {Object.entries(USER_NAMES).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          )}
 
-            {roundInfo.lockoutTime && (
-              <div className="text-sm">
-                <span className="text-slate-600">Lockout:</span>
-                <span className="font-medium text-slate-900 ml-1">{roundInfo.lockoutTime}</span>
-                {isLateSubmission && !isAdmin && (
-                  <span className="text-orange-500 ml-1">(Late)</span>
-                )}
-              </div>
-            )}
-            {lastEditedTime && currentTeamBeingEdited && (
-              <div className="text-sm mt-1">
-                <span className="text-slate-600">Last Submitted:</span>
-                <span className="font-medium ml-1 text-slate-800">
-                  {formatDate(lastEditedTime)}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {successMessage && (
-            <span className="text-emerald-600">
-              {successMessage}
-            </span>
-          )}
-          {error && (
-            <span className="text-red-600">
-              {error}
-            </span>
-          )}
           {/* Only show edit buttons if we have a team selected and not viewing a past year */}
           {currentTeamBeingEdited && !isPastYear && (
             isEditing ? (
@@ -662,49 +655,33 @@ function DesktopTippingView({
             )
           )}
         </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="flex flex-col">
-          <label className="mb-2 font-semibold text-slate-900">Select Round:</label>
-          <select
-            value={localRound}
-            onChange={(e) => handleRoundChange(Number(e.target.value))}
-            className="dz-select"
-          >
-            {[...Array(25)].map((_, i) => (
-              <option key={i} value={i}>
-                {formatRoundName(i)}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        {isAdmin && (
-          <div className="flex flex-col">
-            <label className="mb-2 font-semibold text-slate-900">Select Team:</label>
-            <select
-              value={hookSelectedUserId || ''}
-              onChange={(e) => {
-                console.log(`Admin selecting team: ${e.target.value}`);
-                changeUser(e.target.value);
-              }}
-              className="dz-select"
-            >
-              <option value="">
-                {currentTeamDisplayName 
-                  ? `Currently Editing: ${currentTeamDisplayName}` 
-                  : 'Select a team to edit'}
-              </option>
-              {Object.entries(USER_NAMES).map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+        <div className="flex flex-col items-end gap-0.5 text-[11px] text-slate-400">
+          {roundInfo.lockoutTime && (
+            <div>
+              <span>Lockout:</span>
+              <span className="font-medium text-slate-200 ml-1">{roundInfo.lockoutTime}</span>
+              {isLateSubmission && !isAdmin && (
+                <span className="text-orange-300 ml-1">(Late)</span>
+              )}
+            </div>
+          )}
+          {lastEditedTime && currentTeamBeingEdited && (
+            <div>
+              <span>Last Submitted:</span>
+              <span className="font-medium ml-1 text-slate-200">
+                {formatDate(lastEditedTime)}
+              </span>
+            </div>
+          )}
+          {successMessage && (
+            <span className="text-emerald-300">{successMessage}</span>
+          )}
+          {error && (
+            <span className="text-red-300">{error}</span>
+          )}
+        </div>
+      </ScoreboardHeader>
 
       {/* Show message if admin but no team selected */}
       {isAdmin && !currentTeamBeingEdited && (

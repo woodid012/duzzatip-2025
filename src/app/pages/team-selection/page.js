@@ -9,6 +9,7 @@ import useTeamSelection from '@/app/hooks/useTeamSelection';
 import { USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import { useToast } from '@/app/components/Toast';
 import SearchableSelect from '@/app/components/SearchableSelect';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 const INJURY_BADGES = {
   SEASON:  { icon: "🩹", color: "text-red-600",    tip: "OUT SEASON" },
@@ -345,96 +346,39 @@ export default function TeamSelectionPage() {
           color: #DC2626;
         }
       `}</style>
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
-        <div className="flex flex-col">
-          <h1 className="dz-title">
-            {selectedUserId && selectedUserId !== 'admin'
-              ? `${USER_NAMES[selectedUserId]}'s Team`
-              : 'Team Selection'}
-          </h1>
-
-          {/* Show which round we're displaying with improved formatting - matching tipping page style */}
-          <div className="flex flex-col gap-1 mt-1">
-            <div className="text-sm font-medium">
-              <span className={(isForFunOnly || isLateSubmission) && !isAdmin ? "text-orange-600" : "text-emerald-600"}>
-                Showing {formatRoundName(localRound)}
-              </span>
-              {isForFunOnly && !isAdmin && (
-                <span className="ml-2 text-orange-500">
-                  🎉 Round locked — for fun only
-                </span>
-              )}
-              {isLateSubmission && !isAdmin && (() => {
-                // Only show "Late submission" if user hasn't submitted, or submitted after lockout
-                const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
-                const submittedOnTime = lastUpdatedTime && localInfo?.lockoutDate && lastUpdatedTime < new Date(localInfo.lockoutDate);
-                if (submittedOnTime) return null;
-                return (
-                  <span className="ml-2 text-orange-500">
-                    ⚠️ Late submission
-                  </span>
-                );
-              })()}
-              {isAdmin && (isForFunOnly || isLateSubmission) && (
-                <span className="ml-2 text-orange-500 font-medium">
-                  (Admin Override)
-                </span>
-              )}
-            </div>
-            
-            {/* Lockout time — per-game locking: show next lockout or fully locked */}
-            {(() => {
-              const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
-              if (!localInfo || !localInfo.lockoutTime) return null;
-              if (isRoundLocked && !isAdmin) {
-                return (
-                  <div className="text-sm">
-                    <span className="text-red-600 font-medium">All games started (Locked)</span>
-                  </div>
-                );
-              }
-              const nextLockout = getNextLockoutTime();
-              if (isRoundPartiallyLocked && nextLockout && !isAdmin) {
-                return (
-                  <div className="text-sm">
-                    <span className="text-slate-600">Next lockout:</span>
-                    <span className="font-medium text-orange-600 ml-1">
-                      {nextLockout.toLocaleString('en-AU', {
-                        timeZone: 'Australia/Melbourne',
-                        day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric', hour12: true
-                      })}
-                    </span>
-                  </div>
-                );
-              }
-              return (
-                <div className="text-sm">
-                  <span className="text-slate-600">Lockout:</span>
-                  <span className="font-medium text-slate-900 ml-1">{localInfo.lockoutTime}</span>
-                </div>
-              );
-            })()}
-
-            {/* Last update info, matching tipping page style exactly */}
-            {lastUpdatedTime && (
-              <div className="text-sm">
-                <span className="text-slate-600">Last Submitted:</span>
-                <span className="font-medium text-slate-900 ml-1">
-                  {formatDate(lastUpdatedTime)}
-                </span>
-              </div>
+      <ScoreboardHeader
+        eyebrow={
+          <span className={(isForFunOnly || isLateSubmission) && !isAdmin ? "text-orange-300" : undefined}>
+            Showing {formatRoundName(localRound)}
+            {isForFunOnly && !isAdmin && (
+              <span className="ml-2">🎉 Round locked — for fun only</span>
             )}
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
+            {isLateSubmission && !isAdmin && (() => {
+              // Only show "Late submission" if user hasn't submitted, or submitted after lockout
+              const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
+              const submittedOnTime = lastUpdatedTime && localInfo?.lockoutDate && lastUpdatedTime < new Date(localInfo.lockoutDate);
+              if (submittedOnTime) return null;
+              return <span className="ml-2">⚠️ Late submission</span>;
+            })()}
+            {isAdmin && (isForFunOnly || isLateSubmission) && (
+              <span className="ml-2">(Admin Override)</span>
+            )}
+          </span>
+        }
+        title={
+          selectedUserId && selectedUserId !== 'admin'
+            ? `${USER_NAMES[selectedUserId]}'s Team`
+            : 'Team Selection'
+        }
+      >
+        <div className="flex items-center gap-3">
           <div className="flex items-center">
-            <label htmlFor="round-select" className="text-sm font-medium text-slate-900 mr-2">Round:</label>
+            <label htmlFor="round-select" className="text-[11px] font-medium text-slate-300 mr-2">Round:</label>
             <select
               id="round-select"
               value={localRound}
               onChange={(e) => handleRoundChange(Number(e.target.value))}
-              className="dz-select w-24 text-sm"
+              className="dz-select-dark w-24 text-sm"
               disabled={inEditMode && !isAdmin} // Only disable for non-admin when editing
             >
               {[...Array(29)].map((_, i) => (
@@ -444,7 +388,7 @@ export default function TeamSelectionPage() {
               ))}
             </select>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-2">
             {inEditMode ? (
               <>
@@ -462,12 +406,12 @@ export default function TeamSelectionPage() {
                 </button>
               </>
             ) : (
-              <button 
+              <button
                 onClick={handleAdminEditClick}
                 disabled={!canEdit}
                 className={`w-full sm:w-auto px-4 py-2 rounded text-white ${
                   !canEdit
-                    ? 'bg-gray-400 cursor-not-allowed' 
+                    ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-blue-500 hover:bg-blue-600'
                 }`}
               >
@@ -476,7 +420,48 @@ export default function TeamSelectionPage() {
             )}
           </div>
         </div>
-      </div>
+
+        <div className="flex flex-col items-end gap-0.5 text-[11px] text-slate-400">
+          {/* Lockout time — per-game locking: show next lockout or fully locked */}
+          {(() => {
+            const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
+            if (!localInfo || !localInfo.lockoutTime) return null;
+            if (isRoundLocked && !isAdmin) {
+              return <span className="text-red-300 font-medium">All games started (Locked)</span>;
+            }
+            const nextLockout = getNextLockoutTime();
+            if (isRoundPartiallyLocked && nextLockout && !isAdmin) {
+              return (
+                <div>
+                  <span>Next lockout:</span>
+                  <span className="font-medium text-orange-300 ml-1">
+                    {nextLockout.toLocaleString('en-AU', {
+                      timeZone: 'Australia/Melbourne',
+                      day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric', hour12: true
+                    })}
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <div>
+                <span>Lockout:</span>
+                <span className="font-medium text-slate-200 ml-1">{localInfo.lockoutTime}</span>
+              </div>
+            );
+          })()}
+
+          {/* Last update info */}
+          {lastUpdatedTime && (
+            <div>
+              <span>Last Submitted:</span>
+              <span className="font-medium text-slate-200 ml-1">
+                {formatDate(lastUpdatedTime)}
+              </span>
+            </div>
+          )}
+        </div>
+      </ScoreboardHeader>
       
       {/* Display warning for duplicate players */}
       {duplicateWarnings.length > 0 && (

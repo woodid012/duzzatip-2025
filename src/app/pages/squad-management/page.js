@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import { USER_NAMES } from '@/app/lib/constants';
@@ -428,8 +429,10 @@ export default function SquadManagementPage() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-3">
-        <h1 className="dz-title">{USER_NAMES[selectedUserId]} - Squad</h1>
+      <ScoreboardHeader
+        eyebrow={`${USER_NAMES[selectedUserId]} · ${selectedYear} Season`}
+        title="Squad Management"
+      >
         {!isPastYear && (
           <div className="flex gap-2">
             {isEditing && (
@@ -464,7 +467,7 @@ export default function SquadManagementPage() {
             )}
           </div>
         )}
-      </div>
+      </ScoreboardHeader>
 
       {/* Draft & Trade Action Buttons - Now positioned at the top left */}
       {isEditing && (

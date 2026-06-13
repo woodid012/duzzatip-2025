@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 function UpdatePlayersPage() {
   const [loading, setLoading] = useState(false);
@@ -41,7 +42,7 @@ function UpdatePlayersPage() {
 
   return (
     <div className="p-6">
-      <h1 className="dz-title mb-6">Update Player List</h1>
+      <ScoreboardHeader eyebrow="Admin" title="Update Players" />
 
       <div className="dz-surface p-6">
         <div className="mb-4">

@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import { useUserContext } from '../layout';
 import { useAppContext } from '@/app/context/AppContext';
 
 function UpdateStatsPage() {
   const { selectedUserId } = useUserContext();
-  const { currentRound } = useAppContext();
+  const { currentRound, selectedYear } = useAppContext();
   const [round, setRound] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -86,7 +87,7 @@ function UpdateStatsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="dz-title mb-6">Update AFL Stats</h1>
+      <ScoreboardHeader eyebrow={`${selectedYear} Season`} title="Update Stats" />
 
       <div className="dz-surface p-6">
         <div className="mb-4">

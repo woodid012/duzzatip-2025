@@ -101,6 +101,13 @@ export async function POST(request) {
     const blocked = blockWritesForPastYear(bodyYear || CURRENT_YEAR);
     if (blocked) return blocked;
 
+    // Write protection: you may only save your OWN tips (admin may save anyone's).
+    const sess = getSessionUser(request);
+    const isAdmin = sess && sess.uid === ADMIN_UID;
+    if (!isAdmin && (!sess || Number(sess.uid) !== Number(userId))) {
+      return NextResponse.json({ error: 'Not authorised to edit these tips' }, { status: 403 });
+    }
+
     const { db } = await connectToDatabase();
     const collection = db.collection(`${CURRENT_YEAR}_tips`);
 

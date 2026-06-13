@@ -92,6 +92,24 @@ export async function POST(request) {
         const blocked = blockWritesForPastYear(bodyYear || CURRENT_YEAR);
         if (blocked) return blocked;
 
+        // Write protection: a logged-in player may only save their OWN team —
+        // drop any other users' entries from the payload. Admin saves anyone's.
+        const sess = getSessionUser(request);
+        const isAdmin = sess && sess.uid === ADMIN_UID;
+        let writable = team_selection;
+        if (!isAdmin) {
+            if (!sess) {
+                return Response.json({ error: 'Not authorised' }, { status: 403 });
+            }
+            const own = String(sess.uid);
+            writable = Object.fromEntries(
+                Object.entries(team_selection).filter(([uid]) => String(uid) === own)
+            );
+            if (Object.keys(writable).length === 0) {
+                return Response.json({ error: 'Not authorised to edit this team' }, { status: 403 });
+            }
+        }
+
         const { db } = await connectToDatabase();
         const collection = db.collection(`${CURRENT_YEAR}_team_selection`);
 
@@ -99,7 +117,7 @@ export async function POST(request) {
         const bulkOps = [];
 
         // For each user that has changes
-        Object.entries(team_selection).forEach(([userId, positions]) => {
+        Object.entries(writable).forEach(([userId, positions]) => {
             // First, mark the specific positions being updated as inactive
             const positionsToUpdate = Object.keys(positions);
             if (positionsToUpdate.length > 0) {

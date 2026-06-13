@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES } from '@/app/lib/constants';
 
@@ -124,7 +125,7 @@ export default function RoundByRoundPage() {
 
   return (
     <div className="p-4">
-      <h1 className="dz-title mb-4">Round-by-Round Results</h1>
+      <ScoreboardHeader eyebrow={`${selectedYear} Season`} title="Round-by-Round" />
 
       {/* Season Summary Table */}
       <div className="mb-8 overflow-x-auto">

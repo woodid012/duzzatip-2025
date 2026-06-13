@@ -7,6 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 import { calculateFinalsFixtures, getFinalsResults } from '@/app/lib/finals_utils';
 import { useUserContext } from '../layout';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 export default function LadderConsolidatedPage() {
   const { currentRound, selectedYear, fixtures } = useAppContext();
@@ -380,43 +381,30 @@ export default function LadderConsolidatedPage() {
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="dz-title">Season Ladder</h1>
-          <p className="dz-subtitle">
-            {selectedRound === 0 
-              ? "Opening Round - No ladder yet" 
-              : `After ${formatRoundName(selectedRound)}`}
-          </p>
-          {lastUpdated && (
-            <p className="text-sm text-gray-500">
-              Updated {formatTimeAgo(lastUpdated)}
-            </p>
-          )}
-        </div>
-        
+      <ScoreboardHeader
+        eyebrow={`${selectedRound === 0 ? 'Opening Round' : `After ${formatRoundName(selectedRound)}`} · ${selectedYear} Season`}
+        title="Season Ladder"
+      >
         {isLoggedIn && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2">
-              <label htmlFor="round-select" className="text-sm font-medium text-slate-600">
-                Round
-              </label>
-              <select
-                id="round-select"
-                value={selectedRound || 0}
-                onChange={handleRoundChange}
-                className="dz-select"
-              >
-                {[...Array(25)].map((_, i) => (
-                  <option key={i} value={i}>
-                    {formatRoundName(i)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <select
+            id="round-select"
+            value={selectedRound || 0}
+            onChange={handleRoundChange}
+            className="dz-select-dark"
+          >
+            {[...Array(25)].map((_, i) => (
+              <option key={i} value={i}>
+                {formatRoundName(i)}
+              </option>
+            ))}
+          </select>
         )}
-      </div>
+        {lastUpdated && (
+          <span className="text-[11px] text-slate-400">
+            Updated {formatTimeAgo(lastUpdated)}
+          </span>
+        )}
+      </ScoreboardHeader>
 
       {/* Opening Round Message */}
       {selectedRound === 0 && (

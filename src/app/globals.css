@@ -121,6 +121,15 @@ html {
     @apply dz-btn bg-slate-100 text-slate-700 hover:bg-slate-200;
   }
 
+  /* Dark <select> for use inside the ScoreboardHeader */
+  .dz-select-dark {
+    @apply cursor-pointer rounded-[11px] border border-white/[0.16] bg-white/[0.07] px-[13px] py-[9px]
+      text-sm font-semibold text-slate-200 focus:outline-none focus:ring-2 focus:ring-white/20;
+  }
+  .dz-select-dark option {
+    color: #0f172a;
+  }
+
   /* Modern table treatment */
   .dz-table {
     @apply min-w-full text-sm;
@@ -154,4 +163,13 @@ html {
 }
 .animate-fade-in {
   animation: dz-fade-in 0.25s ease-out;
+}
+
+/* Broadcast "live" dot — scale + fade pulse used on scoreboards/score cells */
+@keyframes dz-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.3; transform: scale(0.6); }
+}
+.animate-pulse-dot {
+  animation: dz-pulse-dot 1.4s ease-in-out infinite;
 }

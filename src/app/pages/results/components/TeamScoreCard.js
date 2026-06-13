@@ -1,312 +1,306 @@
 'use client'
 
-import { useState } from 'react';
-import { Star } from 'lucide-react';
-import { GiCrab } from 'react-icons/gi';
+import { TEAM_LOGOS } from '@/app/lib/constants';
+
+// Map a stored position label/code to its full name + sparkline key.
+const POS_META = {
+  'full forward': { full: 'Full Forward', short: 'FF' }, ff: { full: 'Full Forward', short: 'FF' },
+  'tall forward': { full: 'Tall Forward', short: 'TF' }, tf: { full: 'Tall Forward', short: 'TF' },
+  offensive: { full: 'Offensive', short: 'OFF' }, off: { full: 'Offensive', short: 'OFF' },
+  midfielder: { full: 'Midfielder', short: 'MID' }, mid: { full: 'Midfielder', short: 'MID' },
+  tackler: { full: 'Tackler', short: 'TAK' }, tak: { full: 'Tackler', short: 'TAK' },
+  ruck: { full: 'Ruck', short: 'RK' }, ruc: { full: 'Ruck', short: 'RK' }, rk: { full: 'Ruck', short: 'RK' },
+};
+function posMeta(raw) {
+  const k = String(raw || '').toLowerCase().trim();
+  return POS_META[k] || { full: raw || '', short: String(raw || '').slice(0, 3).toUpperCase() };
+}
 
 // Helper function to get 3-letter team abbreviation
 const getTeamAbbreviation = (teamName) => {
   if (!teamName) return '';
-  
-  // Common AFL team abbreviations
   const abbreviations = {
-    'Adelaide': 'ADE',
-    'Brisbane Lions': 'BRL',
-    'Brisbane': 'BRL',
-    'Carlton': 'CAR',
-    'Collingwood': 'COL',
-    'Essendon': 'ESS',
-    'Fremantle': 'FRE',
-    'Geelong': 'GEE',
-    'Gold Coast': 'GCS',
-    'Greater Western Sydney': 'GWS',
-    'GWS Giants': 'GWS',
-    'Hawthorn': 'HAW',
-    'Melbourne': 'MEL',
-    'North Melbourne': 'NTH',
-    'Port Adelaide': 'PTA',
-    'Richmond': 'RIC',
-    'St Kilda': 'STK',
-    'Sydney': 'SYD',
-    'West Coast': 'WCE',
-    'Western Bulldogs': 'WBD',
-    'Bulldogs': 'WBD'
+    'Adelaide': 'ADE', 'Brisbane Lions': 'BRL', 'Brisbane': 'BRL', 'Carlton': 'CAR',
+    'Collingwood': 'COL', 'Essendon': 'ESS', 'Fremantle': 'FRE', 'Geelong': 'GEE',
+    'Gold Coast': 'GCS', 'Greater Western Sydney': 'GWS', 'GWS Giants': 'GWS', 'Hawthorn': 'HAW',
+    'Melbourne': 'MEL', 'North Melbourne': 'NTH', 'Port Adelaide': 'PTA', 'Richmond': 'RIC',
+    'St Kilda': 'STK', 'Sydney': 'SYD', 'West Coast': 'WCE', 'Western Bulldogs': 'WBD', 'Bulldogs': 'WBD',
   };
-  
-  // Try to find the exact match first
-  if (abbreviations[teamName]) {
-    return abbreviations[teamName];
-  }
-  
-  // If no exact match, try to find a partial match
+  if (abbreviations[teamName]) return abbreviations[teamName];
   for (const [team, abbr] of Object.entries(abbreviations)) {
-    if (teamName.includes(team)) {
-      return abbr;
-    }
+    if (teamName.includes(team)) return abbr;
   }
-  
-  // If no match found, create abbreviation from first 3 letters
   return teamName.substring(0, 3).toUpperCase();
 };
 
-// TeamScoreCard component for displaying a user's team scores
-export default function TeamScoreCard({ 
-  userId, 
-  userName, 
-  teamScores, 
-  isHighestScore, 
+// The score that counts for a position: replacement's when substituted, else the player's.
+const dispScore = (p) => (p.isBenchPlayer ? (p.score ?? 0) : (p.originalScore ?? p.score ?? 0));
+
+// TeamScoreCard — a single team's score, in compact or expanded mode.
+export default function TeamScoreCard({
+  userId,
+  userName,
+  teamScores,
+  isHighestScore,
   isLowestScore,
-  isSelectedUser,
-  isRoundComplete
+  isUserTeam,
+  isRoundComplete,
+  rank,
+  isOpen,
+  collapsible = true,
+  onToggle,
 }) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const positions = teamScores.positionScores || [];
+  const bench = teamScores.benchScores || [];
+  const anyLive = positions.some((p) => p.isGameLive) || bench.some((b) => b.isGameLive);
+  const teamMax = positions.length ? Math.max(...positions.map(dispScore)) : 0;
+  const topPlayer = positions.reduce((best, p) => (dispScore(p) > dispScore(best || p) ? p : best || p), null);
+
+  const badge = isHighestScore ? '⭐' : isLowestScore ? '🦀' : '';
 
   return (
-    <div id={`team-card-${userId}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 scroll-mt-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg sm:text-xl font-bold text-black">{userName}</h2>
-          {isHighestScore && 
-            <Star className="text-yellow-500" size={20} />}
-          {isLowestScore && 
-            <GiCrab className="text-red-500" size={20} />}
-          {isSelectedUser && 
-            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">Selected</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="text-right font-bold text-lg border-t pt-2 text-black">
-            Final Total: {teamScores.finalScore}
-          </div>
-          <button 
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-500 hover:text-black sm:hidden"
+    <div
+      id={`team-card-${userId}`}
+      className={`scroll-mt-4 rounded-[18px] bg-white px-5 py-[18px] ${
+        isUserTeam
+          ? 'border border-blue-200 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_0_0_4px_rgba(37,99,235,0.07)]'
+          : 'border border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)]'
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={`flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-lg text-[13px] font-extrabold tabular-nums ${
+              rank === 1
+                ? 'border border-amber-300 bg-amber-100 text-amber-700'
+                : 'border border-slate-200 bg-slate-100 text-slate-500'
+            }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isExpanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
-            </svg>
-          </button>
+            {rank}
+          </div>
+          <span className="text-2xl leading-none">{TEAM_LOGOS[userId]}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-[7px]">
+              <h2 className="max-w-[240px] truncate text-[17px] font-extrabold tracking-[-0.01em] text-slate-900">
+                {userName}
+              </h2>
+              {badge && <span className="text-sm">{badge}</span>}
+            </div>
+            {isUserTeam && (
+              <span className="mt-1 inline-block rounded-full border border-blue-200 bg-blue-50 px-2 py-[2px] text-[9px] font-extrabold tracking-[0.1em] text-blue-600">
+                YOUR TEAM
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex-shrink-0 text-right">
+          <div className="text-[34px] font-black leading-none tracking-[-0.03em] tabular-nums text-slate-900">
+            {teamScores.finalScore}
+          </div>
+          <div className="mt-[5px] flex items-center justify-end">
+            <span
+              className={`rounded-full px-2 py-[2px] text-[10px] font-extrabold tracking-[0.08em] ${
+                anyLive
+                  ? 'border border-amber-600/25 bg-amber-600/10 text-amber-600'
+                  : 'border border-slate-200 bg-slate-100 text-slate-400'
+              }`}
+            >
+              {anyLive ? 'LIVE' : 'FINAL'}
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] tabular-nums text-slate-400">
+            Team {teamScores.totalScore} + Cert {teamScores.deadCertScore}
+          </div>
         </div>
       </div>
 
-      {isExpanded && (
-        <div className="space-y-4">
-          <>
-            {/* Main Team */}
-            <MainTeamSection 
-              positionScores={teamScores.positionScores} 
-              isRoundComplete={isRoundComplete} 
-            />
-            
-            {/* Team Subtotal */}
-            <div className="text-right font-semibold mt-2 text-black">
-              Team Score: {teamScores.totalScore}
-            </div>
-
-            {/* Dead Certs */}
-            <div className="space-y-2">
-              <div className="text-right font-semibold text-black">
-                Dead Cert Bonus: {teamScores.deadCertScore}
-              </div>
-            </div>
-
-            {/* Bench/Reserves */}
-            <BenchSection 
-              benchScores={teamScores.benchScores || []} 
-              isRoundComplete={isRoundComplete} 
-            />
-          </>
-        </div>
+      {isOpen ? (
+        <ExpandedBody
+          positions={positions}
+          bench={bench}
+          teamScores={teamScores}
+          isRoundComplete={isRoundComplete}
+          collapsible={collapsible}
+          onToggle={onToggle}
+        />
+      ) : (
+        <CompactBody
+          positions={positions}
+          teamMax={teamMax}
+          topPlayer={topPlayer}
+          onToggle={onToggle}
+        />
       )}
     </div>
   );
 }
 
-// Component for the main team positions
-function MainTeamSection({ positionScores, isRoundComplete }) {
+// ── Compact: sparkline + top scorer + "View detail" ─────────────────────────
+function CompactBody({ positions, teamMax, topPlayer, onToggle }) {
   return (
-    <div className="space-y-2">
-      <h3 className="text-lg font-semibold border-b pb-2 text-black">Main Team</h3>
-      <div className="hidden sm:grid grid-cols-12 gap-2 font-semibold text-sm pb-2 text-black">
-        <div className="col-span-2">Position</div>
-        <div className="col-span-3">Player</div>
-        <div className="col-span-5">Details</div>
-        <div className="col-span-2 text-right">Score</div>
-      </div>
-      {positionScores.map((position) => {
-        // Determine player status and styling
-        const didNotPlay = position.noStats || !position.player?.hasPlayed;
-        const isReplaced = position.isBenchPlayer;
-        const isLive = position.isGameLive;
-        const isFinished = position.isGameFinished;
-        const notStarted = !isLive && !isFinished && !didNotPlay && position.playerName;
-
-        // Only show DNP status if round is complete, otherwise show normal status
-        const showDNP = isRoundComplete && didNotPlay;
-
-        // Always show original player, but in red if they didn't play or were replaced
-        const playerNameClass = (showDNP || isReplaced) ? 'text-red-600' : 'text-black';
-
-        // For replaced players, we'll show both original and replacement details
-        const originalScore = position.originalScore || 0;
-        const originalTeam = position.team || (position.player?.originalTeam);
-        const replacementScore = isReplaced ? position.score : null;
-
-        // Row background: amber tint for live games
-        const rowBg = isLive ? 'bg-amber-50' : '';
-        // Score colour: orange for live, red for DNP/replaced, gray for not started, bold black for final
-        const scoreClass = (showDNP || isReplaced)
-          ? 'text-red-600'
-          : isLive
-            ? 'text-amber-600 font-semibold'
-            : notStarted
-              ? 'text-gray-400'
-              : 'font-semibold';
-
-        return (
-          <div key={position.position} className={`border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black ${rowBg}`}>
-            <div className="font-medium col-span-2 mb-1 sm:mb-0">{position.position}</div>
-            <div className="col-span-3 mb-1 sm:mb-0">
-              <div className={playerNameClass}>
-                <div className="truncate">{position.originalPlayerName || 'Not Selected'}</div>
-                {(originalTeam || position.player?.team) && (
-                  <div className="text-xs text-gray-500">
-                    ({getTeamAbbreviation(originalTeam || position.player?.team)})
-                    {showDNP && ' (DNP)'}
-                    {isReplaced && ' (Substituted)'}
-                  </div>
-                )}
+    <div className="mt-[15px]">
+      <div className="grid grid-cols-6 gap-[6px]">
+        {positions.map((p, i) => {
+          const disp = dispScore(p);
+          const live = p.isGameLive;
+          const dnp = p.noStats || disp === 0;
+          const top = disp === teamMax && teamMax > 0;
+          const tone = live
+            ? 'bg-amber-600/10 text-amber-600'
+            : dnp
+              ? 'bg-red-600/[0.08] text-red-600'
+              : top
+                ? 'bg-emerald-600/10 text-emerald-600'
+                : 'bg-slate-100 text-slate-900';
+          return (
+            <div key={i} className={`rounded-[9px] px-1 pb-2 pt-[7px] text-center ${tone}`}>
+              <div className="text-[8px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                {posMeta(p.position).short}
               </div>
+              <div className="mt-[2px] text-[15px] font-extrabold tabular-nums">{disp}</div>
             </div>
-            <div className="col-span-5 text-xs sm:text-sm mb-1 sm:mb-0">
-              {isReplaced ? (
-                <div>
-                  <div className="text-green-600">
-                    Substituted with: {position.playerName}
-                    <span className="ml-1 text-gray-500">({position.replacementType})</span>
-                  </div>
-                  <div className="text-xs mt-1 text-gray-600">
-                    {position.originalPlayerName}'s score: {originalScore}
-                    {position.originalBreakdown && (
-                      <span className="ml-1 text-gray-400">({position.originalBreakdown})</span>
-                    )}
-                  </div>
-                  <div className="text-xs mt-1 text-gray-600">
-                    {position.playerName}'s score: {replacementScore}
-                    {position.breakdown && (
-                      <span className="ml-1 text-gray-400">({position.breakdown})</span>
-                    )}
-                  </div>
-                </div>
-              ) : showDNP ? (
-                <div className="text-red-600">
-                  Player did not play
-                </div>
-              ) : notStarted ? (
-                <div className="text-gray-400 italic text-xs">Game not started</div>
-              ) : (
-                <span className={isLive ? 'text-amber-700' : ''}>{position.breakdown}</span>
-              )}
-            </div>
-            <div className="col-span-2 text-right">
-              <span className={scoreClass}>
-                {isLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
-                {originalScore}
-              </span>
-
-              {isReplaced && (
-                <div className="text-xs text-green-600 font-medium mt-1">
-                  +{replacementScore} (used)
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-[10px]">
+        <span className="truncate text-xs text-slate-500">
+          Top: <span className="font-bold text-slate-900">{topPlayer?.originalPlayerName || topPlayer?.playerName || '-'}</span>
+          {topPlayer ? ` · ${dispScore(topPlayer)}` : ''}
+        </span>
+        <button
+          onClick={onToggle}
+          className="flex-shrink-0 whitespace-nowrap rounded-[9px] border border-slate-200 bg-slate-100 px-3 py-[6px] text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200"
+        >
+          View detail ▾
+        </button>
+      </div>
     </div>
   );
 }
 
-// Component for the bench/reserves section
-function BenchSection({ benchScores, isRoundComplete }) {
+// ── Expanded: full position list, bench, totals ─────────────────────────────
+function ExpandedBody({ positions, bench, teamScores, isRoundComplete, collapsible, onToggle }) {
   return (
-    <div className="space-y-2 bg-gray-50 p-2 sm:p-4 rounded">
-      <h3 className="text-lg font-semibold border-b pb-2 text-black">Bench/Reserves</h3>
-      {(!benchScores || benchScores.length === 0) ? (
-        <div className="text-sm text-gray-600 italic">
-          No bench or reserve players selected
-        </div>
-      ) : (
-        benchScores.map((bench) => {
-        // Determine bench player status and styling
-        const didNotPlay = !bench.didPlay;
-        const isBeingUsed = bench.isBeingUsed;
-        const isLive = bench.isGameLive;
-        const isFinished = bench.isGameFinished;
-        const notStarted = !isLive && !isFinished && !didNotPlay && bench.playerName;
+    <div className="mt-4">
+      <div className="flex flex-col gap-[3px]">
+        {positions.map((p, i) => {
+          const isReplaced = p.isBenchPlayer;
+          const isLive = p.isGameLive;
+          const didNotPlay = p.noStats || !p.player?.hasPlayed;
+          const showDNP = isRoundComplete && didNotPlay && !isReplaced;
+          const disp = dispScore(p);
+          const abbr = getTeamAbbreviation(p.team || p.player?.team);
 
-        // Only show DNP status if round is complete
-        const showDNP = isRoundComplete && didNotPlay;
+          let nameCls = 'text-slate-900';
+          let detailCls = 'text-slate-400';
+          let scoreCls = 'text-slate-900';
+          let struck = false;
+          let detail = p.breakdown;
 
-        // Player and score status colors
-        const playerNameClass = isBeingUsed ? 'text-green-600' : showDNP ? 'text-red-600' : 'text-black';
-        const scoreClass = showDNP
-          ? 'text-red-600'
-          : isBeingUsed
-            ? 'text-green-600 font-semibold'
-            : isLive
-              ? 'text-amber-600 font-semibold'
-              : notStarted
-                ? 'text-gray-400'
-                : 'text-black';
+          if (isReplaced) {
+            nameCls = 'text-red-600'; struck = true; detailCls = 'text-emerald-600'; scoreCls = 'text-emerald-600';
+            detail = `→ ${p.playerName}${abbr ? ` (${abbr})` : ''} in · ${p.score} pts`;
+          } else if (showDNP) {
+            nameCls = 'text-red-600'; struck = true; detailCls = 'text-red-600'; scoreCls = 'text-red-600';
+            detail = 'Did not play';
+          } else if (isLive) {
+            detailCls = 'text-amber-700'; scoreCls = 'text-amber-600';
+          }
 
-        return (
-          <div key={bench.position} className={`border rounded p-2 sm:border-0 sm:p-0 sm:grid grid-cols-12 gap-2 text-sm text-black ${isLive ? 'bg-amber-50' : ''}`}>
-            <div className="font-medium col-span-2 mb-1 sm:mb-0">
-              {bench.position}
-              {bench.position === 'Reserve A' && (
-                <div className="text-xs text-gray-500">Full Forward, Tall Forward, Ruck</div>
-              )}
-              {bench.position === 'Reserve B' && (
-                <div className="text-xs text-gray-500">Offensive, Mid, Tackler</div>
-              )}
-              {bench.backupPosition && (
-                <div className="text-xs text-gray-500">{bench.backupPosition}</div>
-              )}
-            </div>
-            <div className="col-span-3 mb-1 sm:mb-0">
-              <div className={playerNameClass}>
-                <div className="truncate">{bench.playerName}</div>
-                {bench.player?.team && (
-                  <div className="text-xs text-gray-500">
-                    ({getTeamAbbreviation(bench.player.team)})
-                    {showDNP && ' (DNP)'}
-                    {isBeingUsed && ' (In Use)'}
-                  </div>
-                )}
+          return (
+            <div
+              key={i}
+              className={`grid grid-cols-[108px_1fr_56px] items-center gap-[10px] rounded-[9px] px-2 py-[7px] ${
+                isLive ? 'bg-amber-600/[0.07]' : ''
+              }`}
+            >
+              <div className="text-[11px] font-bold uppercase tracking-[0.02em] text-slate-500">
+                {posMeta(p.position).full}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-[6px]">
+                  <span className={`truncate text-sm font-semibold ${nameCls} ${struck ? 'line-through' : ''}`}>
+                    {p.originalPlayerName || 'Not Selected'}
+                  </span>
+                  {abbr && <span className="flex-shrink-0 text-[11px] font-semibold text-slate-400">{abbr}</span>}
+                </div>
+                {detail && <div className={`mt-[1px] truncate text-[11px] ${detailCls}`}>{detail}</div>}
+              </div>
+              <div className={`text-right text-base font-extrabold tabular-nums ${scoreCls}`}>
+                {isLive && <span className="mr-[5px] inline-block h-[6px] w-[6px] rounded-full bg-amber-600 align-middle animate-pulse-dot" />}
+                {disp}
               </div>
             </div>
-            <div className="col-span-5 text-xs sm:text-sm mb-1 sm:mb-0">
-              {isBeingUsed ? (
-                <div className="text-green-600">
-                  Substituting for: {bench.replacingPlayerName} ({bench.replacingPosition})
+          );
+        })}
+      </div>
+
+      {/* Bench / Reserves */}
+      <div className="mt-3 rounded-[12px] border border-slate-100 bg-slate-50 px-[13px] py-3">
+        <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">Bench / Reserves</div>
+        {(!bench || bench.length === 0) ? (
+          <div className="text-xs italic text-slate-400">No bench or reserve players selected</div>
+        ) : (
+          <div className="flex flex-col gap-[2px]">
+            {bench.map((b, i) => {
+              const inUse = b.isBeingUsed;
+              const abbr = getTeamAbbreviation(b.player?.team);
+              const sub = inUse
+                ? 'in use · substituting'
+                : b.position === 'Reserve A'
+                  ? 'Full Forward, Tall Forward, Ruck'
+                  : b.position === 'Reserve B'
+                    ? 'Offensive, Mid, Tackler'
+                    : b.backupPosition || 'utility';
+              return (
+                <div key={i} className="grid grid-cols-[128px_1fr_48px] items-center gap-[10px] rounded-lg px-[6px] py-[5px]">
+                  <div>
+                    <div className="text-[11px] font-bold text-slate-600">{b.position}</div>
+                    <div className="text-[9px] tracking-[0.02em] text-slate-400">{sub}</div>
+                  </div>
+                  <div className="flex min-w-0 items-baseline gap-[6px]">
+                    <span className={`truncate text-[13px] font-semibold ${inUse ? 'text-emerald-600' : 'text-slate-600'}`}>
+                      {b.playerName}
+                    </span>
+                    {abbr && <span className="text-[11px] font-semibold text-slate-300">{abbr}</span>}
+                  </div>
+                  <div className={`text-right text-sm font-bold tabular-nums ${inUse ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {b.score}
+                  </div>
                 </div>
-              ) : showDNP ? (
-                <div className="text-red-600">
-                  Player did not play
-                </div>
-              ) : notStarted ? (
-                <div className="text-gray-400 italic text-xs">Game not started</div>
-              ) : (
-                <span className={isLive ? 'text-amber-700' : ''}>{bench.breakdown}</span>
-              )}
-            </div>
-            <div className={`col-span-2 text-right ${scoreClass}`}>
-              {isLive && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1 align-middle" />}
-              {bench.score}
-            </div>
+              );
+            })}
           </div>
-        );
-        })
+        )}
+      </div>
+
+      {/* Totals footer */}
+      <div className="mt-[13px] flex items-stretch border-t border-slate-100 pt-[13px]">
+        <div className="flex-1 text-center">
+          <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">Team Score</div>
+          <div className="mt-[3px] text-lg font-extrabold tabular-nums text-slate-900">{teamScores.totalScore}</div>
+        </div>
+        <div className="w-px bg-slate-100" />
+        <div className="flex-1 text-center">
+          <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">Dead Cert</div>
+          <div className="mt-[3px] text-lg font-extrabold tabular-nums text-slate-900">
+            {teamScores.deadCertScore >= 0 ? '+' : ''}{teamScores.deadCertScore}
+          </div>
+        </div>
+        <div className="w-px bg-slate-100" />
+        <div className="flex-1 text-center">
+          <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-blue-600">Final Total</div>
+          <div className="mt-[3px] text-lg font-black tabular-nums text-blue-600">{teamScores.finalScore}</div>
+        </div>
+      </div>
+
+      {collapsible && (
+        <div className="mt-3 flex justify-center">
+          <button onClick={onToggle} className="px-[10px] py-1 text-xs font-bold text-slate-400 hover:text-slate-600">
+            Hide detail ▴
+          </button>
+        </div>
       )}
     </div>
   );

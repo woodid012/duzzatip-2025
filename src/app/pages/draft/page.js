@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import { useUserContext } from '../layout';
 import { USER_NAMES } from '@/app/lib/constants';
 import { ROUNDS_PER_DRAFT, USERS_PER_DRAFT, TOTAL_PICKS } from '@/app/lib/draft_constants';
@@ -277,13 +278,20 @@ export default function DraftPage() {
   const currentRound = draftState?.nextPick?.round || (draftState?.status === 'completed' ? ROUNDS_PER_DRAFT : 1);
   const currentPickUser = draftState?.nextPick ? USER_NAMES[draftState.nextPick.userId] : null;
 
+  const draftStatusLabel =
+    draftState?.status === 'not_started' ? 'Not Started' :
+    draftState?.status === 'in_progress' ? 'In Progress' :
+    draftState?.status === 'completed' ? 'Complete' : 'Draft';
+
   return (
     <div className="p-2 md:p-4 space-y-4">
+      <ScoreboardHeader eyebrow={draftStatusLabel} title="Draft" />
+
       {/* Status Banner */}
       <div className="bg-slate-800 text-white rounded-2xl p-3 md:p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-lg md:text-xl font-bold">Player Draft</h1>
+            <div className="text-xs uppercase tracking-wide text-slate-400 font-semibold">Player Draft</div>
             <div className="text-sm text-slate-300">
               {draftState?.status === 'not_started' && 'Draft has not started yet'}
               {draftState?.status === 'in_progress' && (

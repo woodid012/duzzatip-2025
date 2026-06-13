@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 export default function TippingLadderPage() {
   const { currentRound, selectedYear } = useAppContext();
@@ -137,48 +138,41 @@ export default function TippingLadderPage() {
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="dz-title">Tipping Ladder {selectedYear}</h1>
+      <ScoreboardHeader
+        eyebrow={`Season standings ${isLive ? 'including' : 'after'} ${formatRoundName(selectedRound)}`}
+        title={
+          <span className="inline-flex items-center gap-3">
+            Tipping Ladder {selectedYear}
             {isLive && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-semibold text-red-300">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75"></span>
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
                 </span>
                 LIVE
               </span>
             )}
-          </div>
-          <p className="text-gray-600">
-            Season standings {isLive ? 'including' : 'after'} {formatRoundName(selectedRound)}
-          </p>
-          {lastUpdated && (
-            <p className="text-sm text-gray-500">
-              {isLive ? 'Updating live · ' : ''}Last updated: {lastUpdated.toLocaleString()}
-            </p>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <label htmlFor="round-select" className="text-sm font-medium text-slate-600">
-            Round
-          </label>
-          <select
-            id="round-select"
-            value={selectedRound || 0}
-            onChange={handleRoundChange}
-            className="dz-select"
-          >
-            {[...Array(25)].map((_, i) => (
-              <option key={i} value={i}>
-                {formatRoundName(i)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+          </span>
+        }
+      >
+        <select
+          id="round-select"
+          value={selectedRound || 0}
+          onChange={handleRoundChange}
+          className="dz-select-dark"
+        >
+          {[...Array(25)].map((_, i) => (
+            <option key={i} value={i}>
+              {formatRoundName(i)}
+            </option>
+          ))}
+        </select>
+        {lastUpdated && (
+          <span className="text-[11px] text-slate-400">
+            {isLive ? 'Updating live · ' : ''}Last updated: {lastUpdated.toLocaleString()}
+          </span>
+        )}
+      </ScoreboardHeader>
 
       {/* Desktop Ladder Table */}
       <div className="hidden md:block">

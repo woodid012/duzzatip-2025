@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 const SQUAD_SIZE = 18;
 
@@ -155,8 +156,7 @@ export default function Squads() {
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="dz-title">DuzzaTip Squads {selectedYear}</h1>
+      <ScoreboardHeader eyebrow={`${selectedYear} Season`} title="Squads">
         {!isPastYear && (
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             {isEditing ? (
@@ -178,7 +178,7 @@ export default function Squads() {
               <select
                 onChange={(e) => handleEditStart(e.target.value)}
                 value=""
-                className="dz-select w-full sm:w-auto"
+                className="dz-select-dark w-full sm:w-auto"
                 disabled={loadingPlayers}
               >
                 <option value="">Select User to Edit</option>
@@ -191,7 +191,7 @@ export default function Squads() {
             )}
           </div>
         )}
-      </div>
+      </ScoreboardHeader>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {['1', '2', '3', '4', '5', '6', '7', '8'].map((userId) => {

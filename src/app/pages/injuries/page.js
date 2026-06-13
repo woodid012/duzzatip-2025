@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 const SEVERITY_ORDER = { SEASON: 0, MONTHS: 1, WEEKS: 2, DOUBT: 3, MANAGED: 4 };
 
@@ -97,15 +98,17 @@ export default function InjuriesPage() {
   return (
     <div className="p-2 md:p-4 space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h1 className="dz-title">AFL Injury List</h1>
-        <div className="dz-subtitle">
-          {updated
-            ? `Updated: ${new Date(updated).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}`
-            : 'No data yet'}
-          {' '} &middot; {filteredCount} of {totalCount} players
-        </div>
-      </div>
+      <ScoreboardHeader
+        eyebrow={
+          <>
+            {updated
+              ? `Updated: ${new Date(updated).toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}`
+              : 'No data yet'}
+            {' '} &middot; {filteredCount} of {totalCount} players
+          </>
+        }
+        title="Injuries"
+      />
 
       {/* Status legend */}
       <div className="flex flex-wrap gap-2">

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 import { useAppContext } from '@/app/context/AppContext';
+import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 const TippingResultsGrid = () => {
   const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear, fixtures: appFixtures } = useAppContext();
@@ -286,44 +287,38 @@ function MobileTippingResults({
   return (
     <div className="p-3 space-y-4">
       {/* Header */}
-      <div className="dz-surface p-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h1 className="dz-title">Tip Results</h1>
-            <select
-              value={selectedRound}
-              onChange={(e) => setSelectedRound(e.target.value)}
-              className="dz-select text-sm"
-            >
-              {Array.from({ length: 25 }, (_, i) => (
-                <option key={i} value={i.toString()} className="text-slate-900">
-                  {displayRound(i.toString())}
-                </option>
-              ))}
-            </select>
-          </div>
+      <ScoreboardHeader
+        eyebrow={displayRound(selectedRound)}
+        title="Tip Results"
+      >
+        <select
+          value={selectedRound}
+          onChange={(e) => setSelectedRound(e.target.value)}
+          className="dz-select-dark text-sm"
+        >
+          {Array.from({ length: 25 }, (_, i) => (
+            <option key={i} value={i.toString()}>
+              {displayRound(i.toString())}
+            </option>
+          ))}
+        </select>
+      </ScoreboardHeader>
 
-          <div className="text-sm font-medium text-slate-900">
-            {displayRound(selectedRound)}
-          </div>
-
-          {/* Lockout status */}
-          {selectedRoundInfo && (
-            <div className="text-xs">
-              <span className="font-medium">Lockout: </span>
-              <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
-                {selectedRoundInfo.lockoutTime || "Not set"}
-                {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
-              </span>
-              {!isLockoutPassed && (
-                <div className="text-slate-600 mt-1">
-                  Tips will be visible after lockout
-                </div>
-              )}
+      {/* Lockout status */}
+      {selectedRoundInfo && (
+        <div className="dz-surface p-4 text-xs">
+          <span className="font-medium">Lockout: </span>
+          <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
+            {selectedRoundInfo.lockoutTime || "Not set"}
+            {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
+          </span>
+          {!isLockoutPassed && (
+            <div className="text-slate-600 mt-1">
+              Tips will be visible after lockout
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Tab Navigation */}
       <div className="dz-surface overflow-hidden">
@@ -720,38 +715,38 @@ function DesktopTippingResults({
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <h1 className="dz-title text-3xl">Round Summary - {displayRound(selectedRound)}</h1>
-          <select
-            value={selectedRound}
-            onChange={(e) => setSelectedRound(e.target.value)}
-            className="dz-select"
-          >
-            {Array.from({ length: 25 }, (_, i) => (
-              <option key={i} value={i.toString()} className="text-slate-900">
-                {displayRound(i.toString())}
-              </option>
-            ))}
-          </select>
-        </div>
+      <ScoreboardHeader
+        eyebrow={displayRound(selectedRound)}
+        title="Round Summary"
+      >
+        <select
+          value={selectedRound}
+          onChange={(e) => setSelectedRound(e.target.value)}
+          className="dz-select-dark"
+        >
+          {Array.from({ length: 25 }, (_, i) => (
+            <option key={i} value={i.toString()}>
+              {displayRound(i.toString())}
+            </option>
+          ))}
+        </select>
+      </ScoreboardHeader>
 
-        {/* Show lockout status */}
-        {selectedRoundInfo && (
-          <div className="mt-2 text-sm">
-            <span className="font-medium">Lockout: </span>
-            <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
-              {selectedRoundInfo.lockoutTime || "Not set"}
-              {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
+      {/* Show lockout status */}
+      {selectedRoundInfo && (
+        <div className="mb-8 -mt-2 text-sm">
+          <span className="font-medium">Lockout: </span>
+          <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
+            {selectedRoundInfo.lockoutTime || "Not set"}
+            {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
+          </span>
+          {!isLockoutPassed && (
+            <span className="ml-2 text-slate-600">
+              • Tips will be visible after lockout
             </span>
-            {!isLockoutPassed && (
-              <span className="ml-2 text-slate-600">
-                • Tips will be visible after lockout
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <div className="dz-surface overflow-x-auto">
         <table className="min-w-full">
