@@ -102,8 +102,14 @@ export default function useSimplifiedResults() {
 
       const data = await response.json();
 
-      // Cache both fixtures and round data
-      roundCache.set(round, { roundData: data, fixtures: fixturesData });
+      // Cache fixtures + round data — but NEVER cache a privacy-restricted
+      // (own-team-only / empty) payload, so it can't be replayed for another
+      // identity or survive past lockout. Always update React state.
+      if (!data.restricted) {
+        roundCache.set(round, { roundData: data, fixtures: fixturesData });
+      } else {
+        roundCache.delete(round);
+      }
       setRoundData(data);
 
       // Stage 4: Complete — page is visible
@@ -145,7 +151,11 @@ export default function useSimplifiedResults() {
       const response = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}&refresh=1`);
       if (response.ok) {
         const data = await response.json();
-        roundCache.set(round, { roundData: data, fixtures: fixturesData });
+        if (!data.restricted) {
+          roundCache.set(round, { roundData: data, fixtures: fixturesData });
+        } else {
+          roundCache.delete(round);
+        }
         setRoundData(data);
       }
     } catch (err) {

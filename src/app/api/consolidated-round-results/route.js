@@ -60,7 +60,8 @@ export async function GET(request) {
         // numbers below reflect the latest live scores rather than cached ones.
         if (forceRefresh && year === CURRENT_YEAR) {
             try {
-                await refreshGameResultsForRound(round, { force: true });
+                // liveOnly: only re-pull games still in progress, not finished ones.
+                await refreshGameResultsForRound(round, { force: true, liveOnly: true });
             } catch (err) {
                 console.warn(`Forced game_results refresh failed for round ${round}: ${err.message}`);
             }

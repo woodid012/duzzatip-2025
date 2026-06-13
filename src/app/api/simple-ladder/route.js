@@ -28,17 +28,32 @@ export async function GET(request) {
             const storedByRound = {};
             allStored.forEach(r => { storedByRound[r.round] = r.lastUpdated ? new Date(r.lastUpdated) : null; });
 
+            // Newest game_results timestamp per round in ONE aggregation instead
+            // of ~21 serial findOne calls. $max on created_at == the prior
+            // findOne sort (only refreshGameResults writes created_at). Fail
+            // OPEN to the per-round loop so an aggregation error never silently
+            // reports "zero rounds stale" (which would serve a stale ladder).
+            const newestByRound = {};
+            try {
+                const agg = await db.collection(`${year}_game_results`).aggregate([
+                    { $match: { round: { $gte: 1, $lte: upToRound } } },
+                    { $group: { _id: '$round', newest: { $max: '$created_at' } } },
+                ]).toArray();
+                agg.forEach(g => { newestByRound[g._id] = g.newest ? new Date(g.newest) : null; });
+            } catch (aggErr) {
+                console.warn('simple-ladder stale-detect aggregation failed, falling back to per-round:', aggErr.message);
+                for (let r = 1; r <= upToRound; r++) {
+                    const n = await db.collection(`${year}_game_results`)
+                        .findOne({ round: r }, { sort: { created_at: -1 }, projection: { created_at: 1 } });
+                    newestByRound[r] = n?.created_at ? new Date(n.created_at) : null;
+                }
+            }
+
             // Find rounds that have game_results but are missing or stale in simple_round_results
             const roundsToRefresh = [];
             for (let r = 1; r <= upToRound; r++) {
                 const cachedAt = storedByRound[r] || null;
-                const newestGameResult = await db.collection(`${year}_game_results`)
-                    .findOne(
-                        { round: r },
-                        { sort: { created_at: -1 }, projection: { created_at: 1 } }
-                    );
-                const gameResultsAt = newestGameResult?.created_at ? new Date(newestGameResult.created_at) : null;
-
+                const gameResultsAt = newestByRound[r] || null;
                 if (gameResultsAt && (!cachedAt || gameResultsAt > cachedAt)) {
                     roundsToRefresh.push(r);
                 }

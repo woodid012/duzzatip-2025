@@ -110,16 +110,51 @@ export function applyAflScores(fixtures, combinedScores) {
   return { fixtures: result, matchedKeys, evaluated, updated };
 }
 
+// Short-lived AFL token + round-offset caches, shared across overlayAflScores
+// and isRoundComplete so a single page load doesn't re-handshake the token or
+// re-probe the offset multiple times. TTL is kept well under STATUS_CACHE_TTL so
+// it can never lengthen the effective score-freshness window. Only SUCCESSFUL
+// values are cached — a transient failure must never poison these.
+const AFL_AUTH_TTL = 90 * 1000;
+let cachedToken = null;
+let cachedTokenAt = 0;
+let cachedOffset = null;
+let cachedOffsetAt = 0;
+
 async function getAflToken() {
-  const res = await fetch('https://api.afl.com.au/cfs/afl/WMCTok', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Origin': 'https://www.afl.com.au' },
-    body: '{}',
-    signal: AbortSignal.timeout(4000),
-  });
-  if (!res.ok) throw new Error(`AFL token HTTP ${res.status}`);
-  const { token } = await res.json();
-  return token;
+  const now = Date.now();
+  if (cachedToken && (now - cachedTokenAt) < AFL_AUTH_TTL) return cachedToken;
+  try {
+    const res = await fetch('https://api.afl.com.au/cfs/afl/WMCTok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': 'https://www.afl.com.au' },
+      body: '{}',
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) throw new Error(`AFL token HTTP ${res.status}`);
+    const { token } = await res.json();
+    cachedToken = token;
+    cachedTokenAt = now;
+    return token;
+  } catch (err) {
+    cachedToken = null;
+    cachedTokenAt = 0;
+    throw err;
+  }
+}
+
+// Detect the AFL round offset (our round 0 = API round 0 or 1). Caches ONLY on a
+// successful probe — never the failure default — so a cold-start hiccup can't
+// pin a wrong offset for the TTL and blank everyone's scores. Throws on probe
+// failure so the caller can fall back to offset=1 WITHOUT caching it.
+async function getRoundOffset(token) {
+  const now = Date.now();
+  if (cachedOffset !== null && (now - cachedOffsetAt) < AFL_AUTH_TTL) return cachedOffset;
+  const { matchCount } = await fetchAflApiScoresForRound(0, token); // may throw
+  const offset = matchCount === 0 ? 1 : 0;
+  cachedOffset = offset;
+  cachedOffsetAt = now;
+  return offset;
 }
 
 // Fetch AFL API matches for a given API round number and return a score map
@@ -170,15 +205,20 @@ async function fetchAflApiScoresForRound(apiRound, token) {
 // The AFL API may use a different round offset (e.g. Opening Round = 1 not 0).
 // We detect the offset by checking which API round returns matches that align
 // with our local round 0 fixtures.
-async function overlayAflScores(fixtures, year) {
+async function overlayAflScores(fixtures, year, roundsToFetch = null) {
   const now = Date.now();
 
-  // Only fetch scores for rounds that have already started
-  const startedRounds = [...new Set(
-    fixtures
-      .filter(f => new Date(f.DateUtc) <= now)
-      .map(f => f.RoundNumber)
-  )];
+  // Only fetch scores for the rounds that actually need them. By default that's
+  // every started round, but callers pass the specific rounds with fixtures
+  // missing a score — so a mid-season refresh hits one round's AFL endpoint, not
+  // all ~15 started rounds (whose scores are already stored).
+  const startedRounds = roundsToFetch && roundsToFetch.length > 0
+    ? [...new Set(roundsToFetch.map(Number))]
+    : [...new Set(
+        fixtures
+          .filter(f => new Date(f.DateUtc) <= now)
+          .map(f => f.RoundNumber)
+      )];
 
   if (startedRounds.length === 0) return fixtures;
 
@@ -190,18 +230,13 @@ async function overlayAflScores(fixtures, year) {
     return fixtures;
   }
 
-  // Detect round offset: try fetching round 0 first; if empty, try round 1.
-  // We test against our local round 0 (Opening Round).
-  let roundOffset = 0;
+  // Detect round offset (shared cache); fall back to +1 without caching on a
+  // transient probe failure.
+  let roundOffset;
   try {
-    const { matchCount } = await fetchAflApiScoresForRound(0, token);
-    if (matchCount === 0) {
-      // AFL API starts at 1; our app starts at 0 — offset = +1
-      roundOffset = 1;
-      console.log(`AFL API uses 1-indexed rounds (Opening Round = 1), offset = ${roundOffset}`);
-    }
+    roundOffset = await getRoundOffset(token);
   } catch {
-    roundOffset = 1; // assume offset if detection fails
+    roundOffset = 1;
   }
 
   // Build a combined score map across all started rounds.
@@ -295,7 +330,9 @@ export async function getAflFixtures(year = CURRENT_YEAR, { force = false } = {}
 
     if (needsScore.length > 0) {
       try {
-        const { fixtures: updated, liveRounds, evaluated } = await overlayAflScores(fixtures, year);
+        // Only hit the AFL API for the rounds that actually need scoring.
+        const roundsNeeded = [...new Set(needsScore.map(f => Number(f.RoundNumber)))];
+        const { fixtures: updated, liveRounds, evaluated } = await overlayAflScores(fixtures, year, roundsNeeded);
         // Write back any fixture whose score differs from what's stored — for
         // the fixtures we had authoritative own-round data for. This both lands
         // newly-acquired scores AND self-heals fixtures previously corrupted by
@@ -364,10 +401,14 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
   try {
     const token = await getAflToken();
 
-    // Detect offset: if round 0 returns no matches, use round+1
-    let apiRound = round;
-    const { matchCount: c0 } = await fetchAflApiScoresForRound(0, token);
-    if (c0 === 0) apiRound = round + 1;
+    // Reuse the shared offset cache instead of re-probing round 0 every call.
+    let offset = 0;
+    try {
+      offset = await getRoundOffset(token);
+    } catch {
+      offset = 1;
+    }
+    const apiRound = round + offset;
 
     const res = await fetch(
       `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${apiRound}&pageSize=20`,

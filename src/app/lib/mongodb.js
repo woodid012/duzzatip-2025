@@ -119,8 +119,15 @@ class DatabaseConnection {
           { Round: 1, User: 1, Active: 1 },
           { background: true, name: 'team_round_user_active' }
         ),
-        
-        // Game results
+        // Covers the per-round team-list aggregation ($match {Round, Active}),
+        // which can't use the User-middle compound index as a prefix.
+        db.collection(`${currentYear}_team_selection`).createIndex(
+          { Round: 1, Active: 1 },
+          { background: true, name: 'team_round_active' }
+        ),
+
+        // Game results — keep {round:1} (hot round-only reads) and add compound
+        // indexes for the write/merge path (no read-path behaviour change).
         db.collection(`${currentYear}_game_results`).createIndex(
           { round: 1 },
           { background: true, name: 'game_results_round' }
@@ -128,6 +135,16 @@ class DatabaseConnection {
         db.collection(`${currentYear}_game_results`).createIndex(
           { player_name: 1, round: 1 },
           { background: true, name: 'game_results_player_round' }
+        ),
+        // Backs the liveOnly merge deleteMany({round, year, team_name}).
+        db.collection(`${currentYear}_game_results`).createIndex(
+          { year: 1, round: 1, team_name: 1 },
+          { background: true, name: 'game_results_year_round_team' }
+        ),
+        // Backs the "is-stale" findOne({round, year}).sort({created_at:-1}).
+        db.collection(`${currentYear}_game_results`).createIndex(
+          { year: 1, round: 1, created_at: -1 },
+          { background: true, name: 'game_results_year_round_created' }
         ),
         
         // Cache collections

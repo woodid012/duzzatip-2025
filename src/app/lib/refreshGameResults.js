@@ -20,7 +20,7 @@ async function getAFLToken() {
     return data.token;
 }
 
-export async function fetchAFLRoundStats(round, providedToken = null) {
+export async function fetchAFLRoundStats(round, providedToken = null, { liveOnly = false } = {}) {
     const token = providedToken || await getAFLToken();
     const headers = { "x-media-mis-token": token };
 
@@ -40,6 +40,9 @@ export async function fetchAFLRoundStats(round, providedToken = null) {
     await Promise.all(matches.map(async (match) => {
         const providerId = match.providerId;
         if (!providerId) return;
+        // liveOnly (used by the manual refresh): skip CONCLUDED games — their
+        // stats are final and won't change, so re-fetching them is wasted time.
+        if (liveOnly && match.status === 'CONCLUDED') return;
 
         // Use the stable English club name, not team.name (which rotates
         // through Indigenous-language variants like Walyalup / Narrm). The
@@ -101,7 +104,9 @@ export async function fetchAFLRoundStats(round, providedToken = null) {
         }
     }));
 
-    if (allPlayers.length === 0) {
+    // In liveOnly mode an empty result is legitimate (e.g. all games concluded,
+    // or none live yet) — return [] rather than throwing.
+    if (allPlayers.length === 0 && !liveOnly) {
         throw new Error(`AFL API returned 0 player stats for round ${round}`);
     }
 
@@ -118,12 +123,27 @@ export function isSuspectRefresh(existingCount, newCount) {
     return existingCount > 0 && newCount < existingCount * 0.5;
 }
 
-export async function updateGameResults(statsData, round) {
+export async function updateGameResults(statsData, round, { merge = false } = {}) {
     const { db } = await connectToDatabase();
     const collection = db.collection(`${CURRENT_YEAR}_game_results`);
     const processedData = statsData.filter(r => r && typeof r === 'object');
 
-    // Never let a partial/degraded refresh replace a fuller stored set.
+    // Merge mode (liveOnly refresh): only replace the teams we actually fetched
+    // fresh stats for — leaving already-stored CONCLUDED games untouched. We
+    // never delete a team's rows unless we have new rows to put back, so a
+    // degraded response can't wipe data, and the global suspect-shrink guard
+    // (which assumes a full replace) doesn't apply.
+    if (merge) {
+        if (processedData.length === 0) {
+            return { insertedCount: 0, skipped: true, reason: 'nothing_live' };
+        }
+        const teams = [...new Set(processedData.map(r => r.team_name).filter(Boolean))];
+        await collection.deleteMany({ round, year: CURRENT_YEAR, team_name: { $in: teams } });
+        const result = await collection.insertMany(processedData);
+        return { insertedCount: result.insertedCount, merged: true, teams: teams.length };
+    }
+
+    // Full replace: never let a partial/degraded refresh replace a fuller stored set.
     const existingCount = await collection.countDocuments({ round, year: CURRENT_YEAR });
     if (isSuspectRefresh(existingCount, processedData.length)) {
         console.warn(
@@ -148,7 +168,7 @@ const THROTTLE_MS = 5 * 60 * 1000;
  * Best-effort refresh. Returns immediately if a refresh ran in the last 5 min
  * for this round. Coalesces concurrent callers onto the same in-flight promise.
  */
-export async function refreshGameResultsForRound(round, { token = null, force = false } = {}) {
+export async function refreshGameResultsForRound(round, { token = null, force = false, liveOnly = false } = {}) {
     if (!force) {
         const last = lastRun.get(round);
         if (last && Date.now() - last < THROTTLE_MS) {
@@ -159,8 +179,8 @@ export async function refreshGameResultsForRound(round, { token = null, force = 
 
     const p = (async () => {
         try {
-            const stats = await fetchAFLRoundStats(round, token);
-            const { insertedCount } = await updateGameResults(stats, round);
+            const stats = await fetchAFLRoundStats(round, token, { liveOnly });
+            const { insertedCount } = await updateGameResults(stats, round, { merge: liveOnly });
             lastRun.set(round, Date.now());
             console.log(`[auto] Refreshed game_results round ${round}: ${insertedCount} records`);
             return { insertedCount };
