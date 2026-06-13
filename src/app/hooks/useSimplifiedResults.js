@@ -128,6 +128,31 @@ export default function useSimplifiedResults() {
     }
   }, [displayRound, loadRoundData]);
 
+  // Manual refresh: silently re-pull the current round's scores (bypassing the
+  // client-side round cache) without flashing the full loading screen.
+  const refresh = useCallback(async () => {
+    const round = displayRound;
+    if (round === null || round === undefined) return;
+    setIsRefreshing(true);
+    roundCache.delete(round);
+    try {
+      const fixturesData = isFinalRound(round)
+        ? await calculateFinalsFixtures(round, selectedYear)
+        : getFixturesForRound(round);
+      setFixtures(fixturesData || []);
+      const response = await fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`);
+      if (response.ok) {
+        const data = await response.json();
+        roundCache.set(round, { roundData: data, fixtures: fixturesData });
+        setRoundData(data);
+      }
+    } catch (err) {
+      console.error('Refresh failed:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [displayRound, selectedYear, roundCache]);
+
   // Determine if round is complete
   const isRoundComplete = useMemo(() => {
     if (!displayRound || !currentRound) return false;
@@ -274,9 +299,10 @@ export default function useSimplifiedResults() {
     
     // Actions
     changeRound,
+    refresh,
     getTeamScores,
     calculateAllTeamScores,
-    
+
     // Raw data for advanced usage
     roundData
   };

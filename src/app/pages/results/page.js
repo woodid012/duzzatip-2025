@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { RefreshCw } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppContext';
 import useSimplifiedResults from '@/app/hooks/useSimplifiedResults';
 import { USER_NAMES } from '@/app/lib/constants';
@@ -43,6 +44,7 @@ export default function ResultsPage() {
     calculateAllTeamScores,
     getTeamScores,
     changeRound,
+    refresh,
     roundData,
     loadingStage,
     loadingMessage,
@@ -336,14 +338,14 @@ export default function ResultsPage() {
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
-      {/* Mobile-optimized header */}
-      {isLoggedIn && (
-        <div className="block sm:hidden mb-4">
+      {/* Mobile-optimized header: round + live-score refresh on one row */}
+      <div className="flex items-center gap-2 mb-4 sm:hidden">
+        {isLoggedIn ? (
           <select
             id="round-select-mobile"
             value={displayedRound || ""}
             onChange={handleRoundChange}
-            className="dz-select w-full text-base"
+            className="dz-select flex-1 text-base"
           >
             {[...Array(25)].map((_, i) => (
               <option key={i} value={i}>
@@ -351,8 +353,18 @@ export default function ResultsPage() {
               </option>
             ))}
           </select>
-        </div>
-      )}
+        ) : (
+          <span className="dz-select flex-1 text-base">{displayRoundName(displayedRound)}</span>
+        )}
+        <button
+          onClick={refresh}
+          disabled={isRefreshing}
+          title="Refresh live scores"
+          className="inline-flex flex-shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white p-2.5 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+        >
+          <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
 
       {/* Desktop scoreboard header */}
       <div className="hidden sm:block mb-6 rounded-[22px] bg-gradient-to-br from-slate-900 via-slate-800 to-[#0b1120] px-[30px] py-[26px] text-white shadow-[0_18px_40px_-22px_rgba(15,23,42,0.55)]">
@@ -377,20 +389,31 @@ export default function ResultsPage() {
 
           {/* Right: controls + stat tiles */}
           <div className="flex flex-col items-end gap-4">
-            {isLoggedIn && (
-              <select
-                id="round-select"
-                value={displayedRound || ''}
-                onChange={handleRoundChange}
-                className="cursor-pointer rounded-[11px] border border-white/[0.16] bg-white/[0.07] px-[13px] py-[9px] text-sm font-semibold text-slate-200"
+            <div className="flex items-center gap-[10px]">
+              {isLoggedIn && (
+                <select
+                  id="round-select"
+                  value={displayedRound || ''}
+                  onChange={handleRoundChange}
+                  className="cursor-pointer rounded-[11px] border border-white/[0.16] bg-white/[0.07] px-[13px] py-[9px] text-sm font-semibold text-slate-200"
+                >
+                  {[...Array(25)].map((_, i) => (
+                    <option key={i} value={i} className="text-slate-900">
+                      {displayRoundName(i)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={refresh}
+                disabled={isRefreshing}
+                title="Refresh live scores"
+                className="inline-flex items-center gap-2 rounded-[11px] border border-white/[0.16] bg-white/[0.07] px-[13px] py-[9px] text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.12] disabled:opacity-60"
               >
-                {[...Array(25)].map((_, i) => (
-                  <option key={i} value={i} className="text-slate-900">
-                    {displayRoundName(i)}
-                  </option>
-                ))}
-              </select>
-            )}
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
             <div className="flex gap-[10px]">
               {[
                 { label: '⭐ Top Score', value: headerStats.top, sub: headerStats.topName },
