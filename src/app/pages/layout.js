@@ -10,6 +10,7 @@ import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { ToastProvider } from '@/app/components/Toast';
 import RoundStatus from '@/app/components/RoundStatus';
 import AuthModal from '@/app/components/AuthModal';
+import LoginGate from '@/app/components/LoginGate';
 import {
   Menu, X, Trophy, ClipboardList, Target, ListOrdered, TrendingUp,
   CheckCircle2, Shuffle, HeartPulse, Users, Settings, BarChart3,
@@ -87,6 +88,13 @@ export default function PagesLayout({ children }) {
   // True once we've checked the session cookie, so route-guarding doesn't fire
   // (and redirect) before we know whether the visitor is logged in.
   const [authReady, setAuthReady] = useState(false);
+  // "Skip" on the login gate → browse as a guest (public view) for this session.
+  const [guestMode, setGuestMode] = useState(false);
+
+  const enterGuestMode = () => {
+    setGuestMode(true);
+    if (typeof window !== 'undefined') sessionStorage.setItem('dz_guest', '1');
+  };
 
   // Mobile navigation state
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -103,6 +111,9 @@ export default function PagesLayout({ children }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (typeof window !== 'undefined' && sessionStorage.getItem('dz_guest') === '1') {
+        setGuestMode(true);
+      }
       if (AUTH_RECOGNIZE_LOGIN) {
         try {
           const res = await fetch('/api/auth');
@@ -261,7 +272,11 @@ export default function PagesLayout({ children }) {
     setAuthedUserId(null);
     setSelectedUserId('');
     setIsAdminAuthenticated(false);
-    if (typeof window !== 'undefined') localStorage.removeItem('selectedUserId');
+    setGuestMode(false);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('selectedUserId');
+      sessionStorage.removeItem('dz_guest');
+    }
   };
 
   // Handle admin password submission — server-verified so admin also gets a
@@ -370,6 +385,29 @@ export default function PagesLayout({ children }) {
       </Link>
     );
   };
+
+  // While the session cookie is being checked, show a brief splash so the app
+  // doesn't flash the public view first and then re-render — one screen, not two.
+  if (AUTH_GATING_ENABLED && !authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Logo width={56} height={56} className="rounded-2xl" />
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in and not browsing as a guest → prompt to sign in (with Skip).
+  if (AUTH_GATING_ENABLED && !isLoggedIn && !guestMode) {
+    return (
+      <LoginGate
+        onLoggedIn={(uid) => { setAuthedUserId(uid); setSelectedUserId(String(uid)); }}
+        onSkip={enterGuestMode}
+      />
+    );
+  }
 
   return (
     <ToastProvider>
