@@ -25,10 +25,15 @@ function BenchList({ scores, roundEndPassed }) {
           return (
             <div key={b.position} className={`grid grid-cols-[96px_1fr_44px] items-center gap-2 px-1.5 py-1 rounded-md ${live ? 'bg-amber-600/12' : ''}`}>
               <div className="text-[10px] font-bold text-slate-400 truncate">{b.position}</div>
-              <div className={`text-[12px] font-semibold truncate ${nameColor}`}>
-                {b.playerName}
-                {used && ' (Used)'}
-                {!roundEndPassed && !used && ' : Locked'}
+              <div className="min-w-0">
+                <div className={`text-[12px] font-semibold truncate ${nameColor}`}>
+                  {b.playerName}
+                  {used && ' (Used)'}
+                  {!roundEndPassed && !used && ' : Locked'}
+                </div>
+                {b.didPlay && b.breakdown && (
+                  <div className={`text-[10px] truncate ${live ? 'text-amber-400' : 'text-slate-500'}`}>{b.breakdown}</div>
+                )}
               </div>
               <div className={`text-[13px] font-bold text-right tabular-nums ${scoreColor}`}>
                 {live && <LiveDot />}{b.score}
@@ -73,14 +78,18 @@ function PositionList({ scores, roundEndPassed }) {
                 <div className={`text-[13px] font-bold truncate ${nameColor}`}>
                   {p.originalPlayerName || 'Not Selected'}
                 </div>
-                {isReplaced && (
+                {/* Stat breakdown detail line — same data the desktop card shows */}
+                {isReplaced ? (
                   <div className="text-[11px] font-semibold text-emerald-400 truncate">
-                    → {p.playerName}
+                    → {p.playerName}{p.breakdown ? ` · ${p.breakdown}` : ''}
                   </div>
-                )}
-                {showDNP && !isReplaced && (
+                ) : showDNP ? (
                   <div className="text-[10px] text-red-400">Did not play</div>
-                )}
+                ) : p.breakdown ? (
+                  <div className={`text-[10px] truncate ${isLive ? 'text-amber-400' : 'text-slate-500'}`}>
+                    {p.breakdown}
+                  </div>
+                ) : null}
               </div>
               <div className={`text-[15px] font-extrabold text-right tabular-nums ${scoreColor}`}>
                 {isLive && <LiveDot />}
