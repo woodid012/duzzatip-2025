@@ -371,7 +371,7 @@ export default function TeamSelectionPage() {
             : 'Team Selection'
         }
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center">
             <label htmlFor="round-select" className="text-[11px] font-medium text-slate-300 mr-2">Round:</label>
             <select

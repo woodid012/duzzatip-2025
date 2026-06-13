@@ -8,15 +8,16 @@ import { USER_NAMES } from '@/app/lib/constants';
 // First-visit login prompt for not-logged-in users. Pick a team → enter
 // password → signed in. "Skip" browses as a guest (public view). New users are
 // pointed at /register.
-export default function LoginGate({ onLoggedIn, onSkip }) {
+export default function LoginGate({ onLoggedIn, onAdmin, onSkip }) {
   const [userId, setUserId] = useState('');
   const [hasPassword, setHasPassword] = useState(null); // null = not chosen yet
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  const isAdmin = userId === 'admin';
   const uid = Number(userId);
-  const teamName = USER_NAMES[uid];
+  const teamName = isAdmin ? 'Admin' : USER_NAMES[uid];
 
   const onTeam = async (e) => {
     const v = e.target.value;
@@ -25,6 +26,7 @@ export default function LoginGate({ onLoggedIn, onSkip }) {
     setError('');
     setHasPassword(null);
     if (!v) return;
+    if (v === 'admin') { setHasPassword(true); return; } // admin always needs its password
     try {
       const r = await fetch('/api/auth', {
         method: 'POST',
@@ -48,11 +50,11 @@ export default function LoginGate({ onLoggedIn, onSkip }) {
       const r = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', userId: uid, password }),
+        body: JSON.stringify(isAdmin ? { action: 'admin-login', password } : { action: 'login', userId: uid, password }),
       });
       const d = await r.json();
       if (!r.ok) { setError(d.error || 'Sign in failed'); setBusy(false); return; }
-      onLoggedIn(uid);
+      if (isAdmin) onAdmin(); else onLoggedIn(uid);
     } catch {
       setError('Could not reach the server');
       setBusy(false);
@@ -77,6 +79,7 @@ export default function LoginGate({ onLoggedIn, onSkip }) {
                 {Object.entries(USER_NAMES).map(([id, name]) => (
                   <option key={id} value={id}>{name}</option>
                 ))}
+                <option value="admin">Admin</option>
               </select>
             </div>
 

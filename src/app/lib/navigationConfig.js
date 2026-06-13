@@ -10,6 +10,7 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
     { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
     { name: 'Tipping Ladder', path: '/pages/tipping-ladder', id: 'tipping-ladder' },
     { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
+    { name: 'Past Seasons', path: '/pages/past-seasons', id: 'past-seasons' },
   ],
   [
     { name: 'Draft', path: '/pages/draft', id: 'draft' },

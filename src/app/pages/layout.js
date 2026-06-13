@@ -14,7 +14,7 @@ import LoginGate from '@/app/components/LoginGate';
 import {
   Menu, X, Trophy, ClipboardList, Target, ListOrdered, TrendingUp,
   CheckCircle2, Shuffle, HeartPulse, Users, Settings, BarChart3,
-  RefreshCw, UserCog, Lock, ChevronRight, LogOut,
+  RefreshCw, UserCog, Lock, ChevronRight, LogOut, History,
 } from 'lucide-react';
 
 // Icon per nav id — keeps the sidebar scannable on web and mobile.
@@ -32,6 +32,7 @@ const NAV_ICONS = {
   'round-by-round': BarChart3,
   'update-stats': RefreshCw,
   'update-players': UserCog,
+  'past-seasons': History,
 };
 
 const NavIcon = ({ id, className }) => {
@@ -326,24 +327,6 @@ export default function PagesLayout({ children }) {
 
   // Shared bits ----------------------------------------------------------
 
-  const YearToggle = ({ size = 'sm' }) => (
-    <div className="inline-flex items-center rounded-lg bg-slate-100 p-0.5">
-      {[2025, CURRENT_YEAR].map((yr) => (
-        <button
-          key={yr}
-          onClick={() => setSelectedYear(yr)}
-          className={`rounded-md px-2.5 ${size === 'sm' ? 'py-0.5 text-xs' : 'py-1 text-sm'} font-semibold transition-colors ${
-            selectedYear === yr
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          {yr}
-        </button>
-      ))}
-    </div>
-  );
-
   const UserSelect = ({ className = '' }) => {
     // Once signed in, the team is locked — sign out to switch.
     const locked = authedUserId !== null || isAdminAuthenticated;
@@ -353,7 +336,7 @@ export default function PagesLayout({ children }) {
         onChange={handleUserChange}
         disabled={locked}
         title={locked ? 'Signed in — sign out to switch teams' : undefined}
-        className={`dz-select ${locked ? 'cursor-not-allowed opacity-90' : ''} ${className}`}
+        className={`dz-select ${locked ? 'cursor-default appearance-none pr-3' : ''} ${className}`}
       >
         <option value="">Select Player</option>
         {Object.entries(USER_NAMES).map(([id, name]) => (
@@ -404,6 +387,7 @@ export default function PagesLayout({ children }) {
     return (
       <LoginGate
         onLoggedIn={(uid) => { setAuthedUserId(uid); setSelectedUserId(String(uid)); }}
+        onAdmin={() => { setIsAdminAuthenticated(true); setSelectedUserId('admin'); }}
         onSkip={enterGuestMode}
       />
     );
@@ -514,7 +498,6 @@ export default function PagesLayout({ children }) {
                     <LogOut className="h-3.5 w-3.5" /> Sign out
                   </button>
                 )}
-                <YearToggle />
               </div>
             </div>
           </div>
@@ -527,8 +510,11 @@ export default function PagesLayout({ children }) {
 
           {/* Past year banner - mobile */}
           {isPastYear && (
-            <div className="border-t border-amber-200 bg-amber-50 px-3 py-1.5 text-center text-xs font-medium text-amber-800">
-              Viewing {selectedYear} season (read-only)
+            <div className="flex items-center justify-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-1.5 text-center text-xs font-medium text-amber-800">
+              <span>Viewing {selectedYear} (read-only)</span>
+              <button onClick={() => setSelectedYear(CURRENT_YEAR)} className="font-semibold text-blue-600 underline">
+                Back to {CURRENT_YEAR}
+              </button>
             </div>
           )}
 
@@ -562,8 +548,7 @@ export default function PagesLayout({ children }) {
         {isMobileNavOpen && (
           <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden" onClick={() => setIsMobileNavOpen(false)}>
             <div
-              className="animate-slide-in-right absolute left-0 top-0 h-full w-80 max-w-[85%] bg-white shadow-2xl"
-              style={{ animation: 'slide-in-right .25s ease-out' }}
+              className="animate-slide-in-left absolute left-0 top-0 h-full w-80 max-w-[85%] bg-white shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between border-b border-slate-200 p-4">
@@ -616,13 +601,14 @@ export default function PagesLayout({ children }) {
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500">Season</span>
-                <YearToggle size="md" />
-                {isPastYear && (
-                  <span className="dz-badge bg-amber-100 text-amber-700">Read-only</span>
-                )}
-              </div>
+              {isPastYear && (
+                <div className="flex items-center gap-2">
+                  <span className="dz-badge bg-amber-100 text-amber-700">Viewing {selectedYear} · read-only</span>
+                  <button onClick={() => setSelectedYear(CURRENT_YEAR)} className="text-xs font-semibold text-blue-600 hover:underline">
+                    Back to {CURRENT_YEAR}
+                  </button>
+                </div>
+              )}
 
               {!isPastYear && (showRoundInfo ? (
                 <div className="hidden items-center gap-2 lg:flex">

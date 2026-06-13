@@ -655,12 +655,11 @@ export default function LadderConsolidatedPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-gray-500">⭐/🦀</div>
                     <div className="font-medium text-xs">
                       {team.starsTotal > 0 ? `${team.starsTotal}⭐` : ''}
                       {team.starsTotal > 0 && team.crabsTotal > 0 ? ' ' : ''}
                       {team.crabsTotal > 0 ? `${team.crabsTotal}🦀` : ''}
-                      {!team.starsTotal && !team.crabsTotal ? <span className="text-gray-400">-</span> : ''}
+                      {!team.starsTotal && !team.crabsTotal ? <span className="text-slate-400">-</span> : ''}
                     </div>
                   </div>
                 </div>
