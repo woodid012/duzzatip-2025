@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 
 // Small pulsing dot used on live scores
-const LiveDot = ({ className = 'bg-amber-400' }) => (
+const LiveDot = ({ className = 'bg-amber-500' }) => (
   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle animate-pulse ${className}`} />
 );
 
@@ -13,18 +13,18 @@ function BenchList({ scores, roundEndPassed }) {
   const bench = scores.benchScores || [];
   if (bench.length === 0) return null;
   return (
-    <div className="mt-3 rounded-[13px] border border-white/[0.06] bg-white/[0.025] p-3">
+    <div className="mt-3 rounded-[13px] border border-slate-200 bg-slate-50 p-3">
       <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Bench / Reserves</div>
       <div className="flex flex-col gap-0.5">
         {bench.map((b) => {
           const showDNP = roundEndPassed && !b.didPlay;
           const used = b.isBeingUsed;
           const live = b.isGameLive;
-          const scoreColor = showDNP ? 'text-red-400' : used ? 'text-emerald-400' : live ? 'text-amber-400' : 'text-slate-400';
-          const nameColor = used ? 'text-emerald-400' : showDNP ? 'text-red-400' : 'text-slate-300';
+          const scoreColor = showDNP ? 'text-red-600' : used ? 'text-emerald-600' : live ? 'text-amber-600' : 'text-slate-500';
+          const nameColor = used ? 'text-emerald-600' : showDNP ? 'text-red-600' : 'text-slate-700';
           return (
-            <div key={b.position} className={`grid grid-cols-[96px_1fr_44px] items-center gap-2 px-1.5 py-1 rounded-md ${live ? 'bg-amber-600/12' : ''}`}>
-              <div className="text-[10px] font-bold text-slate-400 truncate">{b.position}</div>
+            <div key={b.position} className={`grid grid-cols-[96px_1fr_44px] items-center gap-2 px-1.5 py-1 rounded-md ${live ? 'bg-amber-50' : ''}`}>
+              <div className="text-[10px] font-bold text-slate-500 truncate">{b.position}</div>
               <div className="min-w-0">
                 <div className={`text-[12px] font-semibold truncate ${nameColor}`}>
                   {b.playerName}
@@ -32,7 +32,7 @@ function BenchList({ scores, roundEndPassed }) {
                   {!roundEndPassed && !used && ' : Locked'}
                 </div>
                 {b.didPlay && b.breakdown && (
-                  <div className={`text-[10px] truncate ${live ? 'text-amber-400' : 'text-slate-500'}`}>{b.breakdown}</div>
+                  <div className={`text-[10px] truncate ${live ? 'text-amber-600' : 'text-slate-500'}`}>{b.breakdown}</div>
                 )}
               </div>
               <div className={`text-[13px] font-bold text-right tabular-nums ${scoreColor}`}>
@@ -48,7 +48,7 @@ function BenchList({ scores, roundEndPassed }) {
 
 function PositionList({ scores, roundEndPassed }) {
   return (
-    <div className="rounded-[18px] border border-white/[0.07] bg-white/[0.03] p-3">
+    <div className="rounded-[18px] border border-slate-200 bg-white shadow-sm p-3">
       <div className="flex flex-col gap-0.5">
         {(scores.positionScores || []).map((p) => {
           const didNotPlay = p.noStats || !p.player?.hasPlayed;
@@ -58,18 +58,18 @@ function PositionList({ scores, roundEndPassed }) {
 
           const headline = p.originalScore ?? p.score;
           const scoreColor = showDNP
-            ? 'text-red-400'
+            ? 'text-red-600'
             : isReplaced
-              ? 'text-emerald-400'
+              ? 'text-emerald-600'
               : isLive
-                ? 'text-amber-400'
-                : 'text-slate-50';
-          const nameColor = (showDNP || isReplaced) ? 'text-red-400 line-through' : 'text-slate-200';
+                ? 'text-amber-600'
+                : 'text-slate-900';
+          const nameColor = (showDNP || isReplaced) ? 'text-red-600 line-through' : 'text-slate-900';
 
           return (
             <div
               key={p.position}
-              className={`grid grid-cols-[84px_1fr_50px] items-center gap-2 px-1.5 py-1.5 rounded-lg ${isLive ? 'bg-amber-600/12' : ''}`}
+              className={`grid grid-cols-[84px_1fr_50px] items-center gap-2 px-1.5 py-1.5 rounded-lg ${isLive ? 'bg-amber-50' : ''}`}
             >
               <div className="text-[10px] font-extrabold uppercase tracking-[0.04em] text-slate-500">
                 {p.position}
@@ -80,13 +80,13 @@ function PositionList({ scores, roundEndPassed }) {
                 </div>
                 {/* Stat breakdown detail line — same data the desktop card shows */}
                 {isReplaced ? (
-                  <div className="text-[11px] font-semibold text-emerald-400 truncate">
+                  <div className="text-[11px] font-semibold text-emerald-600 truncate">
                     → {p.playerName}{p.breakdown ? ` · ${p.breakdown}` : ''}
                   </div>
                 ) : showDNP ? (
-                  <div className="text-[10px] text-red-400">Did not play</div>
+                  <div className="text-[10px] text-red-600">Did not play</div>
                 ) : p.breakdown ? (
-                  <div className={`text-[10px] truncate ${isLive ? 'text-amber-400' : 'text-slate-500'}`}>
+                  <div className={`text-[10px] truncate ${isLive ? 'text-amber-600' : 'text-slate-500'}`}>
                     {p.breakdown}
                   </div>
                 ) : null}
@@ -101,17 +101,17 @@ function PositionList({ scores, roundEndPassed }) {
       </div>
 
       {/* Totals */}
-      <div className="flex border-t border-white/[0.08] mt-3 pt-2.5 pb-1">
+      <div className="flex border-t border-slate-200 mt-3 pt-2.5 pb-1">
         {[
           { label: 'Team', value: scores.totalScore, accent: false },
           { label: 'Dead Cert', value: `${scores.deadCertScore >= 0 ? '+' : ''}${scores.deadCertScore}`, accent: false },
           { label: 'Final', value: scores.finalScore, accent: true },
         ].map((cell, i) => (
-          <div key={cell.label} className={`flex-1 text-center ${i > 0 ? 'border-l border-white/[0.08]' : ''}`}>
-            <div className={`text-[9px] font-extrabold uppercase tracking-[0.08em] ${cell.accent ? 'text-blue-400' : 'text-slate-500'}`}>
+          <div key={cell.label} className={`flex-1 text-center ${i > 0 ? 'border-l border-slate-200' : ''}`}>
+            <div className={`text-[9px] font-extrabold uppercase tracking-[0.08em] ${cell.accent ? 'text-blue-600' : 'text-slate-500'}`}>
               {cell.label}
             </div>
-            <div className={`mt-0.5 text-[17px] tabular-nums ${cell.accent ? 'font-black text-blue-400' : 'font-extrabold text-slate-200'}`}>
+            <div className={`mt-0.5 text-[17px] tabular-nums ${cell.accent ? 'font-black text-blue-600' : 'font-extrabold text-slate-900'}`}>
               {cell.value}
             </div>
           </div>
@@ -149,14 +149,14 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
   });
   // Abbreviate position to fit the center column
   const abbr = (p) => ({ 'Full Forward': 'FF', 'Tall Forward': 'TF', Offensive: 'OFF', Midfielder: 'MID', Tackler: 'TAK', Ruck: 'RK' }[p] || p.slice(0, 3).toUpperCase());
-  const sCls = (win, live) => `text-[14px] font-extrabold tabular-nums w-6 text-center ${live ? 'text-amber-400' : win ? 'text-emerald-400' : 'text-slate-300'}`;
-  const nCls = (win) => `text-[11px] truncate ${win ? 'font-bold text-slate-200' : 'font-medium text-slate-500'}`;
+  const sCls = (win, live) => `text-[14px] font-extrabold tabular-nums w-6 text-center ${live ? 'text-amber-600' : win ? 'text-emerald-600' : 'text-slate-600'}`;
+  const nCls = (win) => `text-[11px] truncate ${win ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`;
 
   return (
-    <div className="mt-2.5 border-t border-white/[0.07] pt-2.5">
+    <div className="mt-2.5 border-t border-slate-200 pt-2.5">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Head to Head</span>
-        <span className="text-[10px] font-bold text-slate-400">Positions won {hWins}–{aWins}</span>
+        <span className="text-[10px] font-bold text-slate-500">Positions won {hWins}–{aWins}</span>
       </div>
       <div className="flex flex-col gap-1.5">
         {rows.map((r) => (
@@ -164,7 +164,7 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
             <div className={`text-right ${nCls(r.hWin)}`}>{r.hName}</div>
             <div className="flex items-center justify-center gap-1.5">
               <span className={sCls(r.hWin, homeLive)}>{r.hScore}</span>
-              <span className="text-[7px] font-extrabold uppercase text-slate-600 w-[18px] text-center">{abbr(r.pos)}</span>
+              <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[18px] text-center">{abbr(r.pos)}</span>
               <span className={sCls(r.aWin, awayLive)}>{r.aScore}</span>
             </div>
             <div className={`text-left ${nCls(r.aWin)}`}>{r.aName}</div>
@@ -214,7 +214,7 @@ export default function MobileLiveScoreboard({
       disabled={disabled}
       onClick={() => setTab(key)}
       className={`flex-1 rounded-[10px] py-2.5 text-[13px] font-extrabold transition-colors ${
-        tab === key ? 'bg-blue-500 text-white' : 'bg-transparent text-slate-400'
+        tab === key ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
       } ${disabled ? 'opacity-40' : ''}`}
     >
       {label}
@@ -222,32 +222,32 @@ export default function MobileLiveScoreboard({
   );
 
   return (
-    <div className="block sm:hidden -mx-4 px-4 pb-10 pt-2 bg-gradient-to-b from-[#0b1120] via-slate-900 to-[#0b1120] text-slate-200">
+    <div className="block sm:hidden -mx-4 px-4 pb-10 pt-2 text-slate-700">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-400">
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-600">
             {displayRoundName(displayedRound)}{isLiveRound ? ' · Live' : ''}
           </div>
-          <h1 className="mt-0.5 text-[27px] font-black tracking-[-0.03em] leading-none text-white">
+          <h1 className="mt-0.5 text-[27px] font-black tracking-[-0.03em] leading-none text-slate-900">
             Team Scores
           </h1>
         </div>
         {isLiveRound && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-600/15 border border-amber-400/30 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-amber-300">
-            <LiveDot className="bg-amber-300" /> LIVE
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-amber-700">
+            <LiveDot className="bg-amber-500" /> LIVE
           </span>
         )}
       </div>
 
       {/* Your Match hero */}
       {hasMatch && (
-        <div className="rounded-[22px] border border-blue-500/40 p-4 bg-gradient-to-br from-blue-500/20 to-slate-900/20 shadow-[0_10px_30px_-16px_rgba(37,99,235,0.8)]">
+        <div className="rounded-[22px] border border-blue-200 p-4 bg-blue-50 shadow-[0_10px_30px_-18px_rgba(37,99,235,0.45)]">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-300">Your Match</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-600">Your Match</span>
             {(myLive || oppLive) && (
-              <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-[0.06em] text-amber-300">
-                <LiveDot className="bg-amber-300" /> In Play
+              <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-[0.06em] text-amber-600">
+                <LiveDot className="bg-amber-500" /> In Play
               </span>
             )}
           </div>
@@ -257,19 +257,19 @@ export default function MobileLiveScoreboard({
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="text-[22px] leading-none">{TEAM_LOGOS[selectedUserId]}</span>
               <div className="min-w-0">
-                <div className="text-sm font-extrabold text-white truncate max-w-[150px]">{USER_NAMES[selectedUserId]}</div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-blue-300">You</div>
+                <div className="text-sm font-extrabold text-slate-900 truncate max-w-[150px]">{USER_NAMES[selectedUserId]}</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-blue-600">You</div>
               </div>
             </div>
-            <div className={`text-[34px] font-black tracking-[-0.03em] leading-none tabular-nums ${myLive ? 'text-amber-400' : 'text-white'}`}>
+            <div className={`text-[34px] font-black tracking-[-0.03em] leading-none tabular-nums ${myLive ? 'text-amber-600' : 'text-slate-900'}`}>
               {myLive && <LiveDot />}{myFinal}
             </div>
           </div>
 
           {/* Margin bar */}
-          <div className="flex h-[7px] rounded-full overflow-hidden bg-white/10 my-3">
+          <div className="flex h-[7px] rounded-full overflow-hidden bg-slate-200 my-3">
             <div className="bg-gradient-to-r from-blue-500 to-blue-400" style={{ width: `${myPct}%` }} />
-            <div className="bg-slate-400/45" style={{ width: `${100 - myPct}%` }} />
+            <div className="bg-slate-300" style={{ width: `${100 - myPct}%` }} />
           </div>
 
           {/* Opponent */}
@@ -277,11 +277,11 @@ export default function MobileLiveScoreboard({
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="text-[22px] leading-none">{TEAM_LOGOS[opponentId]}</span>
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-300 truncate max-w-[150px]">{USER_NAMES[opponentId]}</div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.04em] text-slate-500">Opponent</div>
+                <div className="text-sm font-semibold text-slate-600 truncate max-w-[150px]">{USER_NAMES[opponentId]}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.04em] text-slate-400">Opponent</div>
               </div>
             </div>
-            <div className={`text-[30px] font-extrabold tracking-[-0.03em] leading-none tabular-nums ${oppLive ? 'text-amber-400' : 'text-slate-400'}`}>
+            <div className={`text-[30px] font-extrabold tracking-[-0.03em] leading-none tabular-nums ${oppLive ? 'text-amber-600' : 'text-slate-500'}`}>
               {oppLive && <LiveDot />}{oppFinal}
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function MobileLiveScoreboard({
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-[13px] border border-white/[0.08] bg-white/[0.05] p-1 my-4">
+      <div className="flex gap-1 rounded-[13px] border border-slate-200 bg-slate-100 p-1 my-4">
         {tabBtn('team', 'My Team')}
         {tabBtn('opp', 'Opposition', !opponentId)}
         {tabBtn('round', 'The Round')}
@@ -301,12 +301,12 @@ export default function MobileLiveScoreboard({
           <div className="flex items-center justify-between px-1 mb-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-[18px] leading-none">{TEAM_LOGOS[activeId]}</span>
-              <span className="text-[13px] font-extrabold text-slate-100 truncate">{USER_NAMES[activeId]}</span>
+              <span className="text-[13px] font-extrabold text-slate-900 truncate">{USER_NAMES[activeId]}</span>
             </div>
             <span className={`shrink-0 text-[9px] font-extrabold uppercase tracking-[0.08em] rounded-full px-2 py-0.5 border ${
               tab === 'opp'
-                ? 'text-slate-400 bg-slate-400/10 border-slate-400/25'
-                : 'text-blue-400 bg-blue-500/15 border-blue-500/30'
+                ? 'text-slate-600 bg-slate-100 border-slate-200'
+                : 'text-blue-700 bg-blue-50 border-blue-200'
             }`}>
               {tab === 'opp' ? 'Opponent' : 'Your team'}
             </span>
@@ -329,11 +329,11 @@ export default function MobileLiveScoreboard({
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-base">{TEAM_LOGOS[id]}</span>
-                  <span className={`text-[13px] truncate ${win ? 'font-bold text-slate-100' : 'font-medium text-slate-400'}`}>
+                  <span className={`text-[13px] truncate ${win ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`}>
                     {USER_NAMES[id]}
                   </span>
                 </div>
-                <span className={`text-[19px] font-extrabold tabular-nums ${rowLive ? 'text-amber-400' : win ? 'text-emerald-400' : 'text-slate-500'}`}>
+                <span className={`text-[19px] font-extrabold tabular-nums ${rowLive ? 'text-amber-600' : win ? 'text-emerald-600' : 'text-slate-400'}`}>
                   {rowLive && <LiveDot />}{score}
                 </span>
               </div>
@@ -342,16 +342,16 @@ export default function MobileLiveScoreboard({
               <div
                 key={`${f.home}-${f.away}`}
                 onClick={() => setOpenGame((g) => (g === i ? null : i))}
-                className={`cursor-pointer rounded-[15px] border p-3 ${yours ? 'bg-blue-500/10 border-blue-500/35' : 'bg-white/[0.03] border-white/[0.07]'}`}
+                className={`cursor-pointer rounded-[15px] border p-3 ${yours ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'}`}
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className={`text-[10px] font-extrabold uppercase tracking-[0.08em] ${yours ? 'text-blue-400' : live ? 'text-amber-400' : 'text-slate-500'}`}>
+                  <div className={`text-[10px] font-extrabold uppercase tracking-[0.08em] ${yours ? 'text-blue-600' : live ? 'text-amber-600' : 'text-slate-500'}`}>
                     Game {i + 1}{live ? ' · Live' : ''}{yours ? ' · Your match' : ''}
                   </div>
-                  <span className="text-[11px] text-slate-500 shrink-0">{openGame === i ? '▴' : '▾'}</span>
+                  <span className="text-[11px] text-slate-400 shrink-0">{openGame === i ? '▴' : '▾'}</span>
                 </div>
                 {row(f.home, home, homeLive, home > away)}
-                <div className="h-px bg-white/[0.06] my-1.5" />
+                <div className="h-px bg-slate-200 my-1.5" />
                 {row(f.away, away, awayLive, away > home)}
                 {openGame === i && (
                   <HeadToHead homeId={f.home} awayId={f.away} getTeamScores={getTeamScores} liveUserIds={liveUserIds} />
@@ -363,21 +363,21 @@ export default function MobileLiveScoreboard({
           <div className="mt-3 mb-1 px-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
             {displayRoundName(displayedRound)} · all teams
           </div>
-          <div className="rounded-[16px] border border-white/[0.07] bg-white/[0.03] overflow-hidden">
+          <div className="rounded-[16px] border border-slate-200 bg-white overflow-hidden">
             {ranked.map((t, i) => {
               const isUser = String(t.uid) === String(selectedUserId);
               const live = liveUserIds.includes(String(t.uid));
               return (
-                <div key={t.uid} className={`flex items-center gap-2.5 px-3 py-2.5 border-b border-white/5 ${isUser ? 'bg-blue-500/10' : ''}`}>
-                  <span className="w-[18px] text-center text-xs font-extrabold text-slate-500 tabular-nums">{i + 1}</span>
+                <div key={t.uid} className={`flex items-center gap-2.5 px-3 py-2.5 border-b border-slate-100 ${isUser ? 'bg-blue-50' : ''}`}>
+                  <span className="w-[18px] text-center text-xs font-extrabold text-slate-400 tabular-nums">{i + 1}</span>
                   <span className="text-base">{TEAM_LOGOS[t.uid]}</span>
-                  <span className={`flex-1 truncate text-[13px] ${isUser ? 'font-extrabold text-white' : 'font-semibold text-slate-300'}`}>
+                  <span className={`flex-1 truncate text-[13px] ${isUser ? 'font-extrabold text-slate-900' : 'font-semibold text-slate-600'}`}>
                     {USER_NAMES[t.uid]}
                   </span>
                   {isUser && (
-                    <span className="text-[8px] font-extrabold tracking-[0.08em] text-blue-400 bg-blue-500/15 border border-blue-500/30 rounded-full px-1.5 py-px">YOU</span>
+                    <span className="text-[8px] font-extrabold tracking-[0.08em] text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-px">YOU</span>
                   )}
-                  <span className={`text-base font-extrabold tabular-nums ${live ? 'text-amber-400' : isUser ? 'text-blue-400' : 'text-slate-200'}`}>{t.score}</span>
+                  <span className={`text-base font-extrabold tabular-nums ${live ? 'text-amber-600' : isUser ? 'text-blue-600' : 'text-slate-900'}`}>{t.score}</span>
                 </div>
               );
             })}
