@@ -16,6 +16,7 @@ import { useUserContext } from '../layout';
 import { TeamScoreCard, WelcomeScreen } from './components';
 // Import a new component we'll create for the enhanced round summary
 import EnhancedRoundSummary from './components/EnhancedRoundSummary';
+import MobileLiveScoreboard from './components/MobileLiveScoreboard';
 
 export default function ResultsPage() {
   // Get data from our app context
@@ -442,56 +443,35 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {/* Enhanced Round Summary Section */}
-      <EnhancedRoundSummary
-        displayedRound={displayedRound}
-        roundName={displayRoundName(displayedRound)}
-        orderedFixtures={orderedFixtures}
-        allTeamScores={allTeamScores}
-        selectedUserId={selectedUserId}
-        hasSubstitutions={hasSubstitutions}
-        isFinals={isFinalRound(displayedRound)}
-        liveUserIds={liveUserIds}
-        onTeamOpen={(uid) => setOpenCards((p) => ({ ...p, [uid]: true }))}
-      />
-      
-      {/* Mobile Team Cards Section - 2-column compact layout */}
-      <div className="block sm:hidden">
-        <div className="grid grid-cols-2 gap-2">
-          {getTeamCardsOrder().map(userId => {
-            if (!userId || !USER_NAMES[userId]) return null;
-            
-            const userTeamScores = getTeamScores(userId);
-            
-            // Don't render if scores aren't calculated yet (prevents flashing)
-            if (!userTeamScores || loading) {
-              return (
-                <div key={userId} id={`team-card-${userId}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 scroll-mt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-sm font-bold text-slate-900 truncate">{USER_NAMES[userId]}</h2>
-                    <div className="text-right font-bold text-sm text-slate-400">
-                      Loading...
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <MobileTeamScoreCard
-                key={userId}
-                userId={userId}
-                userName={USER_NAMES[userId]}
-                teamScores={userTeamScores}
-                isHighestScore={userTeamScores.finalScore === highestScore && highestScore > 0}
-                isLowestScore={userTeamScores.finalScore === lowestScore && lowestScore > 0}
-                isSelectedUser={userId === selectedUserId}
-                isRoundComplete={roundEndPassed}
-              />
-            );
-          })}
-        </div>
+      {/* Enhanced Round Summary Section — desktop only (mobile has its own
+          "The Round" tab in the live scoreboard below) */}
+      <div className="hidden sm:block">
+        <EnhancedRoundSummary
+          displayedRound={displayedRound}
+          roundName={displayRoundName(displayedRound)}
+          orderedFixtures={orderedFixtures}
+          allTeamScores={allTeamScores}
+          selectedUserId={selectedUserId}
+          hasSubstitutions={hasSubstitutions}
+          isFinals={isFinalRound(displayedRound)}
+          liveUserIds={liveUserIds}
+          onTeamOpen={(uid) => setOpenCards((p) => ({ ...p, [uid]: true }))}
+        />
       </div>
+
+      {/* Mobile live scoreboard — replaces the old 2-col card grid on phones */}
+      {!loading && (
+        <MobileLiveScoreboard
+          selectedUserId={selectedUserId}
+          opponentId={opponentId}
+          getTeamScores={getTeamScores}
+          orderedFixtures={orderedFixtures}
+          liveUserIds={liveUserIds}
+          roundEndPassed={roundEndPassed}
+          displayedRound={displayedRound}
+          displayRoundName={displayRoundName}
+        />
+      )}
 
       {/* Desktop Team Cards Section - Original layout */}
       <div className="hidden sm:block">
@@ -552,130 +532,3 @@ export default function ResultsPage() {
   );
 }
 
-// Mobile-optimized TeamScoreCard component
-function MobileTeamScoreCard({
-  userId,
-  userName,
-  teamScores,
-  isHighestScore,
-  isLowestScore,
-  isSelectedUser,
-  isRoundComplete
-}) {
-  return (
-    <div id={`team-card-${userId}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 sm:p-4 scroll-mt-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1 min-w-0 flex-1">
-          <h2 className="text-sm sm:text-lg font-bold text-slate-900 truncate">{userName}</h2>
-          {isHighestScore && <span className="text-yellow-500 text-xs sm:text-base">⭐</span>}
-          {isLowestScore && <span className="text-red-500 text-xs sm:text-base">🦀</span>}
-          {isSelectedUser &&
-            <span className="text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded text-xs hidden sm:inline">Selected</span>}
-        </div>
-        <div className="text-right font-bold text-sm sm:text-lg text-slate-900">
-          {teamScores.finalScore}
-        </div>
-      </div>
-
-      <div className="space-y-2 text-xs sm:text-sm">
-        {/* Main Team Positions - Compact */}
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold border-b pb-1 text-slate-900">Main Team</h3>
-          {teamScores.positionScores.map((position) => {
-            const didNotPlay = position.noStats || !position.player?.hasPlayed;
-            const isReplaced = position.isBenchPlayer;
-            const isLive = position.isGameLive;
-            const showDNP = isRoundComplete && didNotPlay;
-
-            // Score colour: amber for live, red for DNP/replaced
-            const scoreClass = (showDNP || isReplaced)
-              ? 'text-red-600 font-semibold'
-              : isLive
-                ? 'text-amber-600 font-semibold'
-                : 'font-semibold';
-
-            return (
-              <div key={position.position} className={`flex justify-between items-center py-1 ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">{position.position}</div>
-                  <div className={`text-xs truncate ${(showDNP || isReplaced) ? 'text-red-600' : 'text-slate-900'}`}>
-                    {position.originalPlayerName || 'Not Selected'}
-                    {isReplaced && (
-                      <div className="text-green-600 text-xs">
-                        → {position.playerName}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right ml-1">
-                  <span className={scoreClass}>
-                    {isLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-0.5 align-middle" />}
-                    {position.originalScore ?? position.score}
-                  </span>
-                  {isReplaced && (
-                    <div className="text-xs text-green-600 font-medium">
-                      +{position.score}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Team Score + Dead Cert */}
-        <div className="border-t pt-2 space-y-1">
-          <div className="flex justify-between">
-            <span className="font-medium text-slate-900">Team Score:</span>
-            <span className="font-semibold text-slate-900">{teamScores.totalScore}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-slate-900">Dead Cert:</span>
-            <span className="font-semibold text-slate-900">{teamScores.deadCertScore}</span>
-          </div>
-        </div>
-
-        {/* Bench/Reserves - Very Compact */}
-        <div className="bg-gray-50 p-2 rounded text-xs">
-          <h3 className="text-xs font-semibold mb-1 text-slate-900">Bench/Reserves</h3>
-          {(!teamScores.benchScores || teamScores.benchScores.length === 0) ? (
-            <div className="text-xs text-slate-500 italic">
-              No bench or reserve players selected
-            </div>
-          ) : (
-            teamScores.benchScores.map((bench) => {
-              const showDNP = isRoundComplete && !bench.didPlay;
-              const isBeingUsed = bench.isBeingUsed;
-              const isLive = bench.isGameLive;
-
-              const benchScoreClass = showDNP
-                ? 'text-red-600'
-                : isBeingUsed
-                  ? 'text-green-600'
-                  : isLive
-                    ? 'text-amber-600'
-                    : 'text-slate-900';
-
-              return (
-                <div key={bench.position} className={`flex justify-between items-center ${isLive ? 'bg-amber-50 rounded px-1' : ''}`}>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs truncate">{bench.position}</div>
-                    <div className={`text-xs truncate ${isBeingUsed ? 'text-green-600' : showDNP ? 'text-red-600' : 'text-slate-900'}`}>
-                      {bench.playerName}
-                      {isBeingUsed && ' (Used)'}
-                      {!isRoundComplete && !isBeingUsed && ' : Locked'}
-                    </div>
-                  </div>
-                  <div className={`text-xs ${benchScoreClass}`}>
-                    {isLive && <span className="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse mr-0.5 align-middle" />}
-                    {bench.score}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
