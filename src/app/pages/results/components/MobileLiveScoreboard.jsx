@@ -22,9 +22,20 @@ function BenchList({ scores, roundEndPassed }) {
           const live = b.isGameLive;
           const scoreColor = showDNP ? 'text-red-600' : used ? 'text-emerald-600' : live ? 'text-amber-600' : 'text-slate-500';
           const nameColor = used ? 'text-emerald-600' : showDNP ? 'text-red-600' : 'text-slate-700';
+          // Which position(s) this bench/reserve covers — what it's "backing up".
+          const backup = used
+            ? `→ ${b.replacingPosition || 'in use'}`
+            : b.position === 'Reserve A'
+              ? 'FF · TF · RK'
+              : b.position === 'Reserve B'
+                ? 'OFF · MID · TAK'
+                : (b.backupPosition || 'Utility');
           return (
-            <div key={b.position} className={`grid grid-cols-[96px_1fr_44px] items-center gap-2 px-1.5 py-1 rounded-md ${live ? 'bg-amber-50' : ''}`}>
-              <div className="text-[10px] font-bold text-slate-500 truncate">{b.position}</div>
+            <div key={b.position} className={`grid grid-cols-[104px_1fr_44px] items-center gap-2 px-1.5 py-1 rounded-md ${live ? 'bg-amber-50' : ''}`}>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-600 truncate">{b.position}</div>
+                <div className={`text-[8px] font-semibold uppercase tracking-[0.02em] truncate ${used ? 'text-emerald-600' : 'text-slate-400'}`}>{backup}</div>
+              </div>
               <div className="min-w-0">
                 <div className={`text-[12px] font-semibold truncate ${nameColor}`}>
                   {b.playerName}
