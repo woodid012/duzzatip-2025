@@ -325,6 +325,20 @@ export default function PagesLayout({ children }) {
   // Determine if we should show round info yet
   const showRoundInfo = !loading.fixtures && roundInfo && roundInfo.currentRound !== undefined;
 
+  // Once a round is locked, show its status (In Progress / Complete / Locked)
+  // in the header's Lockout indicator — that's where it lives now that the
+  // banner is just a "tips & teams due" reminder for open rounds.
+  const roundStatus = roundInfo?.isLocked
+    ? (roundInfo.roundEndDate
+        ? (Date.now() >= new Date(roundInfo.roundEndDate).getTime() ? 'Complete' : 'In Progress')
+        : 'Locked')
+    : null;
+  const roundStatusCls = roundStatus === 'In Progress'
+    ? 'bg-blue-100 text-blue-700'
+    : roundStatus === 'Complete'
+      ? 'bg-slate-100 text-slate-600'
+      : 'bg-red-100 text-red-700';
+
   // Shared bits ----------------------------------------------------------
 
   const UserSelect = ({ className = '' }) => {
@@ -530,7 +544,11 @@ export default function PagesLayout({ children }) {
                   <span>Lockout:</span>
                   <div>
                     <span className="font-medium text-slate-900">{roundInfo.lockoutTime}</span>
-                    {roundInfo.isLocked && <span className="ml-1 text-red-600">(Locked)</span>}
+                    {roundStatus && (
+                      <span className={`ml-1 font-semibold ${
+                        roundStatus === 'In Progress' ? 'text-blue-600' : roundStatus === 'Complete' ? 'text-slate-500' : 'text-red-600'
+                      }`}>({roundStatus})</span>
+                    )}
                   </div>
                 </div>
               )}
@@ -626,8 +644,8 @@ export default function PagesLayout({ children }) {
                 <div className="hidden items-center gap-1.5 xl:flex">
                   <span className="text-slate-500">Lockout</span>
                   <span className="font-medium text-slate-900">{roundInfo.lockoutTime}</span>
-                  {roundInfo.isLocked && (
-                    <span className="dz-badge bg-red-100 text-red-700">Locked</span>
+                  {roundStatus && (
+                    <span className={`dz-badge ${roundStatusCls}`}>{roundStatus}</span>
                   )}
                 </div>
               )}
@@ -652,11 +670,8 @@ export default function PagesLayout({ children }) {
           </div>
         </header>
 
-        {/* Round Status Banner — hidden on the mobile results page, where the
-            live scoreboard's own header already shows the round + status */}
-        <div className={pathname === '/pages/results' ? 'hidden sm:block' : ''}>
-          <RoundStatus />
-        </div>
+        {/* Tips & teams due reminder (only shows while the round is open) */}
+        <RoundStatus />
 
         {/* ===================== Main Content ===================== */}
         <div className="mx-auto w-full max-w-[1400px]">

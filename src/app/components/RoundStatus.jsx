@@ -12,6 +12,10 @@ export default function RoundStatus() {
   const isLocked = roundInfo.isLocked;
   const roundDisplay = roundInfo.currentRoundDisplay || `Round ${roundInfo.currentRound}`;
 
+  // The banner exists only to remind people to get their tips & teams in before
+  // lockout. Once the round is locked (in progress / complete) it isn't needed.
+  if (isLocked) return null;
+
   // Calculate time until lockout
   let lockInfo = '';
   if (roundInfo.lockoutDate) {
@@ -34,32 +38,10 @@ export default function RoundStatus() {
     }
   }
 
-  // Determine status
-  let statusText, bgColor;
-  if (isLocked && roundInfo.roundEndDate) {
-    const now = new Date();
-    const roundEnd = new Date(roundInfo.roundEndDate);
-    if (now < roundEnd) {
-      statusText = `${roundDisplay} \u2014 In Progress`;
-      bgColor = 'bg-blue-600';
-    } else {
-      statusText = `${roundDisplay} \u2014 Complete`;
-      bgColor = 'bg-gray-600';
-    }
-  } else if (isLocked) {
-    statusText = `${roundDisplay} \u2014 Locked`;
-    bgColor = 'bg-red-600';
-  } else {
-    statusText = `${roundDisplay} \u2014 Open${lockInfo ? ` (${lockInfo})` : ''}`;
-    bgColor = 'bg-green-600';
-  }
-
-  if (roundInfo.lockoutTime && isLocked) {
-    statusText += ` (started ${roundInfo.lockoutTime})`;
-  }
+  const statusText = `${roundDisplay} \u2014 tips & teams due${lockInfo ? ` \u00b7 ${lockInfo}` : ''}`;
 
   return (
-    <div className={`${bgColor} text-white text-center py-1.5 text-sm font-medium`}>
+    <div className="bg-green-600 text-white text-center py-1.5 text-sm font-medium">
       {statusText}
     </div>
   );
