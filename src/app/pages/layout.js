@@ -652,8 +652,11 @@ export default function PagesLayout({ children }) {
           </div>
         </header>
 
-        {/* Round Status Banner */}
-        <RoundStatus />
+        {/* Round Status Banner — hidden on the mobile results page, where the
+            live scoreboard's own header already shows the round + status */}
+        <div className={pathname === '/pages/results' ? 'hidden sm:block' : ''}>
+          <RoundStatus />
+        </div>
 
         {/* ===================== Main Content ===================== */}
         <div className="mx-auto w-full max-w-[1400px]">
