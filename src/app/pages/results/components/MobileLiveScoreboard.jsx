@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 
-// Small pulsing dot used on live scores
-const LiveDot = ({ className = 'bg-amber-500' }) => (
+// Small pulsing dot used on live scores (green to flag a game in progress)
+const LiveDot = ({ className = 'bg-emerald-500' }) => (
   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle animate-pulse ${className}`} />
 );
 
@@ -126,8 +126,12 @@ function PositionList({ scores, roundEndPassed }) {
 
 // Position-by-position ledger for an expanded fixture
 function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
-  const homePos = getTeamScores(homeId)?.positionScores || [];
-  const awayPos = getTeamScores(awayId)?.positionScores || [];
+  const homeScores = getTeamScores(homeId) || {};
+  const awayScores = getTeamScores(awayId) || {};
+  const homePos = homeScores.positionScores || [];
+  const awayPos = awayScores.positionScores || [];
+  const homeBench = homeScores.benchScores || [];
+  const awayBench = awayScores.benchScores || [];
   const homeLive = liveUserIds.includes(String(homeId));
   const awayLive = liveUserIds.includes(String(awayId));
 
@@ -147,10 +151,27 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
     rows.push({ pos: hp.position, hName: effName(hp), hScore: hs, hWin,
                 aName: effName(ap), aScore: as, aWin });
   });
+
+  // Bench / reserves rows (shown but NOT counted in the positions-won tally,
+  // since reserves only score when subbed in).
+  const awayBenchByPos = {};
+  awayBench.forEach((b) => { awayBenchByPos[b.position] = b; });
+  const benchRows = homeBench.map((hb) => {
+    const ab = awayBenchByPos[hb.position] || {};
+    return {
+      pos: hb.position,
+      hName: hb.playerName || '—', hScore: hb.score ?? 0, hUsed: hb.isBeingUsed, hLive: hb.isGameLive,
+      aName: ab.playerName || '—', aScore: ab.score ?? 0, aUsed: ab.isBeingUsed, aLive: ab.isGameLive,
+    };
+  });
+
   // Abbreviate position to fit the center column
-  const abbr = (p) => ({ 'Full Forward': 'FF', 'Tall Forward': 'TF', Offensive: 'OFF', Midfielder: 'MID', Tackler: 'TAK', Ruck: 'RK' }[p] || p.slice(0, 3).toUpperCase());
+  const abbr = (p) => ({ 'Full Forward': 'FF', 'Tall Forward': 'TF', Offensive: 'OFF', Midfielder: 'MID', Tackler: 'TAK', Ruck: 'RK', Bench: 'BEN', 'Reserve A': 'R-A', 'Reserve B': 'R-B' }[p] || p.slice(0, 3).toUpperCase());
   const sCls = (win, live) => `text-[14px] font-extrabold tabular-nums w-6 text-center ${live ? 'text-amber-600' : win ? 'text-emerald-600' : 'text-slate-600'}`;
   const nCls = (win) => `text-[11px] truncate ${win ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`;
+  // Bench: neutral, with "in use" reserve highlighted green, live amber.
+  const bScore = (used, live) => `text-[13px] font-bold tabular-nums w-6 text-center ${used ? 'text-emerald-600' : live ? 'text-amber-600' : 'text-slate-500'}`;
+  const bName = (used) => `text-[11px] truncate ${used ? 'font-semibold text-emerald-600' : 'font-medium text-slate-500'}`;
 
   return (
     <div className="mt-2.5 border-t border-slate-200 pt-2.5">
@@ -164,13 +185,33 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
             <div className={`text-right ${nCls(r.hWin)}`}>{r.hName}</div>
             <div className="flex items-center justify-center gap-1.5">
               <span className={sCls(r.hWin, homeLive)}>{r.hScore}</span>
-              <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[18px] text-center">{abbr(r.pos)}</span>
+              <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[26px] text-center">{abbr(r.pos)}</span>
               <span className={sCls(r.aWin, awayLive)}>{r.aScore}</span>
             </div>
             <div className={`text-left ${nCls(r.aWin)}`}>{r.aName}</div>
           </div>
         ))}
       </div>
+
+      {/* Bench / reserves */}
+      {benchRows.length > 0 && (
+        <>
+          <div className="mt-2.5 mb-1.5 text-[8px] font-extrabold uppercase tracking-[0.1em] text-slate-400">Bench / Reserves</div>
+          <div className="flex flex-col gap-1.5">
+            {benchRows.map((r) => (
+              <div key={r.pos} className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+                <div className={`text-right ${bName(r.hUsed)}`}>{r.hName}{r.hUsed ? ' (Used)' : ''}</div>
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className={bScore(r.hUsed, r.hLive)}>{r.hScore}</span>
+                  <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[26px] text-center">{abbr(r.pos)}</span>
+                  <span className={bScore(r.aUsed, r.aLive)}>{r.aScore}</span>
+                </div>
+                <div className={`text-left ${bName(r.aUsed)}`}>{r.aName}{r.aUsed ? ' (Used)' : ''}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -235,7 +276,7 @@ export default function MobileLiveScoreboard({
         </div>
         {isLiveRound && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-amber-700">
-            <LiveDot className="bg-amber-500" /> LIVE
+            <LiveDot /> LIVE
           </span>
         )}
       </div>
@@ -247,7 +288,7 @@ export default function MobileLiveScoreboard({
             <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-600">Your Match</span>
             {(myLive || oppLive) && (
               <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-[0.06em] text-amber-600">
-                <LiveDot className="bg-amber-500" /> In Play
+                <LiveDot /> In Play
               </span>
             )}
           </div>
