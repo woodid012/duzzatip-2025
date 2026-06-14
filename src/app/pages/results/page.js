@@ -339,34 +339,6 @@ export default function ResultsPage() {
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
-      {/* Mobile-optimized header: round + live-score refresh on one row */}
-      <div className="flex items-center gap-2 mb-4 sm:hidden">
-        {isLoggedIn ? (
-          <select
-            id="round-select-mobile"
-            value={displayedRound || ""}
-            onChange={handleRoundChange}
-            className="dz-select flex-1 text-base"
-          >
-            {[...Array(25)].map((_, i) => (
-              <option key={i} value={i}>
-                {displayRoundName(i)}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="dz-select flex-1 text-base">{displayRoundName(displayedRound)}</span>
-        )}
-        <button
-          onClick={refresh}
-          disabled={isRefreshing}
-          title="Refresh live scores"
-          className="inline-flex flex-shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white p-2.5 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
-        >
-          <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
-
       {/* Desktop scoreboard header */}
       <div className="hidden sm:block mb-6 rounded-[22px] bg-gradient-to-br from-slate-900 via-slate-800 to-[#0b1120] px-[30px] py-[26px] text-white shadow-[0_18px_40px_-22px_rgba(15,23,42,0.55)]">
         <div className="flex flex-wrap items-start justify-between gap-6">
@@ -470,6 +442,11 @@ export default function ResultsPage() {
           roundEndPassed={roundEndPassed}
           displayedRound={displayedRound}
           displayRoundName={displayRoundName}
+          year={selectedYear}
+          isLoggedIn={isLoggedIn}
+          onRoundChange={handleRoundChange}
+          onRefresh={refresh}
+          isRefreshing={isRefreshing}
         />
       )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 
 // Small pulsing dot used on live scores (green to flag a game in progress)
@@ -250,6 +251,11 @@ export default function MobileLiveScoreboard({
   roundEndPassed,
   displayedRound,
   displayRoundName,
+  year,
+  isLoggedIn = false,
+  onRoundChange,
+  onRefresh,
+  isRefreshing = false,
 }) {
   const [tab, setTab] = useState('team');
   const [openGame, setOpenGame] = useState(null); // index of expanded fixture
@@ -289,21 +295,46 @@ export default function MobileLiveScoreboard({
 
   return (
     <div className="block sm:hidden -mx-4 px-4 pb-10 pt-2 text-slate-700">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      {/* Header — round selector + refresh sit in the right column */}
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
           <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-600">
-            {displayRoundName(displayedRound)}{isLiveRound ? ' · Live' : ''}
+            {year ? `${year} Season` : displayRoundName(displayedRound)}{isLiveRound ? ' · Live' : ''}
           </div>
           <h1 className="mt-0.5 text-[27px] font-black tracking-[-0.03em] leading-none text-slate-900">
             Team Scores
           </h1>
         </div>
-        {isLiveRound && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-amber-700">
-            <LiveDot /> LIVE
-          </span>
-        )}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {isLiveRound && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-amber-700">
+              <LiveDot /> LIVE
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            {isLoggedIn && onRoundChange && (
+              <select
+                value={displayedRound ?? ''}
+                onChange={onRoundChange}
+                className="dz-select py-1.5 text-sm"
+              >
+                {[...Array(25)].map((_, i) => (
+                  <option key={i} value={i}>{displayRoundName(i)}</option>
+                ))}
+              </select>
+            )}
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                title="Refresh live scores"
+                className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Your Match hero */}
