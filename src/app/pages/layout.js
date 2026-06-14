@@ -532,8 +532,9 @@ export default function PagesLayout({ children }) {
             </div>
           )}
 
-          {/* Mobile round info */}
-          {showRoundInfo && !isPastYear && (
+          {/* Mobile round info — hidden on results, where the scoreboard header
+              (season + round + live) already shows it */}
+          {showRoundInfo && !isPastYear && pathname !== '/pages/results' && (
             <div className="space-y-1 border-t border-slate-100 bg-slate-50/70 px-3 pb-3 pt-2 text-xs text-slate-600">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-700">Season {CURRENT_YEAR}</span>
