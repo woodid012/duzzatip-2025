@@ -167,12 +167,18 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
   // since reserves only score when subbed in).
   const awayBenchByPos = {};
   awayBench.forEach((b) => { awayBenchByPos[b.position] = b; });
+  // What position(s) a bench/reserve is covering (its "backing up").
+  const backupOf = (b) => (!b || !b.position) ? '' : (b.isBeingUsed
+    ? `→ ${b.replacingPosition || 'in use'}`
+    : b.position === 'Reserve A' ? 'FF · TF · RK'
+      : b.position === 'Reserve B' ? 'OFF · MID · TAK'
+        : (b.backupPosition || 'Utility'));
   const benchRows = homeBench.map((hb) => {
     const ab = awayBenchByPos[hb.position] || {};
     return {
       pos: hb.position,
-      hName: hb.playerName || '—', hScore: hb.score ?? 0, hUsed: hb.isBeingUsed, hLive: hb.isGameLive,
-      aName: ab.playerName || '—', aScore: ab.score ?? 0, aUsed: ab.isBeingUsed, aLive: ab.isGameLive,
+      hName: hb.playerName || '—', hScore: hb.score ?? 0, hUsed: hb.isBeingUsed, hLive: hb.isGameLive, hBackup: backupOf(hb),
+      aName: ab.playerName || '—', aScore: ab.score ?? 0, aUsed: ab.isBeingUsed, aLive: ab.isGameLive, aBackup: backupOf(ab),
     };
   });
 
@@ -211,13 +217,21 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
           <div className="flex flex-col gap-1.5">
             {benchRows.map((r) => (
               <div key={r.pos} className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
-                <div className={`text-right ${bName(r.hUsed)}`}>{r.hName}{r.hUsed ? ' (Used)' : ''}</div>
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className={bScore(r.hUsed, r.hLive)}>{r.hScore}</span>
-                  <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[26px] text-center">{abbr(r.pos)}</span>
-                  <span className={bScore(r.aUsed, r.aLive)}>{r.aScore}</span>
+                <div className="text-right min-w-0">
+                  <div className={bName(r.hUsed)}>{r.hName}{r.hUsed ? ' (Used)' : ''}</div>
+                  <div className={`text-[8px] truncate ${r.hUsed ? 'text-emerald-600' : 'text-slate-400'}`}>{r.hBackup}</div>
                 </div>
-                <div className={`text-left ${bName(r.aUsed)}`}>{r.aName}{r.aUsed ? ' (Used)' : ''}</div>
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className={bScore(r.hUsed, r.hLive)}>{r.hScore}</span>
+                    <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[26px] text-center">{abbr(r.pos)}</span>
+                    <span className={bScore(r.aUsed, r.aLive)}>{r.aScore}</span>
+                  </div>
+                </div>
+                <div className="text-left min-w-0">
+                  <div className={bName(r.aUsed)}>{r.aName}{r.aUsed ? ' (Used)' : ''}</div>
+                  <div className={`text-[8px] truncate ${r.aUsed ? 'text-emerald-600' : 'text-slate-400'}`}>{r.aBackup}</div>
+                </div>
               </div>
             ))}
           </div>
