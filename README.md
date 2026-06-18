@@ -35,6 +35,27 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Seasonal Maintenance
+
+Run these **before each season** and **after every mid-season draft** (the AFL
+adds new players to club squads at both points). The AFL API is the source of
+truth — it's where `2026_game_results` stats come from — so the selectable
+player list must match it.
+
+### Refresh the player list
+
+```bash
+node update-player-list.js            # apply: AFL API -> 2026_players + sync 2026_squads
+node update-player-list.js --dry-run  # preview the diff, write nothing
+```
+
+This pulls every men's squad from the official AFL API, replaces the
+`2026_players` collection, and backfills `team` + `provider_id` on active
+`2026_squads` rows. It prints a diff of added / team-changed / removed players
+so you can sanity-check the mid-season intake before anyone drafts. (The
+`/api/update-players` route does the same thing server-side if you'd rather hit
+the deployed app.)
+
 ## Dead Cert Threshold — 2025 Backtest
 
 Dead Cert scoring: **+6** correct, **−12** wrong → theoretical break-even at **p = 12/18 = 66.7%**.
