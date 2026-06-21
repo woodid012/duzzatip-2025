@@ -223,6 +223,11 @@ export async function GET(request) {
         const responseData = {
             round,
             results,
+            // Expose the completeness verdict so downstream snapshot writers
+            // (e.g. /api/simple-ladder) can gate their persistence on it without
+            // making their own AFL API call — and so an in-progress round can
+            // never be frozen into a stored snapshot as a phantom draw.
+            allGamesComplete,
             summary: {
                 highestScore,
                 lowestScore,

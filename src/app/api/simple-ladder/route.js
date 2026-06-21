@@ -74,7 +74,12 @@ export async function GET(request) {
                             const hasValidData = data.results &&
                                 Object.values(data.results).some(result => result.totalScore > 0);
 
-                            if (hasValidData) {
+                            // Only persist a snapshot once every game in the round is
+                            // complete. Writing an in-progress round here could freeze a
+                            // partial tie into the ladder as a phantom draw (the bug this
+                            // gate exists to prevent). Incomplete rounds are simply skipped;
+                            // they get written on a later load once the round finishes.
+                            if (hasValidData && data.allGamesComplete) {
                                 const roundData = {};
                                 Object.entries(data.results).forEach(([userId, result]) => {
                                     roundData[userId] = {
@@ -259,7 +264,8 @@ export async function POST(request) {
             const results = {
                 processed: [],
                 failed: [],
-                stored: []
+                stored: [],
+                incomplete: []
             };
 
             for (let r = 1; r <= 21; r++) {
@@ -286,7 +292,15 @@ export async function POST(request) {
                         results.failed.push(r);
                         continue;
                     }
-                    
+
+                    // Only persist a snapshot for a fully-completed round, so an
+                    // in-progress round can never be frozen in as a phantom draw.
+                    if (!data.allGamesComplete) {
+                        console.log(`Round ${r} not complete yet, skipping snapshot write`);
+                        results.incomplete.push(r);
+                        continue;
+                    }
+
                     // Extract just the data we need
                     const roundData = {};
                     Object.entries(data.results).forEach(([userId, result]) => {
@@ -342,7 +356,18 @@ export async function POST(request) {
             }
             
             const data = await response.json();
-            
+
+            // Only persist a snapshot for a fully-completed round, so an
+            // in-progress round can never be frozen in as a phantom draw.
+            if (!data.allGamesComplete) {
+                console.log(`Round ${round} not complete yet, skipping snapshot write`);
+                return Response.json({
+                    success: true,
+                    skipped: true,
+                    message: `Round ${round} is not complete yet; snapshot not written`
+                });
+            }
+
             // Extract just the data we need
             const roundData = {};
             Object.entries(data.results || {}).forEach(([userId, result]) => {
@@ -356,7 +381,7 @@ export async function POST(request) {
                     hasCrab: result.hasCrab || false
                 };
             });
-            
+
             // Store in database
             await collection.updateOne(
                 { round: round },
