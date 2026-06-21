@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 import { calculateFinalsFixtures, getFinalsResults } from '@/app/lib/finals_utils';
@@ -32,6 +33,8 @@ export default function LadderConsolidatedPage() {
   const [finalsStandings, setFinalsStandings] = useState([]);
   const [savingStandings, setSavingStandings] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState('');
 
   // Track the previous year so we can detect year changes
   const [prevYear, setPrevYear] = useState(selectedYear);
@@ -265,6 +268,30 @@ export default function LadderConsolidatedPage() {
     setUserChangedRound(true);
   };
 
+  // Force-rebuild the ladder. The ladder reads the `simple_round_results`
+  // snapshot, which a results-page refresh does NOT touch — so this POSTs
+  // refreshAll to re-pull every round from the live consolidated results and
+  // overwrite the snapshot, then reloads the table.
+  const handleForceRefresh = async () => {
+    try {
+      setRefreshing(true);
+      setRefreshMsg('');
+      const res = await fetch('/api/simple-ladder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshAll: true, year: selectedYear }),
+      });
+      if (!res.ok) throw new Error('Refresh failed');
+      await loadLadderData(selectedRound);
+      setRefreshMsg('Ladder refreshed');
+      setTimeout(() => setRefreshMsg(''), 3000);
+    } catch (err) {
+      setRefreshMsg(`Error: ${err.message}`);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleSaveStandings = async () => {
     if (finalsStandings.length !== 8) return;
     try {
@@ -386,22 +413,33 @@ export default function LadderConsolidatedPage() {
         title="Season Ladder"
       >
         {isLoggedIn && (
-          <select
-            id="round-select"
-            value={selectedRound || 0}
-            onChange={handleRoundChange}
-            className="dz-select-dark"
-          >
-            {[...Array(25)].map((_, i) => (
-              <option key={i} value={i}>
-                {formatRoundName(i)}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              id="round-select"
+              value={selectedRound || 0}
+              onChange={handleRoundChange}
+              className="dz-select-dark"
+            >
+              {[...Array(25)].map((_, i) => (
+                <option key={i} value={i}>
+                  {formatRoundName(i)}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleForceRefresh}
+              disabled={refreshing}
+              title="Recalculate every round from the live results"
+              className="inline-flex items-center gap-1.5 rounded-[11px] border border-white/[0.16] bg-white/[0.07] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.12] disabled:opacity-60"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
         )}
-        {lastUpdated && (
-          <span className="text-[11px] text-slate-400">
-            Updated {formatTimeAgo(lastUpdated)}
+        {(refreshMsg || lastUpdated) && (
+          <span className={`text-[11px] ${refreshMsg.startsWith('Error') ? 'text-red-400' : 'text-slate-400'}`}>
+            {refreshMsg || `Updated ${formatTimeAgo(lastUpdated)}`}
           </span>
         )}
       </ScoreboardHeader>
