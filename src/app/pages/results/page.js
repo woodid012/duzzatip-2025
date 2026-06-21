@@ -2,7 +2,7 @@
 
 'use client'
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppContext';
@@ -108,38 +108,10 @@ export default function ResultsPage() {
   // NOTE: All hooks must be called before any early returns
   const allTeamScores = useMemo(() => calculateAllTeamScores(), [calculateAllTeamScores]);
 
-  // Store final totals for ladder (only when round or scores change, not on every render)
-  const storeFinalTotalsRef = useRef(null);
-  storeFinalTotalsRef.current = async (scores, round) => {
-    try {
-      const finalTotals = {};
-      scores.forEach(team => {
-        finalTotals[team.userId] = team.totalScore || 0;
-      });
-
-      console.log(`Storing Final Totals for round ${round} for ladder:`, finalTotals);
-
-      const response = await fetch('/api/final-totals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ round, allFinalTotals: finalTotals })
-      });
-
-      if (response.ok) {
-        console.log(`Successfully stored Final Totals for round ${round}`);
-      } else {
-        console.warn(`Failed to store Final Totals for round ${round}`);
-      }
-    } catch (err) {
-      console.error(`Error storing Final Totals for round ${round}:`, err);
-    }
-  };
-
-  useEffect(() => {
-    if (displayedRound !== null && displayedRound !== undefined && allTeamScores.length > 0) {
-      storeFinalTotalsRef.current(allTeamScores, displayedRound);
-    }
-  }, [displayedRound, allTeamScores]);
+  // Note: Final Totals (which drive the ladder) are persisted server-side by
+  // /api/consolidated-round-results once every game in the round is complete.
+  // The client no longer stores them, so a partially-scored / in-progress round
+  // can never be frozen into the ladder as a phantom draw.
 
   // Filter out any zero or undefined scores for comparison
   const validScores = useMemo(() => allTeamScores.filter(s => (s?.totalScore || 0) > 0), [allTeamScores]);
