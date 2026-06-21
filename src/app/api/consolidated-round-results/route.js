@@ -196,6 +196,22 @@ export async function GET(request) {
             }
         });
 
+        // Keep the stored Final Totals (which drive the ladder) in lock-step
+        // with these live results. We ONLY persist once every game in the round
+        // is complete, so an in-progress tie can never be frozen into the ladder
+        // as a phantom "draw". Writing here — server-side, from the exact numbers
+        // the results page renders — means the ladder no longer depends on a
+        // client happening to have the results page open, and the two views can
+        // never disagree. Writes only happen when a score actually changes, so
+        // this stays cheap on the database.
+        if (allGamesComplete && year === CURRENT_YEAR) {
+            try {
+                await syncFinalTotals(round, results, db, year);
+            } catch (err) {
+                console.error(`Error syncing final totals for round ${round}:`, err);
+            }
+        }
+
         const responseData = {
             round,
             results,
@@ -285,6 +301,57 @@ function extractWinners(results, fixtures) {
     }
     
     return winners;
+}
+
+// Persist the round's Final Totals (the snapshot the ladder reads) from these
+// authoritative, completed-round results. Only writes the users whose stored
+// total actually differs, and only clears the cached ladder when something
+// genuinely changed — so a completed round that's already in sync costs a
+// single indexed read and no writes.
+async function syncFinalTotals(round, results, db, year = CURRENT_YEAR) {
+    const collection = db.collection(`${year}_final_totals`);
+
+    const existing = await collection.find({ round: round }).toArray();
+    const existingMap = {};
+    existing.forEach(r => { existingMap[r.userId] = r.finalTotal || 0; });
+
+    const lastUpdated = new Date();
+    const bulkOps = [];
+
+    for (const [userId, result] of Object.entries(results)) {
+        const finalTotal = result.totalScore || 0;
+        // Skip users already stored with this exact total — no write needed.
+        if (userId in existingMap && existingMap[userId] === finalTotal) continue;
+
+        bulkOps.push({
+            updateOne: {
+                filter: { round: round, userId: userId },
+                update: {
+                    $set: {
+                        round: round,
+                        userId: userId,
+                        teamScore: result.playerScore || 0,
+                        deadCertScore: result.deadCertScore || 0,
+                        finalTotal: finalTotal,
+                        lastUpdated: lastUpdated,
+                        source: 'consolidated_round_results_complete'
+                    }
+                },
+                upsert: true
+            }
+        });
+    }
+
+    if (bulkOps.length === 0) return; // already in sync — nothing to do
+
+    await collection.bulkWrite(bulkOps);
+
+    // Totals moved, so any cached ladder from this round onwards is now stale.
+    // Drop those rows; the ladder API rebuilds them from the corrected totals on
+    // the next read.
+    await db.collection(`${year}_ladder`).deleteMany({ round: { $gte: round } });
+
+    console.log(`Synced ${bulkOps.length} final total(s) for round ${round}; cleared cached ladders >= ${round}`);
 }
 
 // Use the exact same logic as your round-results API
