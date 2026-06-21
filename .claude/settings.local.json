@@ -11,7 +11,11 @@
       "WebFetch(domain:www.afl.com.au)",
       "WebFetch(domain:www.sen.com.au)",
       "WebFetch(domain:www.austadiums.com)",
-      "WebFetch(domain:www.beforeyoubet.com.au)"
+      "WebFetch(domain:www.beforeyoubet.com.au)",
+      "PowerShell(npm run *)",
+      "PowerShell(node update-player-list.js 2>&1)",
+      "PowerShell(node update-player-list.js --dry-run 2>&1)",
+      "PowerShell(Get-CimInstance *)"
     ],
     "deny": [],
     "ask": []
