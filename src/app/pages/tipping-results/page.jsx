@@ -22,8 +22,8 @@ const TippingResultsGrid = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [selectedUser, setSelectedUser] = useState('');
   // Which mobile tab is showing. Lives here (not in the child) so it survives the
-  // loading→loaded remount that happens on every round change. null = not chosen yet.
-  const [mobileTab, setMobileTab] = useState(null);
+  // loading→loaded remount that happens on every round change. Defaults to Fixtures.
+  const [mobileTab, setMobileTab] = useState('fixtures');
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -125,14 +125,6 @@ const TippingResultsGrid = () => {
 
     loadAllResults();
   }, [selectedRound, selectedYear, appFixtures]);
-
-  // Pick the mobile default tab once results first load: Fixtures while a game is
-  // live, otherwise Standings. Only sets it once — a manual tab choice is kept.
-  useEffect(() => {
-    if (mobileTab === null && fixtures.length > 0) {
-      setMobileTab(hasLiveGame(fixtures) ? 'fixtures' : 'standings');
-    }
-  }, [fixtures, mobileTab]);
 
   const displayRound = (round) => {
     return round === '0' ? 'Opening Round' : `Round ${round}`;
@@ -238,7 +230,7 @@ const TippingResultsGrid = () => {
           yearTotals={yearTotals}
           getTeamAbbreviation={getTeamAbbreviation}
           getWinningTeam={getWinningTeam}
-          tab={mobileTab || 'standings'}
+          tab={mobileTab}
           setTab={setMobileTab}
           currentRound={currentRound}
         />
@@ -458,7 +450,7 @@ function MobileTippingResults({
       {/* Tabs */}
       <div className="mb-4 mt-4 flex gap-1 rounded-[13px] border border-slate-200 bg-white p-1 shadow-sm">
         {tabBtn('fixtures', 'Fixtures & Tips')}
-        {tabBtn('standings', 'Standings')}
+        {tabBtn('standings', 'Round Standings')}
       </div>
 
       {tab === 'fixtures' && (
