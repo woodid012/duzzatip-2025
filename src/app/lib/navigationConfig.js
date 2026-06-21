@@ -6,20 +6,24 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
     { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
     { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
   ],
+  ...(includeSquadManagement ? [[
+    { name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' },
+  ]] : []),
   [
     { name: 'Season Ladder', path: '/pages/ladder', id: 'ladder' },
     { name: 'Tipping Ladder', path: '/pages/tipping-ladder', id: 'tipping-ladder' },
     { name: 'Tip Results', path: '/pages/tipping-results', id: 'tipping-results' },
-    { name: 'Past Seasons', path: '/pages/past-seasons', id: 'past-seasons' },
   ],
   [
     { name: 'Draft', path: '/pages/draft', id: 'draft' },
     { name: 'Injuries', path: '/pages/injuries', id: 'injuries' },
     { name: 'Squads', path: '/pages/squads', id: 'squads' },
-    ...(includeSquadManagement ? [{ name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' }] : []),
   ],
   [
     { name: 'Install App', path: '/pages/install', id: 'install' },
+  ],
+  [
+    { name: 'Past Seasons', path: '/pages/past-seasons', id: 'past-seasons' },
   ],
 ];
 
