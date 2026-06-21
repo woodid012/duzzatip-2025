@@ -203,7 +203,8 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
       newTips[matchNumber] = {
         ...newTips[matchNumber],
         team,
-        deadCert
+        deadCert,
+        isDefault: false // an explicit pick is a real tip, not an auto-default
       };
       return newTips;
     });

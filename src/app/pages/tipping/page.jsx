@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTipping from '@/app/hooks/useTipping';
-import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+import { USER_NAMES, TEAM_LOGOS, CURRENT_YEAR } from '@/app/lib/constants';
 import { useToast } from '@/app/components/Toast';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
@@ -238,7 +238,7 @@ export default function TippingPage() {
   );
 }
 
-// Mobile Component - Everything on one screen
+// Mobile Component — clean light theme matching the mobile results scoreboard
 function MobileTippingView({
   currentTeamDisplayName,
   isAdmin,
@@ -266,157 +266,161 @@ function MobileTippingView({
   handleDeadCertToggle,
   handleFormSubmit
 }) {
+  const teamId = currentTeamBeingEdited;
+  const logo = teamId ? TEAM_LOGOS[teamId] : null;
+  const fixtures = roundFixtures || [];
+  const tippedCount = fixtures.filter((f) => tips[f.MatchNumber]?.team && !tips[f.MatchNumber]?.isDefault).length;
+  const deadCertCount = fixtures.filter((f) => tips[f.MatchNumber]?.deadCert).length;
+  const pct = fixtures.length ? (tippedCount / fixtures.length) * 100 : 0;
+  const locked = isRoundLocked && !isAdmin;
+  const late = isLateSubmission && !isAdmin;
+
   return (
-    <div className="p-3 space-y-4">
-      {/* Compact Header */}
-      <ScoreboardHeader
-        eyebrow={
-          <>
-            <span className={isLateSubmission && !isAdmin ? "text-orange-300" : undefined}>
-              Showing {formatRoundName(localRound)}
-              {isLateSubmission && !isAdmin && <span className="ml-1">⚠️ Late</span>}
-              {isAdmin && isRoundLocked && <span className="ml-1">(Admin Override)</span>}
-            </span>
-          </>
-        }
-        title={
-          currentTeamDisplayName
-            ? `${currentTeamDisplayName}'s Tips${isAdmin ? ' (Admin)' : ''}`
-            : isAdmin
-              ? `AFL ${CURRENT_YEAR} Tips - Admin`
-              : `AFL ${CURRENT_YEAR} Tips`
-        }
-      >
-        {/* Round Info */}
-        <div className="text-[11px] text-slate-400 space-y-0.5 text-right">
-          {roundInfo.lockoutTime && (
-            <div>
-              <span>Lockout:</span>
-              <span className="font-medium text-slate-200 ml-1">{roundInfo.lockoutTime}</span>
-              {isLateSubmission && !isAdmin && (
-                <span className="text-orange-300 ml-1">(Late)</span>
-              )}
-            </div>
-          )}
-
-          {lastEditedTime && currentTeamBeingEdited && (
-            <div>
-              <span>Last:</span>
-              <span className="font-medium ml-1 text-slate-200">
-                {formatDate(lastEditedTime)}
-              </span>
-            </div>
-          )}
+    <div className="px-4 pb-10 pt-2 space-y-4 text-slate-700">
+      {/* Header — eyebrow + headline on the left, round/team controls on the right */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className={`text-[10px] font-extrabold uppercase tracking-[0.16em] ${late ? 'text-orange-500' : 'text-amber-600'}`}>
+            {formatRoundName(localRound)}
+            {locked ? ' · Locked' : late ? ' · Late' : ' · Open'}
+            {isAdmin && isRoundLocked ? ' · Admin' : ''}
+          </div>
+          <h1 className="mt-0.5 text-[27px] font-black tracking-[-0.03em] leading-none text-slate-900">
+            Tips
+          </h1>
         </div>
-
-        {/* Status Messages */}
-        {successMessage && (
-          <div className="bg-emerald-50 text-emerald-700 p-2 rounded text-xs">
-            {successMessage}
-          </div>
-        )}
-        {error && (
-          <div className="bg-red-50 text-red-700 p-2 rounded text-xs">
-            {error} — check your connection and try again.
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        {currentTeamBeingEdited && !isPastYear && (
-          <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <button
-                  onClick={saveTips}
-                  type="button"
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded text-sm font-medium"
-                >
-                  Save Tips
-                </button>
-                <button
-                  onClick={cancelEditing}
-                  type="button"
-                  className="dz-btn-ghost flex-1 justify-center text-sm"
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={handleEditClick}
-                type="button"
-                disabled={isRoundLocked && !isAdmin}
-                className={`flex-1 px-3 py-2 rounded text-sm font-medium ${
-                  isRoundLocked && !isAdmin
-                    ? 'bg-gray-400 cursor-not-allowed text-white'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
-              >
-                {isLateSubmission && !isAdmin ? 'Edit Tips (Late)' : 'Edit Tips'}
-              </button>
-            )}
-          </div>
-        )}
-      </ScoreboardHeader>
-
-      {/* Controls */}
-      <div className="dz-surface p-3 space-y-3">
-        {/* Round Selection */}
-        <div>
-          <label className="block text-xs font-medium text-slate-900 mb-1">Round:</label>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {locked && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 border border-slate-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-slate-600">
+              🔒 LOCKED
+            </span>
+          )}
           <select
             value={localRound}
             onChange={(e) => handleRoundChange(Number(e.target.value))}
-            className="dz-select w-full text-sm"
+            className="dz-select py-1.5 text-sm"
           >
             {[...Array(25)].map((_, i) => (
-              <option key={i} value={i}>
-                {formatRoundName(i)}
-              </option>
+              <option key={i} value={i}>{formatRoundName(i)}</option>
             ))}
           </select>
-        </div>
-
-        {/* Admin Team Selection */}
-        {isAdmin && (
-          <div>
-            <label className="block text-xs font-medium text-slate-900 mb-1">Team:</label>
+          {isAdmin && (
             <select
               value={hookSelectedUserId || ''}
               onChange={(e) => changeUser(e.target.value)}
-              className="dz-select w-full text-sm"
+              className="dz-select py-1.5 text-sm"
             >
-              <option value="">
-                {currentTeamDisplayName 
-                  ? `Editing: ${currentTeamDisplayName}` 
-                  : 'Select a team'}
-              </option>
+              <option value="">{currentTeamDisplayName ? `Editing: ${currentTeamDisplayName}` : 'Select a team'}</option>
               {Object.entries(USER_NAMES).map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
+                <option key={id} value={id}>{name}</option>
               ))}
             </select>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Admin Message */}
-      {isAdmin && !currentTeamBeingEdited && (
-        <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-3">
-          <h3 className="text-blue-800 font-medium text-sm mb-1">Admin Mode</h3>
-          <p className="text-blue-700 text-xs">
-            Select a team from above to view and edit their tips.
-          </p>
+      {/* Identity + progress card — shows who you are and how far along you are */}
+      {teamId && (
+        <div className="rounded-[22px] border border-blue-200 bg-blue-50 p-4 shadow-[0_10px_30px_-18px_rgba(37,99,235,0.45)]">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-[26px] leading-none">{logo}</span>
+              <div className="min-w-0">
+                <div className="text-sm font-extrabold text-slate-900 truncate max-w-[170px]">{currentTeamDisplayName}</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-blue-600">
+                  {isAdmin ? 'Admin editing' : 'Your tips'}
+                </div>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-[28px] font-black leading-none tabular-nums text-slate-900">
+                {tippedCount}<span className="text-[18px] text-slate-400">/{fixtures.length}</span>
+              </div>
+              <div className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Tipped</div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="flex h-[7px] rounded-full overflow-hidden bg-slate-200">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-400" style={{ width: `${pct}%` }} />
+          </div>
+
+          {/* Meta line */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+            {deadCertCount > 0 && (
+              <span className="font-semibold text-amber-600">⭐ {deadCertCount} dead cert{deadCertCount > 1 ? 's' : ''}</span>
+            )}
+            {roundInfo.lockoutTime && (
+              <span>Lockout <span className="font-semibold text-slate-700">{roundInfo.lockoutTime}</span></span>
+            )}
+            {lastEditedTime && (
+              <span>Saved <span className="font-semibold text-slate-700">{formatDate(lastEditedTime)}</span></span>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Fixtures - Compact Cards */}
-      {(currentTeamBeingEdited || !isAdmin) && roundFixtures.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-slate-900">Match Tips</h2>
-          <form onSubmit={handleFormSubmit}>
-            {roundFixtures.map((fixture) => {
+      {/* Status messages */}
+      {successMessage && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 p-2.5 text-xs font-medium">
+          {successMessage}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 p-2.5 text-xs font-medium">
+          {error} — check your connection and try again.
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {teamId && !isPastYear && (
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <button
+                onClick={saveTips}
+                type="button"
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2.5 rounded-xl text-sm font-extrabold"
+              >
+                Save Tips
+              </button>
+              <button
+                onClick={cancelEditing}
+                type="button"
+                className="dz-btn-ghost flex-1 justify-center text-sm"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleEditClick}
+              type="button"
+              disabled={locked}
+              className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-extrabold ${
+                locked ? 'bg-slate-300 cursor-not-allowed text-slate-500' : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {late ? 'Edit Tips (Late)' : 'Edit Tips'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Admin: no team selected yet */}
+      {isAdmin && !teamId && (
+        <div className="rounded-[18px] bg-blue-50 border border-blue-200 p-4">
+          <h3 className="text-blue-800 font-extrabold text-sm mb-1">Admin Mode</h3>
+          <p className="text-blue-700 text-xs">Pick a team from the dropdown above to view and edit their tips.</p>
+        </div>
+      )}
+
+      {/* Fixture cards */}
+      {(teamId || !isAdmin) && fixtures.length > 0 && (
+        <div className="space-y-2.5">
+          <div className="px-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Match Tips</div>
+          <form onSubmit={handleFormSubmit} className="space-y-2.5">
+            {fixtures.map((fixture) => {
               const gameHasStarted = new Date() >= new Date(fixture.DateUtc);
               const gameHasResult = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
               const winner = gameHasResult
@@ -425,112 +429,92 @@ function MobileTippingView({
                    : 'Draw')
                 : null;
               const tipTeam = tips[fixture.MatchNumber]?.team;
+              const deadCert = tips[fixture.MatchNumber]?.deadCert;
               const isCorrectTip = gameHasResult && winner !== 'Draw' && tipTeam === winner;
               const isWrongTip = gameHasResult && winner !== 'Draw' && tipTeam !== winner;
               const gameLocked = (gameHasStarted && !isAdmin) || (isRoundLocked && !isAdmin);
+              const pickClass = (team) => `p-3 rounded-[13px] text-sm transition-colors min-w-0 border ${
+                tipTeam === team
+                  ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-900'
+              } ${(!isEditing || gameLocked) ? 'cursor-not-allowed opacity-60' : ''}`;
               return (
-              <div key={fixture.MatchNumber} className="dz-surface p-3">
-                {/* Match Info */}
-                <div className="flex justify-between items-center mb-2">
-                  <div className="text-xs text-slate-600">
-                    Game {fixture.MatchNumber} • {fixture.DateMelb}
-                    {gameHasStarted && !gameHasResult && <span className="ml-1 text-yellow-600">In progress</span>}
-                  </div>
-                  {isCorrectTip && <span className="text-emerald-600 font-bold text-lg">✓</span>}
-                  {isWrongTip && <span className="text-red-600 font-bold text-lg">✗</span>}
-                  {gameHasResult && winner === 'Draw' && <span className="text-slate-500 text-xs">Draw</span>}
-                </div>
-
-                {/* Team Selection */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleTipSelect(fixture.MatchNumber, fixture.HomeTeam);
-                    }}
-                    type="button"
-                    disabled={!isEditing || gameLocked}
-                    className={`p-3 rounded-lg text-sm font-medium transition-colors min-w-0 ${
-                      tips[fixture.MatchNumber]?.team === fixture.HomeTeam
-                        ? 'bg-emerald-500 text-white shadow-md'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                    } ${(!isEditing || gameLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
-                  >
-                    <div className="text-center min-w-0">
-                      <div className="font-bold truncate">{fixture.HomeTeam}</div>
-                      <div className="text-xs opacity-75">
-                        HOME{gameHasResult ? ` (${fixture.HomeTeamScore})` : ''}
-                      </div>
+                <div key={fixture.MatchNumber} className="rounded-[18px] border border-slate-200 bg-white shadow-sm p-3">
+                  {/* Match info */}
+                  <div className="flex justify-between items-center mb-2.5">
+                    <div className="text-[11px] font-semibold text-slate-500">
+                      Game {fixture.MatchNumber} · {fixture.DateMelb}
+                      {gameHasStarted && !gameHasResult && <span className="ml-1 text-amber-600">Live</span>}
                     </div>
-                  </button>
-
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleTipSelect(fixture.MatchNumber, fixture.AwayTeam);
-                    }}
-                    type="button"
-                    disabled={!isEditing || gameLocked}
-                    className={`p-3 rounded-lg text-sm font-medium transition-colors min-w-0 ${
-                      tips[fixture.MatchNumber]?.team === fixture.AwayTeam
-                        ? 'bg-emerald-500 text-white shadow-md'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                    } ${(!isEditing || gameLocked) ? 'cursor-not-allowed opacity-60' : ''}`}
-                  >
-                    <div className="text-center min-w-0">
-                      <div className="font-bold truncate">{fixture.AwayTeam}</div>
-                      <div className="text-xs opacity-75">
-                        AWAY{gameHasResult ? ` (${fixture.AwayTeamScore})` : ''}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-                
-                {/* Tip Status & Dead Cert */}
-                <div className="flex justify-between items-center gap-2">
-                  <div className="text-xs min-w-0">
-                    <span className="text-slate-600">Your tip:</span>
-                    <span className="font-medium ml-1 text-slate-900">
-                      {tips[fixture.MatchNumber]?.team || 'Not selected'}
-                    </span>
+                    {isCorrectTip && <span className="text-emerald-600 font-bold text-lg leading-none">✓</span>}
+                    {isWrongTip && <span className="text-red-600 font-bold text-lg leading-none">✗</span>}
+                    {gameHasResult && winner === 'Draw' && <span className="text-slate-500 text-[11px] font-semibold">Draw</span>}
                   </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDeadCertToggle(fixture.MatchNumber);
-                    }}
-                    type="button"
-                    disabled={!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team}
-                    className={`px-3 py-1 rounded text-xs font-medium shrink-0 ${
-                      tips[fixture.MatchNumber]?.deadCert
-                        ? 'bg-yellow-500 text-white'
-                        : 'bg-slate-100 text-slate-900'
-                    } ${(!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-400'}`}
-                  >
-                    {tips[fixture.MatchNumber]?.deadCert ? '⭐ Dead Cert' : 'Dead Cert'}
-                  </button>
+                  {/* Team picker */}
+                  <div className="grid grid-cols-2 gap-2 mb-2.5">
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleTipSelect(fixture.MatchNumber, fixture.HomeTeam); }}
+                      type="button"
+                      disabled={!isEditing || gameLocked}
+                      className={pickClass(fixture.HomeTeam)}
+                    >
+                      <div className="text-center min-w-0">
+                        <div className="font-extrabold truncate">{fixture.HomeTeam}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.06em] opacity-75">
+                          Home{gameHasResult ? ` · ${fixture.HomeTeamScore}` : ''}
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleTipSelect(fixture.MatchNumber, fixture.AwayTeam); }}
+                      type="button"
+                      disabled={!isEditing || gameLocked}
+                      className={pickClass(fixture.AwayTeam)}
+                    >
+                      <div className="text-center min-w-0">
+                        <div className="font-extrabold truncate">{fixture.AwayTeam}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.06em] opacity-75">
+                          Away{gameHasResult ? ` · ${fixture.AwayTeamScore}` : ''}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Tip + dead cert */}
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="text-[11px] min-w-0">
+                      <span className="text-slate-500">Your tip:</span>
+                      <span className="font-bold ml-1 text-slate-900">{tipTeam || 'Not selected'}</span>
+                    </div>
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleDeadCertToggle(fixture.MatchNumber); }}
+                      type="button"
+                      disabled={!isEditing || gameLocked || !tipTeam}
+                      className={`px-3 py-1 rounded-full text-[11px] font-extrabold shrink-0 border ${
+                        deadCert
+                          ? 'bg-amber-500 border-amber-500 text-white'
+                          : 'bg-white border-slate-200 text-slate-600'
+                      } ${(!isEditing || gameLocked || !tipTeam) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-amber-50'}`}
+                    >
+                      {deadCert ? '⭐ Dead Cert' : 'Dead Cert'}
+                    </button>
+                  </div>
                 </div>
-              </div>
               );
             })}
           </form>
         </div>
       )}
 
-      {/* Admin Info */}
+      {/* Admin override note */}
       {isAdmin && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3">
-          <h3 className="text-sm font-medium text-amber-800 mb-1">Admin Override</h3>
-          <p className="text-amber-700 text-xs">
-            You can edit tips for any user in any round, even if locked.
-          </p>
+        <div className="rounded-[18px] bg-amber-50 border border-amber-200 p-4">
+          <h3 className="text-sm font-extrabold text-amber-800 mb-1">Admin Override</h3>
+          <p className="text-amber-700 text-xs">You can edit tips for any team in any round, even when locked.</p>
           {currentTeamDisplayName && (
-            <div className="mt-2 p-2 bg-white rounded-lg border border-amber-200">
-              <p className="text-xs font-medium text-amber-800">Currently Editing:</p>
-              <p className="text-xs text-amber-700">
-                <span className="font-medium">{currentTeamDisplayName}</span> • {formatRoundName(localRound)}
-              </p>
+            <div className="mt-2 p-2 bg-white rounded-lg border border-amber-200 text-xs text-amber-700">
+              Editing <span className="font-extrabold">{currentTeamDisplayName}</span> · {formatRoundName(localRound)}
             </div>
           )}
         </div>

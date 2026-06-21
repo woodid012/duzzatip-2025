@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+import { USER_NAMES, TEAM_LOGOS, CURRENT_YEAR } from '@/app/lib/constants';
 import { useAppContext } from '@/app/context/AppContext';
+import { useUserContext } from '../layout';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
 const TippingResultsGrid = () => {
   const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear, fixtures: appFixtures } = useAppContext();
+  const { selectedUserId } = useUserContext();
   const [selectedRound, setSelectedRound] = useState(null);
   const [fixtures, setFixtures] = useState([]);
   const [allUserTips, setAllUserTips] = useState({});
@@ -19,6 +21,9 @@ const TippingResultsGrid = () => {
   // Mobile view states
   const [isMobile, setIsMobile] = useState(false);
   const [selectedUser, setSelectedUser] = useState('');
+  // Which mobile tab is showing. Lives here (not in the child) so it survives the
+  // loading→loaded remount that happens on every round change. null = not chosen yet.
+  const [mobileTab, setMobileTab] = useState(null);
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -121,6 +126,14 @@ const TippingResultsGrid = () => {
     loadAllResults();
   }, [selectedRound, selectedYear, appFixtures]);
 
+  // Pick the mobile default tab once results first load: Fixtures while a game is
+  // live, otherwise Standings. Only sets it once — a manual tab choice is kept.
+  useEffect(() => {
+    if (mobileTab === null && fixtures.length > 0) {
+      setMobileTab(hasLiveGame(fixtures) ? 'fixtures' : 'standings');
+    }
+  }, [fixtures, mobileTab]);
+
   const displayRound = (round) => {
     return round === '0' ? 'Opening Round' : `Round ${round}`;
   };
@@ -194,18 +207,6 @@ const TippingResultsGrid = () => {
       });
   };
 
-  // Check if we're in an active round (between lockout and end of round)
-  const isActiveRound = () => {
-    if (!selectedRoundInfo || parseInt(selectedRound) !== currentRound) return false;
-    
-    const now = new Date();
-    const lockoutDate = selectedRoundInfo?.lockoutDate;
-    
-    // We're in active round if lockout has passed but round isn't completely finished
-    // (assuming round is active for some period after lockout)
-    return lockoutDate && now > new Date(lockoutDate);
-  };
-
   if (loading) return (
     <div className="p-4 sm:p-8 text-center">
       <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent mx-auto mb-4"></div>
@@ -225,7 +226,8 @@ const TippingResultsGrid = () => {
     <div className="w-full">
       {/* Mobile View */}
       <div className="block md:hidden">
-        <MobileTippingResults 
+        <MobileTippingResults
+          meId={selectedUserId}
           selectedRound={selectedRound}
           setSelectedRound={setSelectedRound}
           displayRound={displayRound}
@@ -234,10 +236,10 @@ const TippingResultsGrid = () => {
           fixtures={fixtures}
           allUserTips={allUserTips}
           yearTotals={yearTotals}
-          getSortedUsers={getSortedUsers}
           getTeamAbbreviation={getTeamAbbreviation}
           getWinningTeam={getWinningTeam}
-          isActiveRound={isActiveRound}
+          tab={mobileTab || 'standings'}
+          setTab={setMobileTab}
           currentRound={currentRound}
         />
       </div>
@@ -263,8 +265,84 @@ const TippingResultsGrid = () => {
   );
 };
 
-// Mobile Component
+// ---- Mobile helpers ---------------------------------------------------------
+
+const ordinal = (n) => {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
+// Per-round dead-cert record (hits–misses) from a user's match list
+function dcRecord(matches = []) {
+  let good = 0, bad = 0;
+  matches.forEach((m) => {
+    if (m.deadCert) {
+      if (m.correct === true) good++;
+      else if (m.correct === false) bad++;
+    }
+  });
+  return { good, bad };
+}
+
+// Round standings: round tips desc → net DC → season tips
+function rankUsers(allUserTips, yearTotals) {
+  return Object.keys(USER_NAMES).sort((a, b) => {
+    const at = allUserTips[a]?.correctTips || 0, bt = allUserTips[b]?.correctTips || 0;
+    if (bt !== at) return bt - at;
+    const ad = allUserTips[a]?.deadCertScore || 0, bd = allUserTips[b]?.deadCertScore || 0;
+    if (bd !== ad) return bd - ad;
+    return (yearTotals[b]?.correctTips || 0) - (yearTotals[a]?.correctTips || 0);
+  });
+}
+
+// The exact sort key a user is ranked on — used to give tied users the same rank
+const rankKey = (uid, allUserTips, yearTotals) =>
+  `${allUserTips[uid]?.correctTips || 0}|${allUserTips[uid]?.deadCertScore || 0}|${yearTotals[uid]?.correctTips || 0}`;
+
+// Standard competition ranking ("1224"): users with identical sort keys share a rank
+function computeRanks(rankedIds, keyFor) {
+  const rankOf = {};
+  let prevKey = null, prevRank = 0;
+  rankedIds.forEach((uid, i) => {
+    const k = keyFor(uid);
+    if (prevKey !== null && k === prevKey) {
+      rankOf[uid] = prevRank;
+    } else {
+      rankOf[uid] = i + 1;
+      prevRank = i + 1;
+      prevKey = k;
+    }
+  });
+  return rankOf;
+}
+
+// A game in this list has started but has no final score yet
+function hasLiveGame(fixtures = []) {
+  return fixtures.some((f) => {
+    const completed = f.HomeTeamScore !== null && f.AwayTeamScore !== null;
+    const started = f.DateUtc ? new Date() >= new Date(f.DateUtc) : false;
+    return started && !completed;
+  });
+}
+
+// A game in this list has a final score
+function hasCompletedGame(fixtures = []) {
+  return fixtures.some((f) => f.HomeTeamScore !== null && f.AwayTeamScore !== null);
+}
+
+// One stat in the dark header's summary row — label and value each carry their own colour
+function HeaderStat({ label, labelClass = 'text-slate-400', value, valueClass = 'text-slate-200' }) {
+  return (
+    <div className="flex-1 text-center">
+      <div className={`text-[8px] font-extrabold uppercase tracking-[0.08em] ${labelClass}`}>{label}</div>
+      <div className={`mt-0.5 text-[14px] font-extrabold tabular-nums ${valueClass}`}>{value}</div>
+    </div>
+  );
+}
+
+// Mobile Component — redesigned "Tip Results" matching the live scoreboard theme
 function MobileTippingResults({
+  meId,
   selectedRound,
   setSelectedRound,
   displayRound,
@@ -273,280 +351,309 @@ function MobileTippingResults({
   fixtures,
   allUserTips,
   yearTotals,
-  getSortedUsers,
   getTeamAbbreviation,
   getWinningTeam,
-  isActiveRound,
+  tab,
+  setTab,
   currentRound
 }) {
-  // Default to fixtures tab if we're in an active round, otherwise leaderboard
-  const [activeTab, setActiveTab] = useState(() => {
-    return isActiveRound() ? 'fixtures' : 'leaderboard';
-  });
+  const totalGames = fixtures.length;
+  const ranked = rankUsers(allUserTips, yearTotals);
+  // Competition ranking so users tied on every key share a rank (no fake 1st/2nd split)
+  const rankOf = computeRanks(ranked, (uid) => rankKey(uid, allUserTips, yearTotals));
+
+  // A game in this round is currently underway → show the LIVE pill in the header
+  const anyLive = hasLiveGame(fixtures);
+  // Whether the round has any results yet — gates the "Nth this round" rank label
+  const hasResults = hasCompletedGame(fixtures);
+
+  // "You" hero — only when a real team (not admin / guest) is selected
+  const showHero = meId && meId !== 'admin' && USER_NAMES[meId];
+  const meRoundTips = allUserTips[meId]?.correctTips || 0;
+  const meNet = allUserTips[meId]?.deadCertScore || 0;
+  const meDC = dcRecord(allUserTips[meId]?.matches);
+  const meSeason = yearTotals[meId]?.correctTips || 0;
+
+  const tabBtn = (key, label) => (
+    <button
+      onClick={() => setTab(key)}
+      className={`flex-1 rounded-[10px] py-2.5 text-[12px] font-extrabold transition-colors ${
+        tab === key ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
-    <div className="p-3 space-y-4">
-      {/* Header */}
-      <ScoreboardHeader
-        eyebrow={displayRound(selectedRound)}
-        title="Tip Results"
-      >
-        <select
-          value={selectedRound}
-          onChange={(e) => setSelectedRound(e.target.value)}
-          className="dz-select-dark text-sm"
-        >
-          {Array.from({ length: 25 }, (_, i) => (
-            <option key={i} value={i.toString()}>
-              {displayRound(i.toString())}
-            </option>
-          ))}
-        </select>
-      </ScoreboardHeader>
-
-      {/* Lockout status */}
-      {selectedRoundInfo && (
-        <div className="dz-surface p-4 text-xs">
-          <span className="font-medium">Lockout: </span>
-          <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
-            {selectedRoundInfo.lockoutTime || "Not set"}
-            {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
-          </span>
-          {!isLockoutPassed && (
-            <div className="text-slate-600 mt-1">
-              Tips will be visible after lockout
+    <div className="px-4 pb-10 pt-2 text-slate-700">
+      {/* Dark scoreboard header with the round summary embedded inside it */}
+      <div className="rounded-[20px] bg-gradient-to-br from-slate-900 via-slate-800 to-[#0b1120] p-4 pb-[15px] text-white shadow-[0_16px_34px_-20px_rgba(15,23,42,0.6)]">
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="min-w-0">
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-amber-400">
+              {displayRound(selectedRound)} · Tipping
             </div>
-          )}
+            <h1 className="mt-[3px] text-[26px] font-black leading-none tracking-[-0.03em] text-white">Tip Results</h1>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            {anyLive && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(251,191,36,0.32)] bg-[rgba(217,119,6,0.16)] px-2.5 py-1 text-[10px] font-extrabold tracking-[0.04em] text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse-dot" />
+                LIVE
+              </span>
+            )}
+            <select
+              value={selectedRound}
+              onChange={(e) => setSelectedRound(e.target.value)}
+              className="dz-select-dark text-sm"
+            >
+              {Array.from({ length: 25 }, (_, i) => (
+                <option key={i} value={i.toString()}>
+                  {displayRound(i.toString())}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Your round summary */}
+        {showHero && (
+          <div className="mt-[15px] rounded-[14px] border border-[rgba(96,165,250,0.28)] bg-[rgba(59,130,246,0.12)] p-3">
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="text-[23px] leading-none">{TEAM_LOGOS[meId]}</span>
+                <div className="min-w-0">
+                  <div className="max-w-[150px] truncate text-[13px] font-extrabold text-white">{USER_NAMES[meId]}</div>
+                  <div className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-blue-300">
+                    {hasResults ? `You · ${ordinal(rankOf[meId])} this round` : 'You'}
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[30px] font-black leading-none tabular-nums text-white">
+                  {meRoundTips}<span className="text-[15px] font-bold text-blue-300"> / {totalGames}</span>
+                </div>
+                <div className="mt-0.5 text-[8px] font-extrabold uppercase tracking-[0.1em] text-blue-300">Correct</div>
+              </div>
+            </div>
+            <div className="mt-[11px] flex border-t border-white/10 pt-2.5">
+              <HeaderStat label="Dead Certs" labelClass="text-slate-500" value={`${meDC.good}–${meDC.bad}`} valueClass="text-slate-200" />
+              <div className="w-px bg-white/10" />
+              <HeaderStat label="Net DC" labelClass="text-emerald-300" value={meNet > 0 ? `+${meNet}` : `${meNet}`} valueClass={meNet > 0 ? 'text-emerald-300' : meNet < 0 ? 'text-red-300' : 'text-slate-200'} />
+              <div className="w-px bg-white/10" />
+              <HeaderStat label="Season" labelClass="text-blue-300" value={meSeason} valueClass="text-blue-300 font-black" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tips hidden until lockout */}
+      {!isLockoutPassed && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          🔒 Tips lock at <span className="font-semibold">{selectedRoundInfo?.lockoutTime || '—'}</span>. Everyone&apos;s picks are hidden until then.
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="dz-surface overflow-hidden">
-        <div className="flex">
-          <button
-            onClick={() => setActiveTab('leaderboard')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'leaderboard'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            Leaderboard
-          </button>
-          <button
-            onClick={() => setActiveTab('fixtures')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'fixtures'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            Fixtures & Tips
-          </button>
-        </div>
+      {/* Tabs */}
+      <div className="mb-4 mt-4 flex gap-1 rounded-[13px] border border-slate-200 bg-white p-1 shadow-sm">
+        {tabBtn('fixtures', 'Fixtures & Tips')}
+        {tabBtn('standings', 'Standings')}
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'leaderboard' && (
-        <MobileLeaderboard 
-          getSortedUsers={getSortedUsers}
-          yearTotals={yearTotals}
+      {tab === 'fixtures' && (
+        <MobileFixtures
+          meId={meId}
+          fixtures={fixtures}
           allUserTips={allUserTips}
-          currentRound={currentRound}
-          selectedRound={selectedRound}
+          getTeamAbbreviation={getTeamAbbreviation}
+          getWinningTeam={getWinningTeam}
+          isLockoutPassed={isLockoutPassed}
         />
       )}
 
-      {activeTab === 'fixtures' && (
-        <MobileFixtures 
-          fixtures={fixtures}
-          getTeamAbbreviation={getTeamAbbreviation}
-          getWinningTeam={getWinningTeam}
+      {tab === 'standings' && (
+        <MobileStandings
+          meId={meId}
+          ranked={ranked}
+          rankOf={rankOf}
           allUserTips={allUserTips}
-          getSortedUsers={getSortedUsers}
-          isLockoutPassed={isLockoutPassed}
+          yearTotals={yearTotals}
+          totalGames={totalGames}
         />
       )}
     </div>
   );
 }
 
-// Mobile Leaderboard Component
-function MobileLeaderboard({ getSortedUsers, yearTotals, allUserTips, currentRound, selectedRound }) {
-  const isCurrentRound = parseInt(selectedRound) === currentRound;
-  
+// A single home/away line inside a fixture card
+function TeamLine({ abbr, name, score, win, completed }) {
   return (
-    <div className="dz-surface">
-      <div className="p-4 border-b border-slate-100">
-        <h2 className="font-semibold text-slate-900">Season Leaderboard</h2>
+    <div className="flex items-center gap-2.5">
+      <div className={`w-11 shrink-0 rounded-md border py-1 text-center text-[11px] font-extrabold ${
+        win ? 'border-emerald-200 bg-emerald-50 text-emerald-600' : 'border-slate-200 bg-slate-100 text-slate-600'
+      }`}>
+        {abbr}
       </div>
-      <div className="divide-y divide-slate-100">
-        {getSortedUsers().map(([userId, userName], index) => {
-          const userResults = allUserTips[userId];
-          return (
-            <div key={userId} className="p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${
-                  index === 0 ? 'bg-yellow-500 text-white' :
-                  index === 1 ? 'bg-gray-400 text-white' :
-                  index === 2 ? 'bg-orange-600 text-white' :
-                  'bg-slate-100 text-slate-600'
-                }`}>
-                  {index + 1}
+      <span className={`min-w-0 flex-1 truncate text-[13px] ${win ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`}>
+        {name}
+      </span>
+      <span className={`text-[18px] font-extrabold tabular-nums ${win ? 'text-emerald-600' : completed ? 'text-slate-400' : 'text-slate-300'}`}>
+        {score ?? '-'}
+      </span>
+    </div>
+  );
+}
+
+// Mobile Fixtures — every team's tip per game, with ✓/✗ and dead-cert badges
+function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getWinningTeam, isLockoutPassed }) {
+  const userIds = Object.keys(USER_NAMES);
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {fixtures.map((fixture) => {
+        const completed = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+        const started = fixture.DateUtc ? new Date() >= new Date(fixture.DateUtc) : false;
+        const live = started && !completed;
+        const winner = completed ? getWinningTeam(fixture) : null;
+        const hWin = completed && winner === fixture.HomeTeam;
+        const aWin = completed && winner === fixture.AwayTeam;
+
+        let homeCount = 0, awayCount = 0;
+        const rows = userIds.map((uid) => {
+          const m = allUserTips[uid]?.matches?.find((x) => x.matchNumber === fixture.MatchNumber);
+          if (m?.tip === fixture.HomeTeam) homeCount++;
+          else if (m?.tip === fixture.AwayTeam) awayCount++;
+          return { uid, m };
+        });
+
+        return (
+          <div
+            key={fixture.MatchNumber}
+            className={`rounded-[15px] border bg-white p-3.5 ${
+              live ? 'border-amber-200 shadow-[0_0_0_3px_rgba(217,119,6,0.06)]' : 'border-slate-200 shadow-sm'
+            }`}
+          >
+            <div className="mb-2.5 flex items-center justify-between">
+              <span className={`text-[10px] font-extrabold uppercase tracking-[0.1em] ${live ? 'text-amber-600' : 'text-slate-400'}`}>
+                Game {fixture.MatchNumber}
+              </span>
+              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.08em] ${
+                live ? 'border-amber-200 bg-amber-50 text-amber-700'
+                  : completed ? 'border-slate-200 bg-slate-100 text-slate-500'
+                  : 'border-blue-200 bg-blue-50 text-blue-600'
+              }`}>
+                {live ? 'Live' : completed ? 'Final' : 'Upcoming'}
+              </span>
+            </div>
+
+            <TeamLine abbr={getTeamAbbreviation(fixture.HomeTeam)} name={fixture.HomeTeam} score={fixture.HomeTeamScore} win={hWin} completed={completed} />
+            <div className="my-1.5 h-px bg-slate-100" />
+            <TeamLine abbr={getTeamAbbreviation(fixture.AwayTeam)} name={fixture.AwayTeam} score={fixture.AwayTeamScore} win={aWin} completed={completed} />
+
+            {isLockoutPassed ? (
+              <>
+                <div className="mt-2.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold tabular-nums text-slate-500">
+                  {homeCount} tipped {getTeamAbbreviation(fixture.HomeTeam)} · {awayCount} tipped {getTeamAbbreviation(fixture.AwayTeam)}
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-slate-900 truncate">{userName}</div>
-                  <div className="text-xs text-slate-500">
-                    {isCurrentRound ? (
-                      <>
-                        Current Round: {userResults?.correctTips || 0} Tips
-                        {userResults?.deadCertScore !== 0 && (
-                          <span className={userResults?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
-                            , {userResults?.deadCertScore > 0 ? "+" : ""}{userResults?.deadCertScore || 0} DCs
+
+                <div className="mt-2 flex flex-col gap-0.5">
+                  {rows.map(({ uid, m }) => {
+                    const isMe = String(uid) === String(meId);
+                    const correct = m?.correct;
+                    // No real tip submitted — the app auto-defaults to the home team. Show it
+                    // muted with a "def" marker so it doesn't read as a deliberate (correct) pick.
+                    const isDefault = m?.isDefault;
+                    const tipColor = isDefault
+                      ? 'italic text-slate-400'
+                      : correct === true ? 'text-emerald-600' : correct === false ? 'text-red-600' : 'text-slate-500';
+                    const icon = !isDefault && correct === true ? '✓' : !isDefault && correct === false ? '✗' : '';
+                    let badge = null;
+                    if (m?.deadCert) {
+                      if (correct === true) badge = { t: '+6', c: 'border-emerald-200 bg-emerald-50 text-emerald-600' };
+                      else if (correct === false) badge = { t: '-12', c: 'border-red-200 bg-red-50 text-red-600' };
+                      else badge = { t: 'DC', c: 'border-amber-200 bg-amber-50 text-amber-600' };
+                    }
+                    return (
+                      <div key={uid} className={`grid grid-cols-[1fr_auto_42px] items-center gap-2 rounded-md px-1.5 py-1 ${isMe ? 'bg-blue-50' : ''}`}>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="text-[13px] leading-none">{TEAM_LOGOS[uid]}</span>
+                          <span className={`truncate text-[12px] ${isMe ? 'font-extrabold text-blue-700' : 'font-semibold text-slate-600'}`}>
+                            {USER_NAMES[uid]}
                           </span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        Round: {userResults?.correctTips || 0}
-                        {userResults?.deadCertScore !== 0 && (
-                          <span className={userResults?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
-                            {userResults?.deadCertScore > 0 ? " +" : " "}{userResults?.deadCertScore || 0}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className={`text-[12px] font-extrabold ${tipColor}`}>{m?.tip ? getTeamAbbreviation(m.tip) : '-'}</span>
+                          {isDefault
+                            ? <span className="text-[8px] font-bold uppercase tracking-wide text-slate-400">def</span>
+                            : <span className={`w-2.5 text-center text-[11px] font-extrabold ${correct === true ? 'text-emerald-600' : 'text-red-600'}`}>{icon}</span>}
+                        </div>
+                        {badge
+                          ? <span className={`justify-self-end rounded-full border px-1.5 py-px text-[9px] font-extrabold tabular-nums ${badge.c}`}>{badge.t}</span>
+                          : <span />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="mt-2.5 text-center text-[11px] italic text-slate-400">Tips hidden until lockout</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Mobile Standings — round tips with a net-DC tiebreak, plus scoring legend
+function MobileStandings({ meId, ranked, rankOf, allUserTips, yearTotals, totalGames }) {
+  const legend = (cls, label, value, valueCls) => (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${cls}`}>
+      {label} <strong className={valueCls}>{value}</strong>
+    </span>
+  );
+
+  return (
+    <div>
+      <div className="mb-2 px-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
+        Ranked by round tips · Net DC tiebreak
+      </div>
+      <div className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm">
+        {ranked.map((uid, i) => {
+          const isMe = String(uid) === String(meId);
+          const rank = rankOf?.[uid] ?? i + 1;
+          const isLeader = rank === 1;
+          const roundTips = allUserTips[uid]?.correctTips || 0;
+          const net = allUserTips[uid]?.deadCertScore || 0;
+          const season = yearTotals[uid]?.correctTips || 0;
+          return (
+            <div key={uid} className={`flex items-center gap-2.5 border-b border-slate-100 px-3 py-2.5 ${isMe ? 'bg-blue-50' : ''}`}>
+              <span className={`w-5 text-center text-[13px] font-black tabular-nums ${isLeader ? 'text-amber-600' : 'text-slate-400'}`}>{rank}</span>
+              <span className="text-base leading-none">{TEAM_LOGOS[uid]}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={`truncate text-[13px] ${isMe ? 'font-extrabold text-slate-900' : 'font-bold text-slate-700'}`}>{USER_NAMES[uid]}</span>
+                  {isMe && <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-1.5 py-px text-[8px] font-extrabold tracking-[0.08em] text-blue-700">YOU</span>}
+                </div>
+                <div className="mt-0.5 text-[10px] tabular-nums text-slate-400">
+                  Season {season} · <span className={net >= 0 ? 'font-semibold text-emerald-600' : 'font-semibold text-red-600'}>{net >= 0 ? '+' : ''}{net} DC</span>
                 </div>
               </div>
-              <div className="text-right shrink-0">
-                <div className="font-bold text-lg text-slate-900">
-                  {yearTotals[userId]?.correctTips || 0}
-                </div>
-                {yearTotals[userId]?.deadCertScore !== 0 && (
-                  <div className={`text-sm ${yearTotals[userId]?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    {yearTotals[userId]?.deadCertScore > 0 ? "+" : ""}{yearTotals[userId]?.deadCertScore || 0}
-                  </div>
-                )}
+              <div className="shrink-0 text-right">
+                <span className={`text-[20px] font-black tabular-nums ${isLeader ? 'text-amber-600' : isMe ? 'text-blue-600' : 'text-slate-900'}`}>{roundTips}</span>
+                <span className="text-[11px] font-bold text-slate-300"> / {totalGames}</span>
               </div>
             </div>
           );
         })}
       </div>
-    </div>
-  );
-}
 
-// Mobile Fixtures Component
-function MobileFixtures({ fixtures, getTeamAbbreviation, getWinningTeam, allUserTips, getSortedUsers, isLockoutPassed }) {
-  return (
-    <div className="space-y-4">
-      {fixtures.map(fixture => {
-        const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
-        const winner = getWinningTeam(fixture);
-        
-        return (
-          <div key={fixture.MatchNumber} className="dz-surface">
-            {/* Fixture Header */}
-            <div className="p-4 border-b border-slate-100">
-              <div className="text-sm text-slate-600 mb-3">Game {fixture.MatchNumber}</div>
-
-              <div className="grid grid-cols-3 gap-4 items-center">
-                {/* Home Team */}
-                <div className="text-center">
-                  <div className={`font-medium text-lg ${
-                    isMatchCompleted
-                      ? (winner === fixture.HomeTeam ? 'text-emerald-600' : 'text-slate-900')
-                      : 'text-blue-600'
-                  }`}>
-                    {getTeamAbbreviation(fixture.HomeTeam)}
-                  </div>
-                  <div className="text-xs text-slate-500 mb-1">HOME</div>
-                  <div className="text-xl font-bold">
-                    {fixture.HomeTeamScore ?? '-'}
-                  </div>
-                </div>
-
-                {/* VS */}
-                <div className="text-center">
-                  <div className="text-slate-400 font-medium">VS</div>
-                  {isMatchCompleted && (
-                    <div className="text-xs text-emerald-600 font-medium mt-1">
-                      Winner: {getTeamAbbreviation(winner)}
-                    </div>
-                  )}
-                </div>
-
-                {/* Away Team */}
-                <div className="text-center">
-                  <div className={`font-medium text-lg ${
-                    isMatchCompleted
-                      ? (winner === fixture.AwayTeam ? 'text-emerald-600' : 'text-slate-900')
-                      : 'text-slate-900'
-                  }`}>
-                    {getTeamAbbreviation(fixture.AwayTeam)}
-                  </div>
-                  <div className="text-xs text-slate-500 mb-1">AWAY</div>
-                  <div className="text-xl font-bold">
-                    {fixture.AwayTeamScore ?? '-'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Player Tips */}
-            <div className="p-4">
-              <h4 className="text-sm font-medium text-slate-700 mb-3">Player Tips</h4>
-              <div className="space-y-2">
-                {getSortedUsers().map(([userId, userName]) => {
-                  const userResults = allUserTips[userId];
-                  const matchTip = userResults?.matches?.find(m => m.matchNumber === fixture.MatchNumber);
-                  const isCorrect = matchTip?.correct;
-                  const isDeadCert = matchTip?.deadCert;
-                  const isDefault = matchTip?.isDefault;
-                  
-                  return (
-                    <div key={userId} className="flex items-center justify-between py-1 gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm font-medium text-slate-900 w-20 truncate">
-                          {userName}
-                        </span>
-                        {isDeadCert && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            isMatchCompleted ?
-                              (isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700') :
-                              'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {isMatchCompleted ?
-                              (isCorrect ? '+6' : '-12') :
-                              'DC'
-                            }
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        {isLockoutPassed ? (
-                          <span className={`text-sm font-medium ${
-                            isMatchCompleted ?
-                              (isCorrect ? 'text-emerald-600' : 'text-red-600') :
-                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-slate-900')
-                          }`}>
-                            {matchTip?.tip ? getTeamAbbreviation(matchTip.tip) : '-'}
-                            {isDefault && <span className="text-xs text-slate-500 ml-1">(Def)</span>}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-500 italic">Locked</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      <div className="mt-3.5 flex flex-wrap gap-2">
+        {legend('border-slate-200 bg-slate-100 text-slate-600', 'Correct tip', '+1', 'text-slate-900')}
+        {legend('border-emerald-200 bg-emerald-50 text-slate-600', 'DC hit', '+6', 'text-emerald-600')}
+        {legend('border-red-200 bg-red-50 text-slate-600', 'DC miss', '−12', 'text-red-600')}
+      </div>
     </div>
   );
 }
