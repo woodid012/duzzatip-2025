@@ -210,6 +210,14 @@ export async function GET(request) {
             } catch (err) {
                 console.error(`Error syncing final totals for round ${round}:`, err);
             }
+            // The ladder page renders from the simple_round_results snapshot, so
+            // keep it in lock-step too — otherwise a stale tie there survives even
+            // after the results recompute a clear winner.
+            try {
+                await syncSimpleRoundResults(round, results, db, year);
+            } catch (err) {
+                console.error(`Error syncing simple round results for round ${round}:`, err);
+            }
         }
 
         const responseData = {
@@ -352,6 +360,45 @@ async function syncFinalTotals(round, results, db, year = CURRENT_YEAR) {
     await db.collection(`${year}_ladder`).deleteMany({ round: { $gte: round } });
 
     console.log(`Synced ${bulkOps.length} final total(s) for round ${round}; cleared cached ladders >= ${round}`);
+}
+
+// Persist the round's snapshot that the ladder page (/api/simple-ladder) reads
+// from, built from these authoritative completed-round results. Mirrors
+// syncFinalTotals: only writes when a total actually moved, so an already-synced
+// round costs a single read and no write.
+async function syncSimpleRoundResults(round, results, db, year = CURRENT_YEAR) {
+    const collection = db.collection(`${year}_simple_round_results`);
+
+    const existing = await collection.findOne({ round: round });
+    const existingResults = existing?.results || {};
+
+    const roundData = {};
+    let changed = false;
+    for (const [userId, result] of Object.entries(results)) {
+        const totalScore = result.totalScore || 0;
+        roundData[userId] = {
+            totalScore: totalScore,
+            playerScore: result.playerScore || 0,
+            deadCertScore: result.deadCertScore || 0,
+            matchResult: result.matchResult || null,
+            opponent: result.opponent || null,
+            hasStar: result.hasStar || false,
+            hasCrab: result.hasCrab || false
+        };
+        if ((existingResults[userId]?.totalScore || 0) !== totalScore) changed = true;
+    }
+
+    // Don't store an all-zero snapshot, and skip the write when nothing changed.
+    const hasScores = Object.values(roundData).some(r => r.totalScore > 0);
+    if (!hasScores || !changed) return;
+
+    await collection.updateOne(
+        { round: round },
+        { $set: { round: round, results: roundData, lastUpdated: new Date() } },
+        { upsert: true }
+    );
+
+    console.log(`Synced simple_round_results for round ${round} from completed results`);
 }
 
 // Use the exact same logic as your round-results API
