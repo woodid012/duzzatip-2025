@@ -262,7 +262,6 @@ export default function MobileLiveScoreboard({
   const [mode, setMode] = useState('scores'); // 'scores' (team scores) | 'tips'
   const [openGame, setOpenGame] = useState(null); // index of expanded fixture
 
-  const isLiveRound = liveUserIds.length > 0;
   const myScores = selectedUserId ? getTeamScores(selectedUserId) : null;
   const oppScores = opponentId ? getTeamScores(opponentId) : null;
   const hasMatch = Boolean(selectedUserId && opponentId && myScores && oppScores);
@@ -297,18 +296,31 @@ export default function MobileLiveScoreboard({
 
   return (
     <div className="block sm:hidden -mx-4 px-4 pb-10 pt-2 text-slate-700">
-      {/* Header — round + refresh only (the round/year title is implied by the toggle below) */}
-      <div className="flex items-center justify-end gap-2 mb-3">
-        {isLiveRound && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-amber-700">
-            <LiveDot /> LIVE
-          </span>
-        )}
+      {/* Top row: view toggle (grows) + round selector + refresh, all on one line */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="flex flex-1 min-w-0 gap-1 rounded-[13px] border border-slate-200 bg-slate-100 p-1">
+          <button
+            onClick={() => setMode('scores')}
+            className={`flex-1 rounded-[10px] py-2 text-[12px] font-extrabold transition-colors ${
+              mode === 'scores' ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
+            }`}
+          >
+            Team Scores
+          </button>
+          <button
+            onClick={() => setMode('tips')}
+            className={`flex-1 rounded-[10px] py-2 text-[12px] font-extrabold transition-colors ${
+              mode === 'tips' ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
+            }`}
+          >
+            Tips
+          </button>
+        </div>
         {isLoggedIn && onRoundChange && (
           <select
             value={displayedRound ?? ''}
             onChange={onRoundChange}
-            className="dz-select py-1.5 text-sm"
+            className="dz-select shrink-0 py-1.5 text-sm"
           >
             {[...Array(25)].map((_, i) => (
               <option key={i} value={i}>{displayRoundName(i)}</option>
@@ -320,31 +332,11 @@ export default function MobileLiveScoreboard({
             onClick={onRefresh}
             disabled={isRefreshing}
             title="Refresh live scores"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         )}
-      </div>
-
-      {/* View toggle: Team Scores vs Tips */}
-      <div className="flex gap-1 rounded-[13px] border border-slate-200 bg-slate-100 p-1 mb-4">
-        <button
-          onClick={() => setMode('scores')}
-          className={`flex-1 rounded-[10px] py-2.5 text-[13px] font-extrabold transition-colors ${
-            mode === 'scores' ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
-          }`}
-        >
-          Team Scores
-        </button>
-        <button
-          onClick={() => setMode('tips')}
-          className={`flex-1 rounded-[10px] py-2.5 text-[13px] font-extrabold transition-colors ${
-            mode === 'tips' ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
-          }`}
-        >
-          Tips
-        </button>
       </div>
 
       {mode === 'tips' && (
