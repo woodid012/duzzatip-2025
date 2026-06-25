@@ -165,7 +165,20 @@ function getLockoutInfo(fixtures, round) {
     weekday: "short", day: "numeric", month: "short",
     hour: "numeric", minute: "2-digit", hour12: true
   });
-  return { firstGame, locked: now >= firstGame, minsUntil, hoursUntil, melbTime };
+  return { firstGame, locked: now >= firstGame, minsUntil, hoursUntil, melbTime, placeholder: looksLikePlaceholder(rf) };
+}
+
+// Safety net: a round whose times never got refreshed from the AFL API (e.g. API
+// was down AND the seeded JSON was stale) shows the tell-tale placeholder shape —
+// several games pinned to the exact same kickoff instant. We must never silently
+// trust such a lockout for the "too far away, skip" gate, since that's exactly the
+// failure that swallowed a weekly alert. Returns true when ≥3 games in the round
+// share one DateUtc.
+function looksLikePlaceholder(roundFixtures) {
+  if (!roundFixtures || roundFixtures.length < 3) return false;
+  const counts = {};
+  for (const f of roundFixtures) counts[f.DateUtc] = (counts[f.DateUtc] || 0) + 1;
+  return Object.values(counts).some(n => n >= 3);
 }
 function getRoundFixtures(fixtures, round) {
   return fixtures.filter(f => f.RoundNumber === round).sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc));
@@ -894,6 +907,27 @@ async function main() {
   const doTips      = !args.includes("--team");
   const roundArg    = args.find(a => a.startsWith("--round="));
   const tradesOnly  = args.includes("--trades");
+  const skipRefresh = args.includes("--no-refresh");
+
+  // Self-heal fixture kickoff times from the authoritative AFL API before
+  // anything reads them. The fixture JSON is seeded once at season start with
+  // placeholder times for unscheduled rounds, and the AFL moves games all
+  // season — a stale DateUtc silently mis-computes the lockout and skips the
+  // weekly alert (the exact failure this guards against). Non-fatal: if the AFL
+  // API is unreachable we proceed with the existing file. Skip with --no-refresh.
+  if (!skipRefresh) {
+    try {
+      const { refreshFixtures } = require("./refresh-fixtures");
+      const res = await refreshFixtures({ verbose: false });
+      if (res.ok && res.changes.length > 0) {
+        console.log(`  ↻ Fixture refresh: corrected ${res.changes.length} kickoff time(s) from AFL API`);
+      } else if (!res.ok) {
+        console.warn(`  ⚠ Fixture refresh unavailable (${res.reason}) — using existing fixture file.`);
+      }
+    } catch (e) {
+      console.warn(`  ⚠ Fixture refresh skipped: ${e.message}`);
+    }
+  }
 
   const fixtures = loadFixtures();
 
@@ -934,9 +968,16 @@ async function main() {
     // and "final" (within 1.5h of lockout, after late team changes)
     if (!force && !dryRun) {
       if (lockout?.locked) { console.log("   \u2B50 Round already locked \u2014 nothing to do."); return; }
-      if (lockout && lockout.hoursUntil > NOTIFY_WINDOW_HOURS) {
+      // Don't trust the "too far away" skip when the round's times look like
+      // unrefreshed placeholders \u2014 the real lockout could be much sooner. Warn
+      // loudly and fall through to send rather than silently swallowing the alert.
+      if (lockout && lockout.hoursUntil > NOTIFY_WINDOW_HOURS && !lockout.placeholder) {
         console.log(`   \u2B50 Lockout is ${Math.round(lockout.hoursUntil)}h away (>${NOTIFY_WINDOW_HOURS}h window) \u2014 skipping.`);
         return;
+      }
+      if (lockout?.placeholder && lockout.hoursUntil > NOTIFY_WINDOW_HOURS) {
+        console.warn(`   \u26A0 Round ${round} kickoff times look like unrefreshed placeholders ` +
+          `(AFL refresh may have failed) \u2014 not trusting the ${Math.round(lockout.hoursUntil)}h window; proceeding.`);
       }
       const state = loadState();
       const roundState = state.rounds[round] || {};
