@@ -5,7 +5,7 @@
 
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { connectToDatabase } from '@/app/lib/mongodb';
-import { refreshGameResultsForRound } from '@/app/lib/refreshGameResults';
+import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -390,6 +390,22 @@ export async function getAflFixtures(year = CURRENT_YEAR, { force = false } = {}
       } catch (err) {
         console.warn(`AFL API score refresh failed: ${err.message}`);
       }
+    }
+
+    // Stale-stats safety net — runs on every app open (this path is hit by the
+    // results page the site lands on), scoped to the current round only. Unlike
+    // the score-/live-triggered refresh above, this fires regardless of whether
+    // a new score just landed, so a game that concluded with no subsequent
+    // (un-throttled) page load still gets its FINAL stats pulled in. "Current
+    // round" = the latest round with a game that has started, so it also covers
+    // a round's final game once the whole round is done. Internally throttled to
+    // 5 min/round; fire-and-forget so it never delays the page.
+    const startedRoundNumbers = fixtures
+      .filter(f => f.RoundNumber > 0 && new Date(f.DateUtc).getTime() <= now)
+      .map(f => f.RoundNumber);
+    if (startedRoundNumbers.length > 0) {
+      const currentRound = Math.max(...startedRoundNumbers);
+      refreshStaleConcludedStats(currentRound).catch(() => {});
     }
   }
 

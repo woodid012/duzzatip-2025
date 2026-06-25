@@ -942,6 +942,27 @@ async function main() {
   const round    = roundArg ? parseInt(roundArg.split("=")[1]) : getCurrentRound(fixtures);
   const lockout  = getLockoutInfo(fixtures, round);
 
+  // Self-heal player stats: re-pull FINAL stats for any concluded game whose
+  // stored rows are still a mid-game snapshot. The app's stats refresh is
+  // opportunistic and can leave a concluded game frozen at half-time (see
+  // refresh-stats.js). This deterministic pass — over this round and the last —
+  // closes that gap before we read stats for the lineup. Non-fatal; skip with
+  // --no-stats-refresh.
+  if (!args.includes("--no-stats-refresh")) {
+    try {
+      const { refreshStats } = require("./refresh-stats");
+      const statsRounds = round > 1 ? [round - 1, round] : [round];
+      const res = await refreshStats({ rounds: statsRounds, verbose: false });
+      if (res.ok && res.refreshed.length > 0) {
+        console.log(`  ↻ Stats refresh: pulled final stats for ${res.refreshed.length} concluded game(s)`);
+      } else if (!res.ok) {
+        console.warn(`  ⚠ Stats refresh unavailable (${res.reason}) — using stored stats.`);
+      }
+    } catch (e) {
+      console.warn(`  ⚠ Stats refresh skipped: ${e.message}`);
+    }
+  }
+
   if (interactive) {
     header(`\u{1F986}\u{26A1} Le Quack Attack \u2014 DuzzaTip ${YEAR}`);
     if (dryRun) console.log(`  ${C.yellow}DRY-RUN mode \u2014 nothing will be saved${C.reset}`);

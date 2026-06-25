@@ -18,6 +18,8 @@
     "trades:dry": "node lockout-notify.js --trades --dry-run",
     "fixtures:refresh": "node refresh-fixtures.js",
     "fixtures:dry": "node refresh-fixtures.js --dry-run",
+    "stats:refresh": "node refresh-stats.js",
+    "stats:refresh:dry": "node refresh-stats.js --dry-run",
     "stats": "node player-stats-report.js",
     "stats:nosend": "node player-stats-report.js --no-send",
     "stats:league": "node player-stats-report.js --league",
