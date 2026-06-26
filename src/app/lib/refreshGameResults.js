@@ -123,9 +123,53 @@ export function isSuspectRefresh(existingCount, newCount) {
     return existingCount > 0 && newCount < existingCount * 0.5;
 }
 
+// Unique index that makes the delete+insert refresh paths idempotent under
+// concurrency: two writers racing on the same round can no longer double-insert
+// a player's row (the historical cause of duplicate game_results). Partial so
+// preseason (round 0, where a player can feature in multiple practice matches)
+// stays unconstrained. Ensured once per process per collection; createIndex is a
+// no-op when the index already exists.
+const ensuredIndexCollections = new Set();
+async function ensureGameResultsIndexes(collection) {
+    const key = collection.collectionName;
+    if (ensuredIndexCollections.has(key)) return;
+    ensuredIndexCollections.add(key); // mark first so a slow build doesn't re-trigger
+    try {
+        await collection.createIndex(
+            { year: 1, round: 1, player_name: 1, match_number: 1 },
+            { unique: true, partialFilterExpression: { round: { $gte: 1 } }, name: 'uniq_year_round_player_match' }
+        );
+    } catch (err) {
+        // Likely pre-existing duplicates in a historical collection — log and
+        // carry on; inserts still work, just without the guard for that year.
+        ensuredIndexCollections.delete(key);
+        console.warn(`[index] ensure uniq game_results index failed (${key}): ${err.message}`);
+    }
+}
+
+// insertMany that tolerates the unique-index guard: under a concurrent race some
+// rows may already exist (E11000). With ordered:false the rest still insert; we
+// swallow ONLY duplicate-key errors and rethrow anything genuine.
+async function insertManyTolerant(collection, docs) {
+    if (!docs.length) return { insertedCount: 0 };
+    try {
+        const r = await collection.insertMany(docs, { ordered: false });
+        return { insertedCount: r.insertedCount };
+    } catch (err) {
+        const writeErrors = Array.isArray(err.writeErrors) ? err.writeErrors : [];
+        const onlyDup = writeErrors.length > 0 ? writeErrors.every(e => e.code === 11000) : err.code === 11000;
+        if (onlyDup) {
+            console.warn(`[dedup-guard] tolerated ${writeErrors.length || 1} duplicate-key row(s) on ${collection.collectionName} insert`);
+            return { insertedCount: err.result?.insertedCount ?? err.insertedCount ?? 0 };
+        }
+        throw err;
+    }
+}
+
 export async function updateGameResults(statsData, round, { merge = false } = {}) {
     const { db } = await connectToDatabase();
     const collection = db.collection(`${CURRENT_YEAR}_game_results`);
+    await ensureGameResultsIndexes(collection);
     const processedData = statsData.filter(r => r && typeof r === 'object');
 
     // Merge mode (liveOnly refresh): only replace the teams we actually fetched
@@ -139,7 +183,7 @@ export async function updateGameResults(statsData, round, { merge = false } = {}
         }
         const teams = [...new Set(processedData.map(r => r.team_name).filter(Boolean))];
         await collection.deleteMany({ round, year: CURRENT_YEAR, team_name: { $in: teams } });
-        const result = await collection.insertMany(processedData);
+        const result = await insertManyTolerant(collection, processedData);
         return { insertedCount: result.insertedCount, merged: true, teams: teams.length };
     }
 
@@ -154,7 +198,7 @@ export async function updateGameResults(statsData, round, { merge = false } = {}
     }
 
     await collection.deleteMany({ round: round, year: CURRENT_YEAR });
-    const result = await collection.insertMany(processedData);
+    const result = await insertManyTolerant(collection, processedData);
     return { insertedCount: result.insertedCount };
 }
 
@@ -237,6 +281,7 @@ export async function refreshStaleConcludedStats(round, { token = null, force = 
 
             const { db } = await connectToDatabase();
             const collection = db.collection(`${CURRENT_YEAR}_game_results`);
+            await ensureGameResultsIndexes(collection);
 
             // One DB read for the whole round: earliest stored capture per team.
             const stored = await collection
@@ -268,7 +313,7 @@ export async function refreshStaleConcludedStats(round, { token = null, force = 
                 const players = mapMatchPlayers(await statsRes.json(), match, round);
                 if (players.length === 0) continue; // never wipe on a degraded response
                 await collection.deleteMany({ round, year: CURRENT_YEAR, team_name: { $in: [home, away] } });
-                await collection.insertMany(players);
+                await insertManyTolerant(collection, players);
                 refreshed++;
                 console.log(`[stale-sync] Re-pulled final stats: R${round} ${home} v ${away} (${players.length} players)`);
             }

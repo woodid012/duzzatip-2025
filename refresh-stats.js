@@ -179,9 +179,18 @@ async function refreshStats({
 
         if (write) {
           // Per-game merge: replace only these two teams' rows for this round, so
-          // we never disturb other games in the round.
+          // we never disturb other games in the round. ordered:false + swallow
+          // E11000 so the unique game_results index (which prevents duplicate
+          // rows) degrades a concurrent race gracefully instead of throwing.
           await col.deleteMany({ round, year, team_name: { $in: [homeTeam, awayTeam] } });
-          await col.insertMany(players);
+          try {
+            await col.insertMany(players, { ordered: false });
+          } catch (err) {
+            const writeErrors = Array.isArray(err.writeErrors) ? err.writeErrors : [];
+            const onlyDup = writeErrors.length > 0 ? writeErrors.every(e => e.code === 11000) : err.code === 11000;
+            if (!onlyDup) throw err;
+            warn(`⚠ ${label}: tolerated ${writeErrors.length || 1} duplicate-key row(s)`);
+          }
         }
       }
     }
