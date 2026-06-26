@@ -8,7 +8,7 @@ import { getAflFixtures, isRoundComplete as checkRoundComplete } from '@/app/lib
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { isRoundLocked } from '@/app/lib/roundAccess';
-import { refreshGameResultsForRound } from '@/app/lib/refreshGameResults';
+import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
 // Map team abbreviations (from 2026_players) to full fixture names.
 // Includes both our canonical 3-letter codes and the AFL API's 4-letter
 // codes (MELB/ADEL/PORT/etc.) that pre-fix update-players runs may have
@@ -64,6 +64,15 @@ export async function GET(request) {
                 await refreshGameResultsForRound(round, { force: true, liveOnly: true });
             } catch (err) {
                 console.warn(`Forced game_results refresh failed for round ${round}: ${err.message}`);
+            }
+            // liveOnly above SKIPS concluded games, so on its own the Refresh
+            // button can't fix a finished game frozen at a mid-game snapshot.
+            // Force the stale-concluded sweep too so the button guarantees final
+            // stats for completed games (bypasses the 5-min stale throttle).
+            try {
+                await refreshStaleConcludedStats(round, { force: true });
+            } catch (err) {
+                console.warn(`Forced stale-stats refresh failed for round ${round}: ${err.message}`);
             }
         }
 
