@@ -312,7 +312,13 @@ export async function refreshStaleConcludedStats(round, { token = null, force = 
                 if (!statsRes.ok) continue;
                 const players = mapMatchPlayers(await statsRes.json(), match, round);
                 if (players.length === 0) continue; // never wipe on a degraded response
-                await collection.deleteMany({ round, year: CURRENT_YEAR, team_name: { $in: [home, away] } });
+                // Delete only the teams we actually got fresh rows for — NOT the
+                // fixture's home/away. A half-degraded playerStats response (one
+                // side empty) would otherwise delete both teams but re-insert
+                // only one, wiping the missing side's stats. Mirrors the safe
+                // merge path in updateGameResults.
+                const teams = [...new Set(players.map(r => r.team_name).filter(Boolean))];
+                await collection.deleteMany({ round, year: CURRENT_YEAR, team_name: { $in: teams } });
                 await insertManyTolerant(collection, players);
                 refreshed++;
                 console.log(`[stale-sync] Re-pulled final stats: R${round} ${home} v ${away} (${players.length} players)`);
