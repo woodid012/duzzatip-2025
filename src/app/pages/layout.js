@@ -356,7 +356,9 @@ export default function PagesLayout({ children }) {
         {Object.entries(USER_NAMES).map(([id, name]) => (
           <option key={id} value={id}>{name}</option>
         ))}
-        <option value="admin">Admin</option>
+        {/* Admin isn't a pickable team — sign in via the nav's Admin entry.
+            The option only exists so the (disabled) select can display it. */}
+        {isAdminAuthenticated && <option value="admin">Admin</option>}
       </select>
     );
   };
@@ -382,6 +384,21 @@ export default function PagesLayout({ children }) {
       </Link>
     );
   };
+
+  // Admin sign-in lives at the bottom of the nav (below Install App), not in
+  // the player dropdown — admin is a mode, not a team. Hidden once authenticated.
+  const AdminNavButton = ({ onClick }) => (
+    <button
+      onClick={() => { setShowAdminModal(true); onClick?.(); }}
+      className="group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
+    >
+      <Lock className="h-[18px] w-[18px] flex-shrink-0 text-slate-400 group-hover:text-slate-600" />
+      <span className="truncate">Admin</span>
+    </button>
+  );
+  // Render it directly below the Install App group; guests don't see Install
+  // App in their filtered nav, so for them it falls through to the nav's end.
+  const installVisible = visibleGroups.flat().some((item) => item.id === 'install');
 
   // While the session cookie is being checked, show a brief splash so the app
   // doesn't flash the public view first and then re-render — one screen, not two.
@@ -590,11 +607,17 @@ export default function PagesLayout({ children }) {
                     {group.map((item) => (
                       <NavLink key={item.id} item={item} onClick={() => setIsMobileNavOpen(false)} />
                     ))}
+                    {!isAdminAuthenticated && group.some((item) => item.id === 'install') && (
+                      <AdminNavButton onClick={() => setIsMobileNavOpen(false)} />
+                    )}
                     {groupIndex < navigationGroups.length - 1 && (
                       <div className="my-2 border-t border-slate-100" />
                     )}
                   </div>
                 ))}
+                {!isAdminAuthenticated && !installVisible && (
+                  <AdminNavButton onClick={() => setIsMobileNavOpen(false)} />
+                )}
                 {selectedUserId === 'admin' && (
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Debug</p>
@@ -686,11 +709,15 @@ export default function PagesLayout({ children }) {
                       {group.map((item) => (
                         <NavLink key={item.id} item={item} />
                       ))}
+                      {!isAdminAuthenticated && group.some((item) => item.id === 'install') && (
+                        <AdminNavButton />
+                      )}
                       {groupIndex < navigationGroups.length - 1 && (
                         <div className="my-2 border-t border-slate-100" />
                       )}
                     </div>
                   ))}
+                  {!isAdminAuthenticated && !installVisible && <AdminNavButton />}
                   {selectedUserId === 'admin' && (
                     <div className="mt-2 border-t border-slate-100 pt-2">
                       <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Debug</p>
