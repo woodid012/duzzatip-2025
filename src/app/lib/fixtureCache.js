@@ -19,6 +19,24 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const roundStatusCache = new Map();
 const STATUS_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 
+// Hard wall-clock budget for the AFL score overlay as a whole (on top of the
+// per-fetch timeouts) — belt-and-braces against the overlay taking longer than
+// expected (e.g. many started rounds) and blocking fixture serving. Distinct
+// error type so the caller can tell "timed out" apart from any other overlay
+// failure and trip the circuit breaker specifically for that case.
+const AFL_OVERLAY_BUDGET_MS = 4000;
+class AflOverlayTimeoutError extends Error {}
+
+// Race `promise` against a plain setTimeout, clearing the timer in every exit
+// path so it can never keep the lambda alive past the real result landing.
+function withTimeout(promise, ms, timeoutError) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(timeoutError), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 // Normalise team names for fuzzy matching between local file and AFL API.
 // The AFL API switched to Indigenous-language names for several clubs in 2026
 // (Walyalup, Yartapuulti, etc.); map those to the English equivalents first
@@ -121,6 +139,30 @@ let cachedTokenAt = 0;
 let cachedOffset = null;
 let cachedOffsetAt = 0;
 
+// Circuit breaker for the AFL API. The external aflapi.afl.com.au host can wedge
+// (connections hang rather than error/timeout cleanly), and every per-round score
+// fetch retrying that timeout in sequence is what turns a single request into a
+// 15-20s block that trips Vercel's function timeout. Once we've seen a TOTAL
+// failure — the token fetch failed, or every per-round fetch in an overlay pass
+// failed — we skip all AFL API work for a cooldown window rather than paying the
+// timeout again on the very next request. A PARTIAL success (some rounds landed)
+// means the API is actually up, so it clears the latch instead of tripping it.
+const AFL_BREAKER_COOLDOWN = 2 * 60 * 1000; // 2 minutes
+let aflBreakerTrippedAt = 0;
+
+function isAflBreakerOpen() {
+  return aflBreakerTrippedAt > 0 && (Date.now() - aflBreakerTrippedAt) < AFL_BREAKER_COOLDOWN;
+}
+
+function tripAflBreaker(reason) {
+  aflBreakerTrippedAt = Date.now();
+  console.warn(`AFL API circuit breaker tripped (${reason}); skipping AFL API calls for ${AFL_BREAKER_COOLDOWN / 1000}s`);
+}
+
+function clearAflBreaker() {
+  aflBreakerTrippedAt = 0;
+}
+
 async function getAflToken() {
   const now = Date.now();
   if (cachedToken && (now - cachedTokenAt) < AFL_AUTH_TTL) return cachedToken;
@@ -129,16 +171,18 @@ async function getAflToken() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Origin': 'https://www.afl.com.au' },
       body: '{}',
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) throw new Error(`AFL token HTTP ${res.status}`);
     const { token } = await res.json();
     cachedToken = token;
     cachedTokenAt = now;
+    clearAflBreaker();
     return token;
   } catch (err) {
     cachedToken = null;
     cachedTokenAt = 0;
+    tripAflBreaker(`token fetch: ${err.message}`);
     throw err;
   }
 }
@@ -162,7 +206,7 @@ async function getRoundOffset(token) {
 async function fetchAflApiScoresForRound(apiRound, token) {
   const res = await fetch(
     `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${apiRound}&pageSize=20`,
-    { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(5000) }
+    { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(3000) }
   );
   if (!res.ok) throw new Error(`AFL matches HTTP ${res.status}`);
   const data = await res.json();
@@ -201,6 +245,9 @@ async function fetchAflApiScoresForRound(apiRound, token) {
   // Completion is derived from the RAW match set (before the normalise-drop
   // above) so a name-mapping miss can't flip .every() to a false "complete".
   const complete = matches.length > 0 && matches.every(m => m.status === 'CONCLUDED');
+  // A successful call proves the AFL API is reachable — clear any open breaker
+  // immediately rather than waiting for the next overlay pass to notice.
+  clearAflBreaker();
   return { scoreMap, matchCount: matches.length, complete };
 }
 
@@ -223,14 +270,25 @@ async function overlayAflScores(fixtures, year, roundsToFetch = null) {
           .map(f => f.RoundNumber)
       )];
 
-  if (startedRounds.length === 0) return fixtures;
+  // Every exit path must return the same shape the caller destructures —
+  // fixtures unchanged, nothing live, nothing evaluated (so no write-back).
+  const unchanged = { fixtures, liveRounds: new Set(), evaluated: new Set() };
+
+  if (startedRounds.length === 0) return unchanged;
+
+  // Circuit breaker: the AFL API host can wedge (connections hang with zero
+  // bytes rather than erroring), and paying a 3s timeout per round on every
+  // cache-miss request is what turns this into a 504. Once we've seen a total
+  // failure, skip AFL work entirely for the cooldown and just serve fixtures
+  // as-is — a later successful call (from here or elsewhere) clears the latch.
+  if (isAflBreakerOpen()) return unchanged;
 
   let token;
   try {
     token = await getAflToken();
   } catch (err) {
     console.warn(`AFL API token failed: ${err.message}`);
-    return fixtures;
+    return unchanged;
   }
 
   // Detect round offset (shared cache); fall back to +1 without caching on a
@@ -252,30 +310,52 @@ async function overlayAflScores(fixtures, year, roundsToFetch = null) {
   // doesn't include a score field for LIVE matches (scores only appear once
   // status flips to CONCLUDED), so we can't rely on a "scores landed"
   // transition to trigger the player-stats refresh during a live game.
+  // Fetch every round's scores IN PARALLEL rather than sequentially — with the
+  // hung AFL API, a sequential `for...await` loop pays the full per-fetch
+  // timeout for EACH round in series (5 started rounds × timeout = 15-20s,
+  // easily blowing the Vercel function timeout). Promise.allSettled lets all
+  // rounds race the same wall-clock window instead of stacking their timeouts.
   const combinedScores = {};
   const liveRounds = new Set();
-  for (const localRound of startedRounds) {
-    const apiRound = localRound + roundOffset;
-    try {
-      const { scoreMap, complete } = await fetchAflApiScoresForRound(apiRound, token);
-      for (const [matchup, score] of Object.entries(scoreMap)) {
-        combinedScores[`${localRound}|${matchup}`] = score;
-      }
-      if (Object.values(scoreMap).some(s => s.status === 'LIVE')) {
-        liveRounds.add(localRound);
-      }
-      // Warm the completion cache from authoritative match statuses so
-      // isRoundComplete (the SOLE gate for star/crab + summary tiles) doesn't
-      // have to risk a separate, timeout-prone AFL call. Latch true — a round
-      // never un-completes — so a later cross-round pass can't drop the award.
-      const ck = `${year}-${localRound}`;
-      const prior = roundStatusCache.get(ck);
-      if (!(prior && prior.complete)) {
-        roundStatusCache.set(ck, { complete, timestamp: now });
-      }
-    } catch (err) {
-      console.warn(`AFL API scores failed for round ${apiRound}: ${err.message}`);
+  const settled = await Promise.allSettled(
+    startedRounds.map(localRound =>
+      fetchAflApiScoresForRound(localRound + roundOffset, token)
+        .then(res => ({ localRound, ...res }))
+    )
+  );
+
+  let anyRoundSucceeded = false;
+  for (const outcome of settled) {
+    if (outcome.status === 'rejected') {
+      console.warn(`AFL API scores failed: ${outcome.reason?.message}`);
+      continue;
     }
+    anyRoundSucceeded = true;
+    const { localRound, scoreMap, complete } = outcome.value;
+    for (const [matchup, score] of Object.entries(scoreMap)) {
+      combinedScores[`${localRound}|${matchup}`] = score;
+    }
+    if (Object.values(scoreMap).some(s => s.status === 'LIVE')) {
+      liveRounds.add(localRound);
+    }
+    // Warm the completion cache from authoritative match statuses so
+    // isRoundComplete (the SOLE gate for star/crab + summary tiles) doesn't
+    // have to risk a separate, timeout-prone AFL call. Latch true — a round
+    // never un-completes — so a later cross-round pass can't drop the award.
+    // (roundStatusCache.set order across rounds doesn't matter — only the
+    // never-un-complete latch above does.)
+    const ck = `${year}-${localRound}`;
+    const prior = roundStatusCache.get(ck);
+    if (!(prior && prior.complete)) {
+      roundStatusCache.set(ck, { complete, timestamp: now });
+    }
+  }
+
+  // Only trip the breaker when EVERY round in this pass failed — a partial
+  // success means the AFL API is actually up (just maybe slow/flaky for one
+  // round), so it would be wrong to blind ourselves to it for 2 minutes.
+  if (!anyRoundSucceeded) {
+    tripAflBreaker('all per-round score fetches failed');
   }
 
   // Apply scores to matching fixtures. The score key is namespaced by the
@@ -307,6 +387,27 @@ export async function getAflFixtures(year = CURRENT_YEAR, { force = false } = {}
     return cached.data;
   }
 
+  // Everything below is the "fresh" path (MongoDB read + AFL overlay). If ANY
+  // of it throws — most likely a MongoDB error, since the AFL overlay already
+  // swallows its own failures internally — serve the last-good fixtures for
+  // this year past their TTL instead of failing the request outright. Stale
+  // fixtures beat a 504 or an uncaught error. Note this does NOT change the
+  // TTL itself: a healthy fresh fetch still replaces the cache entry as usual.
+  try {
+    return await fetchFreshFixtures(year, now);
+  } catch (err) {
+    if (cached) {
+      console.warn(
+        `getAflFixtures(${year}): fresh fetch failed (${err.message}); ` +
+        `serving stale cache from ${new Date(cached.timestamp).toISOString()}`
+      );
+      return cached.data;
+    }
+    throw err;
+  }
+}
+
+async function fetchFreshFixtures(year, now) {
   const { db } = await connectToDatabase();
   const collection = db.collection(`${year}_fixtures`);
 
@@ -344,7 +445,16 @@ export async function getAflFixtures(year = CURRENT_YEAR, { force = false } = {}
       try {
         // Only hit the AFL API for the rounds that actually need scoring.
         const roundsNeeded = [...new Set(needsScore.map(f => Number(f.RoundNumber)))];
-        const { fixtures: updated, liveRounds, evaluated } = await overlayAflScores(fixtures, year, roundsNeeded);
+        // Hard wall-clock budget on the overlay AS A WHOLE, on top of the
+        // per-fetch timeouts inside it — if it's not done in time we fall through
+        // to the catch below, which serves the un-overlaid `fixtures` unchanged
+        // and skips the bulkWrite/refresh block entirely (nothing past this
+        // point runs on the timeout path).
+        const { fixtures: updated, liveRounds, evaluated } = await withTimeout(
+          overlayAflScores(fixtures, year, roundsNeeded),
+          AFL_OVERLAY_BUDGET_MS,
+          new AflOverlayTimeoutError(`AFL overlay exceeded ${AFL_OVERLAY_BUDGET_MS}ms budget`)
+        );
         // Write back any fixture whose score differs from what's stored — for
         // the fixtures we had authoritative own-round data for. This both lands
         // newly-acquired scores AND self-heals fixtures previously corrupted by
@@ -389,6 +499,9 @@ export async function getAflFixtures(year = CURRENT_YEAR, { force = false } = {}
         fixtures = updated;
       } catch (err) {
         console.warn(`AFL API score refresh failed: ${err.message}`);
+        if (err instanceof AflOverlayTimeoutError) {
+          tripAflBreaker('overlay exceeded time budget');
+        }
       }
     }
 
@@ -426,6 +539,13 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
     return cached.complete;
   }
 
+  // Circuit breaker open — the AFL API is known-down for the cooldown window.
+  // Skip straight to the fixture-data fallback instead of paying another
+  // timeout on a host we already know is unreachable.
+  if (isAflBreakerOpen()) {
+    return roundCompleteFromFixtureData(round, year, cacheKey, now);
+  }
+
   try {
     const token = await getAflToken();
 
@@ -444,6 +564,8 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
     );
     const data = await res.json();
     const matches = data.matches || [];
+    // A successful call proves the AFL API is reachable — clear any open breaker.
+    clearAflBreaker();
 
     if (matches.length === 0) {
       roundStatusCache.set(cacheKey, { complete: false, timestamp: now });
@@ -458,17 +580,23 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
     return complete;
   } catch (err) {
     console.error(`Failed to check round ${round} completion:`, err.message);
-    // Fall back to checking scores in cached fixture data
-    try {
-      const fixtures = await getAflFixtures(year);
-      const roundFixtures = fixtures.filter(f => f.RoundNumber === round);
-      const complete = roundFixtures.length > 0 && roundFixtures.every(
-        f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
-      );
-      roundStatusCache.set(cacheKey, { complete, timestamp: now });
-      return complete;
-    } catch {
-      return false;
-    }
+    return roundCompleteFromFixtureData(round, year, cacheKey, now);
+  }
+}
+
+// Fallback used both when the AFL API call itself fails and when the circuit
+// breaker is already open: derive round completion from whatever scores are
+// currently stored in the (possibly stale) fixture data instead of the AFL API.
+async function roundCompleteFromFixtureData(round, year, cacheKey, now) {
+  try {
+    const fixtures = await getAflFixtures(year);
+    const roundFixtures = fixtures.filter(f => f.RoundNumber === round);
+    const complete = roundFixtures.length > 0 && roundFixtures.every(
+      f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
+    );
+    roundStatusCache.set(cacheKey, { complete, timestamp: now });
+    return complete;
+  } catch {
+    return false;
   }
 }
