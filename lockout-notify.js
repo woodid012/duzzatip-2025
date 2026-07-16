@@ -512,7 +512,26 @@ function expectedBenchGain(benchScores, starterScores) {
 
 function findOptimalLineup(squadPlayers, excluded = new Set(), statsMap = {}, selectionStatus = null) {
   const r1 = (v) => Math.round(v * 10) / 10;
-  const pool = squadPlayers.filter(p => !excluded.has(p.name) && p.scores && Object.keys(p.scores).length > 0);
+  const eligible = squadPlayers.filter(p => !excluded.has(p.name));
+  const pool = eligible.filter(p => p.scores && Object.keys(p.scores).length > 0);
+
+  // No scores at all (pre-season): fill by squad order so all slots are set.
+  if (pool.length === 0) {
+    const used = new Set(); const assigned = {};
+    for (const pos of MAIN_POSITIONS) {
+      const p = eligible.find(x => !used.has(x.name));
+      if (!p) break;
+      assigned[pos] = p; used.add(p.name);
+    }
+    const leftover = () => eligible.filter(p => !used.has(p.name));
+    const bench = leftover()[0] || null;
+    if (bench) used.add(bench.name);
+    const reserveA = leftover()[0] || null;
+    if (reserveA) used.add(reserveA.name);
+    const reserveB = leftover()[0] || null;
+    return { lineup: assigned, bench, benchBackup: MAIN_POSITIONS[0], benchExpectedGain: 0, benchOptions: [], reserveA, reserveB };
+  }
+
   const riskOf = (p) => (injSeverity(p.name) >= 1 || selectionStatus?.get(p.name) === "emergency")
     ? DNP_RISK_FLAGGED : DNP_RISK_BASE;
 
