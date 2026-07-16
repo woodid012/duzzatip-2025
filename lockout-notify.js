@@ -449,12 +449,23 @@ function buildTradeMessage(reports, lastRound) {
 }
 
 // ===== Optimal lineup =====
-// Exact max-weight assignment of players to positions (keeps the CLI in sync
-// with the /api/lockout-notify route). Replaces the old greedy "margin" pick,
-// which was a heuristic and could leave points on the table. With only 6
-// positions, a classic assignment DP over a bitmask of filled positions is cheap.
+// Mirrors src/app/lib/lineupOptimiser.js (used by /api/lockout-notify) — keep
+// them in sync. Starters + bench (player AND backup position) are optimised
+// JOINTLY for expected total:
+//   E[total] = Σ starters + (1 − pDNP)·E[(bench − starter)+]     (option value)
+//            + pDNP·(bench mean − reserve cover)                  (DNP margin)
+// The pairwise option value E[(bench − starter)+] is computed over every
+// (bench game × starter game) pair, so it is naturally largest behind
+// all-or-nothing starters (MID/TAK style) even when the bench's mean edge is
+// zero. The DNP term is only the bench's edge over the reserve who would
+// otherwise cover the slot — NOT the bench's full score, which double-counted
+// reserve cover and dragged the backup toward the bench's own best position.
+const DNP_RISK_BASE    = 0.03;
+const DNP_RISK_FLAGGED = 0.25;
+const BENCH_MIN_GAMES  = 3;
+
 function popcount(n) { let c = 0; while (n) { n &= n - 1; c++; } return c; }
-function optimalAssignment(pool, positions) {
+function optimalAssignment(pool, positions, payoff = (p, pos) => p.scores[pos] || 0) {
   const P = positions.length;
   const FULL = (1 << P) - 1;
   let dp = new Map([[0, { score: 0, assign: {} }]]);
@@ -465,7 +476,7 @@ function optimalAssignment(pool, positions) {
         const bit = 1 << i;
         if (mask & bit) continue;
         const nmask = mask | bit;
-        const nscore = state.score + (player.scores[positions[i]] || 0);
+        const nscore = state.score + payoff(player, positions[i]);
         const cur = next.get(nmask);
         if (!cur || nscore > cur.score) {
           next.set(nmask, { score: nscore, assign: { ...state.assign, [positions[i]]: player } });
@@ -480,16 +491,9 @@ function optimalAssignment(pool, positions) {
       .sort(([am, a], [bm, b]) => popcount(bm) - popcount(am) || b.score - a.score)[0]?.[1]
       || { score: 0, assign: {} };
   }
-  return { assign: best.assign, used: new Set(Object.values(best.assign).map(p => p.name)) };
+  return { assign: best.assign, score: best.score, used: new Set(Object.values(best.assign).map(p => p.name)) };
 }
 
-// ===== Bench option-value model =====
-// The bench is ALWAYS active: at scoring time the engine awards max(starter,
-// bench) for the one backed-up position (see src/app/lib/scoreCalculations.js),
-// so the bench's real contribution is the marginal UPLIFT it provides — not its
-// raw score. With per-game samples we measure the exact expected uplift,
-// E[max(bench − starter, 0)], over every game-pair combination ("option value").
-// Mirrors the model in src/app/api/lockout-notify/route.js to keep them in sync.
 function scoreGame(game, pos) {
   const s = {
     kicks: +game.kicks || 0, handballs: +game.handballs || 0, marks: +game.marks || 0,
@@ -497,63 +501,124 @@ function scoreGame(game, pos) {
   };
   return SCORE_FNS[pos](s);
 }
-function expectedBenchGain(benchGames, mainGames, pos) {
-  if (!benchGames?.length || !mainGames?.length) return 0;
-  let total = 0, count = 0;
-  for (const bg of benchGames) {
-    const bs = scoreGame(bg, pos);
-    for (const mg of mainGames) { total += Math.max(bs - scoreGame(mg, pos), 0); count++; }
-  }
-  return count > 0 ? Math.round((total / count) * 10) / 10 : 0;
-}
-const BENCH_MIN_GAMES = 3;
-function benchGainFor(candidate, starter, pos, statsMap) {
-  const cg = statsMap[candidate.name]?.games || [];
-  const mg = statsMap[starter.name]?.games || [];
-  if (cg.length >= BENCH_MIN_GAMES && mg.length >= BENCH_MIN_GAMES) {
-    return expectedBenchGain(cg, mg, pos);
-  }
-  // Thin sample — fall back to the season-score edge over the starter.
-  return Math.max((candidate.scores[pos] || 0) - (starter.scores[pos] || 0), 0);
+// E[(bench − starter)+] over every game-pair — the exact expected uplift of the
+// automatic "score the better of the two" bench rule.
+function expectedBenchGain(benchScores, starterScores) {
+  if (!benchScores?.length || !starterScores?.length) return 0;
+  let total = 0;
+  for (const b of benchScores) for (const s of starterScores) total += Math.max(b - s, 0);
+  return total / (benchScores.length * starterScores.length);
 }
 
 function findOptimalLineup(squadPlayers, excluded = new Set(), statsMap = {}, selectionStatus = null) {
-  const pool = squadPlayers.filter(p => !excluded.has(p.name) && p.scores && Object.keys(p.scores).length > 0);
-  const { assign: assigned, used } = optimalAssignment(pool, MAIN_POSITIONS);
+  const r1 = (v) => Math.round(v * 10) / 10;
+  const eligible = squadPlayers.filter(p => !excluded.has(p.name));
+  const pool = eligible.filter(p => p.scores && Object.keys(p.scores).length > 0);
 
-  // Bench: pick the (player, position) pair with the highest option value — the
-  // expected uplift E[max(bench − starter, 0)] for the position it backs up, plus
-  // an insurance term that rewards covering a starter at DNP risk (the bench also
-  // covers a DNP of its backup position before round-end, unlike the reserves).
-  const benchPool = pool.filter(p => !used.has(p.name));
-  let bench = null, benchBackup = MAIN_POSITIONS[0], benchGain = 0;
-  if (benchPool.length > 0) {
-    let bestValue = -Infinity;
-    for (const p of benchPool) {
-      for (const pos of MAIN_POSITIONS) {
-        const starter = assigned[pos];
-        if (!starter) continue;
-        const gain = benchGainFor(p, starter, pos, statsMap);
-        const atRisk = injSeverity(starter.name) >= 1 || selectionStatus?.get(starter.name) === "emergency";
-        // Insurance: when the starter is a doubt/emergency the bench may have to
-        // cover a 0, so its full score is in play (weighted 0.5). A tiny baseline
-        // (0.05) breaks zero-gain ties toward the bench's strongest backup slot.
-        const insurance = (p.scores[pos] || 0) * (atRisk ? 0.5 : 0.05);
-        const value = gain + insurance;
-        if (value > bestValue) { bestValue = value; bench = p; benchBackup = pos; benchGain = gain; }
-      }
+  // No scores at all (pre-season): fill by squad order so all slots are set.
+  if (pool.length === 0) {
+    const used = new Set(); const assigned = {};
+    for (const pos of MAIN_POSITIONS) {
+      const p = eligible.find(x => !used.has(x.name));
+      if (!p) break;
+      assigned[pos] = p; used.add(p.name);
     }
+    const leftover = () => eligible.filter(p => !used.has(p.name));
+    const bench = leftover()[0] || null;
     if (bench) used.add(bench.name);
+    const reserveA = leftover()[0] || null;
+    if (reserveA) used.add(reserveA.name);
+    const reserveB = leftover()[0] || null;
+    return { lineup: assigned, bench, benchBackup: MAIN_POSITIONS[0], benchExpectedGain: 0, benchOptions: [], reserveA, reserveB };
   }
 
-  const resAScore = p => Math.max(...RESERVE_A_COVERS.map(pos => p.scores[pos] || 0));
-  const resA = pool.filter(p => !used.has(p.name)).sort((a, b) => resAScore(b) - resAScore(a))[0] || null;
-  if (resA) used.add(resA.name);
+  const riskOf = (p) => (injSeverity(p.name) >= 1 || selectionStatus?.get(p.name) === "emergency")
+    ? DNP_RISK_FLAGGED : DNP_RISK_BASE;
 
-  const resBScore = p => Math.max(...RESERVE_B_COVERS.map(pos => p.scores[pos] || 0));
-  const resB = pool.filter(p => !used.has(p.name)).sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
+  // Per-game position scores, computed once for the pairwise option values.
+  const gameScores = new Map();
+  for (const p of pool) {
+    const games = statsMap[p.name]?.games || [];
+    const byPos = {};
+    for (const pos of MAIN_POSITIONS) byPos[pos] = games.map(g => scoreGame(g, pos));
+    gameScores.set(p.name, byPos);
+  }
+  const gainMemo = new Map();
+  const gainFor = (candidate, starter, pos) => {
+    const key = `${candidate.name}|${starter.name}|${pos}`;
+    let g = gainMemo.get(key);
+    if (g !== undefined) return g;
+    const cg = gameScores.get(candidate.name)?.[pos] || [];
+    const sg = gameScores.get(starter.name)?.[pos] || [];
+    g = (cg.length >= BENCH_MIN_GAMES && sg.length >= BENCH_MIN_GAMES)
+      ? expectedBenchGain(cg, sg)
+      : Math.max((candidate.scores[pos] || 0) - (starter.scores[pos] || 0), 0);
+    gainMemo.set(key, g);
+    return g;
+  };
+  // Expected value of benching `cand` behind `bp` given a starter assignment.
+  const comboValue = (cand, bp, assign, usedSet, rest) => {
+    const starter = assign[bp];
+    if (!starter) return null;
+    const meanTotal = MAIN_POSITIONS.reduce((t, pos) => t + (assign[pos]?.scores[pos] || 0), 0);
+    const p = riskOf(starter);
+    const gain = gainFor(cand, starter, bp);
+    const leftover = rest.filter(x => !usedSet.has(x.name));
+    const reserveCover = Math.max(0, ...leftover.map(x => x.scores[bp] || 0));
+    const dnp = p * ((cand.scores[bp] || 0) - reserveCover);
+    return { meanTotal, gain, dnp, total: meanTotal + (1 - p) * gain + dnp };
+  };
 
-  return { lineup: assigned, bench, benchBackup, benchExpectedGain: Math.round(benchGain * 10) / 10, reserveA: resA, reserveB: resB };
+  const base = optimalAssignment(pool, MAIN_POSITIONS);
+
+  let best = null;
+  if (pool.length > MAIN_POSITIONS.length) {
+    for (const cand of pool) {
+      const rest = pool.filter(p => p.name !== cand.name);
+      for (const bp of MAIN_POSITIONS) {
+        const { assign, used } = optimalAssignment(rest, MAIN_POSITIONS,
+          (p, pos) => (p.scores[pos] || 0) + (pos === bp ? (1 - riskOf(p)) * gainFor(cand, p, bp) : 0));
+        const v = comboValue(cand, bp, assign, used, rest);
+        if (!v) continue;
+        // max(starter, bench) is symmetric, so "A starts / B benches" can tie
+        // exactly with the reverse — break ties toward the higher-mean starters.
+        if (!best || v.total > best.total + 1e-6 ||
+            (Math.abs(v.total - best.total) <= 1e-6 && v.meanTotal > best.meanTotal)) {
+          best = { cand, bp, assign, used, ...v };
+        }
+      }
+    }
+  }
+
+  if (!best) {
+    const leftover = pool.filter(p => !base.used.has(p.name));
+    return {
+      lineup: base.assign, bench: leftover[0] || null, benchBackup: MAIN_POSITIONS[0],
+      benchExpectedGain: 0, benchOptions: [], reserveA: null, reserveB: null,
+    };
+  }
+
+  const { cand: bench, bp: benchBackup, assign: assigned, used } = best;
+
+  // Per-position value of the chosen bench against the chosen starters.
+  const restPool = pool.filter(p => p.name !== bench.name);
+  const benchOptions = MAIN_POSITIONS
+    .map(pos => {
+      const v = comboValue(bench, pos, assigned, used, restPool);
+      if (!v) return null;
+      return { pos, gain: r1(v.gain), value: r1((1 - riskOf(assigned[pos])) * v.gain + v.dnp) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.value - a.value);
+
+  const afterBench = restPool.filter(p => !used.has(p.name));
+  const resAScore = p => Math.max(0, ...RESERVE_A_COVERS.map(pos => p.scores[pos] || 0));
+  const resA = [...afterBench].sort((a, b) => resAScore(b) - resAScore(a))[0] || null;
+  const afterA = afterBench.filter(p => p.name !== resA?.name);
+  const resBScore = p => Math.max(0, ...RESERVE_B_COVERS.map(pos => p.scores[pos] || 0));
+  const resB = [...afterA].sort((a, b) => resBScore(b) - resBScore(a))[0] || null;
+
+  return { lineup: assigned, bench, benchBackup, benchExpectedGain: r1(best.gain), benchOptions, reserveA: resA, reserveB: resB };
 }
 
 // ===== Print lineup (interactive mode) =====
@@ -561,7 +626,10 @@ function printLineup(result, excluded = new Set()) {
   let total = 0;
   const rows = [
     ...MAIN_POSITIONS.map(pos => ({ label: pos, player: result.lineup[pos], score: result.lineup[pos]?.scores[pos] })),
-    { label: "Bench", player: result.bench, extra: `→ backs up ${result.benchBackup || "?"}` },
+    { label: "Bench", player: result.bench, extra: `→ backs up ${result.benchBackup || "?"}`
+        + (result.benchExpectedGain > 0 ? ` +${result.benchExpectedGain}pts exp` : "")
+        + ((result.benchOptions || []).filter(o => o.pos !== result.benchBackup).slice(0, 2)
+            .map(o => `, ${POS_SHORT[o.pos]} ${o.value >= 0 ? "+" : ""}${o.value}`).join("") || "") },
     { label: "Reserve A", player: result.reserveA, extra: `covers ${RESERVE_A_COVERS.map(p => POS_SHORT[p]).join("/")}` },
     { label: "Reserve B", player: result.reserveB, extra: `covers ${RESERVE_B_COVERS.map(p => POS_SHORT[p]).join("/")}` },
   ];
@@ -730,7 +798,8 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   if (result.bench) {
     const p = result.bench;
     const inj = injSeverity(p.name) >= 1 ? injNote(p.name) : "";
-    lines.push(`  *BNCH*  *${dn(p.name)}* \u2192 ${POS_SHORT[result.benchBackup] || "?"}${inj}`);
+    const gainStr = result.benchExpectedGain > 0 ? ` _(+${result.benchExpectedGain}pts exp)_` : "";
+    lines.push(`  *BNCH*  *${dn(p.name)}* \u2192 ${POS_SHORT[result.benchBackup] || "?"}${gainStr}${inj}`);
   }
   if (result.reserveA) {
     const p = result.reserveA;
