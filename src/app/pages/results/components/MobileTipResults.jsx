@@ -120,10 +120,12 @@ export default function MobileTipResults({ round, meId, year }) {
   const roundStr = round != null ? round.toString() : null;
 
   // AFL games for this round (from the already-loaded fixtures)
+  // Chronological order — later-round MatchNumbers are assigned before
+  // scheduling, so ID order no longer tracks kickoff order.
   const fixtures = useMemo(
     () => (appFixtures || [])
       .filter((f) => f.RoundNumber?.toString() === roundStr)
-      .sort((a, b) => a.MatchNumber - b.MatchNumber),
+      .sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc) || a.MatchNumber - b.MatchNumber),
     [appFixtures, roundStr]
   );
 

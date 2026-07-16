@@ -60,9 +60,13 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
   const isRoundLocked = (round) => {
     if (isAdmin) return false;
     if (round > currentRound) return false;
-    const roundFixs = fixtures.filter(f => f.RoundNumber === round);
+    // Chronological order (not MatchNumber/ID order — later-round MatchNumbers
+    // are assigned before scheduling, so ID order can diverge from kickoff order).
+    const roundFixs = fixtures
+      .filter(f => f.RoundNumber === round)
+      .sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc) || a.MatchNumber - b.MatchNumber);
     if (roundFixs.length === 0) return false;
-    const firstGame = roundFixs.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
+    const firstGame = roundFixs[0];
     return new Date() >= new Date(firstGame.DateUtc);
   };
 
@@ -81,9 +85,11 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
   // Load fixtures for the selected local round
   useEffect(() => {
     if (fixtures.length > 0 && localRound != null) {
-      const filtered = fixtures.filter(
-        fixture => fixture.RoundNumber.toString() === localRound.toString()
-      );
+      // Chronological order for display — MatchNumber is assigned before
+      // scheduling in later rounds, so it no longer tracks kickoff order.
+      const filtered = fixtures
+        .filter(fixture => fixture.RoundNumber.toString() === localRound.toString())
+        .sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc) || a.MatchNumber - b.MatchNumber);
       setRoundFixtures(filtered);
       console.log(`Loaded ${filtered.length} fixtures for round ${localRound}`);
     }

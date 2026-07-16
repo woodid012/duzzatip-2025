@@ -74,9 +74,11 @@ const TippingResultsGrid = () => {
 
       try {
         // Use fixtures already loaded by AppContext — no extra fetch needed
+        // Chronological order — later-round MatchNumbers are assigned before
+        // scheduling, so ID order no longer tracks kickoff order.
         const roundFixtures = (appFixtures || [])
           .filter(f => f.RoundNumber.toString() === selectedRound)
-          .sort((a, b) => a.MatchNumber - b.MatchNumber);
+          .sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc) || a.MatchNumber - b.MatchNumber);
         setFixtures(roundFixtures);
 
         // Single API call for all users (replaces 16 separate requests)
