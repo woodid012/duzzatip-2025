@@ -787,12 +787,26 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
         let finalBreakdown = originalBreakdown;
         let isSubstitution = false;
         let substitutionType = null;
-        
-        // Step 1: Check if any bench player has a higher score
+
+        // A player's score is only FINAL once their game has finished (fixture
+        // has both scores — the AFL API doesn't report scores for LIVE games).
+        // While their game is upcoming or in progress they sit on 0 (or a
+        // still-climbing live tally), and substituting against that benches
+        // players the moment their game kicks off. Unknown team (not in
+        // playerTeamMap) or a bye (no fixture this round) can never get stats
+        // later, so they're treated as final and remain substitutable as before.
+        const playerTeam = playerTeamMap[playerName];
+        const originalScorePending = Boolean(
+            playerTeam && (playerTeam in teamGameStarted) && !teamGameFinished[playerTeam]
+        );
+
+        // Step 1: Check if any bench player has a higher score — but never
+        // while the original player's game hasn't finished (score not final).
         for (const benchPlayer of benchPlayers) {
+            if (originalScorePending) break;
             if (usedBenchPlayers.has(benchPlayer.playerName)) continue;
             if (benchPlayer.backupPosition !== position) continue;
-            
+
             if (benchPlayer.score > originalScore) {
                 finalScore = benchPlayer.score;
                 finalPlayerName = benchPlayer.playerName;
@@ -813,15 +827,19 @@ function calculateTeamScoresWithSubstitutions(teamSelection, playerStats, round,
             }
         }
         
-        // Step 2: If player didn't play, their game has started (or team has a bye), and no bench sub, try reserves
-        const playerTeam = playerTeamMap[playerName];
+        // Step 2: If the player's game has FINISHED and they never registered a
+        // stat (a true DNP), and no bench sub was applied, try reserves. A game
+        // that has merely started must NOT trigger this — at kickoff nobody has
+        // stats yet, and subbing then benches the whole team until the AFL API
+        // sends the first stat update.
         const teamHasGame = playerTeam ? playerTeam in teamGameStarted : false;
         const roundHasStartedGames = Object.values(teamGameStarted).some(v => v);
-        // Bye team: treat as "game started" once any game in the round has begun
-        const gameStarted = teamHasGame
-            ? (teamGameStarted[playerTeam] ?? false)
+        // Bye team (no fixture this round): can never play, so treat as "final"
+        // once any game in the round has begun
+        const gameFinished = teamHasGame
+            ? (teamGameFinished[playerTeam] ?? false)
             : (playerTeam ? roundHasStartedGames : false);
-        if (!isSubstitution && !hasPlayed && gameStarted) {
+        if (!isSubstitution && !hasPlayed && gameFinished) {
             const isReserveAPosition = RESERVE_A_POSITIONS.includes(position);
             const isReserveBPosition = RESERVE_B_POSITIONS.includes(position);
             
