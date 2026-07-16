@@ -79,7 +79,9 @@ export default function LoginGate({ onLoggedIn, onAdmin, onSkip }) {
                 {Object.entries(USER_NAMES).map(([id, name]) => (
                   <option key={id} value={id}>{name}</option>
                 ))}
-                <option value="admin">Admin</option>
+                {/* Admin isn't a team — it's entered via the link below the
+                    card; the option only exists so the select can display it. */}
+                {isAdmin && <option value="admin">Admin</option>}
               </select>
             </div>
 
@@ -117,6 +119,24 @@ export default function LoginGate({ onLoggedIn, onAdmin, onSkip }) {
           <div className="mt-4 flex items-center justify-between text-sm">
             <Link href="/register" className="font-medium text-blue-600 hover:underline">New here? Register</Link>
             <button onClick={onSkip} className="font-medium text-slate-500 hover:text-slate-700">Skip — just browse →</button>
+          </div>
+
+          <div className="mt-3 border-t border-slate-100 pt-3 text-center">
+            {isAdmin ? (
+              <button
+                onClick={() => { setUserId(''); setHasPassword(null); setPassword(''); setError(''); }}
+                className="text-xs font-medium text-slate-400 hover:text-slate-600"
+              >
+                ← Back to team sign-in
+              </button>
+            ) : (
+              <button
+                onClick={() => { setUserId('admin'); setHasPassword(true); setPassword(''); setError(''); }}
+                className="text-xs font-medium text-slate-400 hover:text-slate-600"
+              >
+                Admin sign-in
+              </button>
+            )}
           </div>
         </div>
       </div>
