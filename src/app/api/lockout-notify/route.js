@@ -18,10 +18,10 @@
 // This endpoint is time-sensitive; disable caching.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-// AFL roster + Squiggle + Sportsbet + stats-report can each take 10s+; give
-// the function a real budget so a slow dependency doesn't trip Vercel's
-// default 60s limit and 504 the whole run.
-export const maxDuration = 300;
+// AFL roster + Squiggle + Sportsbet + stats-report can each take 10s+; use
+// the largest budget the Vercel hobby plan allows (build rejects anything
+// over 60) so a slow dependency has as much headroom as possible.
+export const maxDuration = 60;
 
 import { connectToDatabase } from "@/app/lib/mongodb";
 import {
