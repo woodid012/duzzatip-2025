@@ -209,25 +209,23 @@ async function fetchAFLTeamSelections(roundNumber) {
 }
 
 // ── Squiggle ────────────────────────────────────────────────────────────────
-// Squiggle is reachable from Vercel but the AU→US-East round trip is slow and
-// occasionally drops; retry once with a longer timeout, return a diagnostic
-// when we can't get tips so the caller can surface it.
+// Squiggle is reachable from Vercel but the AU→US-East round trip is slow
+// and occasionally drops. Keep it to a single bounded attempt so a slow
+// Squiggle can't take the whole route past Vercel's function timeout; the
+// caller surfaces the diagnostic when we can't get tips.
 async function fetchSquiggleTips(round, year) {
   const url = `https://api.squiggle.com.au/?q=tips;year=${year};round=${round}`;
   const headers = { "User-Agent": "DuzzaTip/1.0 (+https://duzzatip.vercel.app; expense.woodenduck@gmail.com)" };
-  let lastError = null;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
-      if (!res.ok) { lastError = `HTTP ${res.status}`; continue; }
-      const data = await res.json();
-      if (data?.tips?.length) return { tips: data.tips, fetchError: null };
-      lastError = "empty tips array";
-    } catch (e) {
-      lastError = e?.name === "TimeoutError" ? "timeout after 15s" : (e?.message || "fetch failed");
-    }
+  try {
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return { tips: null, fetchError: `Squiggle fetch failed (round ${round}): HTTP ${res.status}` };
+    const data = await res.json();
+    if (data?.tips?.length) return { tips: data.tips, fetchError: null };
+    return { tips: null, fetchError: `Squiggle fetch failed (round ${round}): empty tips array` };
+  } catch (e) {
+    const reason = e?.name === "TimeoutError" ? "timeout after 10s" : (e?.message || "fetch failed");
+    return { tips: null, fetchError: `Squiggle fetch failed (round ${round}): ${reason}` };
   }
-  return { tips: null, fetchError: `Squiggle fetch failed (round ${round}): ${lastError}` };
 }
 
 // ── Sportsbet ───────────────────────────────────────────────────────────────
