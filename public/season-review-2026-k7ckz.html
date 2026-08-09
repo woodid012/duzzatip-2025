@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DuzzaTip 2026 — Season Review</title>
+</head>
+<body>
+<style>
+  :root {
+    --paper: #F4F6F1;
+    --card: #FFFFFF;
+    --ink: #1C2420;
+    --muted: #5B6660;
+    --line: #D9DFD8;
+    --green: #1E5C41;
+    --green-bar: #28855A;
+    --violet-bar: #6E56B8;
+    --gold: #A57A0B;
+    --gold-soft: #F3E8C8;
+    --red: #A8432F;
+    --chip: #E8EDE6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101613;
+      --card: #18211B;
+      --ink: #E7ECE6;
+      --muted: #98A69B;
+      --line: #2A342C;
+      --green: #6FBE97;
+      --green-bar: #3E9C6F;
+      --violet-bar: #8B76DB;
+      --gold: #D9B44A;
+      --gold-soft: #2C2612;
+      --red: #D98A75;
+      --chip: #223027;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101613;
+    --card: #18211B;
+    --ink: #E7ECE6;
+    --muted: #98A69B;
+    --line: #2A342C;
+    --green: #6FBE97;
+    --green-bar: #3E9C6F;
+    --violet-bar: #8B76DB;
+    --gold: #D9B44A;
+    --gold-soft: #2C2612;
+    --red: #D98A75;
+    --chip: #223027;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0 20px 80px;
+  }
+  .wrap { max-width: 1020px; margin: 0 auto; }
+  h1, h2, h3 { text-wrap: balance; }
+
+  /* Masthead */
+  header { padding: 44px 0 10px; border-bottom: 3px solid var(--green); }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 6px;
+  }
+  h1 {
+    margin: 0; font-weight: 900; font-size: clamp(34px, 6vw, 56px);
+    line-height: 1.02; letter-spacing: -.02em; text-transform: uppercase;
+  }
+  .sub { color: var(--muted); margin: 10px 0 18px; max-width: 62ch; }
+  .finals-strip {
+    display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 26px; padding: 14px 0 0;
+  }
+  .fixture {
+    background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--green);
+    padding: 10px 14px; border-radius: 6px; font-size: 14px;
+  }
+  .fixture b { display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+
+  section { margin-top: 52px; }
+  h2 {
+    font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -.01em;
+    margin: 0 0 4px; padding-top: 14px; border-top: 3px solid var(--green);
+  }
+  .lede { color: var(--muted); margin: 0 0 22px; max-width: 68ch; }
+
+  /* Awards */
+  .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 24px; }
+  .award {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .award.gold { border-top: 5px solid var(--gold); }
+  .award .cat { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .award .winner { font-size: 22px; font-weight: 900; line-height: 1.15; }
+  .award .stat { font-size: 14px; color: var(--muted); }
+  .award .stat strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .award .runner { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+
+  /* Tables */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th {
+    text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 2px solid var(--green);
+    white-space: nowrap;
+  }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.blunder { white-space: normal; min-width: 280px; }
+  td.team { font-weight: 700; }
+  tr.cutline td { border-bottom: 3px double var(--gold); }
+  .num { text-align: right; }
+  th.num { text-align: right; }
+  .pos { color: var(--muted); }
+  .up { color: var(--green); font-weight: 700; }
+  .down { color: var(--red); font-weight: 700; }
+
+  /* Bar charts */
+  .chart { margin: 18px 0 8px; display: flex; flex-direction: column; gap: 6px; }
+  .brow { display: grid; grid-template-columns: 196px 1fr 84px; align-items: center; gap: 10px; font-size: 13px; }
+  .brow .lbl { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brow .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .track { position: relative; height: 20px; background: transparent; }
+  .bar { position: absolute; top: 2px; height: 16px; background: var(--green-bar); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .diverge .track { background: linear-gradient(to right, transparent calc(50% - 1px), var(--line) calc(50% - 1px), var(--line) calc(50% + 1px), transparent calc(50% + 1px)); }
+  .diverge .bar.pos { left: 50%; border-radius: 0 4px 4px 0; }
+  .diverge .bar.neg { right: 50%; background: var(--violet-bar); border-radius: 4px 0 0 4px; }
+  .chart-note { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .legend .lg-pos::before { background: var(--green-bar); }
+  .legend .lg-neg::before { background: var(--violet-bar); }
+
+  /* Podiums & medals */
+  .podium { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+  .medal {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 14px 5px 10px; font-size: 13.5px;
+  }
+  .medal.g { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
+  .medal b { font-weight: 800; }
+  .medal em { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mrow { white-space: nowrap; }
+
+  /* Callouts */
+  .callouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 20px; }
+  .callout { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; font-size: 14px; }
+  .callout h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 8px; }
+
+  /* Report cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 22px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+  .card .head { display: flex; align-items: baseline; gap: 10px; border-bottom: 2px solid var(--green); padding-bottom: 8px; margin-bottom: 10px; }
+  .card .rank { font-size: 30px; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .card h3 { margin: 0; font-size: 18px; font-weight: 900; line-height: 1.15; }
+  .card .rec { color: var(--muted); font-size: 13px; margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .statrow { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+  .chip { background: var(--chip); border-radius: 4px; padding: 3px 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .chip b { font-weight: 700; }
+  .card p { margin: 0; font-size: 14px; }
+  .card p + p { margin-top: 8px; }
+  .honour { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .honour b { color: var(--gold); }
+
+  /* Fun facts */
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 20px; }
+  .fact { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .fact .n { font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--green); }
+  .fact .d { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  footer { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 12.5px; color: var(--muted); }
+  footer p { max-width: 90ch; margin: 0 0 8px; }
+  @media (max-width: 560px) { .brow { grid-template-columns: 104px 1fr 70px; } }
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Home &amp; Away wash-up · Rounds 1–21 · Published finals week, August 2026</p>
+  <h1>DuzzaTip 2026<br>Season Review</h1>
+  <p class="sub">Twenty-one rounds, 144 draft picks, one cursed ruck rotation. Before the semis decide everything, here's what the numbers say about who drafted it, who coached it, and who spent the year in the physio room.</p>
+  <div class="finals-strip">
+    <div class="fixture"><b>Semi Final 1 · winner to Grand Final</b>Feathers and noodle soup (1) v String Theory (2)</div>
+    <div class="fixture"><b>Semi Final 2 · winner to Preliminary Final</b>Nightmare of Milky Briz (3) v Sharky's Bite (4)</div>
+  </div>
+</header>
+
+<section>
+  <h2>The Big Three Awards</h2>
+  <p class="lede">The three questions of the review, answered up front.</p>
+  <div class="awards">
+    <div class="award gold">
+      <span class="cat">Best Drafter</span>
+      <span class="winner">Pinga Jinga Pillbox</span>
+      <span class="stat"><strong>8,313</strong> season points drafted · <strong>+505</strong> above slot expectation — first on both boards</span>
+      <span class="runner"><span class="mrow">🥈 Le Quack Attack (8,271 / +463)</span> · <span class="mrow">🥉 Nightmare of Milky Briz (8,028 / +220)</span> · Wooden spoon: Randy's (6,652 / −1,156)</span>
+    </div>
+    <div class="award gold">
+      <span class="cat">Best Coach</span>
+      <span class="winner">Feathers and noodle soup</span>
+      <span class="stat"><strong>3 of 21</strong> perfect teams (14.3%) and the fewest points left on the bench — <strong>15.5</strong> a round</span>
+      <span class="runner"><span class="mrow">🥈 Randy's Ruckin Roalercoaster (2/21)</span> · <span class="mrow">🥉 Nightmare of Milky Briz (1/21, fewest pts left of the pack)</span> · Three teams never fielded a perfect side all year.</span>
+    </div>
+    <div class="award gold">
+      <span class="cat">Hardest Hit by Injury</span>
+      <span class="winner">Randy's Ruckin Roalercoaster</span>
+      <span class="stat">Injury burden <strong>1,965</strong> — Ladhams missed <strong>17/19</strong>, Madden 13/19, Bryan 9/20. The rucks never stood a chance.</span>
+      <span class="runner"><span class="mrow">🥈 Full Metal Jacket Miguel (1,762)</span> · <span class="mrow">🥉 Sharky's Bite (1,724)</span> · Healthiest squad: Pinga (822) — which makes missing finals hurt even more.</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Final Ladder — Rounds 1–21</h2>
+  <p class="lede">Top four through to the semis. Four teams finished 10–11; percentage split them, and Sharky's Bite took the last finals spot over Pinga Jinga Pillbox.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th>#</th><th>Team</th><th class="num">W–L</th><th class="num">PF</th><th class="num">PA</th><th class="num">%</th><th class="num">Pts</th><th class="num">Avg</th><th class="num">Hi</th><th class="num">Lo</th><th class="num">Stars</th><th class="num">Crabs</th><th class="num">DC net</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="pos">1 🥇</td><td class="team">Feathers and noodle soup</td><td class="num">13–8</td><td class="num">4,033</td><td class="num">3,936</td><td class="num">102.5</td><td class="num">52</td><td class="num">192.0</td><td class="num">268</td><td class="num">135</td><td class="num">4</td><td class="num">1</td><td class="num up">+270</td></tr>
+      <tr><td class="pos">2 🥈</td><td class="team">String Theory</td><td class="num">13–8</td><td class="num">3,906</td><td class="num">4,023</td><td class="num">97.1</td><td class="num">52</td><td class="num">186.0</td><td class="num">246</td><td class="num">136</td><td class="num">3</td><td class="num">2</td><td class="num up">+174</td></tr>
+      <tr><td class="pos">3 🥉</td><td class="team">Nightmare of Milky Briz</td><td class="num">12–9</td><td class="num">4,062</td><td class="num">3,783</td><td class="num">107.4</td><td class="num">48</td><td class="num">193.4</td><td class="num">252</td><td class="num">127</td><td class="num">4</td><td class="num">5</td><td class="num up">+234</td></tr>
+      <tr class="cutline"><td class="pos">4</td><td class="team">Sharky's Bite</td><td class="num">10–11</td><td class="num">3,945</td><td class="num">3,852</td><td class="num">102.4</td><td class="num">40</td><td class="num">187.9</td><td class="num">262</td><td class="num">145</td><td class="num">1</td><td class="num">0</td><td class="num up">+300</td></tr>
+      <tr><td class="pos">5</td><td class="team">Pinga Jinga Pillbox</td><td class="num">10–11</td><td class="num">4,000</td><td class="num">3,981</td><td class="num">100.5</td><td class="num">40</td><td class="num">190.5</td><td class="num">261</td><td class="num">125</td><td class="num">1</td><td class="num">3</td><td class="num up">+186</td></tr>
+      <tr><td class="pos">6</td><td class="team">Full Metal Jacket Miguel</td><td class="num">10–11</td><td class="num">3,812</td><td class="num">3,833</td><td class="num">99.5</td><td class="num">40</td><td class="num">181.5</td><td class="num">252</td><td class="num">121</td><td class="num">3</td><td class="num">4</td><td class="num up">+240</td></tr>
+      <tr><td class="pos">7</td><td class="team">Le Quack Attack</td><td class="num">10–11</td><td class="num">3,739</td><td class="num">3,969</td><td class="num">94.2</td><td class="num">40</td><td class="num">178.0</td><td class="num">246</td><td class="num">123</td><td class="num">5</td><td class="num">3</td><td class="num up">+234</td></tr>
+      <tr><td class="pos">8</td><td class="team">Randy's Ruckin Roalercoaster</td><td class="num">6–15</td><td class="num">3,689</td><td class="num">3,809</td><td class="num">96.9</td><td class="num">40</td><td class="num">175.7</td><td class="num">247</td><td class="num">117</td><td class="num">0</td><td class="num">4</td><td class="num up">+210</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>The Draft, Audited</h2>
+  <p class="lede">Every pick's full-season output was scored at its best position under league rules, then compared to the average of the eight picks made in the same draft round — so picking late is no excuse and picking early is no free ride.</p>
+
+  <div class="podium">
+    <span class="medal g">🥇 <b>Pinga Jinga Pillbox</b> <em>8,313 · +505 vs slot</em></span>
+    <span class="medal">🥈 <b>Le Quack Attack</b> <em>8,271 · +463</em></span>
+    <span class="medal">🥉 <b>Nightmare of Milky Briz</b> <em>8,028 · +220</em></span>
+  </div>
+
+  <div class="chart diverge" aria-label="Draft value versus slot expectation by team">
+    <div class="brow"><span class="lbl">Pinga Jinga Pillbox</span><span class="track"><span class="bar pos" style="width:21.8%" title="Pinga Jinga Pillbox: +505 vs slot · 8,313 total"></span></span><span class="val">+505</span></div>
+    <div class="brow"><span class="lbl">Le Quack Attack</span><span class="track"><span class="bar pos" style="width:20.0%" title="Le Quack Attack: +463 vs slot · 8,271 total"></span></span><span class="val">+463</span></div>
+    <div class="brow"><span class="lbl">Nightmare of Milky Briz</span><span class="track"><span class="bar pos" style="width:9.5%" title="Nightmare of Milky Briz: +220 vs slot · 8,028 total"></span></span><span class="val">+220</span></div>
+    <div class="brow"><span class="lbl">Sharky's Bite</span><span class="track"><span class="bar pos" style="width:5.3%" title="Sharky's Bite: +122 vs slot · 7,930 total"></span></span><span class="val">+122</span></div>
+    <div class="brow"><span class="lbl">Feathers and noodle soup</span><span class="track"><span class="bar pos" style="width:4.5%" title="Feathers and noodle soup: +105 vs slot · 7,913 total"></span></span><span class="val">+105</span></div>
+    <div class="brow"><span class="lbl">Full Metal Jacket Miguel</span><span class="track"><span class="bar neg" style="width:3.1%" title="Full Metal Jacket Miguel: −71 vs slot · 7,737 total"></span></span><span class="val">−71</span></div>
+    <div class="brow"><span class="lbl">String Theory</span><span class="track"><span class="bar neg" style="width:8.0%" title="String Theory: −185 vs slot · 7,623 total"></span></span><span class="val">−185</span></div>
+    <div class="brow"><span class="lbl">Randy's Ruckin Roalercoaster</span><span class="track"><span class="bar neg" style="width:50%" title="Randy's Ruckin Roalercoaster: −1,156 vs slot · 6,652 total"></span></span><span class="val">−1,156</span></div>
+  </div>
+  <div class="legend"><span class="lg-pos">Beat their slots</span><span class="lg-neg">Fell short of their slots</span></div>
+  <p class="chart-note">Value above/below the going rate for each team's actual draft positions, summed over all 18 picks. The total-value ranking (raw haul) lands in exactly the same order.</p>
+
+  <div class="callouts">
+    <div class="callout">
+      <h4>Steal of the draft</h4>
+      <p><b>Lachlan McAndrew</b>, pick 117 (round 15) by Feathers and noodle soup — finished the <b>#3 most valuable player</b> of all 144 drafted (804 pts as a Ruck). Honourable mentions: Luke Davies-Uniacke at pick 130 (Quack, #18 overall — the best single value-vs-slot pick of the draft), Jai Newcombe at pick 138 (Sharky's, #34), Hugo Garcia at pick 116 (Pinga, #16).</p>
+    </div>
+    <div class="callout">
+      <h4>Bust of the draft</h4>
+      <p><b>Sam Darcy</b>, pick 3 overall by String Theory — finished ranked <b>130th of 144</b> (146 pts). The biggest bust by raw rank-gap and by earliness-weighting. Also feeling it: Jesse Hogan (pick 12, rank 133, Feathers) and Errol Gulden (pick 27, rank 118, Miguel — injury did most of that damage).</p>
+    </div>
+    <div class="callout">
+      <h4>MVP validation</h4>
+      <p><b>Max Gawn</b> was the #1 pick and finished the <b>#1 most valuable player</b> (969 pts, Ruck) for Nightmare of Milky Briz. Sometimes the obvious pick is just right. Nick Daicos at pick 4 finished #2 (844) for Pinga — the top of the draft mostly delivered, pick 3 aside.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Coaching — % of Perfect Teams</h2>
+  <p class="lede">A perfect team means the lineup you submitted (with the app's automatic bench cover) matched the best possible arrangement of the nine players you fielded that week. It's a brutally high bar: across 168 team-rounds the league managed just 8 perfect teams.</p>
+
+  <div class="podium">
+    <span class="medal g">🥇 <b>Feathers and noodle soup</b> <em>3/21 perfect · 15.5 left/rd</em></span>
+    <span class="medal">🥈 <b>Randy's Ruckin Roalercoaster</b> <em>2/21</em></span>
+    <span class="medal">🥉 <b>Nightmare of Milky Briz</b> <em>1/21 · 17.8 left/rd</em></span>
+  </div>
+
+  <div class="chart" aria-label="Perfect team percentage by coach">
+    <div class="brow"><span class="lbl">Feathers and noodle soup</span><span class="track"><span class="bar" style="width:95%" title="Feathers and noodle soup: 3/21 perfect (14.3%) · 15.5 pts left per round"></span></span><span class="val">3/21</span></div>
+    <div class="brow"><span class="lbl">Randy's Ruckin Roalercoaster</span><span class="track"><span class="bar" style="width:63%" title="Randy's Ruckin Roalercoaster: 2/21 perfect (9.5%) · 20.8 pts left per round"></span></span><span class="val">2/21</span></div>
+    <div class="brow"><span class="lbl">Nightmare of Milky Briz</span><span class="track"><span class="bar" style="width:32%" title="Nightmare of Milky Briz: 1/21 perfect (4.8%) · 17.8 pts left per round"></span></span><span class="val">1/21</span></div>
+    <div class="brow"><span class="lbl">Le Quack Attack</span><span class="track"><span class="bar" style="width:32%" title="Le Quack Attack: 1/21 perfect (4.8%) · 20.6 pts left per round"></span></span><span class="val">1/21</span></div>
+    <div class="brow"><span class="lbl">Full Metal Jacket Miguel</span><span class="track"><span class="bar" style="width:32%" title="Full Metal Jacket Miguel: 1/21 perfect (4.8%) · 23.1 pts left per round"></span></span><span class="val">1/21</span></div>
+    <div class="brow"><span class="lbl">String Theory</span><span class="track"><span class="bar" style="width:2%" title="String Theory: 0/21 perfect · but the second-fewest points left, 14.1 per round"></span></span><span class="val">0/21</span></div>
+    <div class="brow"><span class="lbl">Pinga Jinga Pillbox</span><span class="track"><span class="bar" style="width:2%" title="Pinga Jinga Pillbox: 0/21 perfect · 20.1 pts left per round"></span></span><span class="val">0/21</span></div>
+    <div class="brow"><span class="lbl">Sharky's Bite</span><span class="track"><span class="bar" style="width:2%" title="Sharky's Bite: 0/21 perfect · 21.9 pts left per round"></span></span><span class="val">0/21</span></div>
+  </div>
+
+  <div class="scroll" style="margin-top:16px">
+  <table>
+    <thead><tr><th>Coach</th><th class="num">Perfect</th><th class="num">%</th><th class="num">Pts left (season)</th><th class="num">Pts left / round</th><th>Worst blunder of the year</th></tr></thead>
+    <tbody>
+      <tr><td class="team">Feathers and noodle soup</td><td class="num">3/21</td><td class="num">14.3</td><td class="num">325</td><td class="num">15.5</td><td class="blunder">R15 — McAndrew over De Koning in the ruck: +24</td></tr>
+      <tr><td class="team">Randy's Ruckin Roalercoaster</td><td class="num">2/21</td><td class="num">9.5</td><td class="num">436</td><td class="num">20.8</td><td class="blunder">R1 — Larkey over Curnow at full forward: +34</td></tr>
+      <tr><td class="team">Nightmare of Milky Briz</td><td class="num">1/21</td><td class="num">4.8</td><td class="num">373</td><td class="num">17.8</td><td class="blunder">R11 — Cadman over Thilthorpe at full forward: +28</td></tr>
+      <tr><td class="team">Le Quack Attack</td><td class="num">1/21</td><td class="num">4.8</td><td class="num">433</td><td class="num">20.6</td><td class="blunder">R7 — 92 points left in one week; Neale benched for Bailey Smith</td></tr>
+      <tr><td class="team">Full Metal Jacket Miguel</td><td class="num">1/21</td><td class="num">4.8</td><td class="num">485</td><td class="num">23.1</td><td class="blunder">R20 — Gulden over Oliver at midfield: +34</td></tr>
+      <tr><td class="team">String Theory</td><td class="num">0/21</td><td class="num">0.0</td><td class="num">296</td><td class="num">14.1</td><td class="blunder">R6 — Charlie Cameron over Bolton at offensive: +18</td></tr>
+      <tr><td class="team">Pinga Jinga Pillbox</td><td class="num">0/21</td><td class="num">0.0</td><td class="num">423</td><td class="num">20.1</td><td class="blunder">R18 — Marshall over Georgiades at tall forward: +28</td></tr>
+      <tr><td class="team">Sharky's Bite</td><td class="num">0/21</td><td class="num">0.0</td><td class="num">460</td><td class="num">21.9</td><td class="blunder">R4 — Ashcroft over Sheezel at midfield: +24</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="chart-note">String Theory is the quiet achiever here: never technically perfect, but the second-fewest points left on the bench per round — consistently close to right. Miguel left the most talent sitting: 485 points, nearly 23 a round.</p>
+</section>
+
+<section>
+  <h2>The Injury Ward</h2>
+  <p class="lede">Injury burden weights every game a squad player missed by how good that player is when he plays — a star's absence counts for more than a fringe player's. Measured across each 18-man squad, rounds 1–21. These medals are worn in a sling.</p>
+
+  <div class="podium">
+    <span class="medal g">🥇 <b>Randy's Ruckin Roalercoaster</b> <em>burden 1,965</em></span>
+    <span class="medal">🥈 <b>Full Metal Jacket Miguel</b> <em>1,762</em></span>
+    <span class="medal">🥉 <b>Sharky's Bite</b> <em>1,724</em></span>
+  </div>
+
+  <div class="chart" aria-label="Quality-adjusted injury burden by team">
+    <div class="brow"><span class="lbl">Randy's Ruckin Roalercoaster</span><span class="track"><span class="bar" style="width:95%" title="Randy's: burden 1,965 · Ladhams missed 17/19 club games"></span></span><span class="val">1,965</span></div>
+    <div class="brow"><span class="lbl">Full Metal Jacket Miguel</span><span class="track"><span class="bar" style="width:85%" title="Miguel: burden 1,762 · Gulden missed 12/19"></span></span><span class="val">1,762</span></div>
+    <div class="brow"><span class="lbl">Sharky's Bite</span><span class="track"><span class="bar" style="width:83%" title="Sharky's: burden 1,724 · Fitzgerald missed 11/18"></span></span><span class="val">1,724</span></div>
+    <div class="brow"><span class="lbl">Le Quack Attack</span><span class="track"><span class="bar" style="width:72%" title="Quack: burden 1,499 · Will Day missed 11/19"></span></span><span class="val">1,499</span></div>
+    <div class="brow"><span class="lbl">Feathers and noodle soup</span><span class="track"><span class="bar" style="width:64%" title="Feathers: burden 1,329 · Worpel missed 11/19"></span></span><span class="val">1,329</span></div>
+    <div class="brow"><span class="lbl">Nightmare of Milky Briz</span><span class="track"><span class="bar" style="width:64%" title="Milky Briz: burden 1,316 · Nankervis missed 11/20"></span></span><span class="val">1,316</span></div>
+    <div class="brow"><span class="lbl">String Theory</span><span class="track"><span class="bar" style="width:46%" title="String Theory: burden 952 · Gunston missed 6/19"></span></span><span class="val">952</span></div>
+    <div class="brow"><span class="lbl">Pinga Jinga Pillbox</span><span class="track"><span class="bar" style="width:40%" title="Pinga: burden 822 · English missed 6/19"></span></span><span class="val">822</span></div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout">
+      <h4>The cursed ruck stocks</h4>
+      <p>Randy's season died in the ruck: Peter Ladhams missed 17 of Sydney's 19 games, Nicholas Madden 13 of 19, Nick Bryan 9 of 20. For a team named <i>Randy's Ruckin Roalercoaster</i>, the football gods have a sense of humour.</p>
+    </div>
+    <div class="callout">
+      <h4>Two kinds of injury pain</h4>
+      <p>Pinga had the healthiest squad overall but the most selection-night ambushes — 7 named starters didn't play, most in the league. The auto-sub engine bailed them out for +211 points of DNP cover (+310 including score swaps), the best rescue job of the season.</p>
+    </div>
+    <div class="callout">
+      <h4>Costliest single absences</h4>
+      <p>Errol Gulden (Miguel) — 12 games missed at ~32 a game. Tom Liberatore (Miguel) — 11 at ~32. Will Day (Quack) — 11 at ~29. James Worpel (Feathers) — 11 at ~29. Miguel copping the top two explains a lot about sixth place.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The Ladder vs The Underlying Numbers</h2>
+  <p class="lede">Every ranking from this review, lined up against where each team actually finished. The power rank orders teams by how many weeks they beat the field median — a ladder with the luck of the fixture removed. Where the two disagree, dead certs, close games and plain luck are usually the reason.</p>
+
+  <div class="podium">
+    <span class="medal g">🥇 <b>Nightmare of Milky Briz</b> <em>14 power wins</em></span>
+    <span class="medal">🥈 <b>Feathers and noodle soup</b> <em>13</em></span>
+    <span class="medal">🥉 <b>String Theory</b> <em>13, lower PF</em></span>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th>Team</th><th class="num">Ladder</th><th class="num">Power</th><th class="num">Draft</th><th class="num">Coach</th><th class="num">Health</th><th class="num">Scoring</th><th class="num">Dead certs</th><th>Verdict</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="team">Feathers and noodle soup</td><td class="num">1</td><td class="num">2</td><td class="num">5</td><td class="num up">1</td><td class="num">4</td><td class="num">2</td><td class="num">2</td><td class="blunder">Converted everything they had</td></tr>
+      <tr><td class="team">String Theory</td><td class="num">2</td><td class="num">3</td><td class="num">7</td><td class="num">6</td><td class="num">2</td><td class="num">5</td><td class="num down">8</td><td class="blunder">Overachieved on health + tight selection</td></tr>
+      <tr><td class="team">Nightmare of Milky Briz</td><td class="num">3</td><td class="num up">1</td><td class="num">3</td><td class="num">3</td><td class="num">3</td><td class="num up">1</td><td class="num">4</td><td class="blunder">Underachieved −2 · best team on paper</td></tr>
+      <tr><td class="team">Sharky's Bite</td><td class="num">4</td><td class="num down">7</td><td class="num">4</td><td class="num down">8</td><td class="num">6</td><td class="num">4</td><td class="num up">1</td><td class="blunder">Overachieved +3 · dead certs + luck</td></tr>
+      <tr><td class="team">Pinga Jinga Pillbox</td><td class="num">5</td><td class="num">4</td><td class="num up">1</td><td class="num">7</td><td class="num up">1</td><td class="num">3</td><td class="num">7</td><td class="blunder">Underachieved · the talent was there</td></tr>
+      <tr><td class="team">Full Metal Jacket Miguel</td><td class="num">6</td><td class="num">5</td><td class="num">6</td><td class="num">5</td><td class="num">7</td><td class="num">6</td><td class="num">3</td><td class="blunder">About right</td></tr>
+      <tr><td class="team">Le Quack Attack</td><td class="num">7</td><td class="num">6</td><td class="num up">2</td><td class="num">4</td><td class="num">5</td><td class="num">7</td><td class="num">4</td><td class="blunder">Biggest talent-to-ladder drop</td></tr>
+      <tr><td class="team">Randy's Ruckin Roalercoaster</td><td class="num">8</td><td class="num">8</td><td class="num down">8</td><td class="num up">2</td><td class="num down">8</td><td class="num">8</td><td class="num">6</td><td class="blunder">Structural, not tactical</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="chart-note">Rank 1 = best in league on that measure (health 1 = fewest quality-adjusted games lost). Power ladder tie-breaks on points for: Briz 14 power wins, Feathers 13, String Theory 13, Pinga 12, Miguel 9, Quack 9, Sharky's 7, Randy's 6.</p>
+
+  <div class="callouts">
+    <div class="callout">
+      <h4>Biggest overachiever</h4>
+      <p><b>Sharky's Bite</b> — 4th on the ladder, 7th on power. Only 7 of their 21 weeks beat the field median, but the league's best dead-cert record (+300, no negative weeks) is worth ~6 points a round over the worst tipper, and they banked +3 wins of pure fixture luck. Finals on tipping and timing.</p>
+    </div>
+    <div class="callout">
+      <h4>Biggest underachiever</h4>
+      <p><b>Nightmare of Milky Briz</b> — the #1 power team finished 3rd. Top-3 in draft, coaching, health and #1 in scoring, undone by 0–3 in close games and five crabs. On substance they enter September as the premiership favourite, not the third seed. <b>Pinga</b> wears the same tag with a sadder ending: #1 draft, #1 health, 4th on power, no finals.</p>
+    </div>
+    <div class="callout">
+      <h4>The conversion story</h4>
+      <p><b>Feathers</b> turned the 5th-best draft into the minor premiership through coaching (#1) and dead certs (#2). <b>Quack</b> did the reverse: the 2nd-best draft class fell to 7th — the biggest talent-to-ladder drop in the league. What you draft matters less than what you do with it every Thursday night.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Team Report Cards</h2>
+  <p class="lede">Everyone's season, graded — draft, coaching, injuries, luck, and how it all added up.</p>
+  <div class="cards">
+
+    <div class="card">
+      <div class="head"><span class="rank">1</span><h3>Feathers and noodle soup</h3><span class="rec">13–8 · 102.5%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>192.0</b></span><span class="chip">Hi <b>268</b></span><span class="chip">4★ 1🦀</span><span class="chip">DC <b>+270</b></span><span class="chip">Close games <b>4–0</b></span></div>
+      <p>Minor premiers, and they earned it the honest way: the league's best coaching (3 perfect teams, only 15.5 points a round left behind) and a perfect 4–0 record in games decided by 10 or fewer. The draft class was only fifth-best — but it contained the single greatest pick of the draft, Lachlan McAndrew at 117. Posted the season-high 268 in round 13.</p>
+      <p>Watch for: a slight second-half surge (+12.7 a round after the byes) heading into the semi against a side they've already blown out twice.</p>
+      <div class="honour"><b>Awards:</b> Best Coach · Steal of the Draft (McAndrew)</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span class="rank">2</span><h3>String Theory</h3><span class="rec">13–8 · 97.1%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>186.0</b></span><span class="chip">Hi <b>246</b></span><span class="chip">3★ 2🦀</span><span class="chip">DC <b>+174</b></span><span class="chip">Close games <b>4–1</b></span></div>
+      <p>The overachievers. Second on the ladder with the seventh-best draft haul and the draft's all-time bust (Sam Darcy at pick 3 — 146 points, ranked 130th of 144). They got there on availability (second-lowest injury burden), near-flawless weekly selection (fewest points left per round bar none among contenders at 14.1) and a 4–1 record in the close ones.</p>
+      <p>The asterisk: both 106-point blowouts this season were losses they copped, and their percentage (97.1) says the 13 wins flatter them slightly.</p>
+      <div class="honour"><b>Awards:</b> Quiet Achiever · Bust of the Draft (S. Darcy)</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span class="rank">3</span><h3>Nightmare of Milky Briz</h3><span class="rec">12–9 · 107.4%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>193.4</b></span><span class="chip">PF <b>4,062</b> (1st)</span><span class="chip">4★ 5🦀</span><span class="chip">DC <b>+234</b></span><span class="chip">Close games <b>0–3</b></span></div>
+      <p>The best team that didn't finish top two. Most points scored, best percentage in the league, and the draft's #1 pick was also its #1 player — Max Gawn, 969 points. But it came boom-or-bust: four stars <i>and</i> five crabs (most in the league), 0–3 in close games, and two wins short of what the scoring deserved. If variance evens out in September, look out.</p>
+      <div class="honour"><b>Awards:</b> Best Attack · MVP holder (Gawn) · Unluckiest Contender</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span class="rank">4</span><h3>Sharky's Bite</h3><span class="rec">10–11 · 102.4%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>187.9</b></span><span class="chip">Hi <b>262</b></span><span class="chip">1★ 0🦀</span><span class="chip">DC <b>+300</b> (1st)</span><span class="chip">Luck <b>+3 wins</b></span></div>
+      <p>Made the finals with a losing record, and the numbers know exactly how: the league's deadliest dead-cert tipping (+300 net, the only team without a single negative week all season) and three more wins than the raw scoring justified — the hottest luck run in the league. The weekly coaching was actually the loose thread: zero perfect teams and 460 points left on the bench.</p>
+      <p>Also quietly the third-most injured squad, which makes fourth place a decent salvage job.</p>
+      <div class="honour"><b>Awards:</b> Dead Cert Assassin · Luckiest Team</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span class="rank">5</span><h3>Pinga Jinga Pillbox</h3><span class="rec">10–11 · 100.5%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>190.5</b></span><span class="chip">Hi <b>261</b></span><span class="chip">1★ 3🦀</span><span class="chip">DC <b>+186</b></span><span class="chip">2nd half <b>+19.4</b>/rd</span></div>
+      <p>The heartbreak season. Best drafter in the league on both measures, the healthiest squad, fourth-most points scored — and out of the finals on percentage in a four-way tie at 10–11. Where did it leak? Zero perfect teams and 423 points left on the bench, a league-worst 7 starters ruled out on game day (the auto-subs saved +310), a slow start, and two wins fewer than the scoring merited. The +19.4-a-round second-half surge was the league's fastest finish; it arrived three weeks too late.</p>
+      <div class="honour"><b>Awards:</b> Best Drafter · Healthiest Squad · Hard-Luck Story of 2026</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span class="rank">6</span><h3>Full Metal Jacket Miguel</h3><span class="rec">10–11 · 99.5%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>181.5</b></span><span class="chip">σ <b>36.8</b> (wildest)</span><span class="chip">3★ 4🦀</span><span class="chip">DC <b>+240</b></span><span class="chip">Pts left <b>485</b></span></div>
+      <p>The rollercoaster that wasn't named for it: the league's wildest week-to-week variance (a 252 and a 121 in the same season), the most points left on the bench (485 — nearly 23 a round), and the second-worst injury run, headlined by the two costliest absences in the league (Gulden 12 games, Liberatore 11). Clayton Oliver at pick 54 was a top-five steal, and a mid-season 4-game winning streak briefly threatened finals.</p>
+      <div class="honour"><b>Awards:</b> Loosest Coach (pts left) · Iron-Man Bad Luck (Gulden + Libba)</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span class="rank">7</span><h3>Le Quack Attack</h3><span class="rec">10–11 · 94.2%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>178.0</b></span><span class="chip">Hi <b>246</b></span><span class="chip">5★ 3🦀 (most stars)</span><span class="chip">DC <b>+234</b></span><span class="chip">Close games <b>4–1</b></span></div>
+      <p>The most stars in the league (5) and the second-best draft class (LDU at pick 130 was the finest value-vs-slot pick of the entire draft) — yet seventh, with the lowest percentage of the 10-win pack. The gap is in the weeks between the stars: lowest average of the middle pack, plus the single worst coaching round of anyone's season — 92 points left on the bench in round 7, with Lachie Neale parked while Bailey Smith started in the midfield. Won the close ones (4–1), which kept the record respectable.</p>
+      <div class="honour"><b>Awards:</b> Star Collector · Best Late-Round Pick (LDU) · Worst Single Coaching Week</div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span class="rank">8</span><h3>Randy's Ruckin Roalercoaster</h3><span class="rec">6–15 · 96.9%</span></div>
+      <div class="statrow"><span class="chip">Avg <b>175.7</b></span><span class="chip">0★ 4🦀</span><span class="chip">DC <b>+210</b></span><span class="chip">2nd half <b>−17.6</b>/rd</span><span class="chip">Burden <b>1,965</b></span></div>
+      <p>The spoon, but a more sympathetic one than the ladder suggests. Worst draft by a huge margin (−1,156 against slot, zero top-24 picks) and the most injured squad in the league — three ruckmen combined to miss 39 games. Yet the week-to-week coaching was the <i>second-best</i> in the league (9.5% perfect teams), and the trade desk was genuinely sharp: Bontempelli, Grundy, Walsh and Archie Roberts were all acquired mid-stream. The −17.6-a-round second-half fade tells the story of a list that ran out of bodies, not a coach who stopped trying.</p>
+      <div class="honour"><b>Awards:</b> Injury Ward Resident · Best Trader · Spoon (with honour)</div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Medal Tally</h2>
+  <p class="lede">Eight podiums across the review — the ladder, the power ladder, the draft, the coaches' award, dead certs, total scoring, star weeks, and the Injury Ward (worn in a sling). Counted Olympics-style.</p>
+
+  <div class="podium">
+    <span class="medal g">🥇 <b>Dead Certs</b> <em>Sharky's +300 · 🥈 Feathers +270 · 🥉 Miguel +240</em></span>
+    <span class="medal g">🥇 <b>Total Scoring</b> <em>Milky Briz 4,062 · 🥈 Feathers 4,033 · 🥉 Pinga 4,000</em></span>
+    <span class="medal g">🥇 <b>Star Weeks</b> <em>Quack 5 · 🥈 Feathers &amp; Milky Briz 4 (shared)</em></span>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th></th><th>Team</th><th class="num">🥇</th><th class="num">🥈</th><th class="num">🥉</th><th>Golds won</th></tr></thead>
+    <tbody>
+      <tr><td class="pos">1</td><td class="team">Feathers and noodle soup</td><td class="num">2</td><td class="num">4</td><td class="num">0</td><td class="blunder">Minor premiership · Best Coach</td></tr>
+      <tr><td class="pos">2</td><td class="team">Nightmare of Milky Briz</td><td class="num">2</td><td class="num">1</td><td class="num">3</td><td class="blunder">Power ladder · Total scoring</td></tr>
+      <tr><td class="pos">3</td><td class="team">Le Quack Attack</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="blunder">Star weeks</td></tr>
+      <tr><td class="pos">3</td><td class="team">Randy's Ruckin Roalercoaster</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="blunder">Injury Ward (sympathy gold)</td></tr>
+      <tr><td class="pos">5</td><td class="team">Pinga Jinga Pillbox</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="blunder">Best Drafter</td></tr>
+      <tr><td class="pos">5</td><td class="team">Sharky's Bite</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="blunder">Dead Certs</td></tr>
+      <tr><td class="pos">7</td><td class="team">String Theory</td><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="blunder">— (2nd on the ladder, no golds: peak overachiever)</td></tr>
+      <tr><td class="pos">7</td><td class="team">Full Metal Jacket Miguel</td><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="blunder">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="chart-note">Categories: ladder (Feathers/String Theory/Briz), power ladder (Briz/Feathers/String Theory), draft (Pinga/Quack/Briz), coaching (Feathers/Randy's/Briz), dead certs (Sharky's/Feathers/Miguel), scoring (Briz/Feathers/Pinga), star weeks (Quack, then Feathers &amp; Briz sharing silver — no bronze awarded), Injury Ward (Randy's/Miguel/Sharky's). Ranked by golds, then silvers, then bronzes.</p>
+</section>
+
+<section>
+  <h2>Season in Numbers</h2>
+  <div class="facts">
+    <div class="fact"><div class="n">268</div><div class="d">Highest score of the season — Feathers and noodle soup, round 13</div></div>
+    <div class="fact"><div class="n">969</div><div class="d">Max Gawn's season, the most valuable player of the draft — pick 1 delivering as pick 1</div></div>
+    <div class="fact"><div class="n">106</div><div class="d">Biggest winning margin, done twice — and String Theory was on the wrong end both times</div></div>
+    <div class="fact"><div class="n">3</div><div class="d">Closest margin, a four-way tie across rounds 1, 11, 15 and 21</div></div>
+    <div class="fact"><div class="n">8/168</div><div class="d">Perfect teams league-wide all season — a 4.8% hit rate. Coaching is hard.</div></div>
+    <div class="fact"><div class="n">+1,848</div><div class="d">The league's combined dead-cert net — everyone finished in the black on tipping</div></div>
+  </div>
+</section>
+
+<footer>
+  <p><b>Method.</b> All data pulled from the league database via the DuzzaTip API, rounds 1–21 (round 0 excluded: no head-to-head matches and an unreconcilable stats snapshot). Scoring formulas were reimplemented from the app's own rules and validated against 1,007 stored position scores with zero mismatches. Draft value = each player's full-season total at his best-scoring position; value-vs-slot compares each pick against the average of the eight picks in the same draft round. Perfect team = the submitted lineup (including automatic bench cover) matched the optimal assignment of the nine fielded players to the six scoring positions. Injury burden = games missed while the player's club played, weighted by the player's average score when he did play, summed over the current 18-man squad (mid-season trades are attributed to the current owner).</p>
+  <p>Compiled at the end of the 2026 home &amp; away season, before Semi Final 1. May the best drafter finally win a game that matters.</p>
+</footer>
+</div>
+
+</body>
+</html>
