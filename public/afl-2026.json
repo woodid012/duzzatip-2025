@@ -2081,7 +2081,7 @@
   {
     "MatchNumber": 190,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:00:00Z",
+    "DateUtc": "2026-08-15 06:15:00Z",
     "Location": "Gabba",
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Gold Coast SUNS",
@@ -2092,7 +2092,7 @@
   {
     "MatchNumber": 191,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:00:00Z",
+    "DateUtc": "2026-08-16 06:40:00Z",
     "Location": "MCG",
     "HomeTeam": "Essendon",
     "AwayTeam": "Sydney Swans",
@@ -2103,7 +2103,7 @@
   {
     "MatchNumber": 192,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:00:00Z",
+    "DateUtc": "2026-08-16 03:40:00Z",
     "Location": "ENGIE Stadium",
     "HomeTeam": "GWS GIANTS",
     "AwayTeam": "West Coast Eagles",
@@ -2114,7 +2114,7 @@
   {
     "MatchNumber": 193,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:00:00Z",
+    "DateUtc": "2026-08-15 09:40:00Z",
     "Location": "MCG",
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Collingwood",
@@ -2125,7 +2125,7 @@
   {
     "MatchNumber": 194,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:00:00Z",
+    "DateUtc": "2026-08-15 05:45:00Z",
     "Location": "Marvel Stadium",
     "HomeTeam": "North Melbourne",
     "AwayTeam": "Geelong Cats",
@@ -2136,7 +2136,7 @@
   {
     "MatchNumber": 195,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:00:00Z",
+    "DateUtc": "2026-08-15 02:35:00Z",
     "Location": "MCG",
     "HomeTeam": "Richmond",
     "AwayTeam": "St Kilda",
@@ -2147,7 +2147,7 @@
   {
     "MatchNumber": 196,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:00:00Z",
+    "DateUtc": "2026-08-16 05:15:00Z",
     "Location": "Marvel Stadium",
     "HomeTeam": "Western Bulldogs",
     "AwayTeam": "Carlton",
@@ -2158,7 +2158,7 @@
   {
     "MatchNumber": 197,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 02:30:00Z",
+    "DateUtc": "2026-08-15 10:10:00Z",
     "Location": "Adelaide Oval",
     "HomeTeam": "Port Adelaide",
     "AwayTeam": "Melbourne",
@@ -2169,7 +2169,7 @@
   {
     "MatchNumber": 198,
     "RoundNumber": 23,
-    "DateUtc": "2026-08-10 04:00:00Z",
+    "DateUtc": "2026-08-14 10:10:00Z",
     "Location": "Optus Stadium",
     "HomeTeam": "Fremantle",
     "AwayTeam": "Adelaide Crows",
@@ -2180,7 +2180,7 @@
   {
     "MatchNumber": 199,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:00:00Z",
+    "DateUtc": "2026-08-21 09:40:00Z",
     "Location": "MCG",
     "HomeTeam": "Collingwood",
     "AwayTeam": "Brisbane Lions",
@@ -2191,7 +2191,7 @@
   {
     "MatchNumber": 200,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:00:00Z",
+    "DateUtc": "2026-08-22 03:15:00Z",
     "Location": "Marvel Stadium",
     "HomeTeam": "Carlton",
     "AwayTeam": "Fremantle",
@@ -2202,7 +2202,7 @@
   {
     "MatchNumber": 201,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:00:00Z",
+    "DateUtc": "2026-08-23 02:20:00Z",
     "Location": "Marvel Stadium",
     "HomeTeam": "Essendon",
     "AwayTeam": "Port Adelaide",
@@ -2213,7 +2213,7 @@
   {
     "MatchNumber": 202,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:00:00Z",
+    "DateUtc": "2026-08-22 09:45:00Z",
     "Location": "GMHBA Stadium",
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Richmond",
@@ -2224,7 +2224,7 @@
   {
     "MatchNumber": 203,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:00:00Z",
+    "DateUtc": "2026-08-22 06:15:00Z",
     "Location": "MCG",
     "HomeTeam": "Melbourne",
     "AwayTeam": "Western Bulldogs",
@@ -2235,7 +2235,7 @@
   {
     "MatchNumber": 204,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:00:00Z",
+    "DateUtc": "2026-08-20 09:30:00Z",
     "Location": "Marvel Stadium",
     "HomeTeam": "St Kilda",
     "AwayTeam": "Gold Coast SUNS",
@@ -2246,7 +2246,7 @@
   {
     "MatchNumber": 205,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:00:00Z",
+    "DateUtc": "2026-08-23 05:20:00Z",
     "Location": "SCG",
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "North Melbourne",
@@ -2257,7 +2257,7 @@
   {
     "MatchNumber": 206,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 02:30:00Z",
+    "DateUtc": "2026-08-22 10:10:00Z",
     "Location": "Adelaide Oval",
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "GWS GIANTS",
@@ -2268,7 +2268,7 @@
   {
     "MatchNumber": 207,
     "RoundNumber": 24,
-    "DateUtc": "2026-08-17 04:00:00Z",
+    "DateUtc": "2026-08-23 09:20:00Z",
     "Location": "Optus Stadium",
     "HomeTeam": "West Coast Eagles",
     "AwayTeam": "Hawthorn",

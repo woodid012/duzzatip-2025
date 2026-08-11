@@ -88,6 +88,183 @@ export function recurringMatchupKeys(fixtures) {
   return recurring;
 }
 
+// ── Fixture date self-heal ──────────────────────────────────────────────────
+// The fixture collection is seeded from a JSON snapshot taken at the start of
+// the season, when the AFL had only published exact kickoff times for the early
+// rounds. Later rounds carry PLACEHOLDER slots — every game of the round dumped
+// on one day at 02:00/02:30/04:00Z. The score overlay above only ever patches
+// SCORES, so when the AFL releases the real times nothing corrects the stored
+// dates, and EVERY lockout in the app is computed from DateUtc. A placeholder
+// that has drifted into the past locks team selection and tipping for a round
+// that has not actually started yet.
+//
+// That is exactly what happened to 2026 Rounds 23 and 24 — the league's
+// Preliminary Final and Grand Final. Both sat at their seeded placeholder
+// (R23 all nine games at Mon 2026-08-10 02:00Z, real first bounce Fri 08-14
+// 10:10Z), so from Monday lunchtime the whole league was locked out of entering
+// finals teams and tips. refresh-fixtures.js fixes this, but it only runs from
+// the local CLI notifier — the deployed app never healed itself. It does now.
+
+const DATE_REFRESH_INTERVAL = 10 * 60 * 1000; // per year
+const DATE_REFRESH_BUDGET_MS = 2500;
+const MAX_DATE_REFRESH_ROUNDS = 6;
+const lastDateRefresh = new Map(); // year -> timestamp
+
+// A round is placeholder-shaped when 3+ of its games share one identical
+// kickoff time. Real AFL rounds stagger every game, so this only ever fires on
+// unreleased/seeded slots. Same heuristic the lockout notifier already uses.
+export function placeholderRounds(fixtures) {
+  const byRound = new Map(); // round -> Map(DateUtc -> count)
+  for (const f of fixtures) {
+    if (!byRound.has(f.RoundNumber)) byRound.set(f.RoundNumber, new Map());
+    const times = byRound.get(f.RoundNumber);
+    times.set(f.DateUtc, (times.get(f.DateUtc) || 0) + 1);
+  }
+  const flagged = new Set();
+  for (const [round, times] of byRound) {
+    for (const count of times.values()) {
+      if (count >= 3) { flagged.add(round); break; }
+    }
+  }
+  return flagged;
+}
+
+// Which rounds to re-check dates for. Deliberately does NOT trust stored dates
+// to decide — the whole failure mode is a stored date that is wrong — so it
+// works off scores (a played game has one) plus the placeholder shape:
+//   • every placeholder-shaped round, wherever it sits; and
+//   • the current round and the next few, anchored on the highest round that
+//     has any recorded score rather than on any DateUtc.
+// Bounded to MAX_DATE_REFRESH_ROUNDS so one page load can never fan out into a
+// season's worth of AFL API calls.
+export function roundsNeedingDateCheck(fixtures, maxRounds = MAX_DATE_REFRESH_ROUNDS) {
+  const scored = fixtures.filter(f => f.HomeTeamScore !== null && f.AwayTeamScore !== null);
+  const lastPlayed = scored.length > 0 ? Math.max(...scored.map(f => Number(f.RoundNumber))) : 0;
+
+  const candidates = new Set(placeholderRounds(fixtures));
+  for (const f of fixtures) {
+    const r = Number(f.RoundNumber);
+    if (r < lastPlayed || r > lastPlayed + 3) continue;
+    if (f.HomeTeamScore === null || f.AwayTeamScore === null) candidates.add(r);
+  }
+  return [...candidates].sort((a, b) => a - b).slice(0, maxRounds);
+}
+
+// Overwrite DateUtc from authoritative AFL kickoff times. aflDates is keyed by
+// `${round}|${homeNorm}|${awayNorm}` — the same round-namespaced key the score
+// overlay uses, so a matchup that recurs across rounds can't cross-contaminate.
+// Fixtures with no own-round API entry are left exactly as they are.
+export function applyAflDates(fixtures, aflDates) {
+  const changes = [];
+  const result = fixtures.map(f => {
+    const utc = aflDates[`${f.RoundNumber}|${matchupKey(f)}`];
+    if (!utc || utc === f.DateUtc) return f;
+    changes.push({ MatchNumber: f.MatchNumber, round: f.RoundNumber, from: f.DateUtc, to: utc });
+    return { ...f, DateUtc: utc };
+  });
+  return { fixtures: result, changes };
+}
+
+// AFL "2026-08-14T10:10:00.000+0000" → stored format "2026-08-14 10:10:00Z".
+// Matches refresh-fixtures.js exactly so the CLI and the app never disagree
+// about formatting and flip the same fixture back and forth.
+export function toFixtureDate(utcStartTime) {
+  const iso = new Date(utcStartTime).toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 19)}Z`;
+}
+
+// Fetch authoritative kickoff times for `rounds` and return a date map keyed by
+// `${localRound}|${homeNorm}|${awayNorm}`. Rounds are fetched in parallel so a
+// slow round costs one timeout, not N stacked ones.
+async function fetchAflDates(rounds, token, roundOffset) {
+  const dates = {};
+  const settled = await Promise.allSettled(
+    rounds.map(async localRound => {
+      const res = await fetch(
+        `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${localRound + roundOffset}&pageSize=30`,
+        { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(3000) }
+      );
+      if (!res.ok) throw new Error(`AFL matches HTTP ${res.status}`);
+      const data = await res.json();
+      return { localRound, matches: data.matches || [] };
+    })
+  );
+
+  let anySucceeded = false;
+  for (const outcome of settled) {
+    if (outcome.status === 'rejected') {
+      console.warn(`AFL API dates failed: ${outcome.reason?.message}`);
+      continue;
+    }
+    anySucceeded = true;
+    const { localRound, matches } = outcome.value;
+    for (const m of matches) {
+      if (!m.utcStartTime) continue; // unscheduled finals placeholders have none
+      // Prefer team.club.name (stable English) over team.name, which the AFL
+      // rotates through Indigenous-language variants during themed rounds.
+      const homeNorm = normaliseTeam(m.home?.team?.club?.name || m.home?.team?.name);
+      const awayNorm = normaliseTeam(m.away?.team?.club?.name || m.away?.team?.name);
+      if (!homeNorm || !awayNorm) continue;
+      dates[`${localRound}|${homeNorm}|${awayNorm}`] = toFixtureDate(m.utcStartTime);
+    }
+  }
+  if (anySucceeded) clearAflBreaker();
+  return { dates, anySucceeded };
+}
+
+// Correct stale DateUtc values in `fixtures` and persist them. Returns the
+// corrected array (the original, unchanged, on any failure — a bad date is
+// better than no fixtures).
+async function refreshFixtureDates(fixtures, year, collection) {
+  const now = Date.now();
+  const last = lastDateRefresh.get(year) || 0;
+  if (now - last < DATE_REFRESH_INTERVAL) return fixtures;
+  if (isAflBreakerOpen()) return fixtures;
+
+  const rounds = roundsNeedingDateCheck(fixtures);
+  if (rounds.length === 0) return fixtures;
+
+  // Stamp before the work, not after: a failed pass must still wait out the
+  // interval rather than retrying (and paying its timeouts) on every request.
+  lastDateRefresh.set(year, now);
+
+  try {
+    const token = await getAflToken();
+    let roundOffset;
+    try {
+      roundOffset = await getRoundOffset(token);
+    } catch {
+      roundOffset = 1;
+    }
+
+    const { dates, anySucceeded } = await withTimeout(
+      fetchAflDates(rounds, token, roundOffset),
+      DATE_REFRESH_BUDGET_MS,
+      new AflOverlayTimeoutError(`AFL date refresh exceeded ${DATE_REFRESH_BUDGET_MS}ms budget`)
+    );
+    if (!anySucceeded) return fixtures;
+
+    const { fixtures: updated, changes } = applyAflDates(fixtures, dates);
+    if (changes.length === 0) return fixtures;
+
+    await collection.bulkWrite(
+      changes.map(c => ({
+        updateOne: { filter: { MatchNumber: c.MatchNumber, year }, update: { $set: { DateUtc: c.to } } },
+      })),
+      { ordered: false }
+    );
+    for (const c of changes) {
+      console.log(`Fixture date corrected: R${c.round} match ${c.MatchNumber}: ${c.from} → ${c.to}`);
+    }
+    console.log(`AFL API: corrected ${changes.length} stale fixture date(s) across round(s) ${rounds.join(', ')}`);
+    return updated;
+  } catch (err) {
+    console.warn(`Fixture date refresh failed: ${err.message}`);
+    if (err instanceof AflOverlayTimeoutError) tripAflBreaker('date refresh exceeded time budget');
+    return fixtures;
+  }
+}
+
 // Apply AFL API scores to fixtures authoritatively, per round. combinedScores
 // is keyed by `${round}|${homeNorm}|${awayNorm}`. For every fixture we have
 // own-round API data for:
@@ -431,6 +608,13 @@ async function fetchFreshFixtures(year, now) {
   // For current year, refresh scores from AFL API for games that have started
   // but don't yet have both scores recorded.
   if (year === CURRENT_YEAR) {
+    // Correct stale kickoff times BEFORE anything reads DateUtc. Every lockout
+    // in the app is derived from it, and the seeded placeholders for unreleased
+    // rounds can sit in the past and lock a round that hasn't started (see the
+    // Round 23/24 finals lockout note above). Internally throttled and
+    // time-budgeted; returns the fixtures untouched if the AFL API is unwell.
+    fixtures = await refreshFixtureDates(fixtures, year, collection);
+
     // Re-validate a started fixture when it's missing a score OR when its
     // matchup recurs in another round — the latter can be holding a stale
     // cross-round result that must be checked against its own round and cleared.

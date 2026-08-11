@@ -35,7 +35,19 @@ jobs:
       
       - name: Update fixtures
         run: cd src/app/scripts && node download-fixtures.js
-      
+
+      # fixturedownload.com only carries PLACEHOLDER kickoff times for rounds the
+      # AFL hasn't released yet (every game of the round on one day at 02:00Z), and
+      # the step above overwrites the JSON with that feed wholesale. Left alone it
+      # keeps re-introducing placeholders — which is how Rounds 23/24 (the finals)
+      # ended up locked days early in 2026. Correct the dates from the official AFL
+      # API before committing. --no-mongo: the deployed app self-heals its own
+      # fixture dates, so no DB credentials are needed here.
+      - name: Correct kickoff times from the AFL API
+        run: |
+          npm install mongodb dotenv --no-save --no-audit --no-fund
+          node refresh-fixtures.js --no-mongo
+
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions@github.com"
