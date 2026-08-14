@@ -100,7 +100,7 @@ async function sendTelegram(text) {
 }
 
 // ===== Build data =====
-async function buildPositionData(db) {
+async function buildPositionData(db, user = MY_USER) {
   const debug = {};
 
   // Load 2025 game results — projection to only fetch needed fields (reduces data size)
@@ -131,7 +131,7 @@ async function buildPositionData(db) {
 
   // Load squad
   const squadDocs = await db.collection('2026_squads')
-    .find({ user_id: MY_USER, Active: { $ne: 0 } })
+    .find({ user_id: user, Active: { $ne: 0 } })
     .toArray();
   const squadNames = squadDocs.map(d => d.player_name).filter(Boolean);
   const squadSet   = new Set(squadNames.map(n => n.toLowerCase()));
@@ -229,6 +229,10 @@ async function handle(request) {
   const posFilter = searchParams.get('pos')?.toUpperCase() || null;
   const topN      = parseInt(searchParams.get('top') || '8');
   const format    = searchParams.get('format') || 'json';
+  // ?user=N scopes the squad list to another team (lockout-notify passes this
+  // through when it runs for someone else). Ignored if not a valid id.
+  const userArg   = parseInt(searchParams.get('user') || '', 10);
+  const user      = Number.isInteger(userArg) ? userArg : MY_USER;
 
   if (posFilter && !SCORE_FNS[posFilter]) {
     return NextResponse.json({ error: `Unknown position: ${posFilter}. Use FF/TF/OFF/MID/TAK/RUC` }, { status: 400 });
@@ -236,7 +240,7 @@ async function handle(request) {
 
   try {
     const { db } = await connectToDatabase();
-    const data   = await buildPositionData(db);
+    const data   = await buildPositionData(db, user);
 
     // Build JSON result
     const positions = posFilter ? [posFilter] : Object.keys(SCORE_FNS);

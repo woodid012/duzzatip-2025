@@ -13,6 +13,9 @@
  *   ?dry=1      — compute only, no DB saves or Telegram send
  *   ?round=N    — force a specific round
  *   ?probe=1    — just check if teams are announced (no compute, no send)
+ *   ?user=N     — run for another team in the league (id, or team name).
+ *                 Defaults to DEFAULT_USER. Everything — squad, lineup save,
+ *                 tips save and the send-once state — follows this user.
  */
 
 // This endpoint is time-sensitive; disable caching.
@@ -33,11 +36,13 @@ import {
   buildTipSuggestions,
 } from "@/app/lib/lockoutShared";
 import { INJURIES } from "@/app/lib/injuries_2026";
+import { USER_NAMES, TEAM_LOGOS } from "@/app/lib/constants";
 import { optimiseLineup, scoreGame, DNP_RISK_BASE, DNP_RISK_FLAGGED } from "@/app/lib/lineupOptimiser";
 import fs from "fs";
 import path from "path";
 
-const MY_USER = 4;
+// Whose team the routine runs for when ?user= is not given.
+const DEFAULT_USER = 4;
 const YEAR    = 2026;
 const NOTIFY_WINDOW_HOURS = 24;
 const FINAL_WINDOW_MINS   = 45;
@@ -261,11 +266,14 @@ const SHORT_TO_FULL = {
 
 // Fetches squad 2025 position scores from the stats-report endpoint.
 // Returns a map keyed by lowercase player name → { scores: {<full pos>: pts}, games }.
-async function fetchSquad2025Scores() {
+async function fetchSquad2025Scores(user) {
   const secret = process.env.NOTIFY_SECRET;
   if (!secret) return {};
   try {
-    const url = `https://duzzatip.vercel.app/api/stats-report?token=${encodeURIComponent(secret)}`;
+    // stats-report scopes its squadPlayers list to one user's squad, so pass
+    // ours through — otherwise a run for another team gets no 2025 blend.
+    const url = `https://duzzatip.vercel.app/api/stats-report?token=${encodeURIComponent(secret)}`
+      + (user != null ? `&user=${user}` : "");
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(9000),
@@ -313,9 +321,9 @@ async function fetchSquiggleTips(round) {
 }
 
 // ── DB saves ──────────────────────────────────────────────────────────────────
-async function saveTeamSelection(db, round, result) {
+async function saveTeamSelection(db, round, result, user) {
   const col = db.collection(`${YEAR}_team_selection`);
-  const bulkOps = [{ updateMany: { filter: { Round: round, User: MY_USER }, update: { $set: { Active: 0 } } } }];
+  const bulkOps = [{ updateMany: { filter: { Round: round, User: user }, update: { $set: { Active: 0 } } } }];
   const toSave = [
     ...MAIN_POSITIONS.map(pos => result.lineup[pos] ? { pos, name: result.lineup[pos].name } : null),
     result.bench    ? { pos: "Bench",     name: result.bench.name,    backup: result.benchBackup } : null,
@@ -324,8 +332,8 @@ async function saveTeamSelection(db, round, result) {
   ].filter(Boolean);
   for (const { pos, name, backup } of toSave) {
     bulkOps.push({ updateOne: {
-      filter: { Round: round, User: MY_USER, Position: pos },
-      update: { $set: { Player_Name: name, Position: pos, Round: round, User: MY_USER,
+      filter: { Round: round, User: user, Position: pos },
+      update: { $set: { Player_Name: name, Position: pos, Round: round, User: user,
         ...(pos === "Bench" && backup ? { Backup_Position: backup } : {}),
         Active: 1, Last_Updated: new Date() } },
       upsert: true,
@@ -333,14 +341,14 @@ async function saveTeamSelection(db, round, result) {
   }
   await col.bulkWrite(bulkOps, { ordered: false });
 }
-async function saveTips(db, round, tips) {
+async function saveTips(db, round, tips, user) {
   const col = db.collection(`${YEAR}_tips`);
 
   // The UI uses IsDefault===true to mean "this is just a fallback, not a real
   // submission" (renders as "(Def)" italic). So all cron-written tips MUST be
   // IsDefault:false to display as submitted. To still tell auto from manual,
   // cron writes set AutoPicked:true; manual UI saves leave it absent.
-  const existing = await col.find({ User: MY_USER, Round: round, Active: 1 }).toArray();
+  const existing = await col.find({ User: user, Round: round, Active: 1 }).toArray();
   const manualMatches = new Set(
     existing.filter(d => d.AutoPicked !== true).map(d => d.MatchNumber)
   );
@@ -348,11 +356,11 @@ async function saveTips(db, round, tips) {
   const bulkOps = [
     // Deactivate prior auto-picks so a stale auto pick from a previous cron
     // run gets cleared (the new write below will reactivate the slot).
-    { updateMany: { filter: { User: MY_USER, Round: round, AutoPicked: true }, update: { $set: { Active: 0 } } } },
+    { updateMany: { filter: { User: user, Round: round, AutoPicked: true }, update: { $set: { Active: 0 } } } },
     // Heal data written by the buggy v8 cron: any existing active tip with
     // IsDefault:true was a cron save mislabelled as a fallback. Flip it back
     // so the UI shows it as a real submission.
-    { updateMany: { filter: { User: MY_USER, Round: round, Active: 1, IsDefault: true }, update: { $set: { IsDefault: false } } } },
+    { updateMany: { filter: { User: user, Round: round, Active: 1, IsDefault: true }, update: { $set: { IsDefault: false } } } },
   ];
   const written = [], preserved = [];
   for (const [matchNumStr, tip] of Object.entries(tips)) {
@@ -361,7 +369,7 @@ async function saveTips(db, round, tips) {
     written.push(matchNum);
     bulkOps.push({
       updateOne: {
-        filter: { User: MY_USER, Round: round, MatchNumber: matchNum },
+        filter: { User: user, Round: round, MatchNumber: matchNum },
         update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: false, AutoPicked: true } },
         upsert: true,
       }
@@ -375,17 +383,23 @@ async function saveTips(db, round, tips) {
 
 // ── Notify state (MongoDB-backed, no local file on Vercel) ────────────────────
 // Dual-send: "early" (24h before lockout) and "final" (30min before lockout)
-async function getNotifyState(db, round) {
+// State is keyed by round for the default user (unchanged, so existing state
+// keeps working) and by round+user for anyone else — a run for another team
+// must not consume the default user's early/final slot, or vice versa.
+function notifyKey(round, user) {
+  return user === DEFAULT_USER ? String(round) : `${round}_u${user}`;
+}
+async function getNotifyState(db, round, user) {
   try {
     const doc = await db.collection("notify_state").findOne({ _id: "lockout_notifier" });
-    return doc?.rounds?.[String(round)] || null; // { early: bool, final: bool }
+    return doc?.rounds?.[notifyKey(round, user)] || null; // { early: bool, final: bool }
   } catch (_) { return null; }
 }
-async function markRoundNotified(db, round, sendType) {
+async function markRoundNotified(db, round, sendType, user) {
   try {
     await db.collection("notify_state").updateOne(
       { _id: "lockout_notifier" },
-      { $set: { [`rounds.${round}.${sendType}`]: true, lastNotified: new Date() } },
+      { $set: { [`rounds.${notifyKey(round, user)}.${sendType}`]: true, lastNotified: new Date() } },
       { upsert: true }
     );
   } catch (_) {}
@@ -407,7 +421,7 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad, user }) {
   const lockoutDay = lockout?.firstGame ? melbDay(lockout.firstGame) : "";
   // Day-of-week tag for any player whose match is on a different Melbourne day
   // than the round's first bounce (e.g. lineup is Thu but player plays Sun).
@@ -424,7 +438,11 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   const timeStr = lockout.locked ? `LOCKED` : `${lockout.melbTime} (${hrs}h ${mins}m)`;
 
   const phaseTag = isFinal ? " ⚡ FINAL Update" : " 👀 Early Preview";
-  lines.push(`🦆⚡ *DuzzaTip Rd${round} —${phaseTag}*`);
+  // Runs for another team keep the same layout but lead with whose team it is,
+  // so a one-off can't be mistaken for the usual message.
+  const otherUser = user != null && user !== DEFAULT_USER;
+  lines.push(`${TEAM_LOGOS[user] || "🦆⚡"} *DuzzaTip Rd${round} —${phaseTag}*`);
+  if (otherUser) lines.push(`👤 *${USER_NAMES[user] || `User ${user}`}*`);
   lines.push(`⏰ ${timeStr}`);
   if (dry) lines.push(`_(dry-run — nothing saved)_`);
   lines.push("");
@@ -441,7 +459,7 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     const srcTag = p.statsSource ? ` _[${p.statsSource}]_` : "";
     teamLines.push(`*${POS_SHORT[pos]}* — *${dn(p.name)}* _(${pts}pts)_${injTag}${dayTag(p.name)}${srcTag}`);
   }
-  lines.push(`📋 *YOUR TEAM* — _~${totalPts}pts projected_`);
+  lines.push(`📋 *${otherUser ? (USER_NAMES[user] || `USER ${user}`).toUpperCase() : "YOUR TEAM"}* — _~${totalPts}pts projected_`);
   for (const l of teamLines) lines.push(l);
   if (result.bench) {
     const gainStr = result.benchExpectedGain > 0 ? ` _(+${result.benchExpectedGain}pts exp)_` : "";
@@ -594,6 +612,25 @@ async function handler(request) {
   const preteams = searchParams.get("preteams") === "1";
   const roundArg = searchParams.get("round") ? parseInt(searchParams.get("round")) : null;
 
+  // ── Whose team to run for (?user=7 or ?user=String%20Theory) ──
+  const userArg = (searchParams.get("user") || "").trim();
+  let user = DEFAULT_USER;
+  if (userArg) {
+    const asId = parseInt(userArg, 10);
+    const byId = String(asId) === userArg && USER_NAMES[asId] ? asId : null;
+    const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const byName = Object.keys(USER_NAMES)
+      .map(Number)
+      .find(id => norm(USER_NAMES[id]).includes(norm(userArg)) && norm(userArg).length >= 3);
+    if (byId == null && byName == null) {
+      return Response.json({
+        error: `Unknown user "${userArg}"`,
+        validUsers: Object.entries(USER_NAMES).map(([id, name]) => ({ id: Number(id), name })),
+      }, { status: 400 });
+    }
+    user = byId ?? byName;
+  }
+
   const fixtures = loadFixtures();
   const round    = roundArg ?? getCurrentRound(fixtures);
   const lockout  = getLockoutInfo(fixtures, round);
@@ -622,7 +659,7 @@ async function handler(request) {
     const isFinalWindow = lockout && lockout.minsUntil <= FINAL_WINDOW_MINS;
     sendType = isFinalWindow ? "final" : "early";
 
-    const prevNotify = await getNotifyState(db, round);
+    const prevNotify = await getNotifyState(db, round, user);
     if (prevNotify) {
       if (sendType === "early" && prevNotify.early)
         return Response.json({ skipped: true, reason: `already sent early preview for round ${round}` });
@@ -636,8 +673,8 @@ async function handler(request) {
   }
 
   // ── Squad ──
-  const squadDocs = await db.collection(`${YEAR}_squads`).find({ user_id: MY_USER, Active: 1 }).toArray();
-  if (!squadDocs.length) return Response.json({ error: "No squad found" }, { status: 500 });
+  const squadDocs = await db.collection(`${YEAR}_squads`).find({ user_id: user, Active: 1 }).toArray();
+  if (!squadDocs.length) return Response.json({ error: `No squad found for user ${user} (${USER_NAMES[user] || "?"})` }, { status: 500 });
 
   // ── Stats ──
   const statsMap = await loadPlayerStats(db, squadDocs.map(p => p.player_name));
@@ -660,7 +697,7 @@ async function handler(request) {
   // Fetch 2025 scores if preteams=1 OR any squad player has no 2026 stats yet
   const need2025 = preteams || squad.some(p => Object.keys(p.scores).length === 0);
   if (need2025) {
-    const scores2025ByName = await fetchSquad2025Scores();
+    const scores2025ByName = await fetchSquad2025Scores(user);
     const BLEND_MAX = 10; // after 10 2026 games, fully trust 2026 data
     for (const p of squad) {
       const entry25 = scores2025ByName[(p.name || "").toLowerCase().trim()];
@@ -810,10 +847,10 @@ async function handler(request) {
   let savedTeam = false, savedTips = false;
   let tipsWritten = [], tipsPreserved = [];
   if (!dry) {
-    try { await saveTeamSelection(db, round, result); savedTeam = true; } catch (_) {}
+    try { await saveTeamSelection(db, round, result, user); savedTeam = true; } catch (_) {}
     try {
       const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
-      const saveResult = await saveTips(db, round, tipsToSave);
+      const saveResult = await saveTips(db, round, tipsToSave, user);
       tipsWritten = saveResult.written;
       tipsPreserved = saveResult.preserved;
       savedTips = true;
@@ -822,17 +859,18 @@ async function handler(request) {
 
   // ── Send ──
   const isFinal = sendType === "final";
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad, user });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
   }
 
   // ── Record ──
-  if (!dry && !force && sent) await markRoundNotified(db, round, sendType);
+  if (!dry && !force && sent) await markRoundNotified(db, round, sendType, user);
 
   return Response.json({
     ok: !squiggleError, round, dry, teamsFound,
+    user, team: USER_NAMES[user] || null,
     autoExcluded: [...autoExcluded],
     byePlayers: byePlayers.map(p => p.name),
     savedTeam, savedTips, sent,
