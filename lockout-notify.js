@@ -12,6 +12,8 @@
  *   node lockout-notify.js --dry-run          — compute everything, don't save or send
  *   node lockout-notify.js --team             — team selection only (skip tips)
  *   node lockout-notify.js --tips             — tipping only (skip team)
+ *   node lockout-notify.js --user=7           — pick/save for another coach (7 = String Theory);
+ *                                               the Telegram summary still comes to YOU
  *
  * Setup: add to .env.local →  TELEGRAM_BOT_TOKEN=<your token from BotFather>
  */
@@ -37,7 +39,13 @@ const INJURY_DISPLAY = {
 };
 
 // ===== Config =====
-const MY_USER  = 4;
+// Whose team is being picked/saved. Overridable with --user=N so the notifier
+// can be run on another coach's behalf (e.g. someone away during finals week).
+// The Telegram destination is deliberately SEPARATE and never follows --user:
+// the message always lands in TELEGRAM_CHAT_ID, so running for another team
+// sends the summary to you, not to them.
+const DEFAULT_USER = 4;
+let MY_USER = DEFAULT_USER;
 const YEAR     = 2026;
 const NOTIFY_WINDOW_HOURS = 24;
 const TELEGRAM_CHAT_ID = "8600335192";
@@ -51,6 +59,20 @@ const MONGODB_URI = process.env.MONGODB_URI ||
 const USER_SHORT = {
   1: "Feathers", 2: "Sharky", 3: "Miguel", 4: "Quack",
   5: "Randy", 6: "Milky Briz", 7: "String Theory", 8: "Pinga",
+};
+
+// Full team names (mirrors USER_NAMES in src/app/lib/constants.js) — used to
+// label whose team a run is for, so a --user=N summary can't be mistaken for
+// your own.
+const USER_FULL = {
+  1: "Feathers and noodle soup",
+  2: "Sharky's Bite",
+  3: "Full Metal Jacket Miguel",
+  4: "Le Quack Attack",
+  5: "Randy's Ruckin Roalercoaster",
+  6: "Nightmare of Milky Briz",
+  7: "String Theory",
+  8: "Pinga Jinga Pillbox",
 };
 
 // ===== Scoring formulas =====
@@ -130,12 +152,26 @@ function loadState() {
   }
   catch (_) { return { rounds: {} }; }
 }
+// The already-sent record is PER USER. Without this, a --user=7 run would burn
+// the round's "early" slot and silently skip your own Round N notification (or
+// vice versa). The default user keeps using state.rounds so existing state
+// files stay valid; other users get their own bucket under state.users.
+function userRounds(state, user) {
+  if (user === DEFAULT_USER) return state.rounds;
+  if (!state.users) state.users = {};
+  if (!state.users[user]) state.users[user] = { rounds: {} };
+  return state.users[user].rounds;
+}
 function saveState(state) {
-  // Keep only last 5 rounds
-  const keys = Object.keys(state.rounds).map(Number).sort((a, b) => a - b);
-  if (keys.length > 5) {
-    for (const k of keys.slice(0, keys.length - 5)) delete state.rounds[k];
-  }
+  // Keep only last 5 rounds, per user
+  const trim = (rounds) => {
+    const keys = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+    if (keys.length > 5) {
+      for (const k of keys.slice(0, keys.length - 5)) delete rounds[k];
+    }
+  };
+  trim(state.rounds);
+  for (const bucket of Object.values(state.users || {})) trim(bucket.rounds || {});
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 // Threshold: sends within this many minutes of lockout count as "final"
@@ -780,12 +816,15 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   const sendType = isFinal ? "FINAL Update" : "Early Preview";
 
   lines.push(`\u{1F986}\u{26A1} *DuzzaTip Rd${round} \u2014 ${sendType}*`);
+  // When running for someone else, say so up front \u2014 this message lands in YOUR
+  // chat, so an unlabelled summary of another coach's team is a trap.
+  if (MY_USER !== DEFAULT_USER) lines.push(`\u{1F464} Team: *${USER_FULL[MY_USER]}* (user ${MY_USER})`);
   lines.push(`\u23F0 Lockout: ${timeStr}`);
   if (dryRun) lines.push(`_(dry-run \u2014 nothing saved)_`);
   lines.push("");
 
   // Team
-  lines.push(`\u{1F4CB} *YOUR TEAM*`);
+  lines.push(`\u{1F4CB} *${MY_USER === DEFAULT_USER ? "YOUR TEAM" : USER_FULL[MY_USER].toUpperCase() + "'S TEAM"}*`);
   let totalPts = 0;
   for (const pos of MAIN_POSITIONS) {
     const p = result.lineup[pos];
@@ -978,6 +1017,24 @@ async function main() {
   const tradesOnly  = args.includes("--trades");
   const skipRefresh = args.includes("--no-refresh");
 
+  // --user=N: pick/save for another coach. Set before anything touches MY_USER
+  // (every use is inside a function called below, so this is the only window).
+  // The Telegram destination is untouched — the summary still comes to you.
+  const userArg = args.find(a => a.startsWith("--user="));
+  if (userArg) {
+    const requested = parseInt(userArg.split("=")[1], 10);
+    if (!USER_FULL[requested]) {
+      console.error(`Invalid --user=${userArg.split("=")[1]}. Valid users:`);
+      for (const [id, name] of Object.entries(USER_FULL)) console.error(`   ${id} — ${name}`);
+      process.exit(1);
+    }
+    MY_USER = requested;
+  }
+  if (MY_USER !== DEFAULT_USER) {
+    console.log(`\n\u{26A0}  Running as ${USER_FULL[MY_USER]} (user ${MY_USER}) — ` +
+      `their team and tips will be saved. Telegram summary still goes to you.`);
+  }
+
   // Self-heal fixture kickoff times from the authoritative AFL API before
   // anything reads them. The fixture JSON is seeded once at season start with
   // placeholder times for unscheduled rounds, and the AFL moves games all
@@ -1033,7 +1090,7 @@ async function main() {
   }
 
   if (interactive) {
-    header(`\u{1F986}\u{26A1} Le Quack Attack \u2014 DuzzaTip ${YEAR}`);
+    header(`\u{1F986}\u{26A1} ${USER_FULL[MY_USER]} \u2014 DuzzaTip ${YEAR}`);
     if (dryRun) console.log(`  ${C.yellow}DRY-RUN mode \u2014 nothing will be saved${C.reset}`);
     console.log(`\n  ${C.bold}Round ${round}${C.reset}`);
     if (lockout) {
@@ -1070,7 +1127,7 @@ async function main() {
           `(AFL refresh may have failed) \u2014 not trusting the ${Math.round(lockout.hoursUntil)}h window; proceeding.`);
       }
       const state = loadState();
-      const roundState = state.rounds[round] || {};
+      const roundState = userRounds(state, MY_USER)[round] || {};
       const isFinalWindow = lockout && lockout.minsUntil <= FINAL_WINDOW_MINS;
       if (isFinalWindow && roundState.final) {
         console.log(`   \u2B50 Already sent final notification for Round ${round} \u2014 skipping.`);
@@ -1178,7 +1235,7 @@ async function main() {
   if (doTeam) {
     if (interactive) {
       // Show squad overview
-      section("YOUR SQUAD");
+      section(MY_USER === DEFAULT_USER ? "YOUR SQUAD" : `${USER_FULL[MY_USER].toUpperCase()} — SQUAD`);
       const sorted = [...squad].sort((a, b) => b.bestScore - a.bestScore);
       for (const p of sorted) {
         const sev = injSeverity(p.name);
@@ -1524,14 +1581,16 @@ async function main() {
     // Record notification (early or final)
     if (!dryRun && !force && sent) {
       const state = loadState();
-      if (!state.rounds[round]) state.rounds[round] = {};
+      const rounds = userRounds(state, MY_USER);
+      if (!rounds[round]) rounds[round] = {};
       const isFinalWindow = lockout && lockout.minsUntil <= FINAL_WINDOW_MINS;
+      const who = MY_USER === DEFAULT_USER ? "" : ` (${USER_SHORT[MY_USER]})`;
       if (isFinalWindow) {
-        state.rounds[round].final = true;
-        console.log("   Recorded as FINAL notification for Round " + round);
+        rounds[round].final = true;
+        console.log(`   Recorded as FINAL notification for Round ${round}${who}`);
       } else {
-        state.rounds[round].early = true;
-        console.log("   Recorded as EARLY notification for Round " + round);
+        rounds[round].early = true;
+        console.log(`   Recorded as EARLY notification for Round ${round}${who}`);
       }
       saveState(state);
     }
