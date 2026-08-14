@@ -36,7 +36,7 @@ import {
   buildTipSuggestions,
 } from "@/app/lib/lockoutShared";
 import { INJURIES } from "@/app/lib/injuries_2026";
-import { USER_NAMES, TEAM_LOGOS } from "@/app/lib/constants";
+import { USER_NAMES } from "@/app/lib/constants";
 import { optimiseLineup, scoreGame, DNP_RISK_BASE, DNP_RISK_FLAGGED } from "@/app/lib/lineupOptimiser";
 import fs from "fs";
 import path from "path";
@@ -421,7 +421,7 @@ async function sendTelegram(message) {
 }
 
 // ── Message builder ───────────────────────────────────────────────────────────
-function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad, user }) {
+function buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad }) {
   const lockoutDay = lockout?.firstGame ? melbDay(lockout.firstGame) : "";
   // Day-of-week tag for any player whose match is on a different Melbourne day
   // than the round's first bounce (e.g. lineup is Thu but player plays Sun).
@@ -438,11 +438,9 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   const timeStr = lockout.locked ? `LOCKED` : `${lockout.melbTime} (${hrs}h ${mins}m)`;
 
   const phaseTag = isFinal ? " ⚡ FINAL Update" : " 👀 Early Preview";
-  // Runs for another team keep the same layout but lead with whose team it is,
-  // so a one-off can't be mistaken for the usual message.
-  const otherUser = user != null && user !== DEFAULT_USER;
-  lines.push(`${TEAM_LOGOS[user] || "🦆⚡"} *DuzzaTip Rd${round} —${phaseTag}*`);
-  if (otherUser) lines.push(`👤 *${USER_NAMES[user] || `User ${user}`}*`);
+  // The message keeps the DuzzaTip duck and layout whoever the run is for —
+  // ?user= changes what gets saved, not how the notification looks.
+  lines.push(`🦆⚡ *DuzzaTip Rd${round} —${phaseTag}*`);
   lines.push(`⏰ ${timeStr}`);
   if (dry) lines.push(`_(dry-run — nothing saved)_`);
   lines.push("");
@@ -459,7 +457,7 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
     const srcTag = p.statsSource ? ` _[${p.statsSource}]_` : "";
     teamLines.push(`*${POS_SHORT[pos]}* — *${dn(p.name)}* _(${pts}pts)_${injTag}${dayTag(p.name)}${srcTag}`);
   }
-  lines.push(`📋 *${otherUser ? (USER_NAMES[user] || `USER ${user}`).toUpperCase() : "YOUR TEAM"}* — _~${totalPts}pts projected_`);
+  lines.push(`📋 *YOUR TEAM* — _~${totalPts}pts projected_`);
   for (const l of teamLines) lines.push(l);
   if (result.bench) {
     const gainStr = result.benchExpectedGain > 0 ? ` _(+${result.benchExpectedGain}pts exp)_` : "";
@@ -859,7 +857,7 @@ async function handler(request) {
 
   // ── Send ──
   const isFinal = sendType === "final";
-  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad, user });
+  const message = buildMessage({ round, lockout, result, autoExcluded, byePlayers, selectionStatus: effectiveSelectionStatus, tipSuggestions, savedTeam, savedTips, dry, injuries, isFinal, playerMatch, squad });
   let sent = false;
   if (!dry) {
     try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
