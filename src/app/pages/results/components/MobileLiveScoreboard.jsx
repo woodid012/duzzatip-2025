@@ -290,6 +290,7 @@ export default function MobileLiveScoreboard({
   const [tab, setTab] = useState('team');
   const [mode, setMode] = useState('scores'); // 'scores' (team scores) | 'tips'
   const [openGame, setOpenGame] = useState(null); // index of expanded fixture
+  const [openTeam, setOpenTeam] = useState(null); // uid of expanded team in the all-teams list
 
   const myScores = selectedUserId ? getTeamScores(selectedUserId) : null;
   const oppScores = opponentId ? getTeamScores(opponentId) : null;
@@ -503,17 +504,31 @@ export default function MobileLiveScoreboard({
             {ranked.map((t, i) => {
               const isUser = String(t.uid) === String(selectedUserId);
               const live = liveUserIds.includes(String(t.uid));
+              const open = String(openTeam) === String(t.uid);
+              const teamScores = open ? getTeamScores(t.uid) : null;
               return (
-                <div key={t.uid} className={`flex items-center gap-2.5 px-3 py-2.5 border-b border-slate-100 ${isUser ? 'bg-blue-50' : ''}`}>
-                  <span className="w-[18px] text-center text-xs font-extrabold text-slate-400 tabular-nums">{i + 1}</span>
-                  <span className="text-base">{TEAM_LOGOS[t.uid]}</span>
-                  <span className={`flex-1 truncate text-[13px] ${isUser ? 'font-extrabold text-slate-900' : 'font-semibold text-slate-600'}`}>
-                    {USER_NAMES[t.uid]}
-                  </span>
-                  {isUser && (
-                    <span className="text-[8px] font-extrabold tracking-[0.08em] text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-px">YOU</span>
+                <div key={t.uid} className="border-b border-slate-100">
+                  <div
+                    onClick={() => setOpenTeam((u) => (String(u) === String(t.uid) ? null : t.uid))}
+                    className={`flex cursor-pointer items-center gap-2.5 px-3 py-2.5 ${isUser ? 'bg-blue-50' : ''}`}
+                  >
+                    <span className="w-[18px] text-center text-xs font-extrabold text-slate-400 tabular-nums">{i + 1}</span>
+                    <span className="text-base">{TEAM_LOGOS[t.uid]}</span>
+                    <span className={`flex-1 truncate text-[13px] ${isUser ? 'font-extrabold text-slate-900' : 'font-semibold text-slate-600'}`}>
+                      {USER_NAMES[t.uid]}
+                    </span>
+                    {isUser && (
+                      <span className="text-[8px] font-extrabold tracking-[0.08em] text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-px">YOU</span>
+                    )}
+                    <span className={`text-base font-extrabold tabular-nums ${live ? 'text-amber-600' : isUser ? 'text-blue-600' : 'text-slate-900'}`}>{t.score}</span>
+                    <span className="w-[10px] shrink-0 text-center text-[11px] text-slate-400">{open ? '▴' : '▾'}</span>
+                  </div>
+                  {/* Tap a team for the same full breakdown the My Team tab shows */}
+                  {open && teamScores && (
+                    <div className="bg-slate-50 px-2 pb-3 pt-2">
+                      <PositionList scores={teamScores} roundEndPassed={roundEndPassed} />
+                    </div>
                   )}
-                  <span className={`text-base font-extrabold tabular-nums ${live ? 'text-amber-600' : isUser ? 'text-blue-600' : 'text-slate-900'}`}>{t.score}</span>
                 </div>
               );
             })}
