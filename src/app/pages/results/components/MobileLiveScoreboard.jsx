@@ -303,16 +303,21 @@ export default function MobileLiveScoreboard({
   const myLive = liveUserIds.includes(String(selectedUserId));
   const oppLive = liveUserIds.includes(String(opponentId));
 
-  // Ranked all teams by finalScore
+  // Who actually plays this round — in the finals the eliminated teams have no
+  // fixture, so they are left out of both the all-teams list and the tab logic.
+  const playingIds = new Set();
+  orderedFixtures.forEach((f) => { playingIds.add(String(f.home)); playingIds.add(String(f.away)); });
+  const isPlaying = (uid) => playingIds.size === 0 || playingIds.has(String(uid));
+
+  // Ranked teams by finalScore
   const ranked = Object.keys(USER_NAMES)
+    .filter(isPlaying)
     .map((uid) => ({ uid, score: getTeamScores(uid)?.finalScore ?? 0 }))
     .sort((a, b) => b.score - a.score);
 
-  // In the finals, teams that missed out have no fixture at all — there is no
-  // "my team vs opposition" to show them, so the round is the only view.
-  const inRound = orderedFixtures.length === 0 || orderedFixtures.some(
-    (f) => String(f.home) === String(selectedUserId) || String(f.away) === String(selectedUserId)
-  );
+  // Nothing to show under My Team / Opposition when you are not in the round,
+  // so the round becomes the only view.
+  const inRound = isPlaying(selectedUserId);
   // Fall back to the round view rather than resetting state, so switching to a
   // round you are in restores the tab you last picked.
   const activeTab = inRound ? tab : 'round';
