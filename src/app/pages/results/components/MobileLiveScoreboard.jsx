@@ -6,8 +6,8 @@ import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 import MobileTipResults from './MobileTipResults';
 
 // Small pulsing dot used on live scores (green to flag a game in progress)
-const LiveDot = ({ className = 'bg-emerald-500' }) => (
-  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle animate-pulse ${className}`} />
+const LiveDot = ({ className = 'bg-emerald-500 mr-1' }) => (
+  <span className={`inline-block w-1.5 h-1.5 rounded-full align-middle animate-pulse ${className}`} />
 );
 
 // Bench + reserves, rendered inside the breakdown
@@ -154,19 +154,15 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
   // The player whose score actually counts (replacement if substituted).
   const effName = (p) => (p.isBenchPlayer ? (p.playerName || p.originalPlayerName) : p.originalPlayerName) || '—';
 
-  let hWins = 0, aWins = 0;
   const rows = [];
   homePos.forEach((hp) => {
     const ap = awayByPos[hp.position] || {};
     const hs = hp.score ?? 0, as = ap.score ?? 0;
-    const hWin = hs > as, aWin = as > hs;
-    if (hWin) hWins++; else if (aWin) aWins++;
-    rows.push({ pos: hp.position, hName: effName(hp), hScore: hs, hWin,
-                aName: effName(ap), aScore: as, aWin });
+    rows.push({ pos: hp.position, hName: effName(hp), hScore: hs, hWin: hs > as, hLive: hp.isGameLive,
+                aName: effName(ap), aScore: as, aWin: as > hs, aLive: ap.isGameLive });
   });
 
-  // Bench / reserves rows (shown but NOT counted in the positions-won tally,
-  // since reserves only score when subbed in).
+  // Bench / reserves rows
   const awayBenchByPos = {};
   awayBench.forEach((b) => { awayBenchByPos[b.position] = b; });
   // What position(s) a bench/reserve is covering (its "backing up").
@@ -202,20 +198,21 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
 
   return (
     <div className="mt-2.5 border-t border-slate-200 pt-2.5">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Head to Head</span>
-        <span className="text-[10px] font-bold text-slate-500">Positions won {hWins}–{aWins}</span>
-      </div>
+      <div className="mb-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Head to Head</div>
       <div className="flex flex-col gap-1.5">
         {rows.map((r) => (
           <div key={r.pos} className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
-            <div className={`text-right ${nCls(r.hWin)}`}>{r.hName}</div>
-            <div className="flex items-center justify-center gap-1.5">
-              <span className={sCls(r.hWin, homeLive)}>{r.hScore}</span>
-              <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[26px] text-center">{abbr(r.pos)}</span>
-              <span className={sCls(r.aWin, awayLive)}>{r.aScore}</span>
+            <div className={`text-right ${nCls(r.hWin)}`}>
+              {r.hName}{r.hLive && <LiveDot className="bg-emerald-500 ml-1" />}
             </div>
-            <div className={`text-left ${nCls(r.aWin)}`}>{r.aName}</div>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className={sCls(r.hWin, r.hLive)}>{r.hScore}</span>
+              <span className="text-[7px] font-extrabold uppercase text-slate-400 w-[26px] text-center">{abbr(r.pos)}</span>
+              <span className={sCls(r.aWin, r.aLive)}>{r.aScore}</span>
+            </div>
+            <div className={`text-left ${nCls(r.aWin)}`}>
+              {r.aLive && <LiveDot />}{r.aName}
+            </div>
           </div>
         ))}
       </div>
@@ -248,7 +245,9 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
             {benchRows.map((r) => (
               <div key={r.pos} className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
                 <div className="text-right min-w-0">
-                  <div className={bName(r.hUsed)}>{r.hName}{r.hUsed ? ' (Used)' : ''}</div>
+                  <div className={bName(r.hUsed)}>
+                    {r.hName}{r.hUsed ? ' (Used)' : ''}{r.hLive && <LiveDot className="bg-emerald-500 ml-1" />}
+                  </div>
                   <div className={`text-[8px] truncate ${r.hUsed ? 'text-emerald-600' : 'text-slate-400'}`}>{r.hBackup}</div>
                 </div>
                 <div className="flex flex-col items-center">
@@ -259,7 +258,9 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
                   </div>
                 </div>
                 <div className="text-left min-w-0">
-                  <div className={bName(r.aUsed)}>{r.aName}{r.aUsed ? ' (Used)' : ''}</div>
+                  <div className={bName(r.aUsed)}>
+                    {r.aLive && <LiveDot />}{r.aName}{r.aUsed ? ' (Used)' : ''}
+                  </div>
                   <div className={`text-[8px] truncate ${r.aUsed ? 'text-emerald-600' : 'text-slate-400'}`}>{r.aBackup}</div>
                 </div>
               </div>
