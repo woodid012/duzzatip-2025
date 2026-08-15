@@ -184,6 +184,14 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
     };
   });
 
+  // Totals — same Team / Dead Cert / Final split the single-team view shows.
+  const signed = (v) => `${(v ?? 0) >= 0 ? '+' : ''}${v ?? 0}`;
+  const totalRows = [
+    { label: 'Team', h: homeScores.totalScore ?? 0, a: awayScores.totalScore ?? 0 },
+    { label: 'Dead Cert', h: homeScores.deadCertScore ?? 0, a: awayScores.deadCertScore ?? 0, isSigned: true },
+    { label: 'Final', h: homeScores.finalScore ?? 0, a: awayScores.finalScore ?? 0, accent: true },
+  ].map((r) => ({ ...r, hText: r.isSigned ? signed(r.h) : r.h, aText: r.isSigned ? signed(r.a) : r.a }));
+
   // Abbreviate position to fit the center column
   const abbr = (p) => ({ 'Full Forward': 'FF', 'Tall Forward': 'TF', Offensive: 'OFF', Midfielder: 'MID', Tackler: 'TAK', Ruck: 'RK', Bench: 'BEN', 'Reserve A': 'R-A', 'Reserve B': 'R-B' }[p] || p.slice(0, 3).toUpperCase());
   const sCls = (win, live) => `text-[14px] font-extrabold tabular-nums w-6 text-center ${live ? 'text-amber-600' : win ? 'text-emerald-600' : 'text-slate-600'}`;
@@ -210,6 +218,26 @@ function HeadToHead({ homeId, awayId, getTeamScores, liveUserIds }) {
             <div className={`text-left ${nCls(r.aWin)}`}>{r.aName}</div>
           </div>
         ))}
+      </div>
+
+      {/* Totals — Team / Dead Cert / Final for both sides */}
+      <div className="mt-2.5 border-t border-slate-200 pt-2 flex flex-col gap-1">
+        {totalRows.map((r) => {
+          const hWin = r.h > r.a;
+          const aWin = r.a > r.h;
+          const val = (win, live) => `tabular-nums ${r.accent ? 'text-[17px] font-black' : 'text-[14px] font-extrabold'} ${
+            live ? 'text-amber-600' : win ? 'text-emerald-600' : r.accent ? 'text-slate-900' : 'text-slate-500'
+          }`;
+          return (
+            <div key={r.label} className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+              <div className={`text-right ${val(hWin, homeLive)}`}>{r.hText}</div>
+              <div className={`w-[64px] text-center text-[8px] font-extrabold uppercase tracking-[0.08em] ${r.accent ? 'text-blue-600' : 'text-slate-400'}`}>
+                {r.label}
+              </div>
+              <div className={`text-left ${val(aWin, awayLive)}`}>{r.aText}</div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Bench / reserves */}
