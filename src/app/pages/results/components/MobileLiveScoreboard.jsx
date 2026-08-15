@@ -308,8 +308,17 @@ export default function MobileLiveScoreboard({
     .map((uid) => ({ uid, score: getTeamScores(uid)?.finalScore ?? 0 }))
     .sort((a, b) => b.score - a.score);
 
-  const activeId = tab === 'opp' ? opponentId : selectedUserId;
-  const activeScores = tab === 'opp' ? oppScores : myScores;
+  // In the finals, teams that missed out have no fixture at all — there is no
+  // "my team vs opposition" to show them, so the round is the only view.
+  const inRound = orderedFixtures.length === 0 || orderedFixtures.some(
+    (f) => String(f.home) === String(selectedUserId) || String(f.away) === String(selectedUserId)
+  );
+  // Fall back to the round view rather than resetting state, so switching to a
+  // round you are in restores the tab you last picked.
+  const activeTab = inRound ? tab : 'round';
+
+  const activeId = activeTab === 'opp' ? opponentId : selectedUserId;
+  const activeScores = activeTab === 'opp' ? oppScores : myScores;
 
   const tabBtn = (key, label, disabled = false) => (
     <button
@@ -317,7 +326,7 @@ export default function MobileLiveScoreboard({
       disabled={disabled}
       onClick={() => setTab(key)}
       className={`flex-1 rounded-[10px] py-2.5 text-[13px] font-extrabold transition-colors ${
-        tab === key ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
+        activeTab === key ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-500'
       } ${disabled ? 'opacity-40' : ''}`}
     >
       {label}
@@ -426,14 +435,20 @@ export default function MobileLiveScoreboard({
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-[13px] border border-slate-200 bg-slate-100 p-1 my-4">
-        {tabBtn('team', 'My Team')}
-        {tabBtn('opp', 'Opposition', !opponentId)}
-        {tabBtn('round', 'The Round')}
-      </div>
+      {inRound ? (
+        <div className="flex gap-1 rounded-[13px] border border-slate-200 bg-slate-100 p-1 my-4">
+          {tabBtn('team', 'My Team')}
+          {tabBtn('opp', 'Opposition', !opponentId)}
+          {tabBtn('round', 'The Round')}
+        </div>
+      ) : (
+        <div className="my-4 rounded-[13px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-[11px] font-semibold text-slate-500">
+          You&apos;re not playing in {displayRoundName(displayedRound)}
+        </div>
+      )}
 
       {/* My Team / Opposition */}
-      {(tab === 'team' || tab === 'opp') && activeScores && (
+      {(activeTab === 'team' || activeTab === 'opp') && activeScores && (
         <>
           <div className="flex items-center justify-between px-1 mb-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -441,11 +456,11 @@ export default function MobileLiveScoreboard({
               <span className="text-[13px] font-extrabold text-slate-900 truncate">{USER_NAMES[activeId]}</span>
             </div>
             <span className={`shrink-0 text-[9px] font-extrabold uppercase tracking-[0.08em] rounded-full px-2 py-0.5 border ${
-              tab === 'opp'
+              activeTab === 'opp'
                 ? 'text-slate-600 bg-slate-100 border-slate-200'
                 : 'text-blue-700 bg-blue-50 border-blue-200'
             }`}>
-              {tab === 'opp' ? 'Opponent' : 'Your team'}
+              {activeTab === 'opp' ? 'Opponent' : 'Your team'}
             </span>
           </div>
           <PositionList scores={activeScores} roundEndPassed={roundEndPassed} />
@@ -453,7 +468,7 @@ export default function MobileLiveScoreboard({
       )}
 
       {/* The Round */}
-      {tab === 'round' && (
+      {activeTab === 'round' && (
         <div className="flex flex-col gap-2.5">
           {orderedFixtures.map((f, i) => {
             const home = getTeamScores(f.home)?.finalScore ?? 0;
