@@ -4,9 +4,12 @@
 //   GET                        → whoami: finals cookie, else main-app session
 //                                 (so the standalone app can recognise core
 //                                 teams/admin too), else {entrantId: null}
-//   POST { action:'register' } → claim a team name + pin, becomes an
-//                                 invited entrant, signs in
-//   POST { action:'login'    } → verify name + pin, signs in
+//   POST { action:'register' } → claim a team name + email + password,
+//                                 becomes an invited entrant, signs in.
+//                                 Deliberately low-friction — no email
+//                                 verification flow, this is a side comp.
+//   POST { action:'login'    } → name (team name OR email) + password,
+//                                 signs in
 //   POST { action:'logout'   } → clear the finals session cookie
 // Data lives in duzza_finals.${year}_entrants alongside the core 8 (see
 // seedEntrants in duzzaFinals.js) — registration just inserts more docs into
@@ -16,8 +19,8 @@ import { connectToFinalsDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import {
-  hashPin,
-  verifyPin,
+  hashPassword,
+  verifyPassword,
   createFinalsSessionCookie,
   clearFinalsSessionCookie,
   getFinalsSessionEntrant,
@@ -29,12 +32,27 @@ const MAX_INVITED_ENTRANTS = 64;
 // (1-8) and admin (0) without a DB round-trip.
 const INVITED_ID_BASE = 100;
 
+// Very basic "something@something" shape check — registration here is
+// explicitly not a security boundary (no verification email is ever sent),
+// this just catches obvious typos/junk.
+const EMAIL_RE = /^\S+@\S+$/;
+
 function entrantsCollection(finalsDb, year) {
   return finalsDb.collection(`${year || CURRENT_YEAR}_entrants`);
 }
 
 function normalizeName(name) {
   return String(name || '').trim();
+}
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+// Reads the submitted password, accepting the legacy `pin` field name as an
+// alias for it (pre-rename callers keep working).
+function extractPassword(body) {
+  return body?.password ?? body?.pin;
 }
 
 // Case-insensitive exact-name match, safe against regex metacharacters in a
@@ -57,7 +75,12 @@ export async function GET(request) {
       Source: 'invited',
     });
     if (entrant) {
-      return NextResponse.json({ entrantId: entrant.EntrantId, name: entrant.Name, source: 'invited' });
+      return NextResponse.json({
+        entrantId: entrant.EntrantId,
+        name: entrant.Name,
+        email: entrant.Email || null,
+        source: 'invited',
+      });
     }
     // Cookie refers to an entrant that no longer exists — fall through.
   }
@@ -91,13 +114,17 @@ export async function POST(request) {
 
     if (action === 'register') {
       const name = normalizeName(body?.name);
-      const pin = body?.pin;
+      const email = normalizeEmail(body?.email);
+      const password = extractPassword(body);
 
       if (name.length < 3 || name.length > 40) {
         return NextResponse.json({ error: 'Team name must be between 3 and 40 characters' }, { status: 400 });
       }
-      if (!pin || String(pin).length < 4) {
-        return NextResponse.json({ error: 'Pin must be at least 4 characters' }, { status: 400 });
+      if (!email || !EMAIL_RE.test(email)) {
+        return NextResponse.json({ error: 'A valid email is required' }, { status: 400 });
+      }
+      if (!password || String(password).length < 4) {
+        return NextResponse.json({ error: 'Password must be at least 4 characters' }, { status: 400 });
       }
 
       // Unique case-insensitively across ALL entrants, core names included —
@@ -121,9 +148,10 @@ export async function POST(request) {
       await col.insertOne({
         EntrantId: entrantId,
         Name: name,
+        Email: email,
         Logo: null,
         Source: 'invited',
-        PinHash: hashPin(pin),
+        PasswordHash: hashPassword(password),
         CreatedAt: new Date(),
       });
 
@@ -133,15 +161,22 @@ export async function POST(request) {
     }
 
     if (action === 'login') {
-      const name = normalizeName(body?.name);
-      const pin = body?.pin;
+      const nameOrEmail = normalizeName(body?.name);
+      const password = extractPassword(body);
 
-      const entrant = name ? await col.findOne({ Name: exactNameRegex(name), Source: 'invited' }) : null;
+      // `name` may be either the team name or the email used at
+      // registration — match either, case-insensitively.
+      const entrant = nameOrEmail
+        ? await col.findOne({
+            Source: 'invited',
+            $or: [{ Name: exactNameRegex(nameOrEmail) }, { Email: nameOrEmail.toLowerCase() }],
+          })
+        : null;
 
-      // Same generic message whether the name is unknown or the pin is
-      // wrong — don't leak which one it was.
-      if (!entrant || !verifyPin(pin || '', entrant.PinHash)) {
-        return NextResponse.json({ error: 'Incorrect team name or pin' }, { status: 401 });
+      // Same generic message whether the name/email is unknown or the
+      // password is wrong — don't leak which one it was.
+      if (!entrant || !verifyPassword(password || '', entrant.PasswordHash)) {
+        return NextResponse.json({ error: 'Incorrect team name/email or password' }, { status: 401 });
       }
 
       const res = NextResponse.json({ entrantId: entrant.EntrantId, name: entrant.Name });

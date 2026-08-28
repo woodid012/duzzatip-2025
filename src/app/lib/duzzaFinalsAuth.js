@@ -2,10 +2,12 @@
 // Duzza Finals — lightweight auth for open-registration "invited" entrants.
 // Deliberately separate from src/app/lib/auth.js (the core-8/admin main-app
 // session) — different cookie, different collection, no notion of team ids —
-// but mirrors its cryptographic patterns exactly: scrypt pin hashing in the
-// same `scrypt$salt$hash` format, and a stateless HMAC-SHA256 signed cookie
-// token in the same `payload.sig` shape. Same secret env var as the main
-// app; there's no reason to manage a second secret for a sibling scheme.
+// but mirrors its cryptographic patterns exactly: scrypt password hashing in
+// the same `scrypt$salt$hash` format, and a stateless HMAC-SHA256 signed
+// cookie token in the same `payload.sig` shape. Same secret env var as the
+// main app; there's no reason to manage a second secret for a sibling scheme.
+// Registration here is deliberately low-friction (name + email + password,
+// no verification flow) — this is a side comp, not a security boundary.
 import crypto from 'crypto';
 
 const SECRET =
@@ -17,18 +19,18 @@ export const FINALS_AUTH_COOKIE = 'dz_finals_session';
 const FINALS_SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year — "sign in once"
 export const FINALS_SESSION_MAX_AGE = Math.floor(FINALS_SESSION_TTL_MS / 1000);
 
-// ── Pin hashing (scrypt) — identical format to auth.js's password hashing ──
-export function hashPin(pin) {
+// ── Password hashing (scrypt) — identical format to auth.js's password hashing ──
+export function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(String(pin), salt, 64).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
   return `scrypt$${salt}$${hash}`;
 }
 
-export function verifyPin(pin, stored) {
+export function verifyPassword(password, stored) {
   if (!stored || typeof stored !== 'string' || !stored.startsWith('scrypt$')) return false;
   const [, salt, hash] = stored.split('$');
   if (!salt || !hash) return false;
-  const candidate = crypto.scryptSync(String(pin), salt, 64).toString('hex');
+  const candidate = crypto.scryptSync(String(password), salt, 64).toString('hex');
   const a = Buffer.from(hash, 'hex');
   const b = Buffer.from(candidate, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
