@@ -33,6 +33,33 @@ const tipsArrayToMap = (tipsArray) => {
   return map;
 };
 
+// Only fully-filled positions are sent — an empty/cleared slot (no player
+// picked, or picked then cleared) is omitted rather than sent as `{}`, since
+// the server flags any *present* key missing a player/club as an invalid
+// position. A half-finished team is fine to save; a malformed one isn't.
+const buildCleanedTeam = (team) => {
+  const cleaned = {};
+  Object.entries(team || {}).forEach(([position, slot]) => {
+    if (slot && slot.player && slot.club) {
+      cleaned[position] = position === 'Bench'
+        ? { player: slot.player, club: slot.club, backup_position: slot.backup_position }
+        : { player: slot.player, club: slot.club };
+    }
+  });
+  return cleaned;
+};
+
+// Only games with a tip actually selected are sent.
+const buildTipsArray = (weekFixtures, tipsMap) =>
+  (weekFixtures || [])
+    .filter((f) => tipsMap[f.MatchNumber]?.team)
+    .map((f) => ({
+      MatchNumber: f.MatchNumber,
+      Match: `${f.HomeTeam} v ${f.AwayTeam}`,
+      Tip: tipsMap[f.MatchNumber].team,
+      DeadCert: !!tipsMap[f.MatchNumber].deadCert,
+    }));
+
 export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } = {}) {
   const { fixtures, selectedYear, isPastYear } = useAppContext();
 
@@ -226,13 +253,14 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     try {
       setSaving(true);
       setActionError(null);
+      const cleanedTeam = buildCleanedTeam(editedTeam);
       const res = await fetch('/api/duzza-finals/entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           round: activeWeek,
           userId: selectedEntrantId,
-          team: editedTeam,
+          team: cleanedTeam,
           year: selectedYear,
         }),
       });
@@ -242,7 +270,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
         ...prev,
         [selectedEntrantId]: {
           ...(prev[selectedEntrantId] || emptyEntry()),
-          Team: editedTeam,
+          Team: cleanedTeam,
           LastUpdated: new Date().toISOString(),
         },
       }));
