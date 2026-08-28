@@ -292,7 +292,9 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
   return entrantIds.map((entrantId) => {
     const entry = entryByEntrant.get(Number(entrantId));
     if (!entry) {
-      const base = { userId: entrantId, playerScore: 0, deadCertScore: 0, totalScore: 0, correctTips: 0 };
+      // hasEntry lets callers hide no-show entrants from display surfaces
+      // while the knockout still counts the zero score against core teams.
+      const base = { userId: entrantId, playerScore: 0, deadCertScore: 0, totalScore: 0, correctTips: 0, hasEntry: false };
       return detail ? { ...base, positionScores: [], tips: [] } : base;
     }
 
@@ -337,6 +339,7 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
       deadCertScore,
       totalScore: teamScoreData.finalScore,
       correctTips,
+      hasEntry: true,
     };
 
     if (!detail) return base;
@@ -414,14 +417,20 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     let ladderScores = [];
     let scores = [];
     if (fixturesKnown) {
-      ladderScores = await computeWeeklyScores(seasonDb, finalsDb, round, year, allIds);
+      const weekScores = await computeWeeklyScores(seasonDb, finalsDb, round, year, allIds);
+
+      // "No team submitted → you don't show up": display surfaces (ladder,
+      // around-the-grounds) only carry entrants who actually entered that
+      // week. The knockout below still sees the zero-scoring no-shows so a
+      // core team that skips a week gets cut, not hidden.
+      ladderScores = weekScores.filter((s) => s.hasEntry);
       applyWeekToLadder(cumulativeLadder, ladderScores, round);
 
-      // Knockout `scores` (kept for UI compatibility) is just the core-alive
+      // Knockout `scores` (kept for UI compatibility) is the core-alive
       // subset of the very same computation — no second query.
       if (!bracketBroken && roundAliveAtStart.length > 0) {
         const aliveSet = new Set(roundAliveAtStart);
-        scores = ladderScores.filter((s) => aliveSet.has(Number(s.userId)));
+        scores = weekScores.filter((s) => aliveSet.has(Number(s.userId)));
       }
     }
 
@@ -479,7 +488,11 @@ export async function computeBracket(seasonDb, finalsDb, year) {
   // of the two is ever non-null; isComplete reflects either outcome.
   const isComplete = champion !== null || coChampions !== null;
 
-  const cumulativeLadderList = Object.values(cumulativeLadder).sort((a, b) => b.grandTotal - a.grandTotal);
+  // Entrants (core included) who never submitted a team don't appear on the
+  // ladder at all — you only show up once you've entered at least one week.
+  const cumulativeLadderList = Object.values(cumulativeLadder)
+    .filter((e) => Object.keys(e.weeklyTotals).length > 0)
+    .sort((a, b) => b.grandTotal - a.grandTotal);
 
   return {
     weeks,
