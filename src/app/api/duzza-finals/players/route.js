@@ -1,5 +1,6 @@
 import { createApiHandler, parseYearParam, createSuccessResponse } from '@/app/lib/apiUtils';
 import { DUZZA_FINALS_ROUNDS, isDuzzaFinalsRound, getPlayerPoolForRound } from '@/app/lib/duzzaFinals';
+import { syncFinalsFixtures } from '@/app/lib/duzzaFinalsFixtures';
 
 export const GET = createApiHandler(async (request, db) => {
   const { searchParams } = new URL(request.url);
@@ -17,6 +18,10 @@ export const GET = createApiHandler(async (request, db) => {
       { status: 400 }
     );
   }
+
+  // Finals fixtures never arrive via the season pipeline (it only updates
+  // existing rows) — pull/refresh them here, throttled internally.
+  await syncFinalsFixtures(db, year);
 
   const pool = await getPlayerPoolForRound(db, round, year);
 

@@ -1,4 +1,5 @@
 import { createApiHandler, parseYearParam, createSuccessResponse } from '@/app/lib/apiUtils';
+import { syncFinalsFixtures } from '@/app/lib/duzzaFinalsFixtures';
 import { connectToFinalsDatabase } from '@/app/lib/mongodb';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { getFinalsSessionEntrant } from '@/app/lib/duzzaFinalsAuth';
@@ -103,6 +104,10 @@ async function getRoundDetail(request, seasonDb, finalsDb, round, year) {
 // entries in duzza_finals + season data (fixtures/players/game_results), so
 // there's no snapshot to go stale.
 export const GET = createApiHandler(async (request, db) => {
+  // Finals fixtures never arrive via the season pipeline (it only updates
+  // existing rows) — pull/refresh them here, throttled internally.
+  await syncFinalsFixtures(db, parseYearParam(new URL(request.url).searchParams));
+
   const { searchParams } = new URL(request.url);
   const year = parseYearParam(searchParams);
   const roundParam = searchParams.get('round');
