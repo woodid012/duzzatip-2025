@@ -152,6 +152,68 @@ export function computeDeadCertFromMatches(matchesWithTips) {
   return { correctTips, deadCertScore };
 }
 
+// Splits an entrants list (from `${year}_entrants`) into knockout-eligible
+// core ids vs open-registration invited ids. Anything not explicitly
+// Source:'invited' is treated as core — invited is the opt-in category, core
+// (and admin, which never appears in this collection) is the default.
+export function splitEntrantsBySource(entrants) {
+  const coreIds = [];
+  const invitedIds = [];
+  for (const e of entrants || []) {
+    const id = Number(e.EntrantId);
+    if (e.Source === 'invited') {
+      invitedIds.push(id);
+    } else {
+      coreIds.push(id);
+    }
+  }
+  return { coreIds, invitedIds, allIds: [...coreIds, ...invitedIds] };
+}
+
+// Folds one week's scores into the running cumulativeLadder map (keyed by
+// entrant id), mutating each matching entry's weeklyTotals/grandTotal in
+// place. Pure aside from that mutation — no DB/no fetch — so it can replay
+// deterministically over any ladder + scores pair.
+export function applyWeekToLadder(cumulativeLadder, weekScores, round) {
+  for (const s of weekScores || []) {
+    const entry = cumulativeLadder[s.userId];
+    if (!entry) continue;
+    entry.weeklyTotals[round] = s.totalScore;
+    entry.grandTotal += s.totalScore;
+  }
+}
+
+// Annotates a team's submitted Tips against the round's real fixtures (ALL
+// fixtures, not just completed ones — unlike computeDeadCertFromMatches this
+// is for display, so an unresolved match's tip is reported 'pending' rather
+// than omitted). Same "Draw never counts as correct" convention as elsewhere.
+export function annotateTips(tips, roundFixtures) {
+  const byMatchNumber = new Map((roundFixtures || []).map((f) => [Number(f.MatchNumber), f]));
+
+  return (tips || []).map((tip) => {
+    const fixture = byMatchNumber.get(Number(tip.MatchNumber));
+    const match = tip.Match || (fixture ? `${fixture.HomeTeam} v ${fixture.AwayTeam}` : null);
+    const deadCert = Boolean(tip.DeadCert);
+
+    const scoresKnown =
+      fixture && fixture.HomeTeamScore !== null && fixture.HomeTeamScore !== undefined &&
+      fixture.AwayTeamScore !== null && fixture.AwayTeamScore !== undefined;
+
+    if (!scoresKnown) {
+      return { matchNumber: Number(tip.MatchNumber), match, tip: tip.Tip, deadCert, correct: 'pending' };
+    }
+
+    const winningTeam =
+      fixture.HomeTeamScore > fixture.AwayTeamScore
+        ? fixture.HomeTeam
+        : fixture.AwayTeamScore > fixture.HomeTeamScore
+        ? fixture.AwayTeam
+        : 'Draw';
+
+    return { matchNumber: Number(tip.MatchNumber), match, tip: tip.Tip, deadCert, correct: tip.Tip === winningTeam };
+  });
+}
+
 // ── DB wrappers (accept db handles so they stay testable) ──────────────
 
 // Idempotent upsert of the core 8 entrants from USER_NAMES/TEAM_LOGOS. Safe
@@ -203,7 +265,13 @@ export async function getPlayerPoolForRound(seasonDb, round, year) {
 // route — bench/reserve substitution behaviour is slightly simpler here
 // (whole-round roundEndPassed flag rather than per-game live/finished
 // tracking), which is an acceptable trade-off for this side comp.
-export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entrantIds) {
+// `options.detail` (default false) additionally returns, per entrant, the
+// position-by-position breakdown (positionScores) and tips annotated with
+// correctness — everything a "your team" + "around the grounds" results view
+// needs, without a second DB round-trip.
+export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entrantIds, options = {}) {
+  const { detail = false } = options;
+
   const entries = await finalsDb.collection(`${year}_entries`).find({ Round: Number(round) }).toArray();
   const entryByEntrant = new Map(entries.map((e) => [Number(e.Entrant), e]));
 
@@ -224,7 +292,8 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
   return entrantIds.map((entrantId) => {
     const entry = entryByEntrant.get(Number(entrantId));
     if (!entry) {
-      return { userId: entrantId, playerScore: 0, deadCertScore: 0, totalScore: 0, correctTips: 0 };
+      const base = { userId: entrantId, playerScore: 0, deadCertScore: 0, totalScore: 0, correctTips: 0 };
+      return detail ? { ...base, positionScores: [], tips: [] } : base;
     }
 
     const team = entry.Team || {};
@@ -262,36 +331,69 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
       roundEndPassed
     );
 
-    return {
+    const base = {
       userId: entrantId,
       playerScore: teamScoreData.totalScore,
       deadCertScore,
       totalScore: teamScoreData.finalScore,
       correctTips,
     };
+
+    if (!detail) return base;
+
+    const positionScores = (teamScoreData.positionScores || []).map((p) => ({
+      position: p.position,
+      playerName: p.playerName,
+      score: p.score,
+      isBenchPlayer: Boolean(p.isBenchPlayer),
+      replacementType: p.replacementType || null,
+    }));
+
+    return { ...base, positionScores, tips: annotateTips(tips, roundFixtures) };
   });
 }
 
 // Replays rounds 26 -> 29, finalizing a round's eliminations only once
 // isRoundComplete() is true for it. Before that, scores shown are live/
 // partial and eliminated/survivors are null. Once a round fails to finalize,
-// every later round goes dark (aliveAtStart: null, scores: []) since we don't
-// yet know who's still alive to score them for.
+// every later round's KNOCKOUT goes dark (aliveAtStart: null, scores: [])
+// since we don't yet know who's still alive to score for it.
+//
+// The KNOCKOUT (aliveAtStart/cuts/eliminated/survivors/champion) runs over
+// CORE entrants only — open-registration invited entrants never take part in
+// the cuts. The cumulativeLadder, by contrast, covers ALL entrants (core +
+// invited) and is independent of the knockout's bracketBroken latch: an
+// invited entrant's weekly score still accrues in a round where fixtures are
+// known even if the core knockout has already broken. Each round computes
+// scores once for every entrant (ladderScores) and derives the knockout's
+// core-alive `scores` as a filtered subset of that same result, rather than
+// querying twice over overlapping id sets.
 export async function computeBracket(seasonDb, finalsDb, year) {
   await seedEntrants(finalsDb, year);
 
   const entrants = await finalsDb.collection(`${year}_entrants`).find({}).toArray();
-  const entrantIds = entrants.map((e) => Number(e.EntrantId));
+  const { coreIds, allIds } = splitEntrantsBySource(entrants);
   const nameById = {};
-  for (const e of entrants) nameById[Number(e.EntrantId)] = e.Name;
-
-  const cumulativeLadder = {};
-  for (const id of entrantIds) {
-    cumulativeLadder[id] = { userId: id, name: nameById[id], weeklyTotals: {}, grandTotal: 0 };
+  const sourceById = {};
+  for (const e of entrants) {
+    const id = Number(e.EntrantId);
+    nameById[id] = e.Name;
+    sourceById[id] = e.Source === 'invited' ? 'invited' : 'core';
   }
 
-  let aliveAtStart = entrantIds.slice();
-  let bracketBroken = false; // latches true once a round fails to finalize
+  const cumulativeLadder = {};
+  for (const id of allIds) {
+    cumulativeLadder[id] = {
+      userId: id,
+      name: nameById[id],
+      source: sourceById[id],
+      weeklyTotals: {},
+      grandTotal: 0,
+    };
+  }
+
+  let aliveAtStart = coreIds.slice();
+  let bracketBroken = false; // latches true once a round fails to finalize the knockout
   const weeks = [];
   let currentWeek = null;
   let champion = null;
@@ -306,15 +408,20 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     const fixturesKnown = pool.fixturesKnown;
     const roundComplete = fixturesKnown ? await isRoundComplete(round, year).catch(() => false) : false;
 
+    // Ladder scoring runs for ALL entrants whenever fixtures are known, fully
+    // independent of bracketBroken — a core knockout broken at round 26 must
+    // not stop round 27's ladder scores (core or invited) from accruing.
+    let ladderScores = [];
     let scores = [];
-    if (!bracketBroken && fixturesKnown && roundAliveAtStart.length > 0) {
-      scores = await computeWeeklyScores(seasonDb, finalsDb, round, year, roundAliveAtStart);
-      for (const s of scores) {
-        const ladderEntry = cumulativeLadder[s.userId];
-        if (ladderEntry) {
-          ladderEntry.weeklyTotals[round] = s.totalScore;
-          ladderEntry.grandTotal += s.totalScore;
-        }
+    if (fixturesKnown) {
+      ladderScores = await computeWeeklyScores(seasonDb, finalsDb, round, year, allIds);
+      applyWeekToLadder(cumulativeLadder, ladderScores, round);
+
+      // Knockout `scores` (kept for UI compatibility) is just the core-alive
+      // subset of the very same computation — no second query.
+      if (!bracketBroken && roundAliveAtStart.length > 0) {
+        const aliveSet = new Set(roundAliveAtStart);
+        scores = ladderScores.filter((s) => aliveSet.has(Number(s.userId)));
       }
     }
 
@@ -351,6 +458,7 @@ export async function computeBracket(seasonDb, finalsDb, year) {
       roundComplete,
       aliveAtStart: roundAliveAtStart,
       scores,
+      ladderScores,
       cutCount,
       eliminated,
       survivors,

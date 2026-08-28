@@ -2,6 +2,9 @@ import {
   computeWeekOutcome,
   computeDeadCertFromMatches,
   derivePlayerPool,
+  splitEntrantsBySource,
+  applyWeekToLadder,
+  annotateTips,
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_CUT_COUNTS,
   isDuzzaFinalsRound,
@@ -184,5 +187,119 @@ describe('derivePlayerPool', () => {
     expect(DUZZA_FINALS_ROUNDS).toEqual([26, 27, 28, 29]);
     expect(isDuzzaFinalsRound(28)).toBe(true);
     expect(isDuzzaFinalsRound(25)).toBe(false);
+  });
+});
+
+// ─── splitEntrantsBySource ──────────────────────────────────────────────────
+
+describe('splitEntrantsBySource', () => {
+  test('splits core (knockout-eligible) from invited (open-registration) ids', () => {
+    const entrants = [
+      { EntrantId: 1, Source: 'core' },
+      { EntrantId: 2, Source: 'core' },
+      { EntrantId: 101, Source: 'invited' },
+      { EntrantId: 102, Source: 'invited' },
+    ];
+    const result = splitEntrantsBySource(entrants);
+    expect(result.coreIds).toEqual([1, 2]);
+    expect(result.invitedIds).toEqual([101, 102]);
+    expect(result.allIds).toEqual([1, 2, 101, 102]);
+  });
+
+  test('a missing/other Source is treated as core, not invited', () => {
+    const entrants = [{ EntrantId: 5 }, { EntrantId: 6, Source: 'core' }];
+    const result = splitEntrantsBySource(entrants);
+    expect(result.coreIds).toEqual([5, 6]);
+    expect(result.invitedIds).toEqual([]);
+  });
+
+  test('empty/undefined input → empty everything', () => {
+    expect(splitEntrantsBySource([])).toEqual({ coreIds: [], invitedIds: [], allIds: [] });
+    expect(splitEntrantsBySource(undefined)).toEqual({ coreIds: [], invitedIds: [], allIds: [] });
+  });
+});
+
+// ─── applyWeekToLadder ──────────────────────────────────────────────────────
+
+describe('applyWeekToLadder', () => {
+  test('folds a week of scores into weeklyTotals + grandTotal, across rounds', () => {
+    const ladder = {
+      1: { userId: 1, weeklyTotals: {}, grandTotal: 0 },
+      101: { userId: 101, weeklyTotals: {}, grandTotal: 0 },
+    };
+    applyWeekToLadder(ladder, [
+      { userId: 1, totalScore: 80 },
+      { userId: 101, totalScore: 55 },
+    ], 26);
+    applyWeekToLadder(ladder, [
+      { userId: 1, totalScore: 40 },
+      { userId: 101, totalScore: 60 },
+    ], 27);
+
+    expect(ladder[1].weeklyTotals).toEqual({ 26: 80, 27: 40 });
+    expect(ladder[1].grandTotal).toBe(120);
+    expect(ladder[101].weeklyTotals).toEqual({ 26: 55, 27: 60 });
+    expect(ladder[101].grandTotal).toBe(115);
+  });
+
+  test('a score for an id not present in the ladder is silently ignored', () => {
+    const ladder = { 1: { userId: 1, weeklyTotals: {}, grandTotal: 0 } };
+    applyWeekToLadder(ladder, [{ userId: 999, totalScore: 50 }], 26);
+    expect(ladder[1].grandTotal).toBe(0);
+    expect(ladder[999]).toBeUndefined();
+  });
+
+  test('empty scores is a no-op', () => {
+    const ladder = { 1: { userId: 1, weeklyTotals: {}, grandTotal: 0 } };
+    applyWeekToLadder(ladder, [], 26);
+    expect(ladder[1].weeklyTotals).toEqual({});
+    expect(ladder[1].grandTotal).toBe(0);
+  });
+});
+
+// ─── annotateTips ───────────────────────────────────────────────────────────
+
+describe('annotateTips', () => {
+  const roundFixtures = [
+    { MatchNumber: 1, HomeTeam: 'Fremantle', AwayTeam: 'Hawthorn', HomeTeamScore: 80, AwayTeamScore: 70 },
+    { MatchNumber: 2, HomeTeam: 'Richmond', AwayTeam: 'Carlton', HomeTeamScore: null, AwayTeamScore: null },
+    { MatchNumber: 3, HomeTeam: 'Sydney Swans', AwayTeam: 'Essendon', HomeTeamScore: 60, AwayTeamScore: 60 },
+  ];
+
+  test('a correct tip against a completed match is marked correct: true', () => {
+    const tips = [{ MatchNumber: 1, Tip: 'Fremantle', DeadCert: true }];
+    const result = annotateTips(tips, roundFixtures);
+    expect(result).toEqual([
+      { matchNumber: 1, match: 'Fremantle v Hawthorn', tip: 'Fremantle', deadCert: true, correct: true },
+    ]);
+  });
+
+  test('a wrong tip against a completed match is marked correct: false', () => {
+    const tips = [{ MatchNumber: 1, Tip: 'Hawthorn', DeadCert: false }];
+    const result = annotateTips(tips, roundFixtures);
+    expect(result[0].correct).toBe(false);
+  });
+
+  test('a tip on an unresolved match is marked pending', () => {
+    const tips = [{ MatchNumber: 2, Tip: 'Richmond', DeadCert: false }];
+    const result = annotateTips(tips, roundFixtures);
+    expect(result[0].correct).toBe('pending');
+  });
+
+  test('a draw never counts as a correct tip', () => {
+    const tips = [{ MatchNumber: 3, Tip: 'Sydney Swans', DeadCert: false }];
+    const result = annotateTips(tips, roundFixtures);
+    expect(result[0].correct).toBe(false);
+  });
+
+  test('a stored Match label is preserved rather than rebuilt', () => {
+    const tips = [{ MatchNumber: 1, Match: 'FRE v HAW (custom)', Tip: 'Fremantle', DeadCert: false }];
+    const result = annotateTips(tips, roundFixtures);
+    expect(result[0].match).toBe('FRE v HAW (custom)');
+  });
+
+  test('no tips → empty array', () => {
+    expect(annotateTips([], roundFixtures)).toEqual([]);
+    expect(annotateTips(undefined, roundFixtures)).toEqual([]);
   });
 });

@@ -1,5 +1,7 @@
 'use client';
 
+import EntryGuard, { isBlocked } from './EntryGuard';
+
 export default function TipsTab({
   isAdmin,
   selectedEntrantId,
@@ -19,68 +21,70 @@ export default function TipsTab({
   handleTipSelect,
   handleDeadCertToggle,
   saving,
+  embedded = false,
 }) {
-  if (!selectedEntrantId) {
-    return (
-      <div className="dz-surface p-6 text-center text-slate-500">
-        {isAdmin ? 'Select a player above to view or edit their tips.' : 'Select a player to continue.'}
-      </div>
+  if (!embedded) {
+    const guard = (
+      <EntryGuard
+        isAdmin={isAdmin}
+        selectedEntrantId={selectedEntrantId}
+        poolLoading={poolLoading}
+        fixturesKnown={fixturesKnown}
+        isEligibleThisWeek={isEligibleThisWeek}
+      />
     );
-  }
-
-  if (!poolLoading && !fixturesKnown) {
-    return (
-      <div className="dz-surface p-8 text-center">
-        <div className="text-3xl mb-2">🏉</div>
-        <h3 className="dz-title mb-1">Fixtures not locked in yet</h3>
-        <p className="dz-subtitle">Fixtures for this week aren&apos;t locked in yet — check back closer to game day.</p>
-      </div>
-    );
-  }
-
-  if (!isAdmin && !isEligibleThisWeek) {
-    return (
-      <div className="dz-surface p-6 text-center text-slate-500">
-        You weren&apos;t alive for this week of Duzza Finals.
-      </div>
-    );
+    if (guard) return guard;
+  } else if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek })) {
+    // Parent (the merged mobile Enter tab) already rendered the guard.
+    return null;
   }
 
   const deadCertCount = weekFixtures.filter((f) => tips[f.MatchNumber]?.deadCert).length;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-3">
-      <div className="flex items-center justify-between gap-2 px-1">
-        <div className="text-xs text-slate-500">
-          {deadCertCount > 0 && (
-            <span className="font-semibold text-amber-600">⭐ {deadCertCount} dead cert{deadCertCount > 1 ? 's' : ''}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {isEditingTips ? (
-            <>
+    <div className={embedded ? 'space-y-3' : 'max-w-2xl mx-auto space-y-3'}>
+      {!embedded && (
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="text-xs text-slate-500">
+            {deadCertCount > 0 && (
+              <span className="font-semibold text-amber-600">⭐ {deadCertCount} dead cert{deadCertCount > 1 ? 's' : ''}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {isEditingTips ? (
+              <>
+                <button
+                  onClick={saveTips}
+                  disabled={saving || !tipsDirty}
+                  className="dz-btn-primary bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save Tips'}
+                </button>
+                <button onClick={cancelEditingTips} className="dz-btn-ghost">Cancel</button>
+              </>
+            ) : (
               <button
-                onClick={saveTips}
-                disabled={saving || !tipsDirty}
-                className="dz-btn-primary bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
+                onClick={startEditingTips}
+                disabled={!canEdit}
+                className={`dz-btn ${canEdit ? 'dz-btn-primary' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
               >
-                {saving ? 'Saving…' : 'Save Tips'}
+                {isPastYear ? 'Read only' : entryLocked && !isAdmin ? 'Locked' : 'Edit Tips'}
               </button>
-              <button onClick={cancelEditingTips} className="dz-btn-ghost">Cancel</button>
-            </>
-          ) : (
-            <button
-              onClick={startEditingTips}
-              disabled={!canEdit}
-              className={`dz-btn ${canEdit ? 'dz-btn-primary' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
-            >
-              {isPastYear ? 'Read only' : entryLocked && !isAdmin ? 'Locked' : 'Edit Tips'}
-            </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {embedded && (
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-extrabold uppercase tracking-[0.1em] text-slate-500">Tips</h3>
+          {deadCertCount > 0 && (
+            <span className="text-xs font-semibold text-amber-600">⭐ {deadCertCount} dead cert{deadCertCount > 1 ? 's' : ''}</span>
           )}
         </div>
-      </div>
+      )}
 
-      {entryLocked && !isAdmin && (
+      {!embedded && entryLocked && !isAdmin && (
         <div className="rounded-xl bg-slate-100 border border-slate-200 text-slate-600 p-3 text-sm font-medium">
           🔒 This week is locked — the first game has bounced. Your tips are final for this week.
         </div>

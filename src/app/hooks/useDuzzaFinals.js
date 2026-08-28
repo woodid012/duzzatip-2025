@@ -348,14 +348,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     try {
       setSaving(true);
       setActionError(null);
-      const tipsArray = weekFixtures
-        .filter((f) => editedTips[f.MatchNumber]?.team)
-        .map((f) => ({
-          MatchNumber: f.MatchNumber,
-          Match: `${f.HomeTeam} v ${f.AwayTeam}`,
-          Tip: editedTips[f.MatchNumber].team,
-          DeadCert: !!editedTips[f.MatchNumber].deadCert,
-        }));
+      const tipsArray = buildTipsArray(weekFixtures, editedTips);
       const res = await fetch('/api/duzza-finals/entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -390,6 +383,77 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
       setSaving(false);
     }
   }, [canEdit, selectedEntrantId, activeWeek, selectedYear, editedTips, weekFixtures]);
+
+  // ── Combined entry editing (mobile "Enter" tab — team + tips, one save) ─
+  const startEditingEntry = useCallback(() => {
+    if (!canEdit) return;
+    setEditedTeam({ ...savedEntry.Team });
+    setTeamDirty(false);
+    setIsEditingTeam(true);
+    setEditedTips({ ...displayTipsMap });
+    setTipsDirty(false);
+    setIsEditingTips(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, selectedEntrantId, activeWeek, entries, fixtures]);
+
+  const cancelEditingEntry = useCallback(() => {
+    setEditedTeam({ ...savedEntry.Team });
+    setTeamDirty(false);
+    setIsEditingTeam(false);
+    setEditedTips({ ...displayTipsMap });
+    setTipsDirty(false);
+    setIsEditingTips(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEntrantId, activeWeek, entries, fixtures]);
+
+  // One POST carrying both `team` and `tips` — the route $sets whichever
+  // fields are present, so a single combined save is exactly as safe as the
+  // two separate saves it replaces.
+  const saveEntry = useCallback(async () => {
+    if (!canEdit || !selectedEntrantId) return false;
+    try {
+      setSaving(true);
+      setActionError(null);
+      const cleanedTeam = buildCleanedTeam(editedTeam);
+      const tipsArray = buildTipsArray(weekFixtures, editedTips);
+      const res = await fetch('/api/duzza-finals/entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          round: activeWeek,
+          userId: selectedEntrantId,
+          team: cleanedTeam,
+          tips: tipsArray,
+          year: selectedYear,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      setEntries((prev) => ({
+        ...prev,
+        [selectedEntrantId]: {
+          ...(prev[selectedEntrantId] || emptyEntry()),
+          Team: cleanedTeam,
+          Tips: tipsArray,
+          LastUpdated: new Date().toISOString(),
+        },
+      }));
+      setIsEditingTeam(false);
+      setTeamDirty(false);
+      setIsEditingTips(false);
+      setTipsDirty(false);
+      setSuccessMessage('Saved!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      return true;
+    } catch (err) {
+      console.error('Error saving Duzza Finals entry:', err);
+      setActionError(err.message);
+      setTimeout(() => setActionError(null), 4000);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [canEdit, selectedEntrantId, activeWeek, selectedYear, editedTeam, editedTips, weekFixtures]);
 
   // ── Week selector & labels ────────────────────────────────────────────
   const weekOptions = DUZZA_FINALS_ROUNDS.map((round) => {
@@ -466,6 +530,13 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     handleTipSelect,
     handleDeadCertToggle,
     saveTips,
+
+    // Combined entry editing (mobile "Enter" tab — team + tips, one save)
+    isEditingEntry: isEditingTeam || isEditingTips,
+    entryDirty: teamDirty || tipsDirty,
+    startEditingEntry,
+    cancelEditingEntry,
+    saveEntry,
 
     // Locking / eligibility
     entryLocked,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useUserContext } from '../layout';
 import useDuzzaFinals from '@/app/hooks/useDuzzaFinals';
 import { USER_NAMES } from '@/app/lib/constants';
@@ -8,10 +9,18 @@ import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import MyTeamTab from './components/MyTeamTab';
 import TipsTab from './components/TipsTab';
 import BracketTab from './components/BracketTab';
+import EnterTab from './components/EnterTab';
 
-const TABS = [
+// Desktop keeps Team/Tips as separate tabs (each with its own save). Mobile
+// merges them into one "Enter" tab with a single combined save — see
+// EnterTab / useDuzzaFinals' saveEntry.
+const DESKTOP_TABS = [
   { id: 'team', label: 'My Team' },
   { id: 'tips', label: 'Tips' },
+  { id: 'bracket', label: 'Bracket' },
+];
+const MOBILE_TABS = [
+  { id: 'enter', label: 'Enter' },
   { id: 'bracket', label: 'Bracket' },
 ];
 
@@ -28,12 +37,18 @@ export default function DuzzaFinalsPage() {
     handlePlayerChange, handleBackupPositionChange,
     weekFixtures, tips, isEditingTips, tipsDirty, startEditingTips, cancelEditingTips, saveTips,
     handleTipSelect, handleDeadCertToggle,
+    isEditingEntry, entryDirty, startEditingEntry, cancelEditingEntry, saveEntry,
     entryLocked, isEligibleThisWeek, canEdit, isPastYear,
     bracket, bracketLoading, bracketError, refreshBracket, viewerEliminated,
     loading, error, actionError, saving, successMessage,
   } = useDuzzaFinals(isAdmin ? '' : selectedUserId, { isAdmin });
 
   const { addToast } = useToast();
+
+  // Which tab the two-tab mobile nav (Enter / Bracket) is showing — separate
+  // from the hook's `activeTab` (team | tips | bracket), which drives the
+  // three-tab desktop nav.
+  const [mobileTab, setMobileTab] = useState('enter');
 
   const handleSaveTeam = async () => {
     const ok = await saveTeam();
@@ -43,6 +58,11 @@ export default function DuzzaFinalsPage() {
   const handleSaveTips = async () => {
     const ok = await saveTips();
     addToast(ok ? 'Tips saved!' : 'Failed to save tips', ok ? 'success' : 'error');
+  };
+
+  const handleSaveEntry = async () => {
+    const ok = await saveEntry();
+    addToast(ok ? 'Saved!' : 'Failed to save', ok ? 'success' : 'error');
   };
 
   if (!selectedUserId && !isAdmin) {
@@ -161,72 +181,133 @@ export default function DuzzaFinalsPage() {
         </div>
       )}
 
-      {/* ===== Tabs ===== */}
-      <div className="flex gap-1 mb-4 border-b border-slate-200">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-              activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ===== Tab content ===== */}
-      {loading && !bracket ? (
-        <div className="space-y-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="dz-surface p-4 h-16 animate-pulse bg-slate-100" />
+      {/* ===== Desktop: Team / Tips / Bracket ===== */}
+      <div className="hidden md:block">
+        <div className="flex gap-1 mb-4 border-b border-slate-200">
+          {DESKTOP_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                activeTab === tab.id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
           ))}
         </div>
-      ) : (
-        <>
-          {activeTab === 'team' && (
-            <MyTeamTab
-              {...editTabProps}
-              teamsPlaying={teamsPlaying}
-              playersByTeam={playersByTeam}
-              team={team}
-              isEditingTeam={isEditingTeam}
-              teamDirty={teamDirty}
-              startEditingTeam={startEditingTeam}
-              cancelEditingTeam={cancelEditingTeam}
-              saveTeam={handleSaveTeam}
-              handlePlayerChange={handlePlayerChange}
-              handleBackupPositionChange={handleBackupPositionChange}
-            />
-          )}
-          {activeTab === 'tips' && (
-            <TipsTab
-              {...editTabProps}
-              weekFixtures={weekFixtures}
-              tips={tips}
-              isEditingTips={isEditingTips}
-              tipsDirty={tipsDirty}
-              startEditingTips={startEditingTips}
-              cancelEditingTips={cancelEditingTips}
-              saveTips={handleSaveTips}
-              handleTipSelect={handleTipSelect}
-              handleDeadCertToggle={handleDeadCertToggle}
-            />
-          )}
-          {activeTab === 'bracket' && (
-            <BracketTab
-              bracket={bracket}
-              bracketLoading={bracketLoading}
-              bracketError={bracketError}
-              viewerUserId={!isAdmin ? selectedUserId : null}
-              onRefresh={refreshBracket}
-            />
-          )}
-        </>
-      )}
+
+        {loading && !bracket ? (
+          <TabSkeleton />
+        ) : (
+          <>
+            {activeTab === 'team' && (
+              <MyTeamTab
+                {...editTabProps}
+                teamsPlaying={teamsPlaying}
+                playersByTeam={playersByTeam}
+                team={team}
+                isEditingTeam={isEditingTeam}
+                teamDirty={teamDirty}
+                startEditingTeam={startEditingTeam}
+                cancelEditingTeam={cancelEditingTeam}
+                saveTeam={handleSaveTeam}
+                handlePlayerChange={handlePlayerChange}
+                handleBackupPositionChange={handleBackupPositionChange}
+              />
+            )}
+            {activeTab === 'tips' && (
+              <TipsTab
+                {...editTabProps}
+                weekFixtures={weekFixtures}
+                tips={tips}
+                isEditingTips={isEditingTips}
+                tipsDirty={tipsDirty}
+                startEditingTips={startEditingTips}
+                cancelEditingTips={cancelEditingTips}
+                saveTips={handleSaveTips}
+                handleTipSelect={handleTipSelect}
+                handleDeadCertToggle={handleDeadCertToggle}
+              />
+            )}
+            {activeTab === 'bracket' && (
+              <BracketTab
+                bracket={bracket}
+                bracketLoading={bracketLoading}
+                bracketError={bracketError}
+                viewerUserId={!isAdmin ? selectedUserId : null}
+                onRefresh={refreshBracket}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ===== Mobile: Enter (Team + Tips merged) / Bracket ===== */}
+      <div className="block md:hidden">
+        <div className="flex gap-1 mb-4 border-b border-slate-200">
+          {MOBILE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setMobileTab(tab.id)}
+              className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                mobileTab === tab.id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {loading && !bracket ? (
+          <TabSkeleton />
+        ) : (
+          <>
+            {mobileTab === 'enter' && (
+              <EnterTab
+                {...editTabProps}
+                teamsPlaying={teamsPlaying}
+                playersByTeam={playersByTeam}
+                team={team}
+                handlePlayerChange={handlePlayerChange}
+                handleBackupPositionChange={handleBackupPositionChange}
+                weekFixtures={weekFixtures}
+                tips={tips}
+                handleTipSelect={handleTipSelect}
+                handleDeadCertToggle={handleDeadCertToggle}
+                isEditingEntry={isEditingEntry}
+                entryDirty={entryDirty}
+                startEditingEntry={startEditingEntry}
+                cancelEditingEntry={cancelEditingEntry}
+                saveEntry={handleSaveEntry}
+              />
+            )}
+            {mobileTab === 'bracket' && (
+              <BracketTab
+                bracket={bracket}
+                bracketLoading={bracketLoading}
+                bracketError={bracketError}
+                viewerUserId={!isAdmin ? selectedUserId : null}
+                onRefresh={refreshBracket}
+              />
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TabSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="dz-surface p-4 h-16 animate-pulse bg-slate-100" />
+      ))}
     </div>
   );
 }

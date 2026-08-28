@@ -1,6 +1,7 @@
 import { createApiHandler, parseYearParam, blockWritesForPastYear, createSuccessResponse } from '@/app/lib/apiUtils';
 import { connectToFinalsDatabase } from '@/app/lib/mongodb';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
+import { getFinalsSessionEntrant } from '@/app/lib/duzzaFinalsAuth';
 import { isRoundLocked } from '@/app/lib/roundAccess';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { POSITION_TYPES, BACKUP_POSITIONS, USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
@@ -29,6 +30,35 @@ function invalidRoundResponse() {
   );
 }
 
+// Invited (open-registration) entrant ids are allocated starting at 101 —
+// see the auth route — specifically so they never collide with the core 1-8
+// or the admin sentinel (0). That makes the id itself a reliable, DB-free way
+// to tell "invited" from "core/admin" apart in request-handling code.
+const INVITED_ID_THRESHOLD = 100;
+function isInvitedEntrantId(id) {
+  return Number(id) > INVITED_ID_THRESHOLD;
+}
+
+// Resolves the caller's identity from EITHER the main-app session (core team
+// or admin) OR a Duzza Finals session cookie (an invited/registered
+// entrant). Returns { type: 'admin'|'core'|'invited', id } or null when
+// neither session is present. Because core ids (1-8), the admin sentinel (0)
+// and invited ids (101+) never overlap, authorization elsewhere just compares
+// requester.id to the target entrant id — no extra type-matching needed.
+function resolveRequester(request) {
+  const mainSess = getSessionUser(request);
+  if (mainSess) {
+    return mainSess.uid === ADMIN_UID
+      ? { type: 'admin', id: ADMIN_UID }
+      : { type: 'core', id: Number(mainSess.uid) };
+  }
+  const finalsSess = getFinalsSessionEntrant(request);
+  if (finalsSess) {
+    return { type: 'invited', id: Number(finalsSess.entrantId) };
+  }
+  return null;
+}
+
 // GET ?round&year — the single read surface for duzza_finals.${year}_entries.
 // Pre-lockout, a logged-in non-admin sees only their own entry; post-lockout
 // or admin sees everyone. Mirrors team-selection/tipping-data privacy rules.
@@ -49,14 +79,14 @@ export const GET = createApiHandler(async (request, db) => {
   await ensureSeeded(finalsDb, year);
 
   const locked = await isRoundLocked(round, year);
-  const sess = getSessionUser(request);
-  const isAdmin = sess && sess.uid === ADMIN_UID;
+  const requester = resolveRequester(request);
+  const isAdmin = requester?.type === 'admin';
 
   const filter = { Round: round };
   if (!isAdmin && !locked) {
-    const ownId = sess && sess.uid != null ? Number(sess.uid) : null;
+    const ownId = requester ? requester.id : null;
     if (ownId === null) {
-      // Not logged in, pre-lockout: nothing to show.
+      // Not logged in (either session), pre-lockout: nothing to show.
       return createSuccessResponse({ round, year, locked, entries: {} });
     }
     filter.Entrant = ownId;
@@ -99,12 +129,18 @@ export const POST = createApiHandler(async (request, db) => {
     return Response.json({ error: 'userId is required' }, { status: 400 });
   }
 
-  const sess = getSessionUser(request);
-  const isAdmin = sess && sess.uid === ADMIN_UID;
-  if (!sess) {
+  // Identity: EITHER the main-app session (admin, or a core team editing its
+  // own entrant) OR a Duzza Finals session cookie (an invited entrant editing
+  // its own entrant). Because core ids (1-8), admin (0) and invited ids
+  // (101+) never overlap, "edit only your own entrant" is just an id
+  // equality check once the requester is resolved — no need to separately
+  // branch on requester.type here.
+  const requester = resolveRequester(request);
+  if (!requester) {
     return Response.json({ error: 'Not authorised' }, { status: 401 });
   }
-  if (!isAdmin && Number(sess.uid) !== Number(userId)) {
+  const isAdmin = requester.type === 'admin';
+  if (!isAdmin && Number(requester.id) !== Number(userId)) {
     return Response.json({ error: 'Not authorised to edit this entry' }, { status: 403 });
   }
 
@@ -114,6 +150,14 @@ export const POST = createApiHandler(async (request, db) => {
 
   const finalsDb = await connectToFinalsDatabase();
   await ensureSeeded(finalsDb, year);
+
+  // Registration (POST /api/duzza-finals/auth {action:'register'}) is how
+  // invited entrants come to exist — an EntrantId with no `${year}_entrants`
+  // doc (invited or otherwise) can't submit picks.
+  const entrant = await finalsDb.collection(`${year}_entrants`).findOne({ EntrantId: Number(userId) });
+  if (!entrant) {
+    return Response.json({ error: 'Unknown entrant' }, { status: 404 });
+  }
 
   // Fixtures-not-published check fires BEFORE the lockout check: isRoundLocked
   // fails safe to "locked" when a round has no fixtures yet, but the 409 here
@@ -195,20 +239,25 @@ export const POST = createApiHandler(async (request, db) => {
   }
 
   // An entrant already eliminated before this round may not submit for it.
+  // Knockout-only: invited entrants (id > 100) never take part in the cuts
+  // and may submit every week, so they're exempt from this check entirely —
+  // week.aliveAtStart is core-only (see computeBracket), so an invited id
+  // would otherwise never appear in it and get wrongly blocked here.
   // Uses computeBracket's finalized eliminations only — a round that hasn't
   // finalized yet (aliveAtStart: null) can't be checked, so it's allowed
   // through rather than blocking on an unknown state.
-  const bracket = await computeBracket(db, finalsDb, year);
-  const week = bracket.weeks.find((w) => w.round === round);
-  if (week && week.aliveAtStart && !week.aliveAtStart.includes(Number(userId))) {
-    return Response.json(
-      { error: 'This entrant was eliminated before this round and cannot submit picks' },
-      { status: 403 }
-    );
+  if (!isInvitedEntrantId(userId)) {
+    const bracket = await computeBracket(db, finalsDb, year);
+    const week = bracket.weeks.find((w) => w.round === round);
+    if (week && week.aliveAtStart && !week.aliveAtStart.includes(Number(userId))) {
+      return Response.json(
+        { error: 'This entrant was eliminated before this round and cannot submit picks' },
+        { status: 403 }
+      );
+    }
   }
 
-  const entrant = await finalsDb.collection(`${year}_entrants`).findOne({ EntrantId: Number(userId) });
-  const entrantName = entrant?.Name || USER_NAMES[userId] || `User ${userId}`;
+  const entrantName = entrant.Name || USER_NAMES[userId] || `User ${userId}`;
 
   const setFields = {
     Entrant: Number(userId),
