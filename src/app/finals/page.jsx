@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useFinalsAuth } from './context';
 import useFinalsResults from './lib/useFinalsResults';
 import AuthForms from './components/AuthForms';
+import InstallApp from './components/InstallApp';
 import { FINALS_ROUNDS, FALLBACK_WEEK_LABELS, WEEK_DATE_HINTS, weekNumberForRound } from './lib/constants';
 
 const POSITION_ROWS = [
@@ -179,6 +180,11 @@ export default function FinalsHomePage() {
           <AuthForms />
         </section>
       )}
+
+      {/* ===== Install the app ===== */}
+      <Section title="Install the app" emoji="📲">
+        <InstallApp />
+      </Section>
     </div>
   );
 }
