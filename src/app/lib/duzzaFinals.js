@@ -402,6 +402,8 @@ export async function computeBracket(seasonDb, finalsDb, year) {
   let champion = null;
   let coChampions = null;
 
+  const aflFixtures = await getAflFixtures(year).catch(() => []);
+
   for (const round of DUZZA_FINALS_ROUNDS) {
     const cutCount = DUZZA_FINALS_CUT_COUNTS[round];
     const label = DUZZA_FINALS_WEEK_LABELS[round];
@@ -411,6 +413,13 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     const fixturesKnown = pool.fixturesKnown;
     const roundComplete = fixturesKnown ? await isRoundComplete(round, year).catch(() => false) : false;
 
+    // A round has "commenced" once its first bounce is in the past.
+    const roundFixtureTimes = aflFixtures
+      .filter((f) => Number(f.RoundNumber) === round)
+      .map((f) => new Date(f.DateUtc).getTime());
+    const roundCommenced =
+      roundFixtureTimes.length > 0 && Date.now() >= Math.min(...roundFixtureTimes);
+
     // Ladder scoring runs for ALL entrants whenever fixtures are known, fully
     // independent of bracketBroken — a core knockout broken at round 26 must
     // not stop round 27's ladder scores (core or invited) from accruing.
@@ -419,11 +428,14 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     if (fixturesKnown) {
       const weekScores = await computeWeeklyScores(seasonDb, finalsDb, round, year, allIds);
 
-      // "No team submitted → you don't show up": display surfaces (ladder,
-      // around-the-grounds) only carry entrants who actually entered that
-      // week. The knockout below still sees the zero-scoring no-shows so a
-      // core team that skips a week gets cut, not hidden.
-      ladderScores = weekScores.filter((s) => s.hasEntry);
+      // Everyone enrolled shows on the display surfaces (ladder,
+      // around-the-grounds) until the week actually commences — so all 8 core
+      // teams (auto-enrolled) plus registered entrants appear up front. From
+      // first bounce, "no team submitted → you don't show up" kicks in and
+      // only entrants who entered that week remain. The knockout below still
+      // sees the zero-scoring no-shows so a core team that skips a week gets
+      // cut, not hidden.
+      ladderScores = roundCommenced ? weekScores.filter((s) => s.hasEntry) : weekScores;
       applyWeekToLadder(cumulativeLadder, ladderScores, round);
 
       // Knockout `scores` (kept for UI compatibility) is the core-alive
@@ -464,6 +476,7 @@ export async function computeBracket(seasonDb, finalsDb, year) {
       round,
       label,
       fixturesKnown,
+      roundCommenced,
       roundComplete,
       aliveAtStart: roundAliveAtStart,
       scores,
