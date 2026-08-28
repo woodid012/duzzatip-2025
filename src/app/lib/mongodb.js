@@ -178,6 +178,14 @@ export async function connectToDatabase() {
   return await dbConnection.connect();
 }
 
+// Duzza Finals — ring-fenced side comp. Reuses the same singleton client (no
+// new connection pool) but points at a separate `duzza_finals` database, so
+// afl_database (and _ensureIndexes above) stay completely untouched.
+export async function connectToFinalsDatabase() {
+  const { client } = await dbConnection.connect();
+  return client.db('duzza_finals');
+}
+
 // Graceful shutdown
 if (typeof process !== 'undefined') {
   process.on('SIGINT', async () => {

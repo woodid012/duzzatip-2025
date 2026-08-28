@@ -6,6 +6,9 @@ export const getNavigationGroups = (includeSquadManagement = false) => [
     { name: 'Enter Team', path: '/pages/team-selection', id: 'team-selection' },
     { name: 'Enter Tips', path: '/pages/tipping', id: 'tipping' },
   ],
+  [
+    { name: 'Duzza Finals', path: '/pages/duzza-finals', id: 'duzza-finals' },
+  ],
   ...(includeSquadManagement ? [[
     { name: 'Squad Management', path: '/pages/squad-management', id: 'squad-management' },
   ]] : []),

@@ -14,7 +14,7 @@ import LoginGate from '@/app/components/LoginGate';
 import {
   Menu, X, Trophy, ClipboardList, Target, ListOrdered, TrendingUp,
   CheckCircle2, Shuffle, HeartPulse, Users, Settings, BarChart3,
-  RefreshCw, UserCog, Lock, ChevronRight, LogOut, History,
+  RefreshCw, UserCog, Lock, ChevronRight, LogOut, History, Swords,
 } from 'lucide-react';
 
 // Icon per nav id — keeps the sidebar scannable on web and mobile.
@@ -33,6 +33,7 @@ const NAV_ICONS = {
   'update-stats': RefreshCw,
   'update-players': UserCog,
   'past-seasons': History,
+  'duzza-finals': Swords,
 };
 
 const NavIcon = ({ id, className }) => {
