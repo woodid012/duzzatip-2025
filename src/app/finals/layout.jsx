@@ -22,7 +22,7 @@ function AuthChip() {
     return <div className="h-8 w-24 rounded-full bg-slate-100 animate-pulse" />;
   }
 
-  if (!entrantId) {
+  if (entrantId == null) {
     return (
       <Link href="/finals" className="dz-badge bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">
         Sign in
