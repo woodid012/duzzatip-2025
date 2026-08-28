@@ -3,7 +3,9 @@ export default function manifest() {
     name: 'DuzzaTip 2026',
     short_name: 'DuzzaTip',
     description: 'DuzzaTip 2026 — AFL Fantasy Tipping',
-    start_url: '/pages/results',
+    // Route installs through the root so the server can pick the right home
+    // (finals interface during the finals window, results otherwise).
+    start_url: '/',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#f9fafb',

@@ -4,8 +4,10 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppContext';
+import { isDuzzaFinalsWindow } from '@/app/lib/duzzaFinalsWindow';
 import useSimplifiedResults from '@/app/hooks/useSimplifiedResults';
 import { USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
@@ -19,6 +21,23 @@ import EnhancedRoundSummary from './components/EnhancedRoundSummary';
 import MobileLiveScoreboard from './components/MobileLiveScoreboard';
 
 export default function ResultsPage() {
+  const router = useRouter();
+
+  // Installed PWAs open straight at this page (their manifest start_url is
+  // baked in at install time), so during the Duzza Finals window forward the
+  // first open of each app session to the finals interface. The session flag
+  // means tapping Results in the nav afterwards still works normally.
+  useEffect(() => {
+    if (!isDuzzaFinalsWindow()) return;
+    try {
+      if (sessionStorage.getItem('dz_finals_home_routed')) return;
+      sessionStorage.setItem('dz_finals_home_routed', '1');
+    } catch {
+      return; // storage unavailable — don't risk a redirect loop
+    }
+    router.replace('/pages/duzza-finals');
+  }, [router]);
+
   // Get data from our app context
   const { currentRound, roundInfo, fixtures, selectedYear } = useAppContext();
 
