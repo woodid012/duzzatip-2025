@@ -9,6 +9,7 @@ import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import MyTeamTab from './components/MyTeamTab';
 import TipsTab from './components/TipsTab';
 import BracketTab from './components/BracketTab';
+import PoolTab from './components/PoolTab';
 import EnterTab from './components/EnterTab';
 
 // Desktop keeps Team/Tips as separate tabs (each with its own save). Mobile
@@ -18,10 +19,12 @@ const DESKTOP_TABS = [
   { id: 'team', label: 'My Team' },
   { id: 'tips', label: 'Tips' },
   { id: 'bracket', label: 'Bracket' },
+  { id: 'pool', label: 'Pool' },
 ];
 const MOBILE_TABS = [
   { id: 'enter', label: 'Enter' },
   { id: 'bracket', label: 'Bracket' },
+  { id: 'pool', label: 'Pool' },
 ];
 
 export default function DuzzaFinalsPage() {
@@ -241,11 +244,20 @@ export default function DuzzaFinalsPage() {
                 onRefresh={refreshBracket}
               />
             )}
+            {activeTab === 'pool' && (
+              <PoolTab
+                bracket={bracket}
+                bracketLoading={bracketLoading}
+                bracketError={bracketError}
+                viewerUserId={!isAdmin ? selectedUserId : null}
+                onRefresh={refreshBracket}
+              />
+            )}
           </>
         )}
       </div>
 
-      {/* ===== Mobile: Enter (Team + Tips merged) / Bracket ===== */}
+      {/* ===== Mobile: Enter (Team + Tips merged) / Bracket / Pool ===== */}
       <div className="block md:hidden">
         <div className="flex gap-1 mb-4 border-b border-slate-200">
           {MOBILE_TABS.map((tab) => (
@@ -288,6 +300,15 @@ export default function DuzzaFinalsPage() {
             )}
             {mobileTab === 'bracket' && (
               <BracketTab
+                bracket={bracket}
+                bracketLoading={bracketLoading}
+                bracketError={bracketError}
+                viewerUserId={!isAdmin ? selectedUserId : null}
+                onRefresh={refreshBracket}
+              />
+            )}
+            {mobileTab === 'pool' && (
+              <PoolTab
                 bracket={bracket}
                 bracketLoading={bracketLoading}
                 bracketError={bracketError}

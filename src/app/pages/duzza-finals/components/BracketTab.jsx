@@ -1,16 +1,6 @@
 'use client';
 
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
-import { DUZZA_FINALS_ROUNDS } from '@/app/hooks/useDuzzaFinals';
-
-const getWeeklyTotal = (entry, round) => {
-  if (!entry?.weeklyTotals) return undefined;
-  if (Array.isArray(entry.weeklyTotals)) {
-    const idx = DUZZA_FINALS_ROUNDS.indexOf(round);
-    return idx >= 0 ? entry.weeklyTotals[idx] : undefined;
-  }
-  return entry.weeklyTotals[round] ?? entry.weeklyTotals[String(round)];
-};
 
 // Where the cut line falls in a sorted (desc) scores array — everything at or
 // after this index is cut (finalized week) or "on the bubble" (live week).
@@ -130,8 +120,6 @@ export default function BracketTab({ bracket, bracketLoading, bracketError, view
     ? bracket.coChampions
     : (bracket.champion != null ? [bracket.champion] : []);
 
-  const ladder = [...(bracket.cumulativeLadder || [])].sort((a, b) => (b.grandTotal || 0) - (a.grandTotal || 0));
-
   return (
     <div className="space-y-6">
       {bracket.isComplete && champions.length > 0 && (
@@ -149,42 +137,6 @@ export default function BracketTab({ bracket, bracketLoading, bracketError, view
         {(bracket.weeks || []).map((week) => (
           <WeekColumn key={week.round} week={week} viewerUserId={viewerUserId} />
         ))}
-      </div>
-
-      <div className="dz-surface p-3 sm:p-4">
-        <h3 className="text-sm font-bold text-slate-900 mb-3">4-Week Cumulative Ladder</h3>
-        <div className="overflow-x-auto">
-          <table className="dz-table w-full">
-            <thead>
-              <tr>
-                <th>Player</th>
-                {DUZZA_FINALS_ROUNDS.map((round) => (
-                  <th key={round} className="text-right">Wk {round - 25}</th>
-                ))}
-                <th className="text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ladder.map((entry) => {
-                const eliminated = (bracket.weeks || []).some((w) => Array.isArray(w.eliminated) && w.eliminated.map(String).includes(String(entry.userId)));
-                const isViewer = viewerUserId && String(entry.userId) === String(viewerUserId);
-                return (
-                  <tr key={entry.userId} className={isViewer ? 'bg-blue-50/60' : ''}>
-                    <td className={`font-medium ${eliminated ? 'text-slate-400' : 'text-slate-900'}`}>
-                      {TEAM_LOGOS[entry.userId] ?? ''} {entry.name || USER_NAMES[entry.userId] || entry.userId}
-                    </td>
-                    {DUZZA_FINALS_ROUNDS.map((round) => (
-                      <td key={round} className="text-right tabular-nums text-slate-600">
-                        {getWeeklyTotal(entry, round) ?? '-'}
-                      </td>
-                    ))}
-                    <td className="text-right tabular-nums font-bold text-slate-900">{entry.grandTotal ?? '-'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   );
