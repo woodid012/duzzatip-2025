@@ -7,6 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import Logo from '@/app/components/Logo';
 import { getNavigationGroups, debugNavigationItems } from '@/app/lib/navigationConfig';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
+import { isDuzzaFinalsWindow } from '@/app/lib/duzzaFinalsWindow';
 import { ToastProvider } from '@/app/components/Toast';
 import RoundStatus from '@/app/components/RoundStatus';
 import AuthModal from '@/app/components/AuthModal';
@@ -39,6 +40,30 @@ const NAV_ICONS = {
 const NavIcon = ({ id, className }) => {
   const Icon = NAV_ICONS[id] || ChevronRight;
   return <Icon className={className} />;
+};
+
+// Finals / Season mode switch, shown in the headers only while the Duzza
+// Finals window is running. "Finals" = the knockout side comp's page;
+// "Season" = the regular app, landing on results.
+const FinalsSeasonToggle = ({ pathname, className = '' }) => {
+  const onFinals = pathname === '/pages/duzza-finals';
+  const base = 'flex-1 sm:flex-none text-center px-3 py-1.5 rounded-md text-xs font-bold transition-colors';
+  return (
+    <div className={`flex items-center gap-1 rounded-lg bg-slate-100 p-1 ${className}`}>
+      <Link
+        href="/pages/duzza-finals"
+        className={`${base} ${onFinals ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+      >
+        🏆 Finals
+      </Link>
+      <Link
+        href="/pages/results"
+        className={`${base} ${!onFinals ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+      >
+        Season
+      </Link>
+    </div>
+  );
 };
 
 // Create context for selected user and admin authentication
@@ -540,6 +565,13 @@ export default function PagesLayout({ children }) {
             </div>
           )}
 
+          {/* Finals / Season toggle — mobile */}
+          {!isPastYear && isDuzzaFinalsWindow() && (
+            <div className="border-t border-slate-100 px-3 py-2">
+              <FinalsSeasonToggle pathname={pathname} className="w-full" />
+            </div>
+          )}
+
           {/* Past year banner - mobile */}
           {isPastYear && (
             <div className="flex items-center justify-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-1.5 text-center text-xs font-medium text-amber-800">
@@ -644,6 +676,10 @@ export default function PagesLayout({ children }) {
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
+              {!isPastYear && isDuzzaFinalsWindow() && (
+                <FinalsSeasonToggle pathname={pathname} />
+              )}
+
               {isPastYear && (
                 <div className="flex items-center gap-2">
                   <span className="dz-badge bg-amber-100 text-amber-700">Viewing {selectedYear} · read-only</span>

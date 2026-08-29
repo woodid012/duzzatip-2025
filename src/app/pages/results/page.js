@@ -9,7 +9,7 @@ import { RefreshCw } from 'lucide-react';
 import { useAppContext } from '@/app/context/AppContext';
 import { isDuzzaFinalsWindow } from '@/app/lib/duzzaFinalsWindow';
 import useSimplifiedResults from '@/app/hooks/useSimplifiedResults';
-import { USER_NAMES } from '@/app/lib/constants';
+import { USER_NAMES, MAIN_SEASON_FINAL_ROUND } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { calculateFinalsFixtures, isFinalRound, getFinalsRoundName } from '@/app/lib/finals_utils';
 import { useUserContext } from '../layout';
@@ -46,10 +46,16 @@ export default function ResultsPage() {
   const isLoggedIn = isAdminAuthenticated || authedUserId !== null;
 
   // Public (not-logged-in) visitors are locked to the live/last started round.
+  // Capped at the season's final round — AFL finals fixtures (25+) exist for
+  // the Duzza Finals side comp and must not drag this page past round 24.
   const publicRound = useMemo(() => {
     if (!fixtures || fixtures.length === 0) return currentRound ?? 0;
     const now = Date.now();
-    const started = fixtures.filter((f) => new Date(f.DateUtc).getTime() <= now);
+    const started = fixtures.filter(
+      (f) =>
+        Number(f.RoundNumber) <= MAIN_SEASON_FINAL_ROUND &&
+        new Date(f.DateUtc).getTime() <= now
+    );
     if (started.length === 0) return 0;
     return Math.max(...started.map((f) => Number(f.RoundNumber)));
   }, [fixtures, currentRound]);

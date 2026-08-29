@@ -62,6 +62,11 @@ export const getRoundLockoutTime = (fixtures, roundNumber) => {
   });
 };
 
+// The main comp's last round (its Grand Final). AFL finals rounds (25+, the
+// Duzza Finals side comp) exist in the fixtures collection but must never
+// drive the season pages' current-round logic.
+export const MAIN_SEASON_FINAL_ROUND = 24;
+
 export const POSITION_TYPES = [
   'Full Forward', 
   'Tall Forward', 

@@ -1,7 +1,14 @@
 'use client'
 
 import { createContext, useState, useContext, useEffect, useRef } from 'react';
-import { CURRENT_YEAR } from '@/app/lib/constants';
+import { CURRENT_YEAR, MAIN_SEASON_FINAL_ROUND } from '@/app/lib/constants';
+
+// The season pages' round logic lives in a 0-24 world; AFL finals rounds
+// (25+, synced for the Duzza Finals side comp) must not advance it. The full
+// fixture list (finals included) stays exposed via `fixtures` for pages that
+// need it.
+const toSeasonFixtures = (all) =>
+  (all || []).filter((f) => Number(f.RoundNumber) <= MAIN_SEASON_FINAL_ROUND);
 import { processFixtures, calculateRoundInfo, getRoundInfo } from '@/app/lib/timeCalculations';
 
 // In AppContext.js, add a simple caching mechanism
@@ -98,7 +105,9 @@ export function AppProvider({ children }) {
         const processedFixtures = processFixtures(fixturesData);
         console.log('AppContext: Processed fixtures data:', processedFixtures);
         setFixtures(processedFixtures);
-        
+
+        const seasonFixtures = toSeasonFixtures(processedFixtures);
+
         // CRITICAL CHANGE: Calculate round info immediately as first priority
         console.log('Calculating current round as first priority...');
 
@@ -106,22 +115,22 @@ export function AppProvider({ children }) {
         // For current year, calculate based on fixture dates
         let currentRoundInfo;
         if (selectedYear !== CURRENT_YEAR) {
-          const maxRound = processedFixtures.length > 0
-            ? Math.max(...processedFixtures.map(f => f.RoundNumber))
+          const maxRound = seasonFixtures.length > 0
+            ? Math.max(...seasonFixtures.map(f => f.RoundNumber))
             : 1;
           currentRoundInfo = { currentRound: maxRound, isError: false };
           console.log(`AppContext: Past year detected, defaulting to last round (${maxRound})`);
         } else {
-          currentRoundInfo = calculateRoundInfo(processedFixtures);
+          currentRoundInfo = calculateRoundInfo(seasonFixtures);
         }
         setCurrentRound(currentRoundInfo.currentRound);
         console.log('AppContext: Calculated currentRound:', currentRoundInfo.currentRound);
-        
+
         // Get detailed round info for the current round
-        const detailedRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound);
-        
+        const detailedRoundInfo = getRoundInfo(seasonFixtures, currentRoundInfo.currentRound);
+
         // Add next round info
-        const nextRoundInfo = getRoundInfo(processedFixtures, currentRoundInfo.currentRound + 1);
+        const nextRoundInfo = getRoundInfo(seasonFixtures, currentRoundInfo.currentRound + 1);
         
         setRoundInfo({
           ...detailedRoundInfo,
@@ -246,7 +255,7 @@ export function AppProvider({ children }) {
     }
     
     // Get round info for requested round
-    const info = getRoundInfo(fixtures, roundNumber);
+    const info = getRoundInfo(toSeasonFixtures(fixtures), roundNumber);
     
     // For round 0, add round 1 info
     if (roundNumber === 0) {
@@ -285,22 +294,26 @@ export function AppProvider({ children }) {
     
     // We've removed special handling for Round 0 -> Round 1 transition
     
+    // The season ends at round 24 — never auto-advance into the AFL finals
+    // rounds (those belong to the Duzza Finals side comp).
+    const canAdvance = currentRound < MAIN_SEASON_FINAL_ROUND;
+
     // If current round info says we should advance to next round early
-    if (roundInfo.shouldAdvanceToNextRound) {
+    if (roundInfo.shouldAdvanceToNextRound && canAdvance) {
       console.log(`Advancing to Round ${currentRound + 1} early (2 days before first fixture)`);
       changeRound(currentRound + 1);
       return;
     }
-    
+
     // If current round is locked and there's a next round available
-    if (roundInfo.isLocked && roundInfo.nextRoundInfo) {
+    if (roundInfo.isLocked && roundInfo.nextRoundInfo && canAdvance) {
       changeRound(currentRound + 1);
       return;
     }
     
     // Otherwise calculate the appropriate round
     if (fixtures && fixtures.length > 0) {
-      const calculatedInfo = calculateRoundInfo(fixtures);
+      const calculatedInfo = calculateRoundInfo(toSeasonFixtures(fixtures));
       
       // Only change if the calculated round is different
       if (calculatedInfo.currentRound !== currentRound) {
