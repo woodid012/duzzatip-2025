@@ -751,7 +751,8 @@ async function runDuzzaFinalsFlow({ db, round, lockout, sendType, dry, finalsFix
 
   const isFinal = sendType === "final";
   const message = buildFinalsMessage({
-    round, lockout, result, tipSuggestions, teamSaved, tipsSaved, teamManual, tipsManual,
+    round, lockout, result, tipSuggestions,
+    teamSaved: savedTeam, tipsSaved: savedTips, teamManual, tipsManual,
     entry: existingEntry, dry, isFinal,
   });
   let sent = false;
