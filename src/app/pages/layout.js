@@ -98,7 +98,7 @@ const PUBLIC_PATHS = ['/pages/results', '/pages/ladder'];
 export default function PagesLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { roundInfo, loading } = useAppContext();
+  const { roundInfo, loading, fixtures } = useAppContext();
 
   // State for selected user - initialize from localStorage if available
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -351,6 +351,43 @@ export default function PagesLayout({ children }) {
   // Determine if we should show round info yet
   const showRoundInfo = !loading.fixtures && roundInfo && roundInfo.currentRound !== undefined;
 
+  // On the Duzza Finals page the season's round/lockout readout (capped at
+  // round 24) is misleading — show the finals week's own lockout instead.
+  const onFinalsPage = pathname === '/pages/duzza-finals';
+  const finalsWeekInfo = (() => {
+    if (!onFinalsPage || !fixtures || fixtures.length === 0) return null;
+    const now = Date.now();
+    const rounds = [...new Set(
+      fixtures.filter((f) => Number(f.RoundNumber) >= 26).map((f) => Number(f.RoundNumber))
+    )].sort((a, b) => a - b);
+    if (rounds.length === 0) return null;
+    // The week whose first bounce is still ahead, else the latest known week.
+    let active = rounds[rounds.length - 1];
+    let firstBounce = null;
+    for (const r of rounds) {
+      const times = fixtures
+        .filter((f) => Number(f.RoundNumber) === r)
+        .map((f) => new Date(f.DateUtc).getTime());
+      const first = Math.min(...times);
+      if (now < first) {
+        active = r;
+        firstBounce = first;
+        break;
+      }
+    }
+    if (firstBounce === null) {
+      const times = fixtures
+        .filter((f) => Number(f.RoundNumber) === active)
+        .map((f) => new Date(f.DateUtc).getTime());
+      firstBounce = Math.min(...times);
+    }
+    const lockout = new Date(firstBounce).toLocaleString('en-AU', {
+      timeZone: 'Australia/Melbourne',
+      day: 'numeric', month: 'long', hour: 'numeric', minute: 'numeric', hour12: true,
+    });
+    return { week: active - 25, lockout, locked: now >= firstBounce };
+  })();
+
   // Once a round is locked, show its status (In Progress / Complete / Locked)
   // in the header's Lockout indicator — that's where it lives now that the
   // banner is just a "tips & teams due" reminder for open rounds.
@@ -582,9 +619,22 @@ export default function PagesLayout({ children }) {
             </div>
           )}
 
+          {/* Finals week lockout — mobile, on the finals page only */}
+          {!isPastYear && finalsWeekInfo && (
+            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-3 py-2 text-xs text-slate-600">
+              <span className="font-semibold text-slate-700">Finals Week {finalsWeekInfo.week} lockout</span>
+              <span>
+                <span className="font-medium text-slate-900">{finalsWeekInfo.lockout}</span>
+                <span className={`ml-1.5 font-semibold ${finalsWeekInfo.locked ? 'text-red-600' : 'text-emerald-600'}`}>
+                  ({finalsWeekInfo.locked ? 'Locked' : 'Open'})
+                </span>
+              </span>
+            </div>
+          )}
+
           {/* Mobile round info — hidden on results, where the scoreboard header
               (season + round + live) already shows it */}
-          {showRoundInfo && !isPastYear && pathname !== '/pages/results' && (
+          {showRoundInfo && !isPastYear && !finalsWeekInfo && pathname !== '/pages/results' && (
             <div className="space-y-1 border-t border-slate-100 bg-slate-50/70 px-3 pb-3 pt-2 text-xs text-slate-600">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-700">Season {CURRENT_YEAR}</span>
@@ -689,7 +739,18 @@ export default function PagesLayout({ children }) {
                 </div>
               )}
 
-              {!isPastYear && (showRoundInfo ? (
+              {!isPastYear && finalsWeekInfo && (
+                <div className="hidden items-center gap-1.5 lg:flex">
+                  <span className="text-slate-500">Finals Week {finalsWeekInfo.week}</span>
+                  <span className="text-slate-500">· Lockout</span>
+                  <span className="font-medium text-slate-900">{finalsWeekInfo.lockout}</span>
+                  <span className={`dz-badge ${finalsWeekInfo.locked ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                    {finalsWeekInfo.locked ? 'Locked' : 'Open'}
+                  </span>
+                </div>
+              )}
+
+              {!isPastYear && !finalsWeekInfo && (showRoundInfo ? (
                 <div className="hidden items-center gap-2 lg:flex">
                   <span className="text-slate-500">Round</span>
                   <span className="font-semibold text-slate-900">{roundInfo.currentRoundDisplay}</span>
@@ -701,7 +762,7 @@ export default function PagesLayout({ children }) {
                 </div>
               ))}
 
-              {!isPastYear && showRoundInfo && roundInfo.lockoutTime && (
+              {!isPastYear && !finalsWeekInfo && showRoundInfo && roundInfo.lockoutTime && (
                 <div className="hidden items-center gap-1.5 xl:flex">
                   <span className="text-slate-500">Lockout</span>
                   <span className="font-medium text-slate-900">{roundInfo.lockoutTime}</span>
