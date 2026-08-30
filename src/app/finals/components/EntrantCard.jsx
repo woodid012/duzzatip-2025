@@ -12,9 +12,6 @@ export default function EntrantCard({ entrant, expanded, onToggle, isSelf, colla
   const header = (
     <div className="flex items-center justify-between gap-3 p-3.5 sm:p-4 text-left">
       <div className="min-w-0 flex items-center gap-2">
-        {source === 'core' && (
-          <span className="dz-badge bg-amber-50 text-amber-700 border border-amber-200 shrink-0">Core</span>
-        )}
         {source === 'admin' && (
           <span className="dz-badge bg-slate-100 text-slate-500 border border-slate-200 shrink-0">Admin</span>
         )}

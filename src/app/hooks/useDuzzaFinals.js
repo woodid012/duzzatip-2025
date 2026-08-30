@@ -406,6 +406,24 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEntrantId, activeWeek, entries, fixtures]);
 
+  // First look at a week with nothing entered yet → drop straight into
+  // editing mode, so the pickers are immediately usable instead of an empty
+  // read-only view behind an Edit button. Keyed per entrant/week so a
+  // deliberate Cancel isn't fought on the next render.
+  const autoEditKeyRef = useRef(null);
+  useEffect(() => {
+    if (!canEdit || entryLoading || poolLoading) return;
+    const key = `${selectedEntrantId}|${activeWeek}|${selectedYear}`;
+    if (autoEditKeyRef.current === key) return;
+    const savedTeam = savedEntry.Team;
+    const teamEmpty = !savedTeam || !Object.values(savedTeam).some((s) => s?.player);
+    if (teamEmpty && !isEditingTeam && !isEditingTips) {
+      autoEditKeyRef.current = key;
+      startEditingEntry();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, entryLoading, poolLoading, selectedEntrantId, activeWeek, selectedYear, entries]);
+
   // One POST carrying both `team` and `tips` — the route $sets whichever
   // fields are present, so a single combined save is exactly as safe as the
   // two separate saves it replaces.

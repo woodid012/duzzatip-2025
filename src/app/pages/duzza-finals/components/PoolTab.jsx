@@ -43,8 +43,7 @@ export default function PoolTab({ bracket, bracketLoading, bracketError, viewerU
           <span className="text-[11px] text-slate-400">Best 4-week total wins</span>
         </div>
         <p className="text-xs text-slate-500 mb-3">
-          Everyone in the open pool — the core 8 and anyone who&apos;s registered — ranked by
-          cumulative score across the finals. Separate from the knockout.
+          Everyone in the pool, ranked by cumulative score across the finals.
         </p>
 
         {ladder.length === 0 ? (
@@ -65,18 +64,14 @@ export default function PoolTab({ bracket, bracketLoading, bracketError, viewerU
               <tbody>
                 {ladder.map((entry, idx) => {
                   const isViewer = viewerUserId && String(entry.userId) === String(viewerUserId);
-                  const isCore = entry.source !== 'invited';
                   return (
                     <tr key={entry.userId} className={isViewer ? 'bg-blue-50/60' : ''}>
                       <td className={`tabular-nums ${idx === 0 ? 'font-black text-amber-600' : 'text-slate-500'}`}>
                         {idx + 1}
                       </td>
                       <td className="font-medium text-slate-900">
-                        {isCore ? `${TEAM_LOGOS[entry.userId] ?? ''} ` : ''}
+                        {TEAM_LOGOS[entry.userId] ? `${TEAM_LOGOS[entry.userId]} ` : ''}
                         {entry.name || USER_NAMES[entry.userId] || entry.userId}
-                        {!isCore && (
-                          <span className="dz-badge bg-violet-100 text-violet-700 ml-1.5">Pool</span>
-                        )}
                       </td>
                       {DUZZA_FINALS_ROUNDS.map((round) => (
                         <td key={round} className="text-right tabular-nums text-slate-600">

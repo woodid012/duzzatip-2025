@@ -37,9 +37,6 @@ export default function LadderTable({ cumulativeLadder, viewerId }) {
                   </td>
                   <td className="font-medium text-slate-900">
                     <span className="inline-flex items-center gap-1.5">
-                      {entry.source === 'core' && (
-                        <span className="dz-badge bg-amber-50 text-amber-700 border border-amber-200 text-[10px] px-1.5 py-0.5">Core</span>
-                      )}
                       <span className="truncate max-w-[10rem] sm:max-w-none">{entry.name || `Entrant ${entry.userId}`}</span>
                       {isViewer && <span className="text-[10px] text-blue-500 font-semibold">(you)</span>}
                     </span>
