@@ -16,6 +16,7 @@ export default function PlayerSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [clubFilter, setClubFilter] = useState(null); // abbrev | null = all clubs
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -24,6 +25,7 @@ export default function PlayerSelect({
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setIsOpen(false);
         setSearch('');
+        setClubFilter(null);
       }
     };
     document.addEventListener('mousedown', handleClick);
@@ -35,6 +37,7 @@ export default function PlayerSelect({
   const selectedLabel = value?.player ? `${value.player} (${value.club})` : '';
 
   const groups = clubs
+    .filter((club) => !clubFilter || club === clubFilter)
     .map((club) => ({
       club,
       players: (playersByTeam[club] || [])
@@ -60,7 +63,7 @@ export default function PlayerSelect({
 
       {isOpen && !disabled && (
         <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-72 flex flex-col">
-          <div className="p-2 border-b">
+          <div className="p-2 border-b space-y-1.5">
             <input
               ref={inputRef}
               type="text"
@@ -69,11 +72,31 @@ export default function PlayerSelect({
               placeholder="Search players or club..."
               className="w-full p-1.5 text-sm border rounded text-black focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
+            {/* Club filter — tap a club to narrow the list to just its squad */}
+            <div className="flex gap-1 overflow-x-auto pb-0.5">
+              <button
+                type="button"
+                onClick={() => setClubFilter(null)}
+                className={`shrink-0 px-2 py-1 rounded text-[11px] font-bold ${clubFilter === null ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                All
+              </button>
+              {clubs.map((club) => (
+                <button
+                  key={club}
+                  type="button"
+                  onClick={() => setClubFilter((c) => (c === club ? null : club))}
+                  className={`shrink-0 px-2 py-1 rounded text-[11px] font-bold ${clubFilter === club ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {club}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="overflow-y-auto flex-1">
             <button
               type="button"
-              onClick={() => { onChange(null, null); setIsOpen(false); setSearch(''); }}
+              onClick={() => { onChange(null, null); setIsOpen(false); setSearch(''); setClubFilter(null); }}
               className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100"
             >
               {placeholder}
@@ -89,7 +112,7 @@ export default function PlayerSelect({
                     <button
                       key={p.id ?? `${club}-${p.name}`}
                       type="button"
-                      onClick={() => { onChange(p.name, club); setIsOpen(false); setSearch(''); }}
+                      onClick={() => { onChange(p.name, club); setIsOpen(false); setSearch(''); setClubFilter(null); }}
                       className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-black ${selected ? 'bg-blue-100 font-medium' : ''}`}
                     >
                       {p.name} <span className="text-slate-400">({club})</span>
