@@ -1,6 +1,6 @@
 'use client';
 
-import EntryGuard from './EntryGuard';
+import EntryGuard, { isBlocked } from './EntryGuard';
 import MyTeamTab from './MyTeamTab';
 import TipsTab from './TipsTab';
 
@@ -32,16 +32,17 @@ export default function EnterTab({
   cancelEditingEntry,
   saveEntry,
 }) {
-  const guard = (
-    <EntryGuard
-      isAdmin={isAdmin}
-      selectedEntrantId={selectedEntrantId}
-      poolLoading={poolLoading}
-      fixturesKnown={fixturesKnown}
-      isEligibleThisWeek={isEligibleThisWeek}
-    />
-  );
-  if (guard) return guard;
+  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek })) {
+    return (
+      <EntryGuard
+        isAdmin={isAdmin}
+        selectedEntrantId={selectedEntrantId}
+        poolLoading={poolLoading}
+        fixturesKnown={fixturesKnown}
+        isEligibleThisWeek={isEligibleThisWeek}
+      />
+    );
+  }
 
   const sharedProps = { isAdmin, selectedEntrantId, fixturesKnown, poolLoading, isEligibleThisWeek, embedded: true };
 

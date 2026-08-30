@@ -23,8 +23,10 @@ export default function TipsTab({
   saving,
   embedded = false,
 }) {
-  if (!embedded) {
-    const guard = (
+  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek })) {
+    // Parent (the merged mobile Enter tab) already rendered the guard.
+    if (embedded) return null;
+    return (
       <EntryGuard
         isAdmin={isAdmin}
         selectedEntrantId={selectedEntrantId}
@@ -33,10 +35,6 @@ export default function TipsTab({
         isEligibleThisWeek={isEligibleThisWeek}
       />
     );
-    if (guard) return guard;
-  } else if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek })) {
-    // Parent (the merged mobile Enter tab) already rendered the guard.
-    return null;
   }
 
   const deadCertCount = weekFixtures.filter((f) => tips[f.MatchNumber]?.deadCert).length;
