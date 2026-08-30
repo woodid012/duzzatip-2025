@@ -18,12 +18,30 @@ on:
     - cron: '*/20 1-11 * * 6'   # Sat 11am-9pm AEST
     - cron: '*/20 1-8 * * 0'    # Sun 11am-6pm AEST
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Skip the 24h lockout gate (?force=1) and trigger immediately'
+        required: false
+        default: 'false'
+      round:
+        description: 'Force a specific round (e.g. 26 for Duzza Finals week 1)'
+        required: false
+        default: ''
 
 jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
+      - name: Manual forced trigger
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.force == 'true'
+        run: |
+          EXTRA=""
+          if [ -n "${{ github.event.inputs.round }}" ]; then EXTRA="&round=${{ github.event.inputs.round }}"; fi
+          echo "Forcing DuzzaTip trigger (round='${{ github.event.inputs.round }}')..."
+          curl -s -X POST "https://duzzatip.vercel.app/api/lockout-notify?token=${{ secrets.NOTIFY_SECRET }}&force=1$EXTRA"
+
       - name: Probe teams
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.force != 'true'
         id: probe
         run: |
           RESULT=$(curl -s "https://duzzatip.vercel.app/api/lockout-notify?probe=1&token=${{ secrets.NOTIFY_SECRET }}")
@@ -31,6 +49,7 @@ jobs:
           echo $RESULT
 
       - name: Trigger if announced and not locked
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.force != 'true'
         run: |
           ANNOUNCED=$(echo '${{ steps.probe.outputs.result }}' | jq '.announced')
           LOCKED=$(echo '${{ steps.probe.outputs.result }}' | jq '.lockout.locked')
