@@ -1414,9 +1414,21 @@ async function main() {
 
     // Candidate pool: EVERY player whose club plays this Duzza Finals round
     // (not just user 4's season squad) — see deriveFinalsCandidatePlayers().
+    // Club per player prefers their most recent game_results row over the
+    // roster snapshot, which can go stale across trades (mirrors
+    // getPlayerPoolForRound in src/app/lib/duzzaFinals.js).
     const players = await db.collection(`${YEAR}_players`)
       .find({}, { projection: { player_id: 1, player_name: 1, team_name: 1, _id: 0 } }).toArray();
-    const candidatePlayers = deriveFinalsCandidatePlayers(players, roundFixtures);
+    const latestClubRows = await db.collection(`${YEAR}_game_results`).aggregate([
+      { $match: { team_name: { $ne: null } } },
+      { $sort: { round: -1 } },
+      { $group: { _id: "$player_name", team: { $first: "$team_name" } } },
+    ]).toArray();
+    const latestClub = new Map(latestClubRows.map(r => [r._id, r.team]));
+    const correctedPlayers = players.map(p => ({
+      ...p, team_name: latestClub.get(p.player_name) || p.team_name,
+    }));
+    const candidatePlayers = deriveFinalsCandidatePlayers(correctedPlayers, roundFixtures);
     if (!candidatePlayers.length) {
       console.log(`   No Duzza Finals candidate players found for Round ${round} (club/fixture mapping empty) — nothing to do.`);
       await client.close();

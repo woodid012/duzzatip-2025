@@ -241,17 +241,31 @@ export async function seedEntrants(finalsDb, year) {
   }
 }
 
-// Reads `${year}_players` (the season DB's authoritative roster) and joins it
-// with getAflFixtures(year) to derive the round's playable pool.
+// Reads `${year}_players` and joins it with getAflFixtures(year) to derive
+// the round's playable pool. A player's club comes from their most recent
+// `${year}_game_results` row when they've played this season — the roster
+// snapshot can go stale across trades, but who they actually ran out for
+// last game can't. The snapshot only decides for players with no games.
 export async function getPlayerPoolForRound(seasonDb, round, year) {
   const players = await seasonDb
     .collection(`${year}_players`)
     .find({}, { projection: { player_id: 1, player_name: 1, team_name: 1, _id: 0 } })
     .toArray();
 
+  const latestClubRows = await seasonDb
+    .collection(`${year}_game_results`)
+    .aggregate([
+      { $match: { team_name: { $ne: null } } },
+      { $sort: { round: -1 } },
+      { $group: { _id: '$player_name', team: { $first: '$team_name' } } },
+    ])
+    .toArray();
+  const latestClubByPlayer = new Map(latestClubRows.map((r) => [r._id, r.team]));
+
   const playersByTeam = players.reduce((acc, p) => {
-    if (!acc[p.team_name]) acc[p.team_name] = [];
-    acc[p.team_name].push({ id: p.player_id, name: p.player_name, teamName: p.team_name });
+    const club = latestClubByPlayer.get(p.player_name) || p.team_name;
+    if (!acc[club]) acc[club] = [];
+    acc[club].push({ id: p.player_id, name: p.player_name, teamName: club });
     return acc;
   }, {});
 
