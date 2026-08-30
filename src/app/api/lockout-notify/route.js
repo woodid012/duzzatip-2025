@@ -26,7 +26,7 @@ export const revalidate = 0;
 // over 60) so a slow dependency has as much headroom as possible.
 export const maxDuration = 60;
 
-import { connectToDatabase } from "@/app/lib/mongodb";
+import { connectToDatabase, connectToFinalsDatabase } from "@/app/lib/mongodb";
 import {
   TEAM_ALIASES,
   findTeamSlug,
@@ -36,8 +36,25 @@ import {
   buildTipSuggestions,
 } from "@/app/lib/lockoutShared";
 import { INJURIES } from "@/app/lib/injuries_2026";
-import { USER_NAMES, TEAM_LOGOS } from "@/app/lib/constants";
+import { USER_NAMES, TEAM_LOGOS, MAIN_SEASON_FINAL_ROUND } from "@/app/lib/constants";
 import { optimiseLineup, scoreGame, DNP_RISK_BASE, DNP_RISK_FLAGGED } from "@/app/lib/lineupOptimiser";
+import { getAflFixtures } from "@/app/lib/fixtureCache";
+import { syncFinalsFixtures } from "@/app/lib/duzzaFinalsFixtures";
+import {
+  DUZZA_FINALS_ROUNDS,
+  DUZZA_FINALS_WEEK_LABELS,
+  isDuzzaFinalsRound,
+  getPlayerPoolForRound,
+} from "@/app/lib/duzzaFinals";
+// CJS module (see src/app/lib/duzzaFinalsAutoPick.js) — imported via CJS
+// interop, same pattern as lockoutShared.js above. Shared with the
+// lockout-notify.js CLI so the pruning/doc-shape logic isn't duplicated.
+import {
+  getFinalsCurrentRound,
+  pruneFinalsCandidates,
+  buildFinalsTeamDoc,
+  buildFinalsTipsDoc,
+} from "@/app/lib/duzzaFinalsAutoPick";
 import fs from "fs";
 import path from "path";
 
@@ -47,6 +64,17 @@ const YEAR    = 2026;
 const NOTIFY_WINDOW_HOURS = 24;
 const FINAL_WINDOW_MINS   = 45;
 const TELEGRAM_CHAT_ID    = "8600335192";
+
+// Once every Round-24 (MAIN_SEASON_FINAL_ROUND) game is in the past, the
+// local season fixture file (which ends at round 24) can never produce a
+// useful "current round" again — that's the signal to start looking for a
+// Duzza Finals lockout instead. Mirrors lockout-notify.js's seasonHasFinished.
+function seasonHasFinished(seasonFixtures) {
+  const r24 = seasonFixtures.filter(f => f.RoundNumber === MAIN_SEASON_FINAL_ROUND);
+  if (!r24.length) return false;
+  const now = new Date();
+  return r24.every(f => new Date(f.DateUtc) <= now);
+}
 
 // ── Scoring ──────────────────────────────────────────────────────────────────
 const SCORE_FNS = {
@@ -553,6 +581,198 @@ function buildMessage({ round, lockout, result, autoExcluded, byePlayers, select
   return lines.join("\n");
 }
 
+// ── Duzza Finals (rounds 26-29, user 4 only) ──────────────────────────────────
+// Personal automation: extends the season auto-picker above so user 4 (Le
+// Quack Attack, DEFAULT_USER) also gets an optimised team + default tips for
+// the Duzza Finals side comp. Writes ONLY to the separate `duzza_finals`
+// database (see connectToFinalsDatabase in mongodb.js) — never to any season
+// collection. Mirrors lockout-notify.js's finals flow — keep them in sync.
+const FINALS_PRUNE_TOP_N = 12;
+
+function buildFinalsMessage({ round, lockout, result, tipSuggestions, teamSaved, tipsSaved, teamManual, tipsManual, entry, dry, isFinal }) {
+  const lines = [];
+  const week = DUZZA_FINALS_WEEK_LABELS[round];
+  const weekNum = DUZZA_FINALS_ROUNDS.indexOf(round) + 1;
+  const hrs = Math.floor(Math.abs(lockout.minsUntil) / 60);
+  const mins = Math.abs(lockout.minsUntil) % 60;
+  const timeStr = lockout.locked ? `LOCKED` : `${lockout.melbTime} (${hrs}h ${mins}m)`;
+  const phaseTag = isFinal ? " ⚡ FINAL Update" : " 👀 Early Preview";
+
+  lines.push(`🏆 *DUZZA FINALS — Week ${weekNum} · ${week}*${phaseTag}`);
+  lines.push(`👤 *${USER_NAMES[DEFAULT_USER]}*`);
+  lines.push(`⏰ ${timeStr}`);
+  if (dry) lines.push(`_(dry-run — nothing saved)_`);
+  lines.push("");
+
+  const ALL_SLOTS = [...MAIN_POSITIONS, "Bench", "Reserve A", "Reserve B"];
+  lines.push(`📋 *TEAM*${teamManual ? " _(manual pick — not touched)_" : ""}`);
+  if (teamManual || (!teamSaved && entry?.Team)) {
+    for (const pos of ALL_SLOTS) {
+      const slot = entry?.Team?.[pos];
+      if (!slot) continue;
+      const backupStr = slot.backup_position ? ` → ${POS_SHORT[slot.backup_position] || slot.backup_position}` : "";
+      lines.push(`*${POS_SHORT[pos] || pos}* — *${dn(slot.player)}* (${slot.club})${backupStr}`);
+    }
+  } else if (result) {
+    let totalPts = 0;
+    for (const pos of MAIN_POSITIONS) {
+      const p = result.lineup[pos];
+      if (!p) { lines.push(`*${POS_SHORT[pos]}* — (no player)`); continue; }
+      const pts = p.scores[pos] ? Math.round(p.scores[pos]) : "?";
+      if (typeof pts === "number") totalPts += pts;
+      lines.push(`*${POS_SHORT[pos]}* — *${dn(p.name)}* (${p.team}) _(${pts}pts)_`);
+    }
+    if (result.bench) lines.push(`🪑 *Bench* — *${dn(result.bench.name)}* (${result.bench.team}) → ${POS_SHORT[result.benchBackup] || "?"}`);
+    if (result.reserveA) lines.push(`🅰 *Res A* — *${dn(result.reserveA.name)}* (${result.reserveA.team})`);
+    if (result.reserveB) lines.push(`🅱 *Res B* — *${dn(result.reserveB.name)}* (${result.reserveB.team})`);
+    lines.push(`📊 ~${Math.round(totalPts)}pts projected`);
+  } else {
+    lines.push(`_(no team yet)_`);
+  }
+  lines.push("");
+
+  lines.push(`🏈 *TIPS*${tipsManual ? " _(manual — not touched)_" : ""}`);
+  if (tipsManual || (!tipsSaved && entry?.Tips?.length)) {
+    for (const t of (entry?.Tips || [])) {
+      lines.push(`${t.Match || `Match ${t.MatchNumber}`} → *${t.Tip}*${t.DeadCert ? " 🔒DC" : ""}`);
+    }
+  } else if (tipSuggestions?.length) {
+    for (const t of tipSuggestions) {
+      lines.push(`${t.homeTeam} v ${t.awayTeam} → *${t.favourite}*  ${t.confidence}%`);
+    }
+    lines.push(`_(no dead cert set — auto tips never set one)_`);
+  } else {
+    lines.push(`_(no tips yet)_`);
+  }
+  lines.push("");
+
+  lines.push(dry ? `_(dry-run: nothing saved)_` :
+    teamSaved && tipsSaved ? `✅ Finals team + tips auto-saved` :
+    teamSaved ? `✅ Finals team auto-saved${tipsManual ? "  (tips are manual)" : "  ⚠ tips not saved"}` :
+    tipsSaved ? `✅ Finals tips auto-saved${teamManual ? "  (team is manual)" : "  ⚠ team not saved"}` :
+    (teamManual && tipsManual) ? `ℹ️ Entry is fully manual — nothing to auto-pick` :
+    `⚠ Nothing saved to DB`);
+
+  return lines.join("\n");
+}
+
+// Self-contained finals flow — computes, saves (respecting no-clobber) and
+// sends the Telegram message, then returns the route's Response directly.
+// `db` is the SEASON database handle (read-only here: `${YEAR}_players` via
+// getPlayerPoolForRound, `${YEAR}_game_results` via loadPlayerStats, and the
+// `injuries`/`notify_state` collections already used by the season flow).
+// All WRITES go through `finalsDb` (`duzza_finals`), Entrant 4 only.
+async function runDuzzaFinalsFlow({ db, round, lockout, sendType, dry, finalsFixturesForRound }) {
+  const injuries = await loadInjuries(db);
+  const finalsDb = await connectToFinalsDatabase();
+
+  const pool = await getPlayerPoolForRound(db, round, YEAR);
+  if (!pool.fixturesKnown) {
+    return Response.json({ skipped: true, reason: `Duzza Finals fixtures for round ${round} not yet published` });
+  }
+
+  const candidatePlayers = Object.entries(pool.playersByTeam || {})
+    .flatMap(([abbrev, players]) => players.map(p => ({ name: p.name, team: abbrev })));
+  if (!candidatePlayers.length) {
+    return Response.json({ skipped: true, reason: `No Duzza Finals candidate players found for round ${round}` });
+  }
+
+  const existingEntry = await finalsDb.collection(`${YEAR}_entries`).findOne({ Entrant: DEFAULT_USER, Round: round });
+  const teamManual = Boolean(existingEntry?.Team && existingEntry.TeamAutoPicked !== true);
+  const tipsManual = Boolean(existingEntry?.Tips?.length && existingEntry.TipsAutoPicked !== true);
+
+  const statsMap = await loadPlayerStats(db, candidatePlayers.map(p => p.name));
+  const scoredPool = candidatePlayers.map(p => {
+    const s = statsMap[p.name];
+    const scores = s ? (s.games ? scorePositionsFromGames(s.games) : scoreAllPositions(s.avg)) : {};
+    return { name: p.name, team: p.team, scores, statsSource: s?.source || null };
+  });
+
+  const keepNames = new Set();
+  if (existingEntry?.Team && existingEntry.TeamAutoPicked === true) {
+    for (const slot of Object.values(existingEntry.Team)) if (slot?.player) keepNames.add(slot.player);
+  }
+  const prunedPool = pruneFinalsCandidates(scoredPool, { positions: MAIN_POSITIONS, topN: FINALS_PRUNE_TOP_N, keepNames });
+
+  // Every club in the pool is, by construction, already playing this round —
+  // no bye/named-22 concept applies this deep into finals. Auto-exclusion
+  // relies on injury severity only.
+  const autoExcluded = new Set(prunedPool.filter(p => injSeverity(p.name, injuries) >= 3).map(p => p.name));
+
+  const result = optimiseLineup({
+    squad: prunedPool,
+    excluded: autoExcluded,
+    statsMap,
+    scoreFns: SCORE_FNS,
+    positions: MAIN_POSITIONS,
+    reserveACovers: RESERVE_A_COVERS,
+    reserveBCovers: RESERVE_B_COVERS,
+    riskOf: (p) => (injSeverity(p.name, injuries) >= 1 ? DNP_RISK_FLAGGED : DNP_RISK_BASE),
+  });
+
+  const roundFixtures = getRoundFixtures(finalsFixturesForRound || [], round);
+  const [squiggleResult, sportsbetOdds] = await Promise.all([fetchSquiggleTips(round), fetchSportsbetOdds()]);
+  const { tips: squiggleTips } = squiggleResult;
+  const tipSuggestions = buildTipSuggestions(roundFixtures, squiggleTips, sportsbetOdds);
+
+  let savedTeam = false, savedTips = false;
+  if (!dry) {
+    const identity = {
+      Entrant: DEFAULT_USER, Round: round, Week: DUZZA_FINALS_WEEK_LABELS[round],
+      Name: USER_NAMES[DEFAULT_USER], LastUpdated: new Date(),
+    };
+    if (!teamManual) {
+      try {
+        await finalsDb.collection(`${YEAR}_entries`).updateOne(
+          { Entrant: DEFAULT_USER, Round: round },
+          { $set: { ...identity, Team: buildFinalsTeamDoc(result, MAIN_POSITIONS), TeamAutoPicked: true } },
+          { upsert: true }
+        );
+        savedTeam = true;
+      } catch (e) { console.error("Finals team save failed:", e.message); }
+    }
+    if (!tipsManual) {
+      try {
+        // No dead certs on auto-picked finals tips (a knockout comp's
+        // dead-cert swing is too consequential to set unattended), even when
+        // buildTipSuggestions flagged a match as high-confidence.
+        const tipsByMatchNumber = Object.fromEntries(
+          tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: false }])
+        );
+        await finalsDb.collection(`${YEAR}_entries`).updateOne(
+          { Entrant: DEFAULT_USER, Round: round },
+          { $set: { ...identity, Tips: buildFinalsTipsDoc(tipsByMatchNumber, roundFixtures), TipsAutoPicked: true } },
+          { upsert: true }
+        );
+        savedTips = true;
+      } catch (e) { console.error("Finals tips save failed:", e.message); }
+    }
+  }
+
+  const isFinal = sendType === "final";
+  const message = buildFinalsMessage({
+    round, lockout, result, tipSuggestions, teamSaved, tipsSaved, teamManual, tipsManual,
+    entry: existingEntry, dry, isFinal,
+  });
+  let sent = false;
+  if (!dry) {
+    try { await sendTelegram(message); sent = true; } catch (e) { console.error("Telegram:", e.message); }
+  }
+  if (!dry && sent) await markRoundNotified(db, round, sendType, DEFAULT_USER);
+
+  return Response.json({
+    ok: true, round, dry, isFinalsRound: true,
+    user: DEFAULT_USER, team: USER_NAMES[DEFAULT_USER],
+    candidatePoolSize: candidatePlayers.length, prunedPoolSize: prunedPool.length,
+    teamManual, tipsManual, savedTeam, savedTips, sent,
+    lineup: Object.fromEntries(MAIN_POSITIONS.map(pos => [pos, result.lineup[pos]?.name || null])),
+    bench: result.bench ? { name: result.bench.name, backup: result.benchBackup } : null,
+    reserveA: result.reserveA?.name || null,
+    reserveB: result.reserveB?.name || null,
+    preview: dry ? message : undefined,
+  });
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function checkAuth(request) {
   const secret = process.env.NOTIFY_SECRET;
@@ -632,11 +852,60 @@ async function handler(request) {
   }
 
   const fixtures = loadFixtures();
-  const round    = roundArg ?? getCurrentRound(fixtures);
-  const lockout  = getLockoutInfo(fixtures, round);
+  let round   = roundArg ?? getCurrentRound(fixtures);
+  let lockout = getLockoutInfo(fixtures, round);
+  let isFinalsRound = isDuzzaFinalsRound(round);
+  let finalsFixturesForRound = null;
 
-  // ── Probe mode: just report whether teams are announced ──
+  // ── Duzza Finals auto-detection (rounds 26-29, user 4 only) ──
+  // Once the season's over (round 24 fully in the past) the local season
+  // fixture file can never produce a useful "current round" — check for an
+  // upcoming Duzza Finals lockout instead. Runs the same throttled
+  // syncFinalsFixtures the Duzza Finals pages use first, so this scheduled
+  // route never depends on someone having opened the app that week for the
+  // finals rounds to exist in `${YEAR}_fixtures`.
+  if (!isFinalsRound && roundArg == null && seasonHasFinished(fixtures)) {
+    try {
+      await syncFinalsFixtures(db, YEAR);
+      const allFixtures = await getAflFixtures(YEAR);
+      const finalsOnly = allFixtures.filter(f => DUZZA_FINALS_ROUNDS.includes(Number(f.RoundNumber)));
+      const resolved = getFinalsCurrentRound(finalsOnly);
+      if (resolved != null) {
+        isFinalsRound = true;
+        round = resolved;
+        lockout = getLockoutInfo(finalsOnly, round);
+        finalsFixturesForRound = finalsOnly;
+      }
+    } catch (e) {
+      console.warn(`Duzza Finals auto-detection failed: ${e.message}`);
+    }
+  }
+  if (isFinalsRound && !finalsFixturesForRound) {
+    try {
+      const allFixtures = await getAflFixtures(YEAR);
+      finalsFixturesForRound = allFixtures.filter(f => DUZZA_FINALS_ROUNDS.includes(Number(f.RoundNumber)));
+      lockout = getLockoutInfo(finalsFixturesForRound, round);
+    } catch (e) {
+      finalsFixturesForRound = [];
+      console.warn(`Duzza Finals fixture fetch failed: ${e.message}`);
+    }
+  }
+
+  // Personal automation — only ever runs for user 4 (DEFAULT_USER).
+  if (isFinalsRound && user !== DEFAULT_USER) {
+    return Response.json({ skipped: true, reason: `Duzza Finals auto-pick only runs for user ${DEFAULT_USER} (${USER_NAMES[DEFAULT_USER]})` });
+  }
+
+  // ── Probe mode: just report whether teams/fixtures are ready ──
   if (probe) {
+    if (isFinalsRound) {
+      const announced = (finalsFixturesForRound || []).some(f => Number(f.RoundNumber) === round);
+      return Response.json({
+        round, isFinalsRound: true,
+        announced, allTeams: announced,
+        lockout: lockout ? { melbTime: lockout.melbTime, hoursUntil: Math.round(lockout.hoursUntil), locked: lockout.locked } : null,
+      });
+    }
     const { teamsFound, ppCount } = await fetchAFLTeamSelections(round);
     return Response.json({
       round, teamsFound, ppCount,
@@ -670,6 +939,15 @@ async function handler(request) {
     // force or dry — determine sendType for message display
     const isFinalWindow = lockout && lockout.minsUntil <= FINAL_WINDOW_MINS;
     sendType = isFinalWindow ? "final" : "early";
+  }
+
+  // ── Duzza Finals short-circuit ──
+  // Everything below this point (squad load, byes, AFL selections, 2025
+  // blend, season save/message) is season-only and untouched by this
+  // feature. Finals gets its own self-contained flow — see
+  // runDuzzaFinalsFlow() — so the season path can't be affected by it.
+  if (isFinalsRound) {
+    return runDuzzaFinalsFlow({ db, round, lockout, sendType, dry, finalsFixturesForRound });
   }
 
   // ── Squad ──

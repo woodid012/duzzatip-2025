@@ -2,8 +2,18 @@
 
 on:
   schedule:
-    # Every 20 mins during AFL lockout windows (Thu/Fri/Sat/Sun AEST)
+    # Every 20 mins during AFL lockout windows (Thu/Fri/Sat/Sun AEST).
+    # These same windows cover the Duzza Finals side comp (rounds 26-29,
+    # Sept-Oct) for every week except one: the Grand Final bounces Saturday
+    # afternoon with no Friday-night game of its own, so its "early" alert
+    # (~24h before lockout) lands Friday AFTERNOON — before the existing
+    # Fri 6-9pm window opens. The Fri 11am-6pm line below closes that gap
+    # (mirrors the existing Sun 11am-6pm line). Every other finals week
+    # (Qualifying/Elimination, Semis, Prelims) already has a Thu- or
+    # Fri-evening game of its own, so its early alert already falls inside
+    # an existing window.
     - cron: '*/20 8-11 * * 4'   # Thu 6pm-9pm AEST
+    - cron: '*/20 1-8 * * 5'    # Fri 11am-6pm AEST (Grand Final early-alert coverage)
     - cron: '*/20 8-11 * * 5'   # Fri 6pm-9pm AEST
     - cron: '*/20 1-11 * * 6'   # Sat 11am-9pm AEST
     - cron: '*/20 1-8 * * 0'    # Sun 11am-6pm AEST
