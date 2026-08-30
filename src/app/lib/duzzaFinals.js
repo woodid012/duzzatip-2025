@@ -47,6 +47,17 @@ export const DUZZA_FINALS_ABBREV_TO_FULL = {
   WBD: 'Western Bulldogs', WB: 'Western Bulldogs',
 };
 
+// Full club name (as stored in `${year}_game_results`.team_name and AFL
+// fixtures) -> the primary 3-letter code used by `${year}_players`.
+export const DUZZA_FINALS_FULL_TO_ABBREV = {
+  'Adelaide Crows': 'ADE', 'Brisbane Lions': 'BRL', 'Carlton': 'CAR',
+  'Collingwood': 'COL', 'Essendon': 'ESS', 'Fremantle': 'FRE',
+  'Geelong Cats': 'GEE', 'Gold Coast SUNS': 'GCS', 'GWS GIANTS': 'GWS',
+  'Hawthorn': 'HAW', 'Melbourne': 'MEL', 'North Melbourne': 'NTH',
+  'Port Adelaide': 'PTA', 'Richmond': 'RIC', 'St Kilda': 'STK',
+  'Sydney Swans': 'SYD', 'West Coast Eagles': 'WCE', 'Western Bulldogs': 'WBD',
+};
+
 // ── Pure helpers (no DB/no fetch) ───────────────────────────────────────
 
 // Filters the full player pool + AFL fixtures down to only the clubs actually
@@ -260,7 +271,11 @@ export async function getPlayerPoolForRound(seasonDb, round, year) {
       { $group: { _id: '$player_name', team: { $first: '$team_name' } } },
     ])
     .toArray();
-  const latestClubByPlayer = new Map(latestClubRows.map((r) => [r._id, r.team]));
+  // game_results stores FULL club names — convert to the 3-letter codes the
+  // pool is keyed on; an unmappable name falls back to the roster snapshot.
+  const latestClubByPlayer = new Map(
+    latestClubRows.map((r) => [r._id, DUZZA_FINALS_FULL_TO_ABBREV[r.team] || null])
+  );
 
   const playersByTeam = players.reduce((acc, p) => {
     const club = latestClubByPlayer.get(p.player_name) || p.team_name;

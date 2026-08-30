@@ -714,6 +714,7 @@ const {
 const {
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_WEEK_LABELS,
+  DUZZA_FINALS_ABBREV_TO_FULL,
   isDuzzaFinalsRound,
   getFinalsCurrentRound,
   deriveFinalsCandidatePlayers,
@@ -1424,7 +1425,14 @@ async function main() {
       { $sort: { round: -1 } },
       { $group: { _id: "$player_name", team: { $first: "$team_name" } } },
     ]).toArray();
-    const latestClub = new Map(latestClubRows.map(r => [r._id, r.team]));
+    // game_results stores FULL club names — convert to the 3-letter codes the
+    // pool is keyed on; an unmappable name falls back to the roster snapshot.
+    const FULL_TO_ABBREV = Object.fromEntries(
+      Object.entries(DUZZA_FINALS_ABBREV_TO_FULL)
+        .filter(([abbrev]) => abbrev.length === 3 || abbrev === 'GWS')
+        .map(([abbrev, full]) => [full, abbrev])
+    );
+    const latestClub = new Map(latestClubRows.map(r => [r._id, FULL_TO_ABBREV[r.team] || null]));
     const correctedPlayers = players.map(p => ({
       ...p, team_name: latestClub.get(p.player_name) || p.team_name,
     }));
