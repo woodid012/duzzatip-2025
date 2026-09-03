@@ -430,6 +430,11 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
       score: p.score,
       isBenchPlayer: Boolean(p.isBenchPlayer),
       replacementType: p.replacementType || null,
+      // Who the slot was picked as. A substitution overwrites playerName, which
+      // hid the original pick entirely — worth showing while their game is still
+      // to come, since the cover is provisional until then.
+      originalPlayerName: p.originalPlayerName || null,
+      originalScore: p.originalScore ?? null,
     }));
 
     const benchAndReserves = deriveBenchAndReserves(selectedPlayers, teamScoreData.positionScores);

@@ -46,6 +46,12 @@ export default function EntrantCard({ entrant, expanded, onToggle, isSelf, colla
                       <tr key={p.position}>
                         <td className="font-medium text-slate-700">{p.position}</td>
                         <td className="text-slate-600">
+                          {/* On a substitution, show who was picked as well as who
+                              is covering — the original is still to play, so the
+                              cover can yet be undone. */}
+                          {p.isBenchPlayer && p.originalPlayerName && p.originalPlayerName !== p.playerName && (
+                            <span className="block text-slate-400 line-through">{p.originalPlayerName}</span>
+                          )}
                           {p.playerName || <span className="text-slate-300">—</span>}
                           {p.isBenchPlayer && (
                             <span className="ml-1.5 text-[10px] font-bold uppercase text-blue-500">
