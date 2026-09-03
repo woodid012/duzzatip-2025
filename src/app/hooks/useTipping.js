@@ -3,6 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import {
+  isMatchLocked as isMatchLockedFn,
+  isRoundFullyLocked,
+  isRoundPartiallyLocked as isRoundPartiallyLockedFn,
+  nextLockoutTime,
+  startedMatchNumbers,
+} from '@/app/lib/rollingLockout';
 
 export default function useTipping(initialUserId = '', { isAdmin = false } = {}) {
   const { currentRound, roundInfo, fixtures, changeRound, selectedYear, isPastYear } = useAppContext();
@@ -55,27 +62,37 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
     }
   }, [initialUserId, selectedUserId]);
 
-  // Tips lock at the first game kickoff — applies to both past rounds and the current round.
-  // (Unlike the old behaviour where current-round tips were always submittable.)
+  // Rolling lockout: each match's tip (and its dead cert) locks the moment that
+  // match commences. Matches later in the round stay editable until their own
+  // bounce, so a round is only fully locked once every game has started.
+  const isMatchLocked = (matchNumber, round = localRound) => {
+    if (isAdmin) return false;
+    if (round > currentRound) return false;
+    return isMatchLockedFn(fixtures, round, matchNumber);
+  };
+
   const isRoundLocked = (round) => {
     if (isAdmin) return false;
     if (round > currentRound) return false;
-    // Chronological order (not MatchNumber/ID order — later-round MatchNumbers
-    // are assigned before scheduling, so ID order can diverge from kickoff order).
-    const roundFixs = fixtures
-      .filter(f => f.RoundNumber === round)
-      .sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc) || a.MatchNumber - b.MatchNumber);
-    if (roundFixs.length === 0) return false;
-    const firstGame = roundFixs[0];
-    return new Date() >= new Date(firstGame.DateUtc);
+    return isRoundFullyLocked(fixtures, round);
   };
 
-  // True when the round's first game has passed but it's still the current round
-  // and the user hasn't already submitted before lockout.
+  // Some games have started, others haven't — tips are partly locked.
+  const isRoundPartiallyLocked = (round) => {
+    if (isAdmin) return false;
+    if (round > currentRound) return false;
+    return isRoundPartiallyLockedFn(fixtures, round);
+  };
+
+  // The next bounce that will lock more tips, or null once they're all locked.
+  const getNextLockoutTime = (round) => nextLockoutTime(fixtures, round);
+
+  // True when every game in the round has started and the user never got tips
+  // in before the first bounce — i.e. they missed the round entirely.
   const isLateSubmission = (round) => {
     if (isAdmin) return false;
     if (round !== currentRound) return false;
-    if (!roundInfo.isLocked) return false;
+    if (!isRoundFullyLocked(fixtures, round)) return false;
     if (lastEditedTime && roundInfo.lockoutDate) {
       return lastEditedTime >= new Date(roundInfo.lockoutDate);
     }
@@ -190,8 +207,8 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
   const handleTipSelect = (matchNumber, team) => {
     console.log(`Setting tip for match ${matchNumber} to ${team} (isEditing: ${isEditing})`);
 
-    if (!isEditing || (isRoundLocked(localRound) && !isAdmin)) {
-      console.log("Can't edit - editing is locked");
+    if (!isEditing || isMatchLocked(matchNumber)) {
+      console.log("Can't edit - this match has already commenced");
       return;
     }
 
@@ -220,8 +237,8 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
   const handleDeadCertToggle = (matchNumber) => {
     console.log(`Toggling dead cert for match ${matchNumber} (isEditing: ${isEditing})`);
 
-    if (!isEditing || (isRoundLocked(localRound) && !isAdmin)) {
-      console.log("Can't edit - editing is locked");
+    if (!isEditing || isMatchLocked(matchNumber)) {
+      console.log("Can't edit - this match has already commenced");
       return;
     }
 
@@ -237,12 +254,18 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
 
   // Save tips
   const saveTips = async () => {
-    if (!selectedUserId || (isRoundLocked(localRound) && !isAdmin)) {
-      console.log("Can't save - no user selected or round is locked");
+    if (!selectedUserId || isRoundLocked(localRound)) {
+      console.log("Can't save - no user selected or every game has started");
       return false;
     }
 
-    const tipsToSave = editedTips;
+    // Rolling lockout: only send tips for matches that haven't bounced yet. The
+    // API refuses locked matches anyway, but there's no point shipping picks we
+    // know it will drop — and it keeps the saved-vs-shown state honest.
+    const locked = isAdmin ? new Set() : startedMatchNumbers(fixtures, localRound);
+    const tipsToSave = Object.fromEntries(
+      Object.entries(editedTips).filter(([matchNumber]) => !locked.has(Number(matchNumber)))
+    );
     console.log("Saving tips...", tipsToSave);
 
     try {
@@ -263,9 +286,11 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
 
       if (!response.ok) throw new Error('Failed to save tips');
       
-      // Update the base tips state to reflect what was actually saved
+      // Update the base tips state to reflect what was actually saved — locked
+      // matches keep whatever was already committed for them.
       console.log("Tips saved successfully");
-      setTips({ ...tipsToSave });
+      setTips(prev => ({ ...prev, ...tipsToSave }));
+      setEditedTips(prev => ({ ...prev, ...tipsToSave }));
       setIsEditing(false);
       
       // Set last edited time to current time
@@ -293,8 +318,8 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
   const startEditing = () => {
     console.log("Starting editing, isLocked:", isRoundLocked(localRound), "isAdmin:", isAdmin, "userId:", selectedUserId);
 
-    // Admin can always edit, or regular users if not locked and user is selected
-    if ((isAdmin || !isRoundLocked(localRound)) && selectedUserId) {
+    // Admin can always edit; everyone else while at least one game is still to come
+    if (!isRoundLocked(localRound) && selectedUserId) {
       console.log("Setting isEditing to true");
       // Ensure we're working with the latest data
       setEditedTips({ ...tips });
@@ -337,8 +362,13 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
     lastEditedTime,
     localRound,
     isRoundLocked: isRoundLocked(localRound),
+    isRoundPartiallyLocked: isRoundPartiallyLocked(localRound),
     isLateSubmission: isLateSubmission(localRound),
     isPastYear,
+
+    // Rolling lockout
+    isMatchLocked,
+    getNextLockoutTime: () => getNextLockoutTime(localRound),
 
     // Display helpers
     formatRoundName,

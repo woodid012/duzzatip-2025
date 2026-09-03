@@ -3,7 +3,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
-import { isRoundLocked } from '@/app/lib/roundAccess';
+import { startedMatchNumbers } from '@/app/lib/rollingLockout';
 
 export async function GET(request) {
   try {
@@ -113,26 +113,33 @@ export async function GET(request) {
       };
     }
 
-    // Privacy: before the requested round locks, a logged-in player sees only
-    // their OWN round tips; everyone else's current-round picks are redacted
-    // (year totals come from already-completed rounds, so they stay). Admin and
-    // post-lockout requests see all; a not-logged-in request sees no round tips.
+    // Privacy under rolling lockout: a match's picks become public the moment
+    // that match commences, and not a second earlier. A logged-in player always
+    // sees their OWN full round; for everyone else's card, matches yet to bounce
+    // are redacted while the ones already underway show — so the board fills in
+    // game by game instead of all at once. Year totals come from completed
+    // rounds, so they're never affected. Admin sees everything.
     const sess = getSessionUser(request);
     const isAdmin = sess && sess.uid === ADMIN_UID;
     if (!isAdmin) {
-      const locked = await isRoundLocked(roundNum, collectionYear);
-      if (!locked) {
+      const started = startedMatchNumbers(fixtures, roundNum);
+      const allStarted = roundFixtures.length > 0 && started.size === roundFixtures.length;
+      if (!allStarted) {
         const ownId = sess && sess.uid ? Number(sess.uid) : null;
         for (const uid of Object.keys(users)) {
-          if (Number(uid) !== ownId) {
-            users[uid].round = {
-              matches: [],
-              correctTips: 0,
-              deadCertScore: 0,
-              totalScore: 0,
-              hidden: true,
-            };
-          }
+          if (Number(uid) === ownId) continue;
+          const visible = users[uid].round.matches.filter(m =>
+            started.has(Number(m.matchNumber))
+          );
+          const scores = computeScores(visible.filter(m => m.isCompleted));
+          users[uid].round = {
+            matches: visible,
+            correctTips: scores.correctTips,
+            deadCertScore: scores.deadCertScore,
+            totalScore: scores.correctTips + scores.deadCertScore,
+            // Something in this round is still hidden — the games yet to start.
+            hidden: visible.length < users[uid].round.matches.length,
+          };
         }
         return NextResponse.json({ users, restricted: true });
       }

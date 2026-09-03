@@ -6,6 +6,12 @@ import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
+// Rolling lockout: a game's tips are committed — and so become public — the
+// moment that game commences. Everything later in the round stays hidden,
+// because it's still editable.
+const fixtureStarted = (fixture) =>
+  fixture?.DateUtc ? new Date() >= new Date(fixture.DateUtc) : false;
+
 const TippingResultsGrid = () => {
   const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear, fixtures: appFixtures } = useAppContext();
   const { selectedUserId } = useUserContext();
@@ -226,7 +232,6 @@ const TippingResultsGrid = () => {
           setSelectedRound={setSelectedRound}
           displayRound={displayRound}
           selectedRoundInfo={selectedRoundInfo}
-          isLockoutPassed={isLockoutPassed}
           fixtures={fixtures}
           allUserTips={allUserTips}
           yearTotals={yearTotals}
@@ -341,7 +346,6 @@ function MobileTippingResults({
   setSelectedRound,
   displayRound,
   selectedRoundInfo,
-  isLockoutPassed,
   fixtures,
   allUserTips,
   yearTotals,
@@ -442,10 +446,10 @@ function MobileTippingResults({
         )}
       </div>
 
-      {/* Tips hidden until lockout */}
-      {!isLockoutPassed && (
+      {/* Rolling lockout notice — picks reveal game by game */}
+      {fixtures.some((f) => !fixtureStarted(f)) && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          🔒 Tips lock at <span className="font-semibold">{selectedRoundInfo?.lockoutTime || '—'}</span>. Everyone&apos;s picks are hidden until then.
+          🔒 Each game&apos;s tips lock — and become visible — when that game starts. Picks for games still to come stay hidden.
         </div>
       )}
 
@@ -462,7 +466,6 @@ function MobileTippingResults({
           allUserTips={allUserTips}
           getTeamAbbreviation={getTeamAbbreviation}
           getWinningTeam={getWinningTeam}
-          isLockoutPassed={isLockoutPassed}
         />
       )}
 
@@ -500,7 +503,7 @@ function TeamLine({ abbr, name, score, win, completed }) {
 }
 
 // Mobile Fixtures — every team's tip per game, with ✓/✗ and dead-cert badges
-function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getWinningTeam, isLockoutPassed }) {
+function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getWinningTeam }) {
   const userIds = Object.keys(USER_NAMES);
 
   return (
@@ -515,6 +518,8 @@ function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getW
 
         let homeCount = 0, awayCount = 0;
         const rows = userIds.map((uid) => {
+          // Hidden matches simply aren't in the payload, so the tally below only
+          // ever counts picks that are already public.
           const m = allUserTips[uid]?.matches?.find((x) => x.matchNumber === fixture.MatchNumber);
           if (m?.tip === fixture.HomeTeam) homeCount++;
           else if (m?.tip === fixture.AwayTeam) awayCount++;
@@ -545,7 +550,7 @@ function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getW
             <div className="my-1.5 h-px bg-slate-100" />
             <TeamLine abbr={getTeamAbbreviation(fixture.AwayTeam)} name={fixture.AwayTeam} score={fixture.AwayTeamScore} win={aWin} completed={completed} />
 
-            {isLockoutPassed ? (
+            {started ? (
               <>
                 <div className="mt-2.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold tabular-nums text-slate-500">
                   {homeCount} tipped {getTeamAbbreviation(fixture.HomeTeam)} · {awayCount} tipped {getTeamAbbreviation(fixture.AwayTeam)}
@@ -591,7 +596,7 @@ function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getW
                 </div>
               </>
             ) : (
-              <div className="mt-2.5 text-center text-[11px] italic text-slate-400">Tips hidden until lockout</div>
+              <div className="mt-2.5 text-center text-[11px] italic text-slate-400">Tips hidden until this game starts</div>
             )}
           </div>
         );
@@ -660,8 +665,7 @@ function MobileIndividualTips({
   allUserTips, 
   fixtures, 
   getTeamAbbreviation, 
-  getWinningTeam, 
-  isLockoutPassed 
+  getWinningTeam 
 }) {
   return (
     <div className="space-y-4">
@@ -705,6 +709,8 @@ function MobileIndividualTips({
             const isDeadCert = matchTip?.deadCert;
             const isDefault = matchTip?.isDefault;
             const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
+            // Rolling lockout: this game's tip is only public once it's started.
+            const revealed = fixtureStarted(fixture);
             
             return (
               <div key={fixture.MatchNumber} className="dz-surface p-4">
@@ -735,7 +741,7 @@ function MobileIndividualTips({
                       {getTeamAbbreviation(fixture.HomeTeam)}
                       {matchTip?.tip === fixture.HomeTeam && (
                         <span className="ml-1 text-xs">
-                          {isLockoutPassed ? '✓' : ''}
+                          {revealed ? '✓' : ''}
                         </span>
                       )}
                     </div>
@@ -748,7 +754,7 @@ function MobileIndividualTips({
                   {/* VS */}
                   <div className="text-center">
                     <div className="text-slate-400 font-medium">VS</div>
-                    {isLockoutPassed ? (
+                    {revealed ? (
                       <div className="text-xs mt-1">
                         {matchTip?.tip ? (
                           <span className={`font-medium ${
@@ -778,7 +784,7 @@ function MobileIndividualTips({
                       {getTeamAbbreviation(fixture.AwayTeam)}
                       {matchTip?.tip === fixture.AwayTeam && (
                         <span className="ml-1 text-xs">
-                          {isLockoutPassed ? '✓' : ''}
+                          {revealed ? '✓' : ''}
                         </span>
                       )}
                     </div>
@@ -833,21 +839,26 @@ function DesktopTippingResults({
         </select>
       </ScoreboardHeader>
 
-      {/* Show lockout status */}
-      {selectedRoundInfo && (
-        <div className="mb-8 -mt-2 text-sm">
-          <span className="font-medium">Lockout: </span>
-          <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
-            {selectedRoundInfo.lockoutTime || "Not set"}
-            {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
-          </span>
-          {!isLockoutPassed && (
-            <span className="ml-2 text-slate-600">
-              • Tips will be visible after lockout
+      {/* Rolling lockout status — tips lock and reveal game by game */}
+      {selectedRoundInfo && (() => {
+        const pending = fixtures.filter(f => !fixtureStarted(f));
+        const nextGame = pending[0];
+        return (
+          <div className="mb-8 -mt-2 text-sm">
+            <span className="font-medium">First lockout: </span>
+            <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
+              {selectedRoundInfo.lockoutTime || "Not set"}
+              {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
             </span>
-          )}
-        </div>
-      )}
+            {pending.length > 0 && (
+              <span className="ml-2 text-slate-600">
+                • {pending.length} game{pending.length > 1 ? 's' : ''} still to start
+                {nextGame?.DateMelb ? ` — next ${nextGame.DateMelb}` : ''} · those tips stay hidden until they do
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="dz-surface overflow-x-auto">
         <table className="min-w-full">
@@ -960,8 +971,8 @@ function DesktopTippingResults({
                             ${isDefault ? 'italic text-slate-500' : 'font-medium'}
                           `}
                         >
-                          {/* Check if lockout has passed before showing tips */}
-                          {isLockoutPassed ? (
+                          {/* Rolling lockout: reveal only once this game has started */}
+                          {fixtureStarted(fixture) ? (
                             <>
                               {matchTip?.tip ? getTeamAbbreviation(matchTip.tip) : '-'}
                               {isDefault && <span className="ml-1">(Def)</span>}

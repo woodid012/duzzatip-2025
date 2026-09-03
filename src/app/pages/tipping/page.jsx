@@ -8,6 +8,15 @@ import { USER_NAMES, TEAM_LOGOS, CURRENT_YEAR } from '@/app/lib/constants';
 import { useToast } from '@/app/components/Toast';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
+// Next bounce, in Melbourne time — the moment the next batch of tips locks.
+const formatLockoutMoment = (date) =>
+  date
+    ? date.toLocaleString('en-AU', {
+        timeZone: 'Australia/Melbourne',
+        day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric', hour12: true,
+      })
+    : null;
+
 export default function TippingPage() {
   // Get data from our app context
   const { currentRound, roundInfo, getSpecificRoundInfo } = useAppContext();
@@ -45,6 +54,9 @@ export default function TippingPage() {
     lastEditedTime,
     localRound,
     isRoundLocked,
+    isRoundPartiallyLocked,
+    isMatchLocked,
+    getNextLockoutTime,
     isLateSubmission,
     isPastYear,
     formatRoundName,
@@ -181,6 +193,9 @@ export default function TippingPage() {
           currentTeamBeingEdited={currentTeamBeingEdited}
           roundInfo={localRoundInfo}
           isRoundLocked={isRoundLocked}
+          isRoundPartiallyLocked={isRoundPartiallyLocked}
+          isMatchLocked={isMatchLocked}
+          getNextLockoutTime={getNextLockoutTime}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
           localRound={localRound}
@@ -212,6 +227,9 @@ export default function TippingPage() {
           currentTeamBeingEdited={currentTeamBeingEdited}
           roundInfo={localRoundInfo}
           isRoundLocked={isRoundLocked}
+          isRoundPartiallyLocked={isRoundPartiallyLocked}
+          isMatchLocked={isMatchLocked}
+          getNextLockoutTime={getNextLockoutTime}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
           localRound={localRound}
@@ -245,6 +263,9 @@ function MobileTippingView({
   currentTeamBeingEdited,
   roundInfo,
   isRoundLocked,
+  isRoundPartiallyLocked,
+  isMatchLocked,
+  getNextLockoutTime,
   isLateSubmission,
   isPastYear,
   localRound,
@@ -273,7 +294,9 @@ function MobileTippingView({
   const deadCertCount = fixtures.filter((f) => tips[f.MatchNumber]?.deadCert).length;
   const pct = fixtures.length ? (tippedCount / fixtures.length) * 100 : 0;
   const locked = isRoundLocked && !isAdmin;
+  const rolling = isRoundPartiallyLocked && !isAdmin;
   const late = isLateSubmission && !isAdmin;
+  const nextLockout = formatLockoutMoment(getNextLockoutTime());
 
   return (
     <div className="px-4 pb-10 pt-2 space-y-4 text-slate-700">
@@ -282,7 +305,7 @@ function MobileTippingView({
         <div className="min-w-0">
           <div className={`text-[10px] font-extrabold uppercase tracking-[0.16em] ${late ? 'text-orange-500' : 'text-amber-600'}`}>
             {formatRoundName(localRound)}
-            {locked ? ' · Locked' : late ? ' · Late' : ' · Open'}
+            {locked ? ' · Locked' : rolling ? ' · Locking' : late ? ' · Late' : ' · Open'}
             {isAdmin && isRoundLocked ? ' · Admin' : ''}
           </div>
           <h1 className="mt-0.5 text-[27px] font-black tracking-[-0.03em] leading-none text-slate-900">
@@ -293,6 +316,11 @@ function MobileTippingView({
           {locked && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 border border-slate-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-slate-600">
               🔒 LOCKED
+            </span>
+          )}
+          {!locked && rolling && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-1 text-[11px] font-extrabold tracking-[0.04em] text-amber-700">
+              ⏳ LOCKING
             </span>
           )}
           <select
@@ -350,9 +378,13 @@ function MobileTippingView({
             {deadCertCount > 0 && (
               <span className="font-semibold text-amber-600">⭐ {deadCertCount} dead cert{deadCertCount > 1 ? 's' : ''}</span>
             )}
-            {roundInfo.lockoutTime && (
+            {rolling && nextLockout ? (
+              <span>Next lockout <span className="font-semibold text-amber-600">{nextLockout}</span></span>
+            ) : locked ? (
+              <span className="font-semibold text-slate-500">All games started</span>
+            ) : roundInfo.lockoutTime ? (
               <span>Lockout <span className="font-semibold text-slate-700">{roundInfo.lockoutTime}</span></span>
-            )}
+            ) : null}
             {lastEditedTime && (
               <span>Saved <span className="font-semibold text-slate-700">{formatDate(lastEditedTime)}</span></span>
             )}
@@ -432,7 +464,7 @@ function MobileTippingView({
               const deadCert = tips[fixture.MatchNumber]?.deadCert;
               const isCorrectTip = gameHasResult && winner !== 'Draw' && tipTeam === winner;
               const isWrongTip = gameHasResult && winner !== 'Draw' && tipTeam !== winner;
-              const gameLocked = (gameHasStarted && !isAdmin) || (isRoundLocked && !isAdmin);
+              const gameLocked = isMatchLocked(fixture.MatchNumber);
               const pickClass = (team) => `p-3 rounded-[13px] text-sm transition-colors min-w-0 border ${
                 tipTeam === team
                   ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
@@ -443,6 +475,7 @@ function MobileTippingView({
                   {/* Match info */}
                   <div className="flex justify-between items-center mb-2.5">
                     <div className="text-[11px] font-semibold text-slate-500">
+                      {gameLocked && <span className="mr-1">🔒</span>}
                       Game {fixture.MatchNumber} · {fixture.DateMelb}
                       {gameHasStarted && !gameHasResult && <span className="ml-1 text-amber-600">Live</span>}
                     </div>
@@ -530,6 +563,9 @@ function DesktopTippingView({
   currentTeamBeingEdited,
   roundInfo,
   isRoundLocked,
+  isRoundPartiallyLocked,
+  isMatchLocked,
+  getNextLockoutTime,
   isLateSubmission,
   isPastYear,
   localRound,
@@ -557,6 +593,9 @@ function DesktopTippingView({
         eyebrow={
           <span className={isLateSubmission && !isAdmin ? "text-orange-300" : undefined}>
             Showing {formatRoundName(localRound)}
+            {isRoundPartiallyLocked && !isAdmin && (
+              <span className="ml-2 text-amber-300">⏳ Locking as games start</span>
+            )}
             {isLateSubmission && !isAdmin && <span className="ml-2">⚠️ Late submission</span>}
             {isAdmin && isRoundLocked && <span className="ml-2">(Admin Override)</span>}
           </span>
@@ -641,15 +680,30 @@ function DesktopTippingView({
         </div>
 
         <div className="flex flex-col items-end gap-0.5 text-[11px] text-slate-400">
-          {roundInfo.lockoutTime && (
-            <div>
-              <span>Lockout:</span>
-              <span className="font-medium text-slate-200 ml-1">{roundInfo.lockoutTime}</span>
-              {isLateSubmission && !isAdmin && (
-                <span className="text-orange-300 ml-1">(Late)</span>
-              )}
-            </div>
-          )}
+          {(() => {
+            if (isRoundLocked && !isAdmin) {
+              return <span className="text-red-300 font-medium">All games started (Locked)</span>;
+            }
+            const nextLockout = formatLockoutMoment(getNextLockoutTime());
+            if (isRoundPartiallyLocked && nextLockout && !isAdmin) {
+              return (
+                <div>
+                  <span>Next lockout:</span>
+                  <span className="font-medium text-orange-300 ml-1">{nextLockout}</span>
+                </div>
+              );
+            }
+            if (!roundInfo.lockoutTime) return null;
+            return (
+              <div>
+                <span>Lockout:</span>
+                <span className="font-medium text-slate-200 ml-1">{roundInfo.lockoutTime}</span>
+                {isLateSubmission && !isAdmin && (
+                  <span className="text-orange-300 ml-1">(Late)</span>
+                )}
+              </div>
+            );
+          })()}
           {lastEditedTime && currentTeamBeingEdited && (
             <div>
               <span>Last Submitted:</span>
@@ -704,10 +758,11 @@ function DesktopTippingView({
                   const tipTeam = tips[fixture.MatchNumber]?.team;
                   const isCorrectTip = gameHasResult && winner !== 'Draw' && tipTeam === winner;
                   const isWrongTip = gameHasResult && winner !== 'Draw' && tipTeam !== winner;
-                  const gameLocked = (gameHasStarted && !isAdmin) || (isRoundLocked && !isAdmin);
+                  const gameLocked = isMatchLocked(fixture.MatchNumber);
                   return (
                   <tr key={fixture.MatchNumber} className={`hover:bg-slate-50 ${gameHasStarted && !gameHasResult ? 'bg-yellow-50' : ''}`}>
                     <td className="py-2 px-4 border border-slate-200 text-slate-900 text-sm">
+                      {gameLocked && <span className="mr-1 text-xs">🔒</span>}
                       {fixture.DateMelb}
                       {gameHasStarted && !gameHasResult && <div className="text-xs text-yellow-600">In progress</div>}
                     </td>
