@@ -68,14 +68,7 @@ export default function EntrantCard({ entrant, expanded, onToggle, isSelf, colla
               <ul className="space-y-1.5">
                 {benchAndReserves.map((b) => (
                   <li key={b.position} className="flex items-baseline justify-between gap-3 text-sm">
-                    <span className="min-w-0">
-                      <span className="text-slate-600">{b.playerName}</span>
-                      {b.substitutedInto && (
-                        <span className="ml-1.5 text-[10px] font-bold uppercase text-blue-500">
-                          on at {b.substitutedInto}
-                        </span>
-                      )}
-                    </span>
+                    <span className="min-w-0 text-slate-600">{b.playerName}</span>
                     <span className="shrink-0 text-right text-xs text-slate-400">
                       <span className="font-medium text-slate-500">{b.position}</span>
                       {b.covers?.length > 0 && (

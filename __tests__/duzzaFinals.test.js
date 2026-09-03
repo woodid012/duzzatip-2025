@@ -333,17 +333,26 @@ describe('deriveBenchAndReserves', () => {
     // player has played, which hid the bench for the whole pre-game window.
     const out = deriveBenchAndReserves(team, []);
     expect(out).toHaveLength(3);
-    expect(out.every((b) => b.substitutedInto === null)).toBe(true);
   });
 
-  test('flags the position a substituted player came on at', () => {
+  test('omits a player who has already substituted in', () => {
+    // Once on, they appear in the position table under the position they
+    // covered — listing them here too showed the same player twice.
     const positionScores = [
       { position: 'Tackler', playerName: 'Josh Dunkley', isBenchPlayer: true },
       { position: 'Full Forward', playerName: 'Logan Morris', isBenchPlayer: false },
     ];
     const out = deriveBenchAndReserves(team, positionScores);
-    expect(out.find((b) => b.position === 'Bench').substitutedInto).toBe('Tackler');
-    expect(out.find((b) => b.position === 'Reserve A').substitutedInto).toBeNull();
+    expect(out.map((b) => b.playerName)).toEqual(['Lachlan McAndrew', 'Patrick Cripps']);
+    expect(out.some((b) => b.playerName === 'Josh Dunkley')).toBe(false);
+  });
+
+  test('a reserve who has come on is omitted too', () => {
+    const positionScores = [
+      { position: 'Ruck', playerName: 'Lachlan McAndrew', isBenchPlayer: true },
+    ];
+    const out = deriveBenchAndReserves(team, positionScores);
+    expect(out.map((b) => b.position)).toEqual(['Bench', 'Reserve B']);
   });
 
   test('a bench player with no nominated backup covers nothing', () => {

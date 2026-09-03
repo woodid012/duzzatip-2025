@@ -300,13 +300,17 @@ export async function getPlayerPoolForRound(seasonDb, round, year) {
 // correctness — everything a "your team" + "around the grounds" results view
 // needs, without a second DB round-trip.
 /**
- * The bench and reserves an entry is carrying, for display alongside the
- * position breakdown.
+ * The bench and reserves still held in reserve — those not already on the
+ * ground — for display alongside the position breakdown.
  *
  * positionScores deliberately excludes Bench/Reserve A/Reserve B — they score
  * only by substituting into one of the six on-ground positions, and counting
  * them in their own right would double the total. That also left them invisible
  * on the results view, which is what this fills in.
+ *
+ * A player who has already substituted in is omitted: they appear in the
+ * position table under the position they covered, so listing them here as well
+ * would show the same player twice.
  *
  * Derived from the entry rather than from teamScoreData's benchScores /
  * reserveScores, because those two drop anyone who hasn't played yet — exactly
@@ -314,19 +318,20 @@ export async function getPlayerPoolForRound(seasonDb, round, year) {
  *
  * @param {Array<{position: string, playerName: string, backupPosition?: string}>} selectedPlayers
  * @param {Array<{position: string, playerName: string, isBenchPlayer?: boolean}>} positionScores
- * @returns {Array<{position, playerName, backupPosition, covers: string[], substitutedInto: string|null}>}
+ * @returns {Array<{position, playerName, backupPosition, covers: string[]}>}
  */
 export function deriveBenchAndReserves(selectedPlayers, positionScores) {
   // A substituted-in player appears in positionScores under the position they
   // covered, flagged isBenchPlayer — that's how we know they're already on.
-  const substitutedInto = new Map(
+  const alreadyOn = new Set(
     (positionScores || [])
       .filter((p) => p.isBenchPlayer && p.playerName)
-      .map((p) => [p.playerName, p.position])
+      .map((p) => p.playerName)
   );
 
   return (selectedPlayers || [])
     .filter((p) => p.position === 'Bench' || p.position.startsWith('Reserve'))
+    .filter((p) => !alreadyOn.has(p.playerName))
     .map((p) => ({
       position: p.position,
       playerName: p.playerName,
@@ -341,7 +346,6 @@ export function deriveBenchAndReserves(selectedPlayers, positionScores) {
           : p.position === 'Reserve A'
           ? [...RESERVE_A_POSITIONS]
           : [...RESERVE_B_POSITIONS],
-      substitutedInto: substitutedInto.get(p.playerName) || null,
     }));
 }
 
