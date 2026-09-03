@@ -92,7 +92,12 @@ const AUTH_RECOGNIZE_LOGIN = true;
 const AUTH_GATING_ENABLED = true;
 
 // Pages a not-logged-in visitor may see (everything else requires login).
-const PUBLIC_PATHS = ['/pages/results', '/pages/ladder'];
+// Install is public: it renders platform-specific "add to home screen" steps
+// from the user agent alone — no data, no session. Gating it behind the core
+// season login locked out pool entrants, who authenticate through the finals
+// EntryGuard and so never set authedUserId, leaving them unable to install
+// the app at all.
+const PUBLIC_PATHS = ['/pages/results', '/pages/ladder', '/pages/install'];
 
 
 export default function PagesLayout({ children }) {
