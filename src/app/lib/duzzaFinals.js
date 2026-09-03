@@ -6,6 +6,7 @@
 import { USER_NAMES, TEAM_LOGOS } from './constants';
 import { calculateTeamScores } from './scoreCalculations';
 import { getAflFixtures, isRoundComplete } from './fixtureCache';
+import { RESERVE_A_POSITIONS, RESERVE_B_POSITIONS } from './rollingLockout';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -298,6 +299,52 @@ export async function getPlayerPoolForRound(seasonDb, round, year) {
 // position-by-position breakdown (positionScores) and tips annotated with
 // correctness — everything a "your team" + "around the grounds" results view
 // needs, without a second DB round-trip.
+/**
+ * The bench and reserves an entry is carrying, for display alongside the
+ * position breakdown.
+ *
+ * positionScores deliberately excludes Bench/Reserve A/Reserve B — they score
+ * only by substituting into one of the six on-ground positions, and counting
+ * them in their own right would double the total. That also left them invisible
+ * on the results view, which is what this fills in.
+ *
+ * Derived from the entry rather than from teamScoreData's benchScores /
+ * reserveScores, because those two drop anyone who hasn't played yet — exactly
+ * when you most want to see who is being held in reserve.
+ *
+ * @param {Array<{position: string, playerName: string, backupPosition?: string}>} selectedPlayers
+ * @param {Array<{position: string, playerName: string, isBenchPlayer?: boolean}>} positionScores
+ * @returns {Array<{position, playerName, backupPosition, covers: string[], substitutedInto: string|null}>}
+ */
+export function deriveBenchAndReserves(selectedPlayers, positionScores) {
+  // A substituted-in player appears in positionScores under the position they
+  // covered, flagged isBenchPlayer — that's how we know they're already on.
+  const substitutedInto = new Map(
+    (positionScores || [])
+      .filter((p) => p.isBenchPlayer && p.playerName)
+      .map((p) => [p.playerName, p.position])
+  );
+
+  return (selectedPlayers || [])
+    .filter((p) => p.position === 'Bench' || p.position.startsWith('Reserve'))
+    .map((p) => ({
+      position: p.position,
+      playerName: p.playerName,
+      backupPosition: p.backupPosition || null,
+      // What this player may cover: the bench covers the single position it
+      // nominated, a reserve covers its half of the ground.
+      covers:
+        p.position === 'Bench'
+          ? p.backupPosition
+            ? [p.backupPosition]
+            : []
+          : p.position === 'Reserve A'
+          ? [...RESERVE_A_POSITIONS]
+          : [...RESERVE_B_POSITIONS],
+      substitutedInto: substitutedInto.get(p.playerName) || null,
+    }));
+}
+
 export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entrantIds, options = {}) {
   const { detail = false } = options;
 
@@ -324,7 +371,7 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
       // hasEntry lets callers hide no-show entrants from display surfaces
       // while the knockout still counts the zero score against core teams.
       const base = { userId: entrantId, playerScore: 0, deadCertScore: 0, totalScore: 0, correctTips: 0, hasEntry: false };
-      return detail ? { ...base, positionScores: [], tips: [] } : base;
+      return detail ? { ...base, positionScores: [], benchAndReserves: [], tips: [] } : base;
     }
 
     const team = entry.Team || {};
@@ -381,7 +428,9 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
       replacementType: p.replacementType || null,
     }));
 
-    return { ...base, positionScores, tips: annotateTips(tips, roundFixtures) };
+    const benchAndReserves = deriveBenchAndReserves(selectedPlayers, teamScoreData.positionScores);
+
+    return { ...base, positionScores, benchAndReserves, tips: annotateTips(tips, roundFixtures) };
   });
 }
 

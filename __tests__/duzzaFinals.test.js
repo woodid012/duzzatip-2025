@@ -5,6 +5,7 @@ import {
   splitEntrantsBySource,
   applyWeekToLadder,
   annotateTips,
+  deriveBenchAndReserves,
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_CUT_COUNTS,
   isDuzzaFinalsRound,
@@ -301,5 +302,58 @@ describe('annotateTips', () => {
   test('no tips → empty array', () => {
     expect(annotateTips([], roundFixtures)).toEqual([]);
     expect(annotateTips(undefined, roundFixtures)).toEqual([]);
+  });
+});
+
+// ─── deriveBenchAndReserves ─────────────────────────────────────────────────
+
+describe('deriveBenchAndReserves', () => {
+  const team = [
+    { position: 'Full Forward', playerName: 'Logan Morris' },
+    { position: 'Tackler', playerName: 'James Rowbottom' },
+    { position: 'Bench', playerName: 'Josh Dunkley', backupPosition: 'Tackler' },
+    { position: 'Reserve A', playerName: 'Lachlan McAndrew' },
+    { position: 'Reserve B', playerName: 'Patrick Cripps' },
+  ];
+
+  test('returns only bench and reserves, never the on-ground six', () => {
+    const out = deriveBenchAndReserves(team, []);
+    expect(out.map((b) => b.position)).toEqual(['Bench', 'Reserve A', 'Reserve B']);
+  });
+
+  test('bench covers just its nominated position, reserves their half of the ground', () => {
+    const [bench, resA, resB] = deriveBenchAndReserves(team, []);
+    expect(bench.covers).toEqual(['Tackler']);
+    expect(resA.covers).toEqual(['Full Forward', 'Tall Forward', 'Ruck']);
+    expect(resB.covers).toEqual(['Offensive', 'Midfielder', 'Tackler']);
+  });
+
+  test('shows the bench before anyone has played, when the scorer would drop them', () => {
+    // The regression this guards: benchScores/reserveScores are empty until a
+    // player has played, which hid the bench for the whole pre-game window.
+    const out = deriveBenchAndReserves(team, []);
+    expect(out).toHaveLength(3);
+    expect(out.every((b) => b.substitutedInto === null)).toBe(true);
+  });
+
+  test('flags the position a substituted player came on at', () => {
+    const positionScores = [
+      { position: 'Tackler', playerName: 'Josh Dunkley', isBenchPlayer: true },
+      { position: 'Full Forward', playerName: 'Logan Morris', isBenchPlayer: false },
+    ];
+    const out = deriveBenchAndReserves(team, positionScores);
+    expect(out.find((b) => b.position === 'Bench').substitutedInto).toBe('Tackler');
+    expect(out.find((b) => b.position === 'Reserve A').substitutedInto).toBeNull();
+  });
+
+  test('a bench player with no nominated backup covers nothing', () => {
+    const out = deriveBenchAndReserves([{ position: 'Bench', playerName: 'Someone' }], []);
+    expect(out[0].covers).toEqual([]);
+    expect(out[0].backupPosition).toBeNull();
+  });
+
+  test('tolerates missing inputs', () => {
+    expect(deriveBenchAndReserves(undefined, undefined)).toEqual([]);
+    expect(deriveBenchAndReserves([], null)).toEqual([]);
   });
 });

@@ -88,6 +88,7 @@ async function getRoundDetail(request, seasonDb, finalsDb, round, year) {
       name: nameById[s.userId] || null,
       source: sourceById[s.userId] || null,
       positionScores: s.positionScores,
+      benchAndReserves: s.benchAndReserves,
       tips: s.tips,
       playerScore: s.playerScore,
       deadCertScore: s.deadCertScore,

@@ -7,7 +7,7 @@ import { ChevronDown } from 'lucide-react';
 // breakdown. Used for both "Your team" (always expanded) and each "Around
 // the grounds" row.
 export default function EntrantCard({ entrant, expanded, onToggle, isSelf, collapsible = true }) {
-  const { name, source, positionScores, tips, playerScore, deadCertScore, totalScore, correctTips } = entrant;
+  const { name, source, positionScores, benchAndReserves, tips, playerScore, deadCertScore, totalScore, correctTips } = entrant;
 
   const header = (
     <div className="flex items-center justify-between gap-3 p-3.5 sm:p-4 text-left">
@@ -59,6 +59,32 @@ export default function EntrantCard({ entrant, expanded, onToggle, isSelf, colla
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {benchAndReserves?.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Bench &amp; reserves</h4>
+              <ul className="space-y-1.5">
+                {benchAndReserves.map((b) => (
+                  <li key={b.position} className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0">
+                      <span className="text-slate-600">{b.playerName}</span>
+                      {b.substitutedInto && (
+                        <span className="ml-1.5 text-[10px] font-bold uppercase text-blue-500">
+                          on at {b.substitutedInto}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-right text-xs text-slate-400">
+                      <span className="font-medium text-slate-500">{b.position}</span>
+                      {b.covers?.length > 0 && (
+                        <span className="block text-[10px] leading-tight">{b.covers.join(' · ')}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
