@@ -1,6 +1,8 @@
 // src/app/lib/roundAccess.js
-// Server-side round visibility helpers for the "mine until lockout, then all"
-// privacy rule and the public live/last-round view.
+// Round visibility helpers for the Duzza Finals side comp and the public
+// live/last-round view. The season pages' "who may see whose picks" rule lives
+// in lib/submissionStatus — it turns on whether you submitted, not just on the
+// clock.
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 

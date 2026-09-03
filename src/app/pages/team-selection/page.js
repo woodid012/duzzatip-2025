@@ -10,6 +10,7 @@ import { USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constant
 import { useToast } from '@/app/components/Toast';
 import SearchableSelect from '@/app/components/SearchableSelect';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
+import AroundTheGrounds from '@/app/components/AroundTheGrounds';
 
 const INJURY_BADGES = {
   SEASON:  { icon: "🩹", color: "text-red-600",    tip: "OUT SEASON" },
@@ -31,6 +32,10 @@ export default function TeamSelectionPage() {
     teams,
     squads,
     playerScores,
+    teamTotals,
+    liveUserIds,
+    lockUsers,
+    lockStatus,
     isEditing,
     loading,
     error,
@@ -43,6 +48,7 @@ export default function TeamSelectionPage() {
     isPositionLocked,
     getPositionLockReason,
     isPlayerGameStarted,
+    isFirmlyLocked,
     getNextLockoutTime,
     handleRoundChange,
     handlePlayerChange,
@@ -165,7 +171,7 @@ export default function TeamSelectionPage() {
     if (selectedUserId === 'admin') {
       setAdminEditMode(true);
     } else {
-      startEditing();
+      startEditing(selectedUserId);
     }
   };
 
@@ -336,8 +342,11 @@ export default function TeamSelectionPage() {
   // Determine if we're in edit mode (either regular editing or admin edit mode)
   const inEditMode = isEditing || adminEditMode;
   
-  // Check if editing is allowed — allow if any position's game hasn't started yet
-  const canEdit = !isPastYear && (isAdmin || !isRoundLocked);
+  // Editing is allowed while some game in the round is still to come — unless
+  // this player got their team in before the first bounce, in which case the
+  // round is committed and there's nothing left to change.
+  const teamCommitted = !isAdmin && !!selectedUserId && isFirmlyLocked(selectedUserId);
+  const canEdit = !isPastYear && (isAdmin || (!isRoundLocked && !teamCommitted));
 
   return (
     <div className="p-4 sm:p-6 w-full mx-auto">
@@ -426,6 +435,9 @@ export default function TeamSelectionPage() {
           {(() => {
             const localInfo = localRound !== undefined ? getSpecificRoundInfo(localRound) : null;
             if (!localInfo || !localInfo.lockoutTime) return null;
+            if (teamCommitted) {
+              return <span className="text-red-300 font-medium">Team submitted — locked for the round</span>;
+            }
             if (isRoundLocked && !isAdmin) {
               return <span className="text-red-300 font-medium">All games started (Locked)</span>;
             }
@@ -545,6 +557,27 @@ export default function TeamSelectionPage() {
         )}
       </div>
       
+      {/* Around the Grounds — who's locked in for the round, and how they're
+          tracking. Lock state always shows; scores only once this player has
+          earned them by getting their own team in. */}
+      <AroundTheGrounds
+        users={lockUsers}
+        scoresByUser={teamTotals}
+        liveUserIds={liveUserIds}
+        meId={selectedUserId}
+        scoresHidden={!isAdmin && Object.keys(teamTotals || {}).length <= 1}
+        roundStarted={!!lockStatus?.roundStarted}
+        nextLockout={(() => {
+          const next = getNextLockoutTime();
+          return next
+            ? next.toLocaleString('en-AU', {
+                timeZone: 'Australia/Melbourne',
+                day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric', hour12: true,
+              })
+            : null;
+        })()}
+      />
+
       {/* Reserve Rules Info - Moved below the teams */}
       <div className="mt-8 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl">
         <h3 className="text-lg font-semibold mb-2 text-blue-800">Reserve System</h3>

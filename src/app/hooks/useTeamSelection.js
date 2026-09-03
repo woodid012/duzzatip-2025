@@ -3,10 +3,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
-
-// Per-game locking: when true, positions lock individually as each game kicks off.
-// When false (default), the entire team locks when the first game of the round starts.
-const PER_GAME_LOCKING = true;
+import {
+  clubGameStart,
+  firstGameStart,
+  isFirmlyLocked as isFirmlyLockedFn,
+  isRoundFullyLocked,
+  isRoundPartiallyLocked as isRoundPartiallyLockedFn,
+  nextLockoutTime,
+  positionLockReason as positionLockReasonFn,
+} from '@/app/lib/rollingLockout';
+import useRoundLockStatus from '@/app/hooks/useRoundLockStatus';
 
 export default function useTeamSelection() {
   const {
@@ -21,10 +27,16 @@ export default function useTeamSelection() {
   const [localRound, setLocalRound] = useState(null);
   const [userChangedRound, setUserChangedRound] = useState(false);
 
+  // Who submitted before the first bounce — decides firm lock vs rolling window.
+  const { status: lockStatus, users: lockUsers, refresh: refreshLockStatus } =
+    useRoundLockStatus(localRound, selectedYear);
+
   const [teams, setTeams] = useState({});
   const [editedTeams, setEditedTeams] = useState({});
   const [squads, setSquads] = useState({});
   const [playerScores, setPlayerScores] = useState({});
+  const [teamTotals, setTeamTotals] = useState({});
+  const [liveUserIds, setLiveUserIds] = useState([]);
   const [changedPositions, setChangedPositions] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [loadingLocal, setLoadingLocal] = useState(true);
@@ -91,172 +103,77 @@ export default function useTeamSelection() {
     }
   }, [selectedYear]);
 
-  // Determine if round is locked for editing.
-  // With PER_GAME_LOCKING: fully locked only when ALL games have started.
-  // Without PER_GAME_LOCKING (default): locked when the FIRST game has started.
+  // Rolling lockout: a round is only *fully* locked once every game in it has
+  // started. Before that, individual picks lock as their own game commences —
+  // see isPositionLocked below.
   const isRoundLocked = useCallback((roundNumber) => {
     if (roundNumber > currentRound) return false;
-    const roundFixtures = fixtures.filter(f => f.RoundNumber === roundNumber);
-    if (roundFixtures.length === 0) return false;
-    const now = new Date();
-    if (PER_GAME_LOCKING) {
-      return roundFixtures.every(f => now >= new Date(f.DateUtc));
-    }
-    const firstGame = roundFixtures.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
-    return now >= new Date(firstGame.DateUtc);
+    return isRoundFullyLocked(fixtures, roundNumber);
   }, [currentRound, fixtures]);
 
-  // Check if a round is partially locked (at least one game has started but not all).
-  // Only relevant when PER_GAME_LOCKING is enabled.
+  // At least one game has started but not all — the rolling window, where some
+  // positions are locked and the rest are still up for grabs.
   const isRoundPartiallyLocked = useCallback((roundNumber) => {
-    if (!PER_GAME_LOCKING) return false;
-    const roundFixtures = fixtures.filter(f => f.RoundNumber === roundNumber);
-    if (roundFixtures.length === 0) return false;
-    const now = new Date();
-    const started = roundFixtures.filter(f => now >= new Date(f.DateUtc));
-    return started.length > 0 && started.length < roundFixtures.length;
+    return isRoundPartiallyLockedFn(fixtures, roundNumber);
   }, [fixtures]);
 
-  // Squad data stores abbreviated team codes; fixtures use full names — map between them.
-  const TEAM_CODE_TO_NAME = {
-    ADE: 'Adelaide Crows',
-    BRL: 'Brisbane Lions',
-    CAR: 'Carlton',
-    COL: 'Collingwood',
-    ESS: 'Essendon',
-    FRE: 'Fremantle',
-    GCS: 'Gold Coast SUNS',
-    GEE: 'Geelong Cats',
-    GWS: 'GWS GIANTS',
-    HAW: 'Hawthorn',
-    MEL: 'Melbourne',
-    NTH: 'North Melbourne',
-    PTA: 'Port Adelaide',
-    RIC: 'Richmond',
-    STK: 'St Kilda',
-    SYD: 'Sydney Swans',
-    WBD: 'Western Bulldogs',
-    WCE: 'West Coast Eagles',
-  };
-
-  // Get the game start time for a player in a given round.
-  // Returns the DateUtc of their team's game, or null if bye/not found.
-  const getPlayerGameTime = useCallback((playerName, userId, roundNumber) => {
+  // Resolve a player to their club code from the squad, so the shared lockout
+  // rules can find the game they're playing in.
+  const clubOfFor = useCallback((userId) => (playerName) => {
     if (!playerName || !userId) return null;
     const userSquad = squads[userId]?.players;
     if (!userSquad) return null;
-    const player = userSquad.find(p => p.name === playerName);
-    if (!player?.team) return null;
-    // Resolve abbreviated team code to full fixture name
-    const teamName = TEAM_CODE_TO_NAME[player.team] ?? player.team;
-    const roundFixtures = fixtures.filter(f => f.RoundNumber === roundNumber);
-    const game = roundFixtures.find(f => f.HomeTeam === teamName || f.AwayTeam === teamName);
-    if (!game) return null;
-    return new Date(game.DateUtc);
-  }, [squads, fixtures]);
+    return userSquad.find(p => p.name === playerName)?.team ?? null;
+  }, [squads]);
 
-  // Positions covered by each reserve for the reserve-exploit lock (Rule 3).
-  const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
-  const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
+  // Get the game start time for a player in a given round.
+  // Returns the DateUtc of their club's game, or null if bye/not found.
+  const getPlayerGameTime = useCallback((playerName, userId, roundNumber) => {
+    return clubGameStart(fixtures, roundNumber, clubOfFor(userId)(playerName));
+  }, [fixtures, clubOfFor]);
 
-  // Check if a specific position is locked (that player's game has started).
-  // When PER_GAME_LOCKING is off, delegates to round-level isRoundLocked.
-  // When PER_GAME_LOCKING is on, three rules apply:
-  //   Rule 1 — Empty slots lock when the first game of the round kicks off.
-  //   Rule 2 — A filled slot locks when that player's game kicks off.
-  //   Rule 3 — If a reserve has already played, all positions it covers lock immediately
-  //             (prevents swapping in a DNP to trigger the reserve's score).
-  const isPositionLocked = useCallback((userId, position, roundNumber) => {
-    const rnd = roundNumber ?? localRound;
-    if (rnd === null || rnd === undefined) return false;
-    if (!PER_GAME_LOCKING) return isRoundLocked(rnd);
-    // Future rounds are never locked
-    if (rnd > currentRound) return false;
+  // Did this player get their team in before the first bounce? If so they're
+  // locked to it for the round; if not, the rolling window applies.
+  const submittedOnTimeFor = useCallback((userId) => {
+    return !!lockUsers?.[String(userId)]?.submittedTeam;
+  }, [lockUsers]);
 
-    const now = new Date();
-    const roundFixtures = fixtures.filter(f => f.RoundNumber === rnd);
-    const currentTeams = isEditing ? editedTeams : teams;
-    const userTeam = currentTeams[userId] || {};
-    const playerData = userTeam[position];
-
-    // Rule 1: empty slots lock at first game kick-off
-    if (!playerData?.player_name) {
-      if (roundFixtures.length === 0) return false;
-      const firstGame = roundFixtures.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
-      return now >= new Date(firstGame.DateUtc);
-    }
-
-    // Rule 2: filled slot locks when that player's game starts
-    const gameTime = getPlayerGameTime(playerData.player_name, userId, rnd);
-    if (gameTime && now >= gameTime) return true;
-
-    // Rule 3: lock if the reserve covering this position has already played
-    const reserveHasPlayed = (reservePosition) => {
-      const reserve = userTeam[reservePosition];
-      if (!reserve?.player_name) return false;
-      const reserveGameTime = getPlayerGameTime(reserve.player_name, userId, rnd);
-      return reserveGameTime ? now >= reserveGameTime : false;
-    };
-
-    if (RESERVE_A_POSITIONS.includes(position) && reserveHasPlayed('Reserve A')) return true;
-    if (RESERVE_B_POSITIONS.includes(position) && reserveHasPlayed('Reserve B')) return true;
-
-    const bench = userTeam['Bench'];
-    if (bench?.player_name && bench?.backup_position === position && reserveHasPlayed('Bench')) return true;
-
-    return false;
-  }, [localRound, currentRound, teams, editedTeams, isEditing, getPlayerGameTime, isRoundLocked, fixtures]);
-
-  // Returns a human-readable reason why a position is locked, or null if not locked.
+  // Why this position is locked, or null if it's still editable. The rules live
+  // in lib/rollingLockout so the API enforces exactly what the UI shows.
   const getPositionLockReason = useCallback((userId, position, roundNumber) => {
     const rnd = roundNumber ?? localRound;
     if (rnd === null || rnd === undefined) return null;
-    if (!PER_GAME_LOCKING) return isRoundLocked(rnd) ? 'Round locked' : null;
+    // Future rounds are never locked
     if (rnd > currentRound) return null;
-
-    const now = new Date();
-    const roundFixtures = fixtures.filter(f => f.RoundNumber === rnd);
     const currentTeams = isEditing ? editedTeams : teams;
-    const userTeam = currentTeams[userId] || {};
-    const playerData = userTeam[position];
+    return positionLockReasonFn(currentTeams[userId] || {}, position, {
+      fixtures,
+      round: rnd,
+      clubOf: clubOfFor(userId),
+      submittedOnTime: submittedOnTimeFor(userId),
+    });
+  }, [localRound, currentRound, teams, editedTeams, isEditing, clubOfFor, fixtures, submittedOnTimeFor]);
 
-    if (!playerData?.player_name) {
-      if (roundFixtures.length === 0) return null;
-      const firstGame = roundFixtures.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
-      return now >= new Date(firstGame.DateUtc) ? 'Round started' : null;
-    }
+  const isPositionLocked = useCallback((userId, position, roundNumber) => {
+    return getPositionLockReason(userId, position, roundNumber) !== null;
+  }, [getPositionLockReason]);
 
-    const gameTime = getPlayerGameTime(playerData.player_name, userId, rnd);
-    if (gameTime && now >= gameTime) return 'Game started';
+  // This player submitted on time, so their whole team shut at the first bounce
+  // — no rolling window, nothing left to edit for the round.
+  const isFirmlyLocked = useCallback((userId, roundNumber) => {
+    const rnd = roundNumber ?? localRound;
+    if (rnd === null || rnd === undefined) return false;
+    if (rnd > currentRound) return false;
+    return isFirmlyLockedFn({
+      fixtures,
+      round: rnd,
+      submittedOnTime: submittedOnTimeFor(userId),
+    });
+  }, [localRound, currentRound, fixtures, submittedOnTimeFor]);
 
-    const reserveHasPlayed = (reservePosition) => {
-      const reserve = userTeam[reservePosition];
-      if (!reserve?.player_name) return false;
-      const reserveGameTime = getPlayerGameTime(reserve.player_name, userId, rnd);
-      return reserveGameTime ? now >= reserveGameTime : false;
-    };
-
-    if (RESERVE_A_POSITIONS.includes(position) && reserveHasPlayed('Reserve A')) {
-      const resA = userTeam['Reserve A'];
-      return `Reserve A (${resA?.player_name}) played`;
-    }
-    if (RESERVE_B_POSITIONS.includes(position) && reserveHasPlayed('Reserve B')) {
-      const resB = userTeam['Reserve B'];
-      return `Reserve B (${resB?.player_name}) played`;
-    }
-
-    const bench = userTeam['Bench'];
-    if (bench?.player_name && bench?.backup_position === position && reserveHasPlayed('Bench')) {
-      return `Bench (${bench.player_name}) played`;
-    }
-
-    return null;
-  }, [localRound, currentRound, teams, editedTeams, isEditing, getPlayerGameTime, isRoundLocked, fixtures]);
-
-  // Check if a player's game has started (for filtering dropdowns).
-  // When PER_GAME_LOCKING is off, always returns false (no per-player filtering).
+  // Check if a player's game has started (for filtering dropdowns) — you can't
+  // pick someone you've already watched play.
   const isPlayerGameStarted = useCallback((playerName, userId, roundNumber) => {
-    if (!PER_GAME_LOCKING) return false;
     const rnd = roundNumber ?? localRound;
     const gameTime = getPlayerGameTime(playerName, userId, rnd);
     if (!gameTime) return false;
@@ -265,13 +182,7 @@ export default function useTeamSelection() {
 
   // Get the next upcoming lockout time for a round (next game that hasn't started yet).
   const getNextLockoutTime = useCallback((roundNumber) => {
-    const roundFixtures = fixtures.filter(f => f.RoundNumber === roundNumber);
-    if (roundFixtures.length === 0) return null;
-    const now = new Date();
-    const upcoming = roundFixtures
-      .filter(f => now < new Date(f.DateUtc))
-      .sort((a, b) => new Date(a.DateUtc) - new Date(b.DateUtc));
-    return upcoming.length > 0 ? new Date(upcoming[0].DateUtc) : null;
+    return nextLockoutTime(fixtures, roundNumber);
   }, [fixtures]);
 
   // True only for Opening Round (Round 0) when games have started — that round is genuinely for fun.
@@ -455,13 +366,10 @@ export default function useTeamSelection() {
     // Bench backup-position (coverage choice) locks at first game kickoff — can't change
     // which position the bench covers once the round has started.
     if (position === 'Bench' && userId !== 'admin') {
-      const roundFixs = fixtures.filter(f => f.RoundNumber === localRound);
-      if (roundFixs.length > 0) {
-        const firstGame = roundFixs.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
-        if (new Date() >= new Date(firstGame.DateUtc)) {
-          console.log('Bench backup position locked (first game started)');
-          return;
-        }
+      const firstGame = firstGameStart(fixtures, localRound);
+      if (firstGame && new Date() >= firstGame) {
+        console.log('Bench backup position locked (first game started)');
+        return;
       }
     }
 
@@ -614,18 +522,23 @@ const saveTeamSelections = useCallback(async () => {
       })
     });
 
-    if (!response.ok) throw new Error('Failed to save team selections');
-    
+    if (!response.ok) {
+      // 409 is the rolling lockout refusing picks whose games have started.
+      const detail = await response.json().catch(() => null);
+      throw new Error(detail?.error || 'Failed to save team selections');
+    }
+
     setTeams(editedTeams);
     setIsEditing(false);
     setChangedPositions({});
+    refreshLockStatus();
     return true;
   } catch (err) {
     console.error('Error saving team selections:', err);
-    setError('Failed to save changes');
+    setErrorLocal(err.message || 'Failed to save changes');
     return false;
   }
-}, [localRound, isPositionLocked, changedPositions, editedTeams]);
+}, [localRound, isPositionLocked, changedPositions, editedTeams, refreshLockStatus]);
   // Cancel editing and revert changes
   const cancelEditing = useCallback(() => {
     setEditedTeams(teams);
@@ -633,22 +546,32 @@ const saveTeamSelections = useCallback(async () => {
     setChangedPositions({});
   }, [teams]);
 
-  // Start editing — allowed unless the round is fully locked (all games started)
-  const startEditing = useCallback(() => {
+  // Start editing — refused once every game has started, and refused outright
+  // for a player who submitted before the first bounce (their round is committed).
+  const startEditing = useCallback((userId) => {
+    if (userId != null && isFirmlyLocked(userId)) return;
     if (!isRoundLocked(localRound) || currentRound !== localRound) {
       setIsEditing(true);
     }
-  }, [localRound, currentRound, isRoundLocked]);
+  }, [localRound, currentRound, isRoundLocked, isFirmlyLocked]);
 
-  // Fetch player scores from consolidated results once any game in the round has started.
-  // Builds a map { userId: { playerName: score } } used to display scores on locked positions.
+  // Fetch scores from consolidated results once any game in the round has started.
+  // Feeds two things: per-player scores on locked positions, and the running
+  // team totals behind Around the Grounds. The API decides whose results come
+  // back — a viewer who hasn't submitted only gets their own — so an absent
+  // total means "not yours to see", not zero.
   useEffect(() => {
     if (localRound === null || localRound === undefined) return;
     if (currentRound !== null && localRound > currentRound) return;
-    const roundFixs = fixtures.filter(f => f.RoundNumber === localRound);
-    if (roundFixs.length === 0) return;
-    const firstGame = roundFixs.reduce((min, f) => f.DateUtc < min.DateUtc ? f : min);
-    if (new Date() < new Date(firstGame.DateUtc)) return; // round hasn't started
+    const firstGame = firstGameStart(fixtures, localRound);
+    if (!firstGame || new Date() < firstGame) {
+      // Round hasn't started — drop whatever the previous round left behind so
+      // it can't show up against this one's names.
+      setPlayerScores({});
+      setTeamTotals({});
+      setLiveUserIds([]);
+      return;
+    }
 
     let cancelled = false;
     fetch(`/api/consolidated-round-results?round=${localRound}&year=${selectedYear}`)
@@ -656,14 +579,20 @@ const saveTeamSelections = useCallback(async () => {
       .then(data => {
         if (cancelled || !data?.results) return;
         const scores = {};
+        const totals = {};
+        const live = [];
         Object.entries(data.results).forEach(([userId, result]) => {
           scores[userId] = {};
           (result.positions || []).forEach(pos => {
             const name = pos.originalPlayerName || pos.playerName;
             if (name) scores[userId][name] = pos.originalScore ?? pos.score ?? 0;
           });
+          totals[userId] = result.totalScore ?? 0;
+          if ((result.positions || []).some(pos => pos.isGameLive)) live.push(String(userId));
         });
         setPlayerScores(scores);
+        setTeamTotals(totals);
+        setLiveUserIds(live);
       })
       .catch(() => {}); // supplementary — silent fail
     return () => { cancelled = true; };
@@ -679,6 +608,8 @@ const saveTeamSelections = useCallback(async () => {
     teams: isEditing ? editedTeams : teams,
     squads,
     playerScores,
+    teamTotals,
+    liveUserIds,
     isEditing,
     loading: loadingLocal,
     error: errorLocal,
@@ -689,11 +620,17 @@ const saveTeamSelections = useCallback(async () => {
     isLateSubmission: isLateSubmission(localRound),
     isPastYear,
 
-    // Per-game locking
+    // Lockout
     isPositionLocked,
     getPositionLockReason,
     isPlayerGameStarted,
+    isFirmlyLocked,
     getNextLockoutTime: () => getNextLockoutTime(localRound),
+
+    // Who's locked in across the comp — drives Around the Grounds
+    lockStatus,
+    lockUsers,
+    refreshLockStatus,
 
     // Actions
     handleRoundChange,

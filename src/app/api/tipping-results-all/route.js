@@ -3,7 +3,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
-import { isRoundLocked } from '@/app/lib/roundAccess';
+import { canSeeOthers } from '@/app/lib/submissionStatus';
 
 export async function GET(request) {
   try {
@@ -113,29 +113,28 @@ export async function GET(request) {
       };
     }
 
-    // Privacy: before the requested round locks, a logged-in player sees only
-    // their OWN round tips; everyone else's current-round picks are redacted
-    // (year totals come from already-completed rounds, so they stay). Admin and
-    // post-lockout requests see all; a not-logged-in request sees no round tips.
+    // Privacy: everyone's round tips open up at the first bounce — but only to
+    // viewers who got their own tips in before it. A viewer still entering tips
+    // under the rolling window sees only their own, otherwise the concession
+    // would hand them everyone else's picks to copy. Year totals come from
+    // already-completed rounds, so they stay either way. Admin sees all.
     const sess = getSessionUser(request);
     const isAdmin = sess && sess.uid === ADMIN_UID;
-    if (!isAdmin) {
-      const locked = await isRoundLocked(roundNum, collectionYear);
-      if (!locked) {
-        const ownId = sess && sess.uid ? Number(sess.uid) : null;
-        for (const uid of Object.keys(users)) {
-          if (Number(uid) !== ownId) {
-            users[uid].round = {
-              matches: [],
-              correctTips: 0,
-              deadCertScore: 0,
-              totalScore: 0,
-              hidden: true,
-            };
-          }
-        }
-        return NextResponse.json({ users, restricted: true });
+    const ownId = sess && sess.uid ? Number(sess.uid) : null;
+    const canSee = await canSeeOthers(db, 'tips', roundNum, { isAdmin, viewerId: ownId }, collectionYear);
+
+    if (!canSee) {
+      for (const uid of Object.keys(users)) {
+        if (Number(uid) === ownId) continue;
+        users[uid].round = {
+          matches: [],
+          correctTips: 0,
+          deadCertScore: 0,
+          totalScore: 0,
+          hidden: true,
+        };
       }
+      return NextResponse.json({ users, restricted: true });
     }
 
     return NextResponse.json({ users });
