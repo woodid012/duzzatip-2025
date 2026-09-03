@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import {
-  isMatchLocked as isMatchLockedFn,
+  isFirmlyLocked as isFirmlyLockedFn,
   isRoundFullyLocked,
   isRoundPartiallyLocked as isRoundPartiallyLockedFn,
+  isTipLocked,
+  lockedTipMatchNumbers,
   nextLockoutTime,
-  startedMatchNumbers,
 } from '@/app/lib/rollingLockout';
+import useRoundLockStatus from '@/app/hooks/useRoundLockStatus';
 
 export default function useTipping(initialUserId = '', { isAdmin = false } = {}) {
   const { currentRound, roundInfo, fixtures, changeRound, selectedYear, isPastYear } = useAppContext();
@@ -20,6 +22,9 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
   // Local round state - initialized from global current round but can be changed independently
   const [localRound, setLocalRound] = useState(null);
   const [userChangedRound, setUserChangedRound] = useState(false);
+
+  // Whether tips were in before the first bounce — firm lock if so, rolling if not.
+  const { users: lockUsers, refresh: refreshLockStatus } = useRoundLockStatus(localRound, selectedYear);
 
   // State for user and tips
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
@@ -62,26 +67,43 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
     }
   }, [initialUserId, selectedUserId]);
 
-  // Rolling lockout: each match's tip (and its dead cert) locks the moment that
-  // match commences. Matches later in the round stay editable until their own
-  // bounce, so a round is only fully locked once every game has started.
+  // Did this player get tips in before the first bounce? If so they're locked to
+  // them for the round; if not, the rolling window lets them tip games still to
+  // come. Admin is never locked.
+  const submittedOnTime = !isAdmin && !!lockUsers?.[String(selectedUserId)]?.submittedTips;
+
+  // A tip (and its dead cert) locks at its own match's bounce for a player who
+  // missed the deadline; for a player who submitted, the whole round locks at
+  // the first bounce.
   const isMatchLocked = (matchNumber, round = localRound) => {
     if (isAdmin) return false;
     if (round > currentRound) return false;
-    return isMatchLockedFn(fixtures, round, matchNumber);
+    return isTipLocked(fixtures, round, matchNumber, { submittedOnTime });
   };
 
+  // Nothing left to edit: either every game has started, or this player
+  // submitted on time and the round has begun.
   const isRoundLocked = (round) => {
     if (isAdmin) return false;
     if (round > currentRound) return false;
+    if (isFirmlyLockedFn({ fixtures, round, submittedOnTime })) return true;
     return isRoundFullyLocked(fixtures, round);
   };
 
-  // Some games have started, others haven't — tips are partly locked.
+  // Some games have started, others haven't — only meaningful for a player still
+  // in the rolling window; a submitter is simply locked.
   const isRoundPartiallyLocked = (round) => {
-    if (isAdmin) return false;
+    if (isAdmin || submittedOnTime) return false;
     if (round > currentRound) return false;
     return isRoundPartiallyLockedFn(fixtures, round);
+  };
+
+  // True when this player is shut out because they submitted, rather than
+  // because every game has started — the UI says so differently.
+  const isFirmlyLocked = (round = localRound) => {
+    if (isAdmin) return false;
+    if (round > currentRound) return false;
+    return isFirmlyLockedFn({ fixtures, round, submittedOnTime });
   };
 
   // The next bounce that will lock more tips, or null once they're all locked.
@@ -259,10 +281,12 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
       return false;
     }
 
-    // Rolling lockout: only send tips for matches that haven't bounced yet. The
-    // API refuses locked matches anyway, but there's no point shipping picks we
-    // know it will drop — and it keeps the saved-vs-shown state honest.
-    const locked = isAdmin ? new Set() : startedMatchNumbers(fixtures, localRound);
+    // Send only what's still open — every match for a player inside the rolling
+    // window, nothing at all for one who submitted on time. The API refuses the
+    // rest anyway; not shipping it keeps the saved-vs-shown state honest.
+    const locked = isAdmin
+      ? new Set()
+      : lockedTipMatchNumbers(fixtures, localRound, { submittedOnTime });
     const tipsToSave = Object.fromEntries(
       Object.entries(editedTips).filter(([matchNumber]) => !locked.has(Number(matchNumber)))
     );
@@ -279,8 +303,7 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
         body: JSON.stringify({
           round: localRound,
           userId: selectedUserId,
-          tips: tipsToSave,
-          lastUpdated: new Date().toISOString()
+          tips: tipsToSave
         })
       });
 
@@ -296,6 +319,7 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
       // Set last edited time to current time
       setLastEditedTime(new Date());
       
+      refreshLockStatus();
       setSuccessMessage('Tips saved successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
       return true;
@@ -366,8 +390,9 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
     isLateSubmission: isLateSubmission(localRound),
     isPastYear,
 
-    // Rolling lockout
+    // Lockout
     isMatchLocked,
+    isFirmlyLocked: isFirmlyLocked(localRound),
     getNextLockoutTime: () => getNextLockoutTime(localRound),
 
     // Display helpers

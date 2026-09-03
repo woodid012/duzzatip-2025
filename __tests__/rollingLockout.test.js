@@ -2,13 +2,18 @@ import {
   clubGameStart,
   filterWritablePositions,
   firstGameStart,
+  hasRoundStarted,
+  isFirmlyLocked,
   isMatchLocked,
   isPositionLocked,
   isRoundFullyLocked,
   isRoundPartiallyLocked,
+  isTipLocked,
+  lockedTipMatchNumbers,
   nextLockoutTime,
   positionLockReason,
   startedMatchNumbers,
+  tipLockReason,
 } from '../src/app/lib/rollingLockout';
 
 // A three-game round spread across a weekend: Friday night, Saturday
@@ -260,5 +265,67 @@ describe('filterWritablePositions', () => {
     );
     expect(Object.keys(allowed)).toEqual(['Midfielder']);
     expect(rejected.map(r => r.position)).toEqual(['Full Forward']);
+  });
+});
+
+
+// ── The submission gate ─────────────────────────────────────────────────────
+// Rolling lockout is a concession for players who missed the deadline. Anyone
+// who got their picks in on time is locked firmly at the first bounce.
+describe('submitted on time means a firm lock', () => {
+  const submitted = { submittedOnTime: true };
+  const missed = { submittedOnTime: false };
+
+  test('nothing is locked for anyone before the first bounce', () => {
+    expect(hasRoundStarted(fixtures, 5, BEFORE_FRI)).toBe(false);
+    expect(isFirmlyLocked({ fixtures, round: 5, submittedOnTime: true, now: BEFORE_FRI })).toBe(false);
+    expect(isTipLocked(fixtures, 5, 41, { ...submitted, now: BEFORE_FRI })).toBe(false);
+  });
+
+  test('a submitter is locked out of the whole round at the first bounce', () => {
+    expect(isFirmlyLocked({ fixtures, round: 5, submittedOnTime: true, now: AFTER_FRI })).toBe(true);
+    // Sunday's game hasn't started, but a submitter can't touch it.
+    expect(tipLockReason(fixtures, 5, 43, { ...submitted, now: AFTER_FRI })).toBe('Tips submitted');
+    expect([...lockedTipMatchNumbers(fixtures, 5, { ...submitted, now: AFTER_FRI })])
+      .toEqual([41, 42, 43]);
+  });
+
+  test('a non-submitter keeps the rolling window', () => {
+    expect(isFirmlyLocked({ fixtures, round: 5, submittedOnTime: false, now: AFTER_FRI })).toBe(false);
+    expect(tipLockReason(fixtures, 5, 41, { ...missed, now: AFTER_FRI })).toBe('Game started');
+    expect(tipLockReason(fixtures, 5, 43, { ...missed, now: AFTER_FRI })).toBeNull();
+    expect([...lockedTipMatchNumbers(fixtures, 5, { ...missed, now: AFTER_FRI })]).toEqual([41]);
+  });
+
+  test('team positions follow the same gate', () => {
+    const team = {
+      'Full Forward': { player_name: 'Patrick Cripps' }, // Friday
+      'Ruck': { player_name: 'Isaac Heeney' },           // Sunday
+    };
+    // Submitter: even the Sunday slot is shut.
+    expect(positionLockReason(team, 'Ruck', { ...opts(AFTER_FRI), ...submitted }))
+      .toBe('Team submitted');
+    // Non-submitter: Sunday is still theirs to fill.
+    expect(positionLockReason(team, 'Ruck', { ...opts(AFTER_FRI), ...missed })).toBeNull();
+    // Friday is gone either way.
+    expect(positionLockReason(team, 'Full Forward', { ...opts(AFTER_FRI), ...missed }))
+      .toBe('Game started');
+  });
+
+  test('a submitter\'s save is refused outright', () => {
+    const stored = { 'Midfielder': { player_name: 'Tom Stewart' } }; // Saturday
+    const change = { 'Midfielder': { player_name: 'Jai Newcombe' } };
+
+    // Non-submitter may still change a Saturday pick on Friday night.
+    expect(Object.keys(
+      filterWritablePositions(stored, change, { ...opts(AFTER_FRI), ...missed }).allowed
+    )).toEqual(['Midfielder']);
+
+    // Submitter may not.
+    const { allowed, rejected } = filterWritablePositions(
+      stored, change, { ...opts(AFTER_FRI), ...submitted }
+    );
+    expect(allowed).toEqual({});
+    expect(rejected).toEqual([{ position: 'Midfielder', reason: 'Team submitted' }]);
   });
 });

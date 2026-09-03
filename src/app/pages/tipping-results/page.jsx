@@ -6,18 +6,16 @@ import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 
-// Rolling lockout: a game's tips are committed — and so become public — the
-// moment that game commences. Everything later in the round stays hidden,
-// because it's still editable.
-const fixtureStarted = (fixture) =>
-  fixture?.DateUtc ? new Date() >= new Date(fixture.DateUtc) : false;
-
 const TippingResultsGrid = () => {
   const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear, fixtures: appFixtures } = useAppContext();
   const { selectedUserId } = useUserContext();
   const [selectedRound, setSelectedRound] = useState(null);
   const [fixtures, setFixtures] = useState([]);
   const [allUserTips, setAllUserTips] = useState({});
+  // The API withholds other players' picks from a viewer who hasn't got their
+  // own tips in. When it does, it says so — and we render "hidden", never a
+  // fabricated home-team default that would read as a real pick.
+  const [restricted, setRestricted] = useState(true);
   const [yearTotals, setYearTotals] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -93,6 +91,7 @@ const TippingResultsGrid = () => {
         );
         if (!response.ok) throw new Error('Failed to load results');
         const data = await response.json();
+        setRestricted(!!data.restricted);
 
         const tipsMap = {};
         const yearTotalsMap = {};
@@ -110,6 +109,7 @@ const TippingResultsGrid = () => {
           });
 
           tipsMap[userId] = {
+            hidden: !!roundData.hidden,
             matches: processedMatches,
             correctTips: roundData.correctTips,
             deadCertScore: roundData.deadCertScore,
@@ -232,6 +232,7 @@ const TippingResultsGrid = () => {
           setSelectedRound={setSelectedRound}
           displayRound={displayRound}
           selectedRoundInfo={selectedRoundInfo}
+          restricted={restricted}
           fixtures={fixtures}
           allUserTips={allUserTips}
           yearTotals={yearTotals}
@@ -251,6 +252,8 @@ const TippingResultsGrid = () => {
           displayRound={displayRound}
           selectedRoundInfo={selectedRoundInfo}
           isLockoutPassed={isLockoutPassed}
+          restricted={restricted}
+          meId={selectedUserId}
           fixtures={fixtures}
           allUserTips={allUserTips}
           yearTotals={yearTotals}
@@ -346,6 +349,7 @@ function MobileTippingResults({
   setSelectedRound,
   displayRound,
   selectedRoundInfo,
+  restricted,
   fixtures,
   allUserTips,
   yearTotals,
@@ -446,10 +450,11 @@ function MobileTippingResults({
         )}
       </div>
 
-      {/* Rolling lockout notice — picks reveal game by game */}
-      {fixtures.some((f) => !fixtureStarted(f)) && (
+      {/* Everyone's picks open up at the first bounce — to people who got theirs in */}
+      {restricted && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          🔒 Each game&apos;s tips lock — and become visible — when that game starts. Picks for games still to come stay hidden.
+          🔒 Everyone&apos;s tips are revealed at the first bounce — to players who got their own
+          in before it. Yours are shown either way.
         </div>
       )}
 
@@ -464,6 +469,7 @@ function MobileTippingResults({
           meId={meId}
           fixtures={fixtures}
           allUserTips={allUserTips}
+          restricted={restricted}
           getTeamAbbreviation={getTeamAbbreviation}
           getWinningTeam={getWinningTeam}
         />
@@ -503,8 +509,11 @@ function TeamLine({ abbr, name, score, win, completed }) {
 }
 
 // Mobile Fixtures — every team's tip per game, with ✓/✗ and dead-cert badges
-function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getWinningTeam }) {
+function MobileFixtures({ meId, fixtures, allUserTips, restricted, getTeamAbbreviation, getWinningTeam }) {
   const userIds = Object.keys(USER_NAMES);
+  // Whose picks this viewer may see. Your own always; everyone else's only once
+  // the API has released them.
+  const canSee = (uid) => !restricted || String(uid) === String(meId);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -518,9 +527,11 @@ function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getW
 
         let homeCount = 0, awayCount = 0;
         const rows = userIds.map((uid) => {
-          // Hidden matches simply aren't in the payload, so the tally below only
-          // ever counts picks that are already public.
-          const m = allUserTips[uid]?.matches?.find((x) => x.matchNumber === fixture.MatchNumber);
+          // Withheld cards carry no matches at all, so the tally only ever
+          // counts picks this viewer is allowed to see.
+          const m = canSee(uid)
+            ? allUserTips[uid]?.matches?.find((x) => x.matchNumber === fixture.MatchNumber)
+            : undefined;
           if (m?.tip === fixture.HomeTeam) homeCount++;
           else if (m?.tip === fixture.AwayTeam) awayCount++;
           return { uid, m };
@@ -550,15 +561,18 @@ function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getW
             <div className="my-1.5 h-px bg-slate-100" />
             <TeamLine abbr={getTeamAbbreviation(fixture.AwayTeam)} name={fixture.AwayTeam} score={fixture.AwayTeamScore} win={aWin} completed={completed} />
 
-            {started ? (
+            {(
               <>
                 <div className="mt-2.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold tabular-nums text-slate-500">
-                  {homeCount} tipped {getTeamAbbreviation(fixture.HomeTeam)} · {awayCount} tipped {getTeamAbbreviation(fixture.AwayTeam)}
+                  {restricted
+                    ? 'Other players\u2019 tips hidden'
+                    : `${homeCount} tipped ${getTeamAbbreviation(fixture.HomeTeam)} · ${awayCount} tipped ${getTeamAbbreviation(fixture.AwayTeam)}`}
                 </div>
 
                 <div className="mt-2 flex flex-col gap-0.5">
                   {rows.map(({ uid, m }) => {
                     const isMe = String(uid) === String(meId);
+                    const hiddenRow = !canSee(uid);
                     const correct = m?.correct;
                     // No real tip submitted — the app auto-defaults to the home team. Show it
                     // muted with a "def" marker so it doesn't read as a deliberate (correct) pick.
@@ -582,10 +596,16 @@ function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getW
                           </span>
                         </div>
                         <div className="flex items-center justify-end gap-1.5">
-                          <span className={`text-[12px] font-extrabold ${tipColor}`}>{m?.tip ? getTeamAbbreviation(m.tip) : '-'}</span>
-                          {isDefault
-                            ? <span className="text-[8px] font-bold uppercase tracking-wide text-slate-400">def</span>
-                            : <span className={`w-2.5 text-center text-[11px] font-extrabold ${correct === true ? 'text-emerald-600' : 'text-red-600'}`}>{icon}</span>}
+                          {hiddenRow ? (
+                            <span className="text-[12px] text-slate-300">🔒</span>
+                          ) : (
+                            <>
+                              <span className={`text-[12px] font-extrabold ${tipColor}`}>{m?.tip ? getTeamAbbreviation(m.tip) : '-'}</span>
+                              {isDefault
+                                ? <span className="text-[8px] font-bold uppercase tracking-wide text-slate-400">def</span>
+                                : <span className={`w-2.5 text-center text-[11px] font-extrabold ${correct === true ? 'text-emerald-600' : 'text-red-600'}`}>{icon}</span>}
+                            </>
+                          )}
                         </div>
                         {badge
                           ? <span className={`justify-self-end rounded-full border px-1.5 py-px text-[9px] font-extrabold tabular-nums ${badge.c}`}>{badge.t}</span>
@@ -595,8 +615,6 @@ function MobileFixtures({ meId, fixtures, allUserTips, getTeamAbbreviation, getW
                   })}
                 </div>
               </>
-            ) : (
-              <div className="mt-2.5 text-center text-[11px] italic text-slate-400">Tips hidden until this game starts</div>
             )}
           </div>
         );
@@ -665,8 +683,12 @@ function MobileIndividualTips({
   allUserTips, 
   fixtures, 
   getTeamAbbreviation, 
-  getWinningTeam 
+  getWinningTeam,
+  restricted,
+  meId
 }) {
+  // Your own tips always; anyone else's only once the API has released them.
+  const canSee = !restricted || String(selectedUser) === String(meId);
   return (
     <div className="space-y-4">
       {/* User Selection */}
@@ -709,8 +731,7 @@ function MobileIndividualTips({
             const isDeadCert = matchTip?.deadCert;
             const isDefault = matchTip?.isDefault;
             const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
-            // Rolling lockout: this game's tip is only public once it's started.
-            const revealed = fixtureStarted(fixture);
+            const revealed = canSee;
             
             return (
               <div key={fixture.MatchNumber} className="dz-surface p-4">
@@ -810,6 +831,8 @@ function DesktopTippingResults({
   displayRound,
   selectedRoundInfo,
   isLockoutPassed,
+  restricted,
+  meId,
   fixtures,
   allUserTips,
   yearTotals,
@@ -839,26 +862,21 @@ function DesktopTippingResults({
         </select>
       </ScoreboardHeader>
 
-      {/* Rolling lockout status — tips lock and reveal game by game */}
-      {selectedRoundInfo && (() => {
-        const pending = fixtures.filter(f => !fixtureStarted(f));
-        const nextGame = pending[0];
-        return (
-          <div className="mb-8 -mt-2 text-sm">
-            <span className="font-medium">First lockout: </span>
-            <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
-              {selectedRoundInfo.lockoutTime || "Not set"}
-              {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
+      {/* Lockout status — everyone's tips open at the first bounce, to submitters */}
+      {selectedRoundInfo && (
+        <div className="mb-8 -mt-2 text-sm">
+          <span className="font-medium">Lockout: </span>
+          <span className={isLockoutPassed ? "text-emerald-600" : "text-red-600"}>
+            {selectedRoundInfo.lockoutTime || "Not set"}
+            {isLockoutPassed ? " (Passed)" : " (Not yet passed)"}
+          </span>
+          {restricted && (
+            <span className="ml-2 text-slate-600">
+              • Everyone&apos;s tips are revealed at the first bounce, to players who got their own in before it
             </span>
-            {pending.length > 0 && (
-              <span className="ml-2 text-slate-600">
-                • {pending.length} game{pending.length > 1 ? 's' : ''} still to start
-                {nextGame?.DateMelb ? ` — next ${nextGame.DateMelb}` : ''} · those tips stay hidden until they do
-              </span>
-            )}
-          </div>
-        );
-      })()}
+          )}
+        </div>
+      )}
 
       <div className="dz-surface overflow-x-auto">
         <table className="min-w-full">
@@ -971,8 +989,8 @@ function DesktopTippingResults({
                             ${isDefault ? 'italic text-slate-500' : 'font-medium'}
                           `}
                         >
-                          {/* Rolling lockout: reveal only once this game has started */}
-                          {fixtureStarted(fixture) ? (
+                          {/* Released to viewers who got their own tips in */}
+                          {(!restricted || String(userId) === String(meId)) ? (
                             <>
                               {matchTip?.tip ? getTeamAbbreviation(matchTip.tip) : '-'}
                               {isDefault && <span className="ml-1">(Def)</span>}

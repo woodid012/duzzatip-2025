@@ -7,7 +7,7 @@ import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { getAflFixtures, isRoundComplete as checkRoundComplete } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
-import { isRoundLocked } from '@/app/lib/roundAccess';
+import { canSeeOthers } from '@/app/lib/submissionStatus';
 import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
 // Map team abbreviations (from 2026_players) to full fixture names.
 // Includes both our canonical 3-letter codes and the AFL API's 4-letter
@@ -278,18 +278,20 @@ export async function GET(request) {
         // round (the public view only exposes the live/last round, which is
         // already locked). Server-side because the browser must never receive
         // other players' pre-lockout selections.
+        // Live scores for everyone else open up at the first bounce, to viewers
+        // who got their own team in before it. A viewer still filling slots under
+        // the rolling window sees only their own scores — seeing what everyone
+        // else is running would be the thing worth copying.
         const sess = getSessionUser(request);
         const isAdmin = sess && sess.uid === ADMIN_UID;
-        if (!isAdmin) {
-            const locked = await isRoundLocked(round, year);
-            if (!locked) {
-                const ownId = sess && sess.uid ? String(sess.uid) : null;
-                const filtered = {};
-                if (ownId && responseData.results[ownId]) filtered[ownId] = responseData.results[ownId];
-                responseData.results = filtered;
-                responseData.summary = { restricted: true, totalPlayers: Object.keys(filtered).length };
-                responseData.restricted = true;
-            }
+        const ownId = sess && sess.uid ? String(sess.uid) : null;
+        const canSee = await canSeeOthers(db, 'team', round, { isAdmin, viewerId: ownId }, year);
+        if (!canSee) {
+            const filtered = {};
+            if (ownId && responseData.results[ownId]) filtered[ownId] = responseData.results[ownId];
+            responseData.results = filtered;
+            responseData.summary = { restricted: true, totalPlayers: Object.keys(filtered).length };
+            responseData.restricted = true;
         }
 
         return Response.json(responseData);

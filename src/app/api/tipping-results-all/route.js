@@ -3,7 +3,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
-import { startedMatchNumbers } from '@/app/lib/rollingLockout';
+import { canSeeOthers } from '@/app/lib/submissionStatus';
 
 export async function GET(request) {
   try {
@@ -113,36 +113,28 @@ export async function GET(request) {
       };
     }
 
-    // Privacy under rolling lockout: a match's picks become public the moment
-    // that match commences, and not a second earlier. A logged-in player always
-    // sees their OWN full round; for everyone else's card, matches yet to bounce
-    // are redacted while the ones already underway show — so the board fills in
-    // game by game instead of all at once. Year totals come from completed
-    // rounds, so they're never affected. Admin sees everything.
+    // Privacy: everyone's round tips open up at the first bounce — but only to
+    // viewers who got their own tips in before it. A viewer still entering tips
+    // under the rolling window sees only their own, otherwise the concession
+    // would hand them everyone else's picks to copy. Year totals come from
+    // already-completed rounds, so they stay either way. Admin sees all.
     const sess = getSessionUser(request);
     const isAdmin = sess && sess.uid === ADMIN_UID;
-    if (!isAdmin) {
-      const started = startedMatchNumbers(fixtures, roundNum);
-      const allStarted = roundFixtures.length > 0 && started.size === roundFixtures.length;
-      if (!allStarted) {
-        const ownId = sess && sess.uid ? Number(sess.uid) : null;
-        for (const uid of Object.keys(users)) {
-          if (Number(uid) === ownId) continue;
-          const visible = users[uid].round.matches.filter(m =>
-            started.has(Number(m.matchNumber))
-          );
-          const scores = computeScores(visible.filter(m => m.isCompleted));
-          users[uid].round = {
-            matches: visible,
-            correctTips: scores.correctTips,
-            deadCertScore: scores.deadCertScore,
-            totalScore: scores.correctTips + scores.deadCertScore,
-            // Something in this round is still hidden — the games yet to start.
-            hidden: visible.length < users[uid].round.matches.length,
-          };
-        }
-        return NextResponse.json({ users, restricted: true });
+    const ownId = sess && sess.uid ? Number(sess.uid) : null;
+    const canSee = await canSeeOthers(db, 'tips', roundNum, { isAdmin, viewerId: ownId }, collectionYear);
+
+    if (!canSee) {
+      for (const uid of Object.keys(users)) {
+        if (Number(uid) === ownId) continue;
+        users[uid].round = {
+          matches: [],
+          correctTips: 0,
+          deadCertScore: 0,
+          totalScore: 0,
+          hidden: true,
+        };
       }
+      return NextResponse.json({ users, restricted: true });
     }
 
     return NextResponse.json({ users });

@@ -11,6 +11,7 @@ import TipsTab from './components/TipsTab';
 import BracketTab from './components/BracketTab';
 import PoolTab from './components/PoolTab';
 import EnterTab from './components/EnterTab';
+import ResultsTab from './components/ResultsTab';
 
 // Desktop keeps Team/Tips as separate tabs (each with its own save). Mobile
 // merges them into one "Enter" tab with a single combined save — see
@@ -18,11 +19,13 @@ import EnterTab from './components/EnterTab';
 const DESKTOP_TABS = [
   { id: 'team', label: 'My Team' },
   { id: 'tips', label: 'Tips' },
+  { id: 'results', label: 'Results' },
   { id: 'bracket', label: 'Bracket' },
   { id: 'pool', label: 'Pool' },
 ];
 const MOBILE_TABS = [
   { id: 'enter', label: 'Enter' },
+  { id: 'results', label: 'Results' },
   { id: 'bracket', label: 'Bracket' },
   { id: 'pool', label: 'Pool' },
 ];
@@ -235,6 +238,14 @@ export default function DuzzaFinalsPage() {
                 handleDeadCertToggle={handleDeadCertToggle}
               />
             )}
+            {activeTab === 'results' && (
+              <ResultsTab
+                activeWeek={activeWeek}
+                selectedEntrantId={selectedEntrantId}
+                weekLabel={currentWeekOption?.display}
+                fixturesKnown={fixturesKnown}
+              />
+            )}
             {activeTab === 'bracket' && (
               <BracketTab
                 bracket={bracket}
@@ -296,6 +307,14 @@ export default function DuzzaFinalsPage() {
                 startEditingEntry={startEditingEntry}
                 cancelEditingEntry={cancelEditingEntry}
                 saveEntry={handleSaveEntry}
+              />
+            )}
+            {mobileTab === 'results' && (
+              <ResultsTab
+                activeWeek={activeWeek}
+                selectedEntrantId={selectedEntrantId}
+                weekLabel={currentWeekOption?.display}
+                fixturesKnown={fixturesKnown}
               />
             )}
             {mobileTab === 'bracket' && (

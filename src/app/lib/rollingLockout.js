@@ -1,14 +1,21 @@
 // src/app/lib/rollingLockout.js
 //
-// Rolling lockout. The old rule was all-or-nothing: the moment the first game
-// of a round bounced, the whole round slammed shut — teams AND tips — even for
-// games three days away. The rolling rule locks each pick as its own game
-// commences:
+// Rolling lockout — a concession, not the default.
+//
+// If you got your team and tips in before the first bounce, nothing changes for
+// you: everything locks firmly at the first bounce, exactly as it always did.
+// You did the work by the deadline and your round is committed.
+//
+// Rolling lockout exists only for players who DIDN'T submit. Rather than being
+// shut out of the whole round, they may still enter picks for games that haven't
+// started yet:
 //
 //   • a selected player locks when that player's club game starts
 //   • a tip (and its dead cert) locks when that match starts
 //
-// Everything else in the round stays editable until its own kick-off.
+// They're already down whatever the early games were worth, so there's nothing
+// to farm — and they don't get to see anyone else's picks while they're still
+// entering their own.
 //
 // These helpers are deliberately pure and dependency-free so the same rules run
 // in the browser (to grey out controls) and on the server (to actually enforce
@@ -124,6 +131,49 @@ export function isRoundPartiallyLocked(fixtures, round, now) {
 }
 
 /**
+ * Has the round's first game started? Below this line nothing is locked for
+ * anybody; above it, whether you're locked depends on whether you submitted.
+ */
+export function hasRoundStarted(fixtures, round, now) {
+  const first = firstGameStart(fixtures, round);
+  return first ? nowMs(now) >= first.getTime() : false;
+}
+
+/**
+ * A player who submitted before the first bounce is locked firmly from that
+ * moment — the whole round, not game by game. Rolling lockout is only for
+ * players who didn't submit.
+ */
+export function isFirmlyLocked({ fixtures, round, submittedOnTime, now } = {}) {
+  if (!submittedOnTime) return false;
+  return hasRoundStarted(fixtures, round, now);
+}
+
+/**
+ * Why a tip (and its dead cert) can't be changed, or null if it's still open.
+ * `submittedOnTime` means the player had tips saved before the first bounce.
+ */
+export function tipLockReason(fixtures, round, matchNumber, { now, submittedOnTime } = {}) {
+  if (isFirmlyLocked({ fixtures, round, submittedOnTime, now })) return 'Tips submitted';
+  return isMatchLocked(fixtures, round, matchNumber, now) ? 'Game started' : null;
+}
+
+export function isTipLocked(fixtures, round, matchNumber, opts) {
+  return tipLockReason(fixtures, round, matchNumber, opts) !== null;
+}
+
+/**
+ * Every match number in the round whose tip may no longer be written — all of
+ * them once a player is firmly locked, otherwise just the ones underway.
+ */
+export function lockedTipMatchNumbers(fixtures, round, { now, submittedOnTime } = {}) {
+  if (isFirmlyLocked({ fixtures, round, submittedOnTime, now })) {
+    return new Set(roundFixtures(fixtures, round).map((f) => Number(f.MatchNumber)));
+  }
+  return startedMatchNumbers(fixtures, round, now);
+}
+
+/**
  * Kick-off of a club's game in a round, or null on a bye / unknown club.
  * Accepts either the squad's club code ("GEE") or a fixture's club name.
  */
@@ -145,7 +195,11 @@ export function clubGameStart(fixtures, round, club) {
  * backup_position } }. `clubOf(playerName)` resolves a player to their club
  * (code or name); returning null means bye/unknown, which never locks.
  *
- * Three rules, in order:
+ * Rule 0 comes first: if this player submitted before the first bounce, the
+ * whole team is locked from the bounce. Rolling lockout below is only reached
+ * by players who didn't submit.
+ *
+ * Then, in order:
  *   1. An empty slot locks at the round's first bounce — you can't fill a hole
  *      after seeing how the round is going.
  *   2. A filled slot locks when that player's own game starts.
@@ -153,7 +207,10 @@ export function clubGameStart(fixtures, round, club) {
  *      locks too. Otherwise you could swap in a player you know didn't play and
  *      farm the reserve's score after the fact.
  */
-export function positionLockReason(team, position, { fixtures, round, clubOf, now } = {}) {
+export function positionLockReason(team, position, { fixtures, round, clubOf, now, submittedOnTime } = {}) {
+  // Rule 0 — submitted on time, so the round is committed
+  if (isFirmlyLocked({ fixtures, round, submittedOnTime, now })) return 'Team submitted';
+
   const userTeam = team || {};
   const playerName = userTeam[position]?.player_name;
   const playerStarted = (name) => {
@@ -199,12 +256,12 @@ export function isPositionLocked(team, position, opts) {
  *
  * Returns { allowed, rejected: [{ position, reason }] }.
  */
-export function filterWritablePositions(storedTeam, incomingPositions, { fixtures, round, clubOf, now } = {}) {
+export function filterWritablePositions(storedTeam, incomingPositions, { fixtures, round, clubOf, now, submittedOnTime } = {}) {
   const allowed = {};
   const rejected = [];
 
   for (const [position, data] of Object.entries(incomingPositions || {})) {
-    const reason = positionLockReason(storedTeam, position, { fixtures, round, clubOf, now });
+    const reason = positionLockReason(storedTeam, position, { fixtures, round, clubOf, now, submittedOnTime });
     if (reason) {
       rejected.push({ position, reason });
       continue;

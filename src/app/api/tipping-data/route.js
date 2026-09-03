@@ -4,8 +4,8 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
-import { startedMatchNumbers } from '@/app/lib/roundAccess';
-import { startedMatchNumbers as startedMatchNumbersFor } from '@/app/lib/rollingLockout';
+import { lockedTipMatchNumbers } from '@/app/lib/rollingLockout';
+import { canSeeOthers, didSubmitOnTime } from '@/app/lib/submissionStatus';
 
 export async function GET(request) {
   try {
@@ -30,18 +30,18 @@ export async function GET(request) {
           Active: 1
         }).toArray();
 
-      // Privacy under rolling lockout: the owner (and admin) always see their
-      // own tips. Anyone else sees a match's tip only once that match has
-      // commenced — a tip that's still editable must stay unseen, or rivals
-      // could read it and re-tip the same game.
+      // Privacy: you always see your own tips. You see everyone else's from the
+      // first bounce — but only if you got your own tips in before it. A viewer
+      // still entering tips under the rolling window sees nobody's, or the
+      // concession would just be a licence to copy.
       const sess = getSessionUser(request);
       const isAdmin = sess && sess.uid === ADMIN_UID;
       const ownId = sess && sess.uid ? Number(sess.uid) : null;
-      const canSeeAll = isAdmin || ownId === parseInt(userId);
-      const started = canSeeAll ? null : await startedMatchNumbers(parseInt(round), year);
-      const visibleTips = canSeeAll
-        ? tips
-        : tips.filter((t) => started.has(Number(t.MatchNumber)));
+      const canSeeAll =
+        isAdmin ||
+        ownId === parseInt(userId) ||
+        (await canSeeOthers(db, 'tips', parseInt(round), { isAdmin, viewerId: ownId }, year));
+      const visibleTips = canSeeAll ? tips : [];
 
       // Get last updated time (only when the viewer may see this user's tips)
       const lastUpdate = canSeeAll
@@ -100,7 +100,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { round, userId, tips, lastUpdated, year: bodyYear } = await request.json();
+    const { round, userId, tips, year: bodyYear } = await request.json();
 
     // Block writes for past years
     const blocked = blockWritesForPastYear(bodyYear || CURRENT_YEAR);
@@ -118,17 +118,23 @@ export async function POST(request) {
     const roundNum = parseInt(round);
     const userNum = parseInt(userId);
 
-    // Rolling lockout, enforced here rather than trusted from the client: once a
-    // match has commenced its tip and dead cert are final, but every match still
-    // to come stays editable. Locked matches are dropped from the payload — the
-    // stored tip for them is left exactly as it was.
+    // Lockout, enforced here rather than trusted from the client. A player who
+    // had tips in before the first bounce is locked to them for the whole round.
+    // A player who missed the deadline may still tip matches that haven't
+    // started. Either way, locked matches are dropped from the payload and their
+    // stored tip is left exactly as it was.
     // blockWritesForPastYear above guarantees this is the current season, which
     // is also the season the collections above are keyed to.
     const fixtures = await getAflFixtures(CURRENT_YEAR);
     const roundMatchNumbers = fixtures
       .filter(f => Number(f.RoundNumber) === roundNum)
       .map(f => Number(f.MatchNumber));
-    const locked = isAdmin ? new Set() : startedMatchNumbersFor(fixtures, roundNum);
+    const submittedOnTime = isAdmin
+      ? false
+      : await didSubmitOnTime(db, 'tips', roundNum, userNum, CURRENT_YEAR);
+    const locked = isAdmin
+      ? new Set()
+      : lockedTipMatchNumbers(fixtures, roundNum, { submittedOnTime });
 
     const writableTips = Object.entries(tips || {}).filter(
       ([matchNumber, tipData]) => tipData && tipData.team && !locked.has(parseInt(matchNumber))
@@ -170,7 +176,10 @@ export async function POST(request) {
               Team: tipData.team,
               DeadCert: tipData.deadCert || false,
               Active: 1,
-              LastUpdated: lastUpdated ? new Date(lastUpdated) : new Date(),
+              // Stamped server-side, never from the request body. This
+              // timestamp decides who counts as an on-time submitter, so a
+              // backdated one would buy a late entrant the whole field's tips.
+              LastUpdated: new Date(),
               IsDefault: tipData.isDefault || false
             }
           },
@@ -186,8 +195,9 @@ export async function POST(request) {
 
     if (rejected.length > 0) {
       console.log(
-        `Rolling lockout: ignored tips for already-started match(es) ${rejected.join(', ')} ` +
-        `(user ${userNum}, round ${roundNum})`
+        `Lockout: ignored tips for match(es) ${rejected.join(', ')} ` +
+        `(user ${userNum}, round ${roundNum}) — ` +
+        (submittedOnTime ? 'tips were submitted before the first bounce' : 'those games have started')
       );
     }
 
@@ -213,6 +223,8 @@ export async function POST(request) {
       saved: writableTips.map(([matchNumber]) => parseInt(matchNumber)),
       // Matches whose game had already commenced — their stored tips are final.
       lockedOut: rejected,
+      // True when the whole round was refused because tips were in on time.
+      firmlyLocked: submittedOnTime && rejected.length > 0,
     });
   } catch (error) {
     console.error('Error saving tips:', error);

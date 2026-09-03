@@ -6,11 +6,13 @@ import { CURRENT_YEAR } from '@/app/lib/constants';
 import {
   clubGameStart,
   firstGameStart,
+  isFirmlyLocked as isFirmlyLockedFn,
   isRoundFullyLocked,
   isRoundPartiallyLocked as isRoundPartiallyLockedFn,
   nextLockoutTime,
   positionLockReason as positionLockReasonFn,
 } from '@/app/lib/rollingLockout';
+import useRoundLockStatus from '@/app/hooks/useRoundLockStatus';
 
 export default function useTeamSelection() {
   const {
@@ -25,10 +27,16 @@ export default function useTeamSelection() {
   const [localRound, setLocalRound] = useState(null);
   const [userChangedRound, setUserChangedRound] = useState(false);
 
+  // Who submitted before the first bounce — decides firm lock vs rolling window.
+  const { status: lockStatus, users: lockUsers, refresh: refreshLockStatus } =
+    useRoundLockStatus(localRound, selectedYear);
+
   const [teams, setTeams] = useState({});
   const [editedTeams, setEditedTeams] = useState({});
   const [squads, setSquads] = useState({});
   const [playerScores, setPlayerScores] = useState({});
+  const [teamTotals, setTeamTotals] = useState({});
+  const [liveUserIds, setLiveUserIds] = useState([]);
   const [changedPositions, setChangedPositions] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [loadingLocal, setLoadingLocal] = useState(true);
@@ -124,6 +132,12 @@ export default function useTeamSelection() {
     return clubGameStart(fixtures, roundNumber, clubOfFor(userId)(playerName));
   }, [fixtures, clubOfFor]);
 
+  // Did this player get their team in before the first bounce? If so they're
+  // locked to it for the round; if not, the rolling window applies.
+  const submittedOnTimeFor = useCallback((userId) => {
+    return !!lockUsers?.[String(userId)]?.submittedTeam;
+  }, [lockUsers]);
+
   // Why this position is locked, or null if it's still editable. The rules live
   // in lib/rollingLockout so the API enforces exactly what the UI shows.
   const getPositionLockReason = useCallback((userId, position, roundNumber) => {
@@ -136,12 +150,26 @@ export default function useTeamSelection() {
       fixtures,
       round: rnd,
       clubOf: clubOfFor(userId),
+      submittedOnTime: submittedOnTimeFor(userId),
     });
-  }, [localRound, currentRound, teams, editedTeams, isEditing, clubOfFor, fixtures]);
+  }, [localRound, currentRound, teams, editedTeams, isEditing, clubOfFor, fixtures, submittedOnTimeFor]);
 
   const isPositionLocked = useCallback((userId, position, roundNumber) => {
     return getPositionLockReason(userId, position, roundNumber) !== null;
   }, [getPositionLockReason]);
+
+  // This player submitted on time, so their whole team shut at the first bounce
+  // — no rolling window, nothing left to edit for the round.
+  const isFirmlyLocked = useCallback((userId, roundNumber) => {
+    const rnd = roundNumber ?? localRound;
+    if (rnd === null || rnd === undefined) return false;
+    if (rnd > currentRound) return false;
+    return isFirmlyLockedFn({
+      fixtures,
+      round: rnd,
+      submittedOnTime: submittedOnTimeFor(userId),
+    });
+  }, [localRound, currentRound, fixtures, submittedOnTimeFor]);
 
   // Check if a player's game has started (for filtering dropdowns) — you can't
   // pick someone you've already watched play.
@@ -503,13 +531,14 @@ const saveTeamSelections = useCallback(async () => {
     setTeams(editedTeams);
     setIsEditing(false);
     setChangedPositions({});
+    refreshLockStatus();
     return true;
   } catch (err) {
     console.error('Error saving team selections:', err);
     setErrorLocal(err.message || 'Failed to save changes');
     return false;
   }
-}, [localRound, isPositionLocked, changedPositions, editedTeams]);
+}, [localRound, isPositionLocked, changedPositions, editedTeams, refreshLockStatus]);
   // Cancel editing and revert changes
   const cancelEditing = useCallback(() => {
     setEditedTeams(teams);
@@ -517,20 +546,32 @@ const saveTeamSelections = useCallback(async () => {
     setChangedPositions({});
   }, [teams]);
 
-  // Start editing — allowed unless the round is fully locked (all games started)
-  const startEditing = useCallback(() => {
+  // Start editing — refused once every game has started, and refused outright
+  // for a player who submitted before the first bounce (their round is committed).
+  const startEditing = useCallback((userId) => {
+    if (userId != null && isFirmlyLocked(userId)) return;
     if (!isRoundLocked(localRound) || currentRound !== localRound) {
       setIsEditing(true);
     }
-  }, [localRound, currentRound, isRoundLocked]);
+  }, [localRound, currentRound, isRoundLocked, isFirmlyLocked]);
 
-  // Fetch player scores from consolidated results once any game in the round has started.
-  // Builds a map { userId: { playerName: score } } used to display scores on locked positions.
+  // Fetch scores from consolidated results once any game in the round has started.
+  // Feeds two things: per-player scores on locked positions, and the running
+  // team totals behind Around the Grounds. The API decides whose results come
+  // back — a viewer who hasn't submitted only gets their own — so an absent
+  // total means "not yours to see", not zero.
   useEffect(() => {
     if (localRound === null || localRound === undefined) return;
     if (currentRound !== null && localRound > currentRound) return;
     const firstGame = firstGameStart(fixtures, localRound);
-    if (!firstGame || new Date() < firstGame) return; // round hasn't started
+    if (!firstGame || new Date() < firstGame) {
+      // Round hasn't started — drop whatever the previous round left behind so
+      // it can't show up against this one's names.
+      setPlayerScores({});
+      setTeamTotals({});
+      setLiveUserIds([]);
+      return;
+    }
 
     let cancelled = false;
     fetch(`/api/consolidated-round-results?round=${localRound}&year=${selectedYear}`)
@@ -538,14 +579,20 @@ const saveTeamSelections = useCallback(async () => {
       .then(data => {
         if (cancelled || !data?.results) return;
         const scores = {};
+        const totals = {};
+        const live = [];
         Object.entries(data.results).forEach(([userId, result]) => {
           scores[userId] = {};
           (result.positions || []).forEach(pos => {
             const name = pos.originalPlayerName || pos.playerName;
             if (name) scores[userId][name] = pos.originalScore ?? pos.score ?? 0;
           });
+          totals[userId] = result.totalScore ?? 0;
+          if ((result.positions || []).some(pos => pos.isGameLive)) live.push(String(userId));
         });
         setPlayerScores(scores);
+        setTeamTotals(totals);
+        setLiveUserIds(live);
       })
       .catch(() => {}); // supplementary — silent fail
     return () => { cancelled = true; };
@@ -561,6 +608,8 @@ const saveTeamSelections = useCallback(async () => {
     teams: isEditing ? editedTeams : teams,
     squads,
     playerScores,
+    teamTotals,
+    liveUserIds,
     isEditing,
     loading: loadingLocal,
     error: errorLocal,
@@ -571,11 +620,17 @@ const saveTeamSelections = useCallback(async () => {
     isLateSubmission: isLateSubmission(localRound),
     isPastYear,
 
-    // Per-game locking
+    // Lockout
     isPositionLocked,
     getPositionLockReason,
     isPlayerGameStarted,
+    isFirmlyLocked,
     getNextLockoutTime: () => getNextLockoutTime(localRound),
+
+    // Who's locked in across the comp — drives Around the Grounds
+    lockStatus,
+    lockUsers,
+    refreshLockStatus,
 
     // Actions
     handleRoundChange,

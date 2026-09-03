@@ -2,9 +2,12 @@
 
 import { useAppContext } from '@/app/context/AppContext';
 import { isRoundFullyLocked, nextLockoutTime } from '@/app/lib/rollingLockout';
+import useRoundLockStatus from '@/app/hooks/useRoundLockStatus';
 
 export default function RoundStatus() {
-  const { roundInfo, fixtures, loading, isPastYear } = useAppContext();
+  const { roundInfo, fixtures, loading, isPastYear, selectedYear } = useAppContext();
+  const { viewerSubmittedTeam, viewerSubmittedTips, roundStarted } =
+    useRoundLockStatus(roundInfo?.currentRound, selectedYear);
 
   if (isPastYear || loading.fixtures || !roundInfo || roundInfo.currentRound === undefined) {
     return null;
@@ -12,14 +15,16 @@ export default function RoundStatus() {
 
   const roundDisplay = roundInfo.currentRoundDisplay || `Round ${roundInfo.currentRound}`;
 
-  // Rolling lockout: the round shuts one game at a time, so the reminder stays
-  // up for as long as anything is still gettable — it only goes away once every
-  // game has started and there's nothing left to get in.
+  // Nothing left to nudge about once every game has started.
   const fullyLocked = isRoundFullyLocked(fixtures || [], roundInfo.currentRound);
   if (fullyLocked) return null;
 
+  // Nor once this player is committed: they got their picks in before the
+  // bounce, so the round is settled for them even though games remain.
+  const started = !!roundStarted;
+  if (started && viewerSubmittedTeam && viewerSubmittedTips) return null;
+
   const nextLock = nextLockoutTime(fixtures || [], roundInfo.currentRound);
-  const started = !!nextLock && !!roundInfo.lockoutDate && nextLock > new Date(roundInfo.lockoutDate);
 
   // Calculate time until the next thing locks
   let lockInfo = '';
@@ -41,8 +46,10 @@ export default function RoundStatus() {
     }
   }
 
+  // Once the round is under way, only a player who missed the deadline still has
+  // anything to enter — and only for games yet to start.
   const lead = started
-    ? `${roundDisplay} — remaining tips & teams still open`
+    ? `${roundDisplay} — games still to come are open`
     : `${roundDisplay} — tips & teams due`;
   const statusText = `${lead}${lockInfo ? ` · ${lockInfo}` : ''}`;
 

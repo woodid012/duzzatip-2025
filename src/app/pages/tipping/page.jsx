@@ -56,6 +56,7 @@ export default function TippingPage() {
     isRoundLocked,
     isRoundPartiallyLocked,
     isMatchLocked,
+    isFirmlyLocked,
     getNextLockoutTime,
     isLateSubmission,
     isPastYear,
@@ -195,6 +196,7 @@ export default function TippingPage() {
           isRoundLocked={isRoundLocked}
           isRoundPartiallyLocked={isRoundPartiallyLocked}
           isMatchLocked={isMatchLocked}
+          isFirmlyLocked={isFirmlyLocked}
           getNextLockoutTime={getNextLockoutTime}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
@@ -229,6 +231,7 @@ export default function TippingPage() {
           isRoundLocked={isRoundLocked}
           isRoundPartiallyLocked={isRoundPartiallyLocked}
           isMatchLocked={isMatchLocked}
+          isFirmlyLocked={isFirmlyLocked}
           getNextLockoutTime={getNextLockoutTime}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
@@ -265,6 +268,7 @@ function MobileTippingView({
   isRoundLocked,
   isRoundPartiallyLocked,
   isMatchLocked,
+  isFirmlyLocked,
   getNextLockoutTime,
   isLateSubmission,
   isPastYear,
@@ -305,7 +309,7 @@ function MobileTippingView({
         <div className="min-w-0">
           <div className={`text-[10px] font-extrabold uppercase tracking-[0.16em] ${late ? 'text-orange-500' : 'text-amber-600'}`}>
             {formatRoundName(localRound)}
-            {locked ? ' · Locked' : rolling ? ' · Locking' : late ? ' · Late' : ' · Open'}
+            {isFirmlyLocked ? ' · Submitted' : locked ? ' · Locked' : rolling ? ' · Locking' : late ? ' · Late' : ' · Open'}
             {isAdmin && isRoundLocked ? ' · Admin' : ''}
           </div>
           <h1 className="mt-0.5 text-[27px] font-black tracking-[-0.03em] leading-none text-slate-900">
@@ -378,7 +382,9 @@ function MobileTippingView({
             {deadCertCount > 0 && (
               <span className="font-semibold text-amber-600">⭐ {deadCertCount} dead cert{deadCertCount > 1 ? 's' : ''}</span>
             )}
-            {rolling && nextLockout ? (
+            {isFirmlyLocked ? (
+              <span className="font-semibold text-slate-500">Tips in before the bounce — locked</span>
+            ) : rolling && nextLockout ? (
               <span>Next lockout <span className="font-semibold text-amber-600">{nextLockout}</span></span>
             ) : locked ? (
               <span className="font-semibold text-slate-500">All games started</span>
@@ -565,6 +571,7 @@ function DesktopTippingView({
   isRoundLocked,
   isRoundPartiallyLocked,
   isMatchLocked,
+  isFirmlyLocked,
   getNextLockoutTime,
   isLateSubmission,
   isPastYear,
@@ -593,6 +600,9 @@ function DesktopTippingView({
         eyebrow={
           <span className={isLateSubmission && !isAdmin ? "text-orange-300" : undefined}>
             Showing {formatRoundName(localRound)}
+            {isFirmlyLocked && (
+              <span className="ml-2 text-slate-300">🔒 Tips submitted — locked for the round</span>
+            )}
             {isRoundPartiallyLocked && !isAdmin && (
               <span className="ml-2 text-amber-300">⏳ Locking as games start</span>
             )}
@@ -681,6 +691,9 @@ function DesktopTippingView({
 
         <div className="flex flex-col items-end gap-0.5 text-[11px] text-slate-400">
           {(() => {
+            if (isFirmlyLocked) {
+              return <span className="text-red-300 font-medium">Tips submitted — locked for the round</span>;
+            }
             if (isRoundLocked && !isAdmin) {
               return <span className="text-red-300 font-medium">All games started (Locked)</span>;
             }
