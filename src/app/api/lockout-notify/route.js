@@ -39,6 +39,7 @@ import { INJURIES } from "@/app/lib/injuries_2026";
 import { USER_NAMES, TEAM_LOGOS, MAIN_SEASON_FINAL_ROUND } from "@/app/lib/constants";
 import { optimiseLineup, scoreGame, DNP_RISK_BASE, DNP_RISK_FLAGGED } from "@/app/lib/lineupOptimiser";
 import { getAflFixtures } from "@/app/lib/fixtureCache";
+import { canSetDeadCert } from "@/app/lib/rollingLockout";
 import { syncFinalsFixtures } from "@/app/lib/duzzaFinalsFixtures";
 import {
   DUZZA_FINALS_ROUNDS,
@@ -369,8 +370,14 @@ async function saveTeamSelection(db, round, result, user) {
   }
   await col.bulkWrite(bulkOps, { ordered: false });
 }
-async function saveTips(db, round, tips, user) {
+async function saveTips(db, round, tips, user, fixtures = []) {
   const col = db.collection(`${YEAR}_tips`);
+
+  // Dead certs close at the first bounce, same as they do in the app. The
+  // notifier normally runs well before it, but ?force=1 skips that gate — and a
+  // forced run after the round starts must not be able to bank a suggested
+  // dead cert nobody else could still place.
+  const deadCertsOpen = canSetDeadCert({ fixtures, round });
 
   // The UI uses IsDefault===true to mean "this is just a fallback, not a real
   // submission" (renders as "(Def)" italic). So all cron-written tips MUST be
@@ -398,7 +405,7 @@ async function saveTips(db, round, tips, user) {
     bulkOps.push({
       updateOne: {
         filter: { User: user, Round: round, MatchNumber: matchNum },
-        update: { $set: { Team: tip.team, DeadCert: tip.deadCert || false, Active: 1, LastUpdated: new Date(), IsDefault: false, AutoPicked: true } },
+        update: { $set: { Team: tip.team, DeadCert: deadCertsOpen ? (tip.deadCert || false) : false, Active: 1, LastUpdated: new Date(), IsDefault: false, AutoPicked: true } },
         upsert: true,
       }
     });
@@ -1129,7 +1136,10 @@ async function handler(request) {
     try { await saveTeamSelection(db, round, result, user); savedTeam = true; } catch (_) {}
     try {
       const tipsToSave = Object.fromEntries(tipSuggestions.map(t => [t.matchNumber, { team: t.favourite, deadCert: !!t.suggestDC }]));
-      const saveResult = await saveTips(db, round, tipsToSave, user);
+      const saveResult = await saveTips(
+        db, round, tipsToSave, user,
+        isFinalsRound ? (finalsFixturesForRound || []) : fixtures
+      );
       tipsWritten = saveResult.written;
       tipsPreserved = saveResult.preserved;
       savedTips = true;

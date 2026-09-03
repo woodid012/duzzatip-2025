@@ -163,6 +163,22 @@ export function isTipLocked(fixtures, round, matchNumber, opts) {
 }
 
 /**
+ * May a dead cert be set, cleared, or moved? Only before the round's first
+ * bounce — for everyone, however they're otherwise placed.
+ *
+ * This is deliberately flatter than the tip rule. A player inside the rolling
+ * window may still tip games yet to start, because they're already down
+ * whatever the early games were worth and a plain tip just recovers some of it.
+ * A dead cert is different: it's a ±6/−12 swing, and by Sunday they know
+ * exactly where the round stands and whether a gamble is worth taking. Everyone
+ * who submitted on time had to make that call blind. So the deadline for dead
+ * certs is the bounce, and the rolling window doesn't extend it.
+ */
+export function canSetDeadCert({ fixtures, round, now } = {}) {
+  return !hasRoundStarted(fixtures, round, now);
+}
+
+/**
  * Every match number in the round whose tip may no longer be written — all of
  * them once a player is firmly locked, otherwise just the ones underway.
  */

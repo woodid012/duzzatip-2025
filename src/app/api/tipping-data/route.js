@@ -4,7 +4,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
-import { lockedTipMatchNumbers } from '@/app/lib/rollingLockout';
+import { canSetDeadCert, lockedTipMatchNumbers } from '@/app/lib/rollingLockout';
 import { canSeeOthers, didSubmitOnTime } from '@/app/lib/submissionStatus';
 
 export async function GET(request) {
@@ -136,6 +136,13 @@ export async function POST(request) {
       ? new Set()
       : lockedTipMatchNumbers(fixtures, roundNum, { submittedOnTime });
 
+    // Dead certs close at the first bounce for everyone. A player in the
+    // rolling window may still tip the games to come — that only recovers
+    // ground they've already lost — but they may not attach a ±6/−12 gamble to
+    // one, having watched the round unfold first. Everyone who submitted on
+    // time had to call it blind.
+    const deadCertsOpen = isAdmin || canSetDeadCert({ fixtures, round: roundNum });
+
     const writableTips = Object.entries(tips || {}).filter(
       ([matchNumber, tipData]) => tipData && tipData.team && !locked.has(parseInt(matchNumber))
     );
@@ -174,7 +181,7 @@ export async function POST(request) {
           update: {
             $set: {
               Team: tipData.team,
-              DeadCert: tipData.deadCert || false,
+              DeadCert: deadCertsOpen ? (tipData.deadCert || false) : false,
               Active: 1,
               // Stamped server-side, never from the request body. This
               // timestamp decides who counts as an on-time submitter, so a
@@ -191,6 +198,16 @@ export async function POST(request) {
     // Execute all operations in a single batch
     if (bulkOps.length > 0) {
       await collection.bulkWrite(bulkOps, { ordered: false });
+    }
+
+    const deadCertsDropped = deadCertsOpen
+      ? []
+      : writableTips.filter(([, t]) => t.deadCert).map(([m]) => parseInt(m));
+    if (deadCertsDropped.length > 0) {
+      console.log(
+        `Lockout: stripped dead cert(s) on match(es) ${deadCertsDropped.join(', ')} ` +
+        `(user ${userNum}, round ${roundNum}) — dead certs closed at the first bounce`
+      );
     }
 
     if (rejected.length > 0) {
@@ -225,6 +242,8 @@ export async function POST(request) {
       lockedOut: rejected,
       // True when the whole round was refused because tips were in on time.
       firmlyLocked: submittedOnTime && rejected.length > 0,
+      // Matches saved as plain tips because their dead cert came too late.
+      deadCertsDropped,
     });
   } catch (error) {
     console.error('Error saving tips:', error);

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import {
+  canSetDeadCert,
   isFirmlyLocked as isFirmlyLockedFn,
   isRoundFullyLocked,
   isRoundPartiallyLocked as isRoundPartiallyLockedFn,
@@ -97,6 +98,10 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
     if (round > currentRound) return false;
     return isRoundPartiallyLockedFn(fixtures, round);
   };
+
+  // Dead certs close for everyone at the first bounce — the rolling window
+  // buys more time to tip, not to gamble.
+  const deadCertsOpen = isAdmin || canSetDeadCert({ fixtures, round: localRound });
 
   // True when this player is shut out because they submitted, rather than
   // because every game has started — the UI says so differently.
@@ -263,6 +268,10 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
       console.log("Can't edit - this match has already commenced");
       return;
     }
+    if (!deadCertsOpen) {
+      console.log("Can't edit - dead certs closed at the first bounce");
+      return;
+    }
 
     setEditedTips(prev => {
       const newTips = { ...prev };
@@ -288,7 +297,14 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
       ? new Set()
       : lockedTipMatchNumbers(fixtures, localRound, { submittedOnTime });
     const tipsToSave = Object.fromEntries(
-      Object.entries(editedTips).filter(([matchNumber]) => !locked.has(Number(matchNumber)))
+      Object.entries(editedTips)
+        .filter(([matchNumber]) => !locked.has(Number(matchNumber)))
+        // The API drops these anyway; clearing them here keeps the saved state
+        // matching what the user is looking at.
+        .map(([matchNumber, tip]) => [
+          matchNumber,
+          deadCertsOpen ? tip : { ...tip, deadCert: false },
+        ])
     );
     console.log("Saving tips...", tipsToSave);
 
@@ -393,6 +409,7 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
     // Lockout
     isMatchLocked,
     isFirmlyLocked: isFirmlyLocked(localRound),
+    deadCertsOpen,
     getNextLockoutTime: () => getNextLockoutTime(localRound),
 
     // Display helpers

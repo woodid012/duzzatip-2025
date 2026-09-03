@@ -57,6 +57,7 @@ export default function TippingPage() {
     isRoundPartiallyLocked,
     isMatchLocked,
     isFirmlyLocked,
+    deadCertsOpen,
     getNextLockoutTime,
     isLateSubmission,
     isPastYear,
@@ -197,6 +198,7 @@ export default function TippingPage() {
           isRoundPartiallyLocked={isRoundPartiallyLocked}
           isMatchLocked={isMatchLocked}
           isFirmlyLocked={isFirmlyLocked}
+          deadCertsOpen={deadCertsOpen}
           getNextLockoutTime={getNextLockoutTime}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
@@ -232,6 +234,7 @@ export default function TippingPage() {
           isRoundPartiallyLocked={isRoundPartiallyLocked}
           isMatchLocked={isMatchLocked}
           isFirmlyLocked={isFirmlyLocked}
+          deadCertsOpen={deadCertsOpen}
           getNextLockoutTime={getNextLockoutTime}
           isLateSubmission={isLateSubmission}
           isPastYear={isPastYear}
@@ -269,6 +272,7 @@ function MobileTippingView({
   isRoundPartiallyLocked,
   isMatchLocked,
   isFirmlyLocked,
+  deadCertsOpen,
   getNextLockoutTime,
   isLateSubmission,
   isPastYear,
@@ -381,6 +385,9 @@ function MobileTippingView({
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
             {deadCertCount > 0 && (
               <span className="font-semibold text-amber-600">⭐ {deadCertCount} dead cert{deadCertCount > 1 ? 's' : ''}</span>
+            )}
+            {!deadCertsOpen && !locked && !isFirmlyLocked && (
+              <span className="font-semibold text-amber-600">⭐ Dead certs closed at the first bounce</span>
             )}
             {isFirmlyLocked ? (
               <span className="font-semibold text-slate-500">Tips in before the bounce — locked</span>
@@ -529,12 +536,13 @@ function MobileTippingView({
                     <button
                       onClick={(e) => { e.preventDefault(); handleDeadCertToggle(fixture.MatchNumber); }}
                       type="button"
-                      disabled={!isEditing || gameLocked || !tipTeam}
+                      disabled={!isEditing || gameLocked || !tipTeam || !deadCertsOpen}
+                      title={!deadCertsOpen ? 'Dead certs closed at the first bounce' : undefined}
                       className={`px-3 py-1 rounded-full text-[11px] font-extrabold shrink-0 border ${
                         deadCert
                           ? 'bg-amber-500 border-amber-500 text-white'
                           : 'bg-white border-slate-200 text-slate-600'
-                      } ${(!isEditing || gameLocked || !tipTeam) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-amber-50'}`}
+                      } ${(!isEditing || gameLocked || !tipTeam || !deadCertsOpen) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-amber-50'}`}
                     >
                       {deadCert ? '⭐ Dead Cert' : 'Dead Cert'}
                     </button>
@@ -572,6 +580,7 @@ function DesktopTippingView({
   isRoundPartiallyLocked,
   isMatchLocked,
   isFirmlyLocked,
+  deadCertsOpen,
   getNextLockoutTime,
   isLateSubmission,
   isPastYear,
@@ -604,7 +613,9 @@ function DesktopTippingView({
               <span className="ml-2 text-slate-300">🔒 Tips submitted — locked for the round</span>
             )}
             {isRoundPartiallyLocked && !isAdmin && (
-              <span className="ml-2 text-amber-300">⏳ Locking as games start</span>
+              <span className="ml-2 text-amber-300">
+                ⏳ Locking as games start · ⭐ dead certs closed
+              </span>
             )}
             {isLateSubmission && !isAdmin && <span className="ml-2">⚠️ Late submission</span>}
             {isAdmin && isRoundLocked && <span className="ml-2">(Admin Override)</span>}
@@ -825,12 +836,13 @@ function DesktopTippingView({
                           handleDeadCertToggle(fixture.MatchNumber);
                         }}
                         type="button"
-                        disabled={!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team}
+                        disabled={!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team || !deadCertsOpen}
+                        title={!deadCertsOpen ? 'Dead certs closed at the first bounce' : undefined}
                         className={`px-3 py-1 rounded ${
                           tips[fixture.MatchNumber]?.deadCert
                             ? 'bg-yellow-500 text-white'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                        } ${(!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        } ${(!isEditing || gameLocked || !tips[fixture.MatchNumber]?.team || !deadCertsOpen) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         {tips[fixture.MatchNumber]?.deadCert ? 'Yes' : 'No'}
                       </button>

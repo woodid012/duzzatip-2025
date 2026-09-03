@@ -8,6 +8,7 @@ import {
   isPositionLocked,
   isRoundFullyLocked,
   isRoundPartiallyLocked,
+  canSetDeadCert,
   isTipLocked,
   lockedTipMatchNumbers,
   nextLockoutTime,
@@ -327,5 +328,32 @@ describe('submitted on time means a firm lock', () => {
     );
     expect(allowed).toEqual({});
     expect(rejected).toEqual([{ position: 'Midfielder', reason: 'Team submitted' }]);
+  });
+});
+
+
+// ── Dead certs ──────────────────────────────────────────────────────────────
+// The rolling window buys a late player more time to tip, not to gamble. By
+// Sunday they'd know exactly where the round stands; everyone who submitted on
+// time had to call a dead cert blind.
+describe('dead certs close at the first bounce', () => {
+  test('open right up until the round starts', () => {
+    expect(canSetDeadCert({ fixtures, round: 5, now: BEFORE_FRI })).toBe(true);
+  });
+
+  test('closed once the first game is under way, even on games still to come', () => {
+    expect(canSetDeadCert({ fixtures, round: 5, now: AFTER_FRI })).toBe(false);
+    expect(canSetDeadCert({ fixtures, round: 5, now: AFTER_SUN })).toBe(false);
+  });
+
+  test('closed regardless of whether the player submitted', () => {
+    // Sunday's tip is still editable for a non-submitter...
+    expect(tipLockReason(fixtures, 5, 43, { submittedOnTime: false, now: AFTER_FRI })).toBeNull();
+    // ...but they cannot make it a dead cert.
+    expect(canSetDeadCert({ fixtures, round: 5, now: AFTER_FRI })).toBe(false);
+  });
+
+  test('a round with no fixtures leaves them open', () => {
+    expect(canSetDeadCert({ fixtures, round: 99, now: AFTER_SUN })).toBe(true);
   });
 });
