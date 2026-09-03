@@ -2515,9 +2515,9 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Hawthorn",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 40,
+    "AwayTeamScore": 72,
+    "Winner": "Hawthorn"
   },
   {
     "MatchNumber": 212,
