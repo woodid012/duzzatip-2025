@@ -2527,9 +2527,9 @@
     "HomeTeam": "Geelong Cats",
     "AwayTeam": "Carlton",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 107,
+    "AwayTeamScore": 74,
+    "Winner": "Geelong Cats"
   },
   {
     "MatchNumber": 211,
@@ -2560,8 +2560,8 @@
     "RoundNumber": 27,
     "DateUtc": "2026-09-12 02:00:00Z",
     "Location": "TBC",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "HomeTeam": "Fremantle",
+    "AwayTeam": "Geelong Cats",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null,
@@ -2584,7 +2584,7 @@
     "RoundNumber": 28,
     "DateUtc": "2026-09-19 02:00:00Z",
     "Location": "TBC",
-    "HomeTeam": "To be announced",
+    "HomeTeam": "Hawthorn",
     "AwayTeam": "To be announced",
     "Group": null,
     "HomeTeamScore": null,
