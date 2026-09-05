@@ -2539,9 +2539,9 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 141,
+    "AwayTeamScore": 88,
+    "Winner": "Sydney Swans"
   },
   {
     "MatchNumber": 213,
@@ -2551,14 +2551,14 @@
     "HomeTeam": "Adelaide Crows",
     "AwayTeam": "Western Bulldogs",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 90,
+    "AwayTeamScore": 68,
+    "Winner": "Adelaide Crows"
   },
   {
     "MatchNumber": 214,
     "RoundNumber": 27,
-    "DateUtc": "2026-09-12 02:00:00Z",
+    "DateUtc": "2026-09-11 10:10:00Z",
     "Location": "TBC",
     "HomeTeam": "Fremantle",
     "AwayTeam": "Geelong Cats",
@@ -2570,10 +2570,10 @@
   {
     "MatchNumber": 215,
     "RoundNumber": 27,
-    "DateUtc": "2026-09-12 02:00:00Z",
+    "DateUtc": "2026-09-12 09:35:00Z",
     "Location": "TBC",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "HomeTeam": "Brisbane Lions",
+    "AwayTeam": "Adelaide Crows",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null,
@@ -2596,7 +2596,7 @@
     "RoundNumber": 28,
     "DateUtc": "2026-09-19 02:00:00Z",
     "Location": "TBC",
-    "HomeTeam": "To be announced",
+    "HomeTeam": "Sydney Swans",
     "AwayTeam": "To be announced",
     "Group": null,
     "HomeTeamScore": null,
