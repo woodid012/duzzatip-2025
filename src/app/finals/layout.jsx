@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FinalsAuthProvider, useFinalsAuth } from './context';
+import { claimFirstOpen } from './lib/firstOpen';
 
 // Standalone chrome for the open-registration Duzza Finals mini-app — no
 // dependency on the main app's shell/nav. Nests under the root layout
@@ -87,6 +89,12 @@ function HeaderNav() {
 }
 
 export default function FinalsLayout({ children }) {
+  // Burn the session's "first open" claim on behalf of whichever page loaded,
+  // so only that page can act on it. Effects run child-first, so the Rules
+  // page gets to claim it before this runs when it's the landing page — and
+  // a later click on Rules finds it already spent (see finals/page.jsx).
+  useEffect(() => { claimFirstOpen(); }, []);
+
   return (
     <FinalsAuthProvider>
       <div className="min-h-screen bg-[hsl(var(--background))]">

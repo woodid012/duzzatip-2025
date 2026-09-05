@@ -1,10 +1,14 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useFinalsAuth } from './context';
 import useFinalsResults from './lib/useFinalsResults';
 import AuthForms from './components/AuthForms';
 import InstallApp from './components/InstallApp';
+import { claimFirstOpen } from './lib/firstOpen';
+import { isWeekInProgress } from './lib/roundStatus';
 import { FINALS_ROUNDS, FALLBACK_WEEK_LABELS, WEEK_DATE_HINTS, weekNumberForRound } from './lib/constants';
 
 const POSITION_ROWS = [
@@ -17,13 +21,30 @@ const POSITION_ROWS = [
 ];
 
 export default function FinalsHomePage() {
+  const router = useRouter();
   const { entrantId, name, loading: authLoading } = useFinalsAuth();
   const { data: results, loading: resultsLoading } = useFinalsResults();
 
   const currentWeek = results?.currentWeek ?? FINALS_ROUNDS[0];
-  const currentWeekLabel =
-    (results?.weeks || []).find((w) => w.round === currentWeek)?.label
-    || FALLBACK_WEEK_LABELS[currentWeek];
+  const currentWeekApiWeek = (results?.weeks || []).find((w) => w.round === currentWeek);
+  const currentWeekLabel = currentWeekApiWeek?.label || FALLBACK_WEEK_LABELS[currentWeek];
+
+  // Rules is the app's landing page, but it's a one-pager you read once —
+  // mid-round, live scores are what you opened the app for. Forward the
+  // session's opening screen to Results while the week is being played.
+  // Claimed on mount (before the layout's own claim) so this only ever fires
+  // when Rules IS the opening screen: clicking Rules later still shows Rules.
+  // Signed-out visitors stay put — registering starts here.
+  const ownsFirstOpen = useRef(null);
+  useEffect(() => {
+    if (ownsFirstOpen.current === null) ownsFirstOpen.current = claimFirstOpen();
+  }, []);
+  useEffect(() => {
+    if (!ownsFirstOpen.current || authLoading || entrantId == null) return;
+    if (!isWeekInProgress(currentWeekApiWeek)) return;
+    ownsFirstOpen.current = false;
+    router.replace('/finals/results');
+  }, [router, authLoading, entrantId, currentWeekApiWeek]);
 
   return (
     <div className="space-y-10 pb-10">

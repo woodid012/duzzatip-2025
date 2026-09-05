@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { POSITION_TYPES } from '@/app/lib/constants';
+import { isWeekInProgress } from '@/app/finals/lib/roundStatus';
 
 // Duzza Finals runs over AFL rounds 26–29 (Qualifying & Elimination Finals,
 // Semi Finals, Preliminary Finals, Grand Final) — kept local to this hook
@@ -64,9 +65,16 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
   const { fixtures, selectedYear, isPastYear } = useAppContext();
 
   // ── Tabs & week selection ────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState('team'); // 'team' | 'tips' | 'bracket'
+  const [activeTab, setActiveTab] = useState('team'); // 'team' | 'tips' | 'results' | 'bracket' | 'pool'
   const [activeWeek, setActiveWeek] = useState(DUZZA_FINALS_ROUNDS[0]);
   const userChangedWeekRef = useRef(false);
+  // Once the viewer picks a tab themselves, nothing moves them off it — the
+  // results default below only ever applies to the tab they opened on.
+  const userChangedTabRef = useRef(false);
+  const selectTab = useCallback((tab) => {
+    userChangedTabRef.current = true;
+    setActiveTab(tab);
+  }, []);
 
   // ── Entrant being viewed/edited ──────────────────────────────────────
   const [selectedEntrantId, setSelectedEntrantId] = useState(initialUserId);
@@ -190,6 +198,15 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   // ── Eligibility for the active week (locked / fixtures / eliminated) ─
   const weekBracket = (bracket?.weeks || []).find((w) => w.round === activeWeek) || null;
+
+  // While the week is being played, live results are what you open the app
+  // for — the team/tips tab is locked anyway — so open on Results instead.
+  const roundInProgress = isWeekInProgress(weekBracket);
+  useEffect(() => {
+    if (userChangedTabRef.current || !roundInProgress) return;
+    setActiveTab('results');
+  }, [roundInProgress]);
+
   const isEligibleThisWeek = (() => {
     if (!selectedEntrantId) return false;
     if (!weekBracket || !Array.isArray(weekBracket.aliveAtStart)) return true; // unknown → assume ok, server enforces
@@ -510,7 +527,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
   return {
     // Tabs
     activeTab,
-    setActiveTab,
+    setActiveTab: selectTab,
 
     // Week
     activeWeek,
@@ -563,6 +580,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     isPastYear,
 
     // Bracket / results
+    roundInProgress,
     bracket,
     bracketLoading,
     bracketError,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUserContext } from '../layout';
 import useDuzzaFinals from '@/app/hooks/useDuzzaFinals';
 import { USER_NAMES } from '@/app/lib/constants';
@@ -45,16 +45,26 @@ export default function DuzzaFinalsPage() {
     handleTipSelect, handleDeadCertToggle,
     isEditingEntry, entryDirty, startEditingEntry, cancelEditingEntry, saveEntry,
     entryLocked, isEligibleThisWeek, canEdit, isPastYear,
+    roundInProgress,
     bracket, bracketLoading, bracketError, refreshBracket, viewerEliminated,
     loading, error, actionError, saving, successMessage,
   } = useDuzzaFinals(isAdmin ? '' : selectedUserId, { isAdmin });
 
   const { addToast } = useToast();
 
-  // Which tab the two-tab mobile nav (Enter / Bracket) is showing — separate
-  // from the hook's `activeTab` (team | tips | bracket), which drives the
-  // three-tab desktop nav.
+  // Which tab the mobile nav is showing — separate from the hook's
+  // `activeTab`, which drives the desktop nav. Both default to Results once
+  // the week is under way (see the hook), until the viewer picks a tab.
   const [mobileTab, setMobileTab] = useState('enter');
+  const userChangedMobileTabRef = useRef(false);
+  const selectMobileTab = (tab) => {
+    userChangedMobileTabRef.current = true;
+    setMobileTab(tab);
+  };
+  useEffect(() => {
+    if (userChangedMobileTabRef.current || !roundInProgress) return;
+    setMobileTab('results');
+  }, [roundInProgress]);
 
   const handleSaveTeam = async () => {
     const ok = await saveTeam();
@@ -274,7 +284,7 @@ export default function DuzzaFinalsPage() {
           {MOBILE_TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setMobileTab(tab.id)}
+              onClick={() => selectMobileTab(tab.id)}
               className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
                 mobileTab === tab.id
                   ? 'border-blue-600 text-blue-600'
