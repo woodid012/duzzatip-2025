@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { useFinalsAuth } from '../context';
 import useFinalsResults from '../lib/useFinalsResults';
-import { fetchJSON } from '../lib/api';
+import useFinalsRoundResults from '../lib/useFinalsRoundResults';
 import { FINALS_ROUNDS, FALLBACK_WEEK_LABELS, weekNumberForRound } from '../lib/constants';
 import { LoadingSkeleton, ErrorCard, EmptyCard } from '../components/StatusCard';
 import EntrantCard from '../components/EntrantCard';
@@ -26,29 +27,8 @@ export default function ResultsPage() {
     return { round, display: `Week ${weekNumberForRound(round)} · ${label}` };
   });
 
-  const [detail, setDetail] = useState(null); // {round, label, fixturesKnown, roundComplete, entrantDetails}
-  const [locked, setLocked] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const load = useCallback(async (round) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [detailData, entryMeta] = await Promise.all([
-        fetchJSON(`/api/duzza-finals/results?round=${round}&detail=1`),
-        fetchJSON(`/api/duzza-finals/entry?round=${round}`),
-      ]);
-      setDetail(detailData);
-      setLocked(!!entryMeta.locked);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(activeWeek); }, [activeWeek, load]);
+  const { detail, loading, isRefreshing, error, lastUpdated, refresh } = useFinalsRoundResults(activeWeek, entrantId);
+  const locked = !!detail?.locked;
 
   const [expandedId, setExpandedId] = useState(null);
 
@@ -70,19 +50,43 @@ export default function ResultsPage() {
           </div>
           <h1 className="dz-title">Results</h1>
         </div>
-        <select
-          value={activeWeek}
-          onChange={(e) => { setUserChangedWeek(true); setActiveWeek(Number(e.target.value)); }}
-          className="dz-select"
-        >
-          {weekOptions.map((w) => <option key={w.round} value={w.round}>{w.display}</option>)}
-        </select>
+        <div className="flex items-center gap-2 min-w-0">
+          <select
+            aria-label="Finals week"
+            value={activeWeek}
+            onChange={(e) => { setUserChangedWeek(true); setActiveWeek(Number(e.target.value)); }}
+            className="dz-select min-w-0 flex-1"
+          >
+            {weekOptions.map((w) => <option key={w.round} value={w.round}>{w.display}</option>)}
+          </select>
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={loading || isRefreshing}
+            title="Refresh live scores"
+            className="dz-btn-ghost shrink-0"
+          >
+            <RefreshCw aria-hidden="true" className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
+
+      <div role="status" className="text-xs text-slate-500">
+        {isRefreshing ? 'Updating scores…' : lastUpdated ? `Last refreshed ${lastUpdated.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}` : 'Loading scores…'}
+        <span> · Auto-refresh every minute</span>
+      </div>
+
+      {error && detail && (
+        <p role="alert" className="text-sm text-red-600">
+          Couldn&apos;t refresh scores: {error}. Showing the last loaded results; try Refresh again.
+        </p>
+      )}
 
       {loading ? (
         <LoadingSkeleton rows={5} />
-      ) : error ? (
-        <ErrorCard message={error} onRetry={() => load(activeWeek)} />
+      ) : error && !detail ? (
+        <ErrorCard message={error} onRetry={refresh} />
       ) : !detail?.fixturesKnown ? (
         <EmptyCard title="Fixtures not locked in yet">
           Fixtures for this week aren&apos;t confirmed yet — check back closer to game day.

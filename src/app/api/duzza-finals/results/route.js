@@ -4,7 +4,9 @@ import { connectToFinalsDatabase } from '@/app/lib/mongodb';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { getFinalsSessionEntrant } from '@/app/lib/duzzaFinalsAuth';
 import { isRoundLocked } from '@/app/lib/roundAccess';
-import { isRoundComplete } from '@/app/lib/fixtureCache';
+import { getAflFixtures, isRoundComplete } from '@/app/lib/fixtureCache';
+import { CURRENT_YEAR } from '@/app/lib/constants';
+import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
 import {
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_WEEK_LABELS,
@@ -97,30 +99,47 @@ async function getRoundDetail(request, seasonDb, finalsDb, round, year) {
     }));
   }
 
-  return createSuccessResponse({ round, label, fixturesKnown, roundComplete, entrantDetails });
+  return createSuccessResponse({ round, label, fixturesKnown, roundComplete, locked, entrantDetails });
 }
 
-// Read-only — no privacy filtering on the bracket itself (?round&detail=1
+// No privacy filtering on the bracket itself (?round&detail=1
 // aside, see getRoundDetail above). Re-derives everything live from the
 // entries in duzza_finals + season data (fixtures/players/game_results), so
 // there's no snapshot to go stale.
 export const GET = createApiHandler(async (request, db) => {
-  // Finals fixtures never arrive via the season pipeline (it only updates
-  // existing rows) — pull/refresh them here, throttled internally.
-  await syncFinalsFixtures(db, parseYearParam(new URL(request.url).searchParams));
-
   const { searchParams } = new URL(request.url);
   const year = parseYearParam(searchParams);
   const roundParam = searchParams.get('round');
   const detailParam = searchParams.get('detail');
+  const round = roundParam !== null && detailParam ? Number(roundParam) : null;
+
+  if (round !== null && (!Number.isInteger(round) || !isDuzzaFinalsRound(round))) {
+    return invalidRoundResponse();
+  }
+
+  // Finals fixtures never arrive via the season pipeline (it only updates
+  // existing rows) — pull/refresh them here, throttled internally.
+  await syncFinalsFixtures(db, year);
+
+  if (round !== null && searchParams.get('refresh') === '1' && year === CURRENT_YEAR) {
+    // Match the in-season Refresh button: await fresh stats before reading
+    // scores, including finished games that still have a live snapshot.
+    try {
+      await refreshGameResultsForRound(round, { force: true, liveOnly: true });
+    } catch (error) {
+      console.warn(`Forced finals game_results refresh failed for round ${round}: ${error.message}`);
+    }
+    try {
+      await refreshStaleConcludedStats(round, { force: true });
+    } catch (error) {
+      console.warn(`Forced finals stale-stats refresh failed for round ${round}: ${error.message}`);
+    }
+    await getAflFixtures(year, { force: true });
+  }
 
   const finalsDb = await connectToFinalsDatabase();
 
-  if (roundParam !== null && detailParam) {
-    const round = parseInt(roundParam, 10);
-    if (isNaN(round) || !isDuzzaFinalsRound(round)) {
-      return invalidRoundResponse();
-    }
+  if (round !== null) {
     return await getRoundDetail(request, db, finalsDb, round, year);
   }
 
