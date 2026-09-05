@@ -58,6 +58,9 @@ export default function EntrantCard({ entrant, expanded, onToggle, isSelf, colla
                               {p.replacementType || 'sub'}
                             </span>
                           )}
+                          {p.breakdown && (
+                            <span className="block text-[10px] leading-tight text-slate-400">{p.breakdown}</span>
+                          )}
                         </td>
                         <td className="text-right font-semibold text-slate-900 tabular-nums">{p.score}</td>
                       </tr>

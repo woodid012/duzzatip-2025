@@ -428,6 +428,7 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
       position: p.position,
       playerName: p.playerName,
       score: p.score,
+      breakdown: p.breakdown || '',
       isBenchPlayer: Boolean(p.isBenchPlayer),
       replacementType: p.replacementType || null,
       // Who the slot was picked as. A substitution overwrites playerName, which
