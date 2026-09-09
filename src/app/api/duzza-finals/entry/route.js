@@ -10,7 +10,6 @@ import {
   DUZZA_FINALS_WEEK_LABELS,
   isDuzzaFinalsRound,
   getPlayerPoolForRound,
-  computeBracket,
   seedEntrants,
 } from '@/app/lib/duzzaFinals';
 
@@ -28,15 +27,6 @@ function invalidRoundResponse() {
     { error: `Round must be one of: ${DUZZA_FINALS_ROUNDS.join(', ')}` },
     { status: 400 }
   );
-}
-
-// Invited (open-registration) entrant ids are allocated starting at 101 —
-// see the auth route — specifically so they never collide with the core 1-8
-// or the admin sentinel (0). That makes the id itself a reliable, DB-free way
-// to tell "invited" from "core/admin" apart in request-handling code.
-const INVITED_ID_THRESHOLD = 100;
-function isInvitedEntrantId(id) {
-  return Number(id) > INVITED_ID_THRESHOLD;
 }
 
 // Resolves the caller's identity from EITHER the main-app session (core team
@@ -238,24 +228,10 @@ export const POST = createApiHandler(async (request, db) => {
     validatedTips = built;
   }
 
-  // An entrant already eliminated before this round may not submit for it.
-  // Knockout-only: invited entrants (id > 100) never take part in the cuts
-  // and may submit every week, so they're exempt from this check entirely —
-  // week.aliveAtStart is core-only (see computeBracket), so an invited id
-  // would otherwise never appear in it and get wrongly blocked here.
-  // Uses computeBracket's finalized eliminations only — a round that hasn't
-  // finalized yet (aliveAtStart: null) can't be checked, so it's allowed
-  // through rather than blocking on an unknown state.
-  if (!isInvitedEntrantId(userId)) {
-    const bracket = await computeBracket(db, finalsDb, year);
-    const week = bracket.weeks.find((w) => w.round === round);
-    if (week && week.aliveAtStart && !week.aliveAtStart.includes(Number(userId))) {
-      return Response.json(
-        { error: 'This entrant was eliminated before this round and cannot submit picks' },
-        { status: 403 }
-      );
-    }
-  }
+  // A knocked-out core entrant may still submit: they drop out of the bracket
+  // but keep playing for the pool, exactly like an invited entrant. The
+  // bracket ignores their scores from the round they were cut (computeBracket
+  // works off aliveAtStart), so nothing downstream needs to filter them.
 
   const entrantName = entrant.Name || USER_NAMES[userId] || `User ${userId}`;
 

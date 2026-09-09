@@ -22,7 +22,6 @@ export default function MyTeamTab({
   teamDirty,
   canEdit,
   entryLocked,
-  isEligibleThisWeek,
   isPastYear,
   startEditingTeam,
   cancelEditingTeam,
@@ -32,7 +31,7 @@ export default function MyTeamTab({
   saving,
   embedded = false,
 }) {
-  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek })) {
+  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown })) {
     // Parent (the merged mobile Enter tab) already rendered the guard.
     if (embedded) return null;
     return (
@@ -41,7 +40,6 @@ export default function MyTeamTab({
         selectedEntrantId={selectedEntrantId}
         poolLoading={poolLoading}
         fixturesKnown={fixturesKnown}
-        isEligibleThisWeek={isEligibleThisWeek}
       />
     );
   }

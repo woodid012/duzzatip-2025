@@ -13,7 +13,6 @@ export default function TipsTab({
   tipsDirty,
   canEdit,
   entryLocked,
-  isEligibleThisWeek,
   isPastYear,
   startEditingTips,
   cancelEditingTips,
@@ -23,7 +22,7 @@ export default function TipsTab({
   saving,
   embedded = false,
 }) {
-  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek })) {
+  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown })) {
     // Parent (the merged mobile Enter tab) already rendered the guard.
     if (embedded) return null;
     return (
@@ -32,7 +31,6 @@ export default function TipsTab({
         selectedEntrantId={selectedEntrantId}
         poolLoading={poolLoading}
         fixturesKnown={fixturesKnown}
-        isEligibleThisWeek={isEligibleThisWeek}
       />
     );
   }

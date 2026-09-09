@@ -3,7 +3,7 @@
 // Shared "can't show the picker" states for the Team/Tips/merged Enter views —
 // centralised so the messaging (and the order the checks run in) stays
 // identical across the desktop tabs and the mobile merged tab.
-export default function EntryGuard({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek }) {
+export default function EntryGuard({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown }) {
   if (!selectedEntrantId) {
     return (
       <div className="dz-surface p-6 text-center text-slate-500">
@@ -22,22 +22,13 @@ export default function EntryGuard({ isAdmin, selectedEntrantId, poolLoading, fi
     );
   }
 
-  if (!isAdmin && !isEligibleThisWeek) {
-    return (
-      <div className="dz-surface p-6 text-center text-slate-500">
-        You weren&apos;t alive for this week of Duzza Finals.
-      </div>
-    );
-  }
-
   return null;
 }
 
 // True when EntryGuard would block rendering — lets a parent decide whether
 // to bother rendering the picker content at all.
-export function isBlocked({ selectedEntrantId, poolLoading, fixturesKnown, isAdmin, isEligibleThisWeek }) {
+export function isBlocked({ selectedEntrantId, poolLoading, fixturesKnown }) {
   if (!selectedEntrantId) return true;
   if (!poolLoading && !fixturesKnown) return true;
-  if (!isAdmin && !isEligibleThisWeek) return true;
   return false;
 }

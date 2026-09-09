@@ -12,7 +12,6 @@ export default function EnterTab({
   selectedEntrantId,
   fixturesKnown,
   poolLoading,
-  isEligibleThisWeek,
   entryLocked,
   isPastYear,
   canEdit,
@@ -32,19 +31,18 @@ export default function EnterTab({
   cancelEditingEntry,
   saveEntry,
 }) {
-  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown, isEligibleThisWeek })) {
+  if (isBlocked({ isAdmin, selectedEntrantId, poolLoading, fixturesKnown })) {
     return (
       <EntryGuard
         isAdmin={isAdmin}
         selectedEntrantId={selectedEntrantId}
         poolLoading={poolLoading}
         fixturesKnown={fixturesKnown}
-        isEligibleThisWeek={isEligibleThisWeek}
       />
     );
   }
 
-  const sharedProps = { isAdmin, selectedEntrantId, fixturesKnown, poolLoading, isEligibleThisWeek, embedded: true };
+  const sharedProps = { isAdmin, selectedEntrantId, fixturesKnown, poolLoading, embedded: true };
 
   return (
     <div className="space-y-4">

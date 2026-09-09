@@ -44,7 +44,7 @@ export default function DuzzaFinalsPage() {
     weekFixtures, tips, isEditingTips, tipsDirty, startEditingTips, cancelEditingTips, saveTips,
     handleTipSelect, handleDeadCertToggle,
     isEditingEntry, entryDirty, startEditingEntry, cancelEditingEntry, saveEntry,
-    entryLocked, isEligibleThisWeek, canEdit, isPastYear,
+    entryLocked, canEdit, isPastYear,
     bracket, bracketLoading, bracketError, refreshBracket, viewerEliminated,
     loading, error, actionError, saving, successMessage,
   } = useDuzzaFinals(isAdmin ? '' : selectedUserId, { isAdmin });
@@ -89,7 +89,6 @@ export default function DuzzaFinalsPage() {
     fixturesKnown,
     poolLoading,
     entryLocked,
-    isEligibleThisWeek,
     isPastYear,
     canEdit,
     saving,
@@ -183,7 +182,7 @@ export default function DuzzaFinalsPage() {
       {/* ===== Eliminated banner ===== */}
       {viewerEliminated && (
         <div className="mb-4 rounded-xl bg-slate-100 border border-slate-300 text-slate-600 p-3 text-sm font-medium text-center">
-          You&apos;ve been knocked out of Duzza Finals — you can still watch it play out.
+          You&apos;ve been knocked out of the Duzza Finals bracket — but keep entering your team and tips, you&apos;re still in the pool.
         </div>
       )}
 

@@ -188,19 +188,12 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   const savedEntry = entries[selectedEntrantId] || emptyEntry();
 
-  // ── Eligibility for the active week (locked / fixtures / eliminated) ─
-  const weekBracket = (bracket?.weeks || []).find((w) => w.round === activeWeek) || null;
-  const isEligibleThisWeek = (() => {
-    if (!selectedEntrantId) return false;
-    if (!weekBracket || !Array.isArray(weekBracket.aliveAtStart)) return true; // unknown → assume ok, server enforces
-    return weekBracket.aliveAtStart.map(String).includes(String(selectedEntrantId));
-  })();
-
+  // Being knocked out of the bracket doesn't stop you entering — cut entrants
+  // keep playing for the pool, so eligibility is just locked/fixtures/entrant.
   const canEdit = !isPastYear
     && pool.fixturesKnown
     && !!selectedEntrantId
-    && (isAdmin || !entryLocked)
-    && (isAdmin || isEligibleThisWeek);
+    && (isAdmin || !entryLocked);
 
   // ── Team editing ──────────────────────────────────────────────────────
   const [editedTeam, setEditedTeam] = useState({});
@@ -558,7 +551,6 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
     // Locking / eligibility
     entryLocked,
-    isEligibleThisWeek,
     canEdit,
     isPastYear,
 
