@@ -6,6 +6,7 @@ import {
   pruneFinalsCandidates,
   buildFinalsTeamDoc,
   buildFinalsTipsDoc,
+  buildOpponentMultipliers,
 } from '../src/app/lib/duzzaFinalsAutoPick';
 
 describe('isDuzzaFinalsRound', () => {
@@ -153,6 +154,37 @@ describe('buildFinalsTeamDoc', () => {
     expect(buildFinalsTeamDoc(result, positions)).toEqual({
       'Full Forward': { player: 'A Player', club: 'ADE' },
     });
+  });
+});
+
+describe('buildOpponentMultipliers', () => {
+  const positions = ['Midfielder'];
+  const scoreGame = (row) => row.score;
+  const oppOf = (row) => row.opp;
+  // Club A concedes above the league mean, Club B below it, Club C too few
+  // games (2 < default minGames of 3) to be trusted.
+  const rows = [
+    { opp: 'A', round: 1, score: 30 }, { opp: 'A', round: 2, score: 30 }, { opp: 'A', round: 3, score: 30 },
+    { opp: 'B', round: 1, score: 10 }, { opp: 'B', round: 2, score: 10 }, { opp: 'B', round: 3, score: 10 },
+    { opp: 'C', round: 1, score: 50 }, { opp: 'C', round: 2, score: 50 },
+  ];
+
+  test('above-average opponent gets >1, below-average gets <1', () => {
+    const mult = buildOpponentMultipliers(rows, { positions, scoreGame, oppOf });
+    expect(mult.A.Midfielder).toBeGreaterThan(1);
+    expect(mult.B.Midfielder).toBeLessThan(1);
+  });
+
+  test('opponent below minGames defaults to 1', () => {
+    const mult = buildOpponentMultipliers(rows, { positions, scoreGame, oppOf });
+    expect(mult.C.Midfielder).toBe(1);
+  });
+
+  test('shrink=0 gives all multipliers 1', () => {
+    const mult = buildOpponentMultipliers(rows, { positions, scoreGame, oppOf, shrink: 0 });
+    expect(mult.A.Midfielder).toBe(1);
+    expect(mult.B.Midfielder).toBe(1);
+    expect(mult.C.Midfielder).toBe(1);
   });
 });
 

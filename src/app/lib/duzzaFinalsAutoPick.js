@@ -167,6 +167,34 @@ function buildFinalsTipsDoc(tipsByMatchNumber, roundFixtures) {
   });
 }
 
+// Per-opponent, per-position multipliers from recent game_results rows.
+// rows: game_results docs already limited to the window. oppOf(row) -> canonical club name or null.
+// multiplier = 1 + shrink * (meanScoreConcededAtPos(opp) / leagueMeanAtPos - 1), clamped to [0.6, 1.4].
+// Opponents with fewer than minGames distinct (round) matches get 1.
+function buildOpponentMultipliers(rows, { positions, scoreGame, oppOf, shrink = 0.5, minGames = 3 }) {
+  const byOpp = new Map();
+  for (const row of rows || []) {
+    const opp = oppOf(row);
+    if (!opp) continue;
+    if (!byOpp.has(opp)) byOpp.set(opp, []);
+    byOpp.get(opp).push(row);
+  }
+  const mean = (arr) => arr.reduce((a, b) => a + b, 0) / (arr.length || 1);
+  const out = {};
+  for (const pos of positions) {
+    const leagueMean = mean((rows || []).map(r => scoreGame(r, pos)));
+    for (const [opp, oppRows] of byOpp) {
+      out[opp] = out[opp] || {};
+      const games = new Set(oppRows.map(r => r.round)).size;
+      const mult = (games < minGames || !leagueMean)
+        ? 1
+        : 1 + shrink * (mean(oppRows.map(r => scoreGame(r, pos))) / leagueMean - 1);
+      out[opp][pos] = Math.min(1.4, Math.max(0.6, mult));
+    }
+  }
+  return out;
+}
+
 module.exports = {
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_WEEK_LABELS,
@@ -177,4 +205,5 @@ module.exports = {
   pruneFinalsCandidates,
   buildFinalsTeamDoc,
   buildFinalsTipsDoc,
+  buildOpponentMultipliers,
 };

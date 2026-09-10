@@ -99,3 +99,34 @@ Dead Cert scoring: **+6** correct, **−12** wrong → theoretical break-even at
 4. **Zero-risk option:** ≥85% never lost a game in 2025 (19/19), but you'd only flag ~1 match per round.
 
 Re-run the backtest at any time with `node backtest-dc.js` (uses the same MongoDB data + Squiggle API).
+
+## Opponent Weighting (Duzza Finals) — 2024–26 Backtest
+
+`lockout-notify.js` can scale each finals candidate's projected score by how many points their opponent has conceded at that position recently (`buildOpponentMultipliers` in `src/app/lib/duzzaFinalsAutoPick.js`; knobs `OPP_WINDOW` / `OPP_SHRINK`). Backtested 10 Sept 2026 over every round of 2024, 2025 and 2026 (63 rounds). Metric: actual points scored by the top-projected player at each of the 6 positions, per round.
+
+### Grid result (best of 16 configs, chosen on the same data)
+
+| Config | 2024 | 2025 | 2026 | Pooled |
+|--------|------|------|------|--------|
+| baseline | 192.9 | 222.1 | 196.5 | 202.9 |
+| window 4, shrink 0.5 | +3.7 | +0.8 | +2.4 | +2.4 |
+
+### Robustness checks (window 4, shrink 0.5)
+
+| Check | Result | Verdict |
+|-------|--------|---------|
+| Paired test, 63 rounds | mean +2.4, SD 23.9, 31/63 wins, p = 0.16, 95% CI [−3.4, +8.2] | inconclusive |
+| Leave-one-year-out | held-out deltas +3.7 / −9.4 / −3.4, mean −3.1 | no |
+| Placebo (20 label shuffles) | placebo mean −3.3; real beats all 20 | weak yes |
+| Finals rounds only (6 rounds) | mean −8.8 | no |
+| Rounds ≥ 20 (21 rounds) | mean −4.0 | no |
+
+### Takeaways
+
+1. **The +2.4 is selection noise.** It was picked from 16 configs on the data it was scored on. Choose the config on two years and test on the third and the sign flips.
+2. **It hurts in the rounds where it is used.** Finals-only and late-season samples are both negative.
+3. **The signal is too small for the data.** Per-round swing is ~24 pts; the effect sought is ~2 pts. Three seasons cannot resolve that.
+4. **Recommendation: leave it off** (`OPP_SHRINK=0`) unless a future season with more finals data changes the picture. The placebo only shows random weights hurt more than real ones, not that real ones help.
+5. **Retest before trusting a new idea here:** any tweak to the conceded-points metric (e.g. top-N per match instead of mean per player-row) must beat the leave-one-year-out and finals-only checks, not just the pooled grid.
+
+Re-run with `node backtest-opponent-weights.js` (grid) or `node backtest-opponent-weights.js --robust` (the checks above).

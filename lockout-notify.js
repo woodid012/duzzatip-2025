@@ -721,6 +721,7 @@ const {
   pruneFinalsCandidates,
   buildFinalsTeamDoc,
   buildFinalsTipsDoc,
+  buildOpponentMultipliers,
 } = require("./src/app/lib/duzzaFinalsAutoPick");
 
 // Mirrors constants.js:MAIN_SEASON_FINAL_ROUND — the main comp's last round.
@@ -740,6 +741,11 @@ function seasonHasFinished(seasonFixtures) {
 // on a prior auto-picked entry for this round (see the no-clobber logic in
 // main()). See pruneFinalsCandidates() in duzzaFinalsAutoPick.js.
 const FINALS_PRUNE_TOP_N = 12;
+// ponytail: window=4/shrink=0.5 won the pooled grid in backtest-opponent-weights.js (+2.4 pts/rnd)
+// but FAILED leave-one-year-out and finals-only checks — see README "Opponent Weighting".
+// Recommendation is OPP_SHRINK=0. Retune via OPP_WINDOW/OPP_SHRINK env vars.
+const OPP_WINDOW = Number(process.env.OPP_WINDOW ?? 4);
+const OPP_SHRINK = Number(process.env.OPP_SHRINK ?? 0.5);
 
 function playerNameMatches(dbName, names) {
   const norm = normName(dbName);
@@ -1455,6 +1461,34 @@ async function main() {
       return { name: p.name, team: p.team, scores, statsSource: s?.source || null, bestPos: best?.[0] || null, bestScore: best?.[1] || 0 };
     });
 
+    // Opponent-strength weighting: how many more/fewer points each club's
+    // recent opponents have conceded at each position, applied to this
+    // round's matchup. See buildOpponentMultipliers() in duzzaFinalsAutoPick.js.
+    const oppRows = await db.collection(`${YEAR}_game_results`).find({
+      round: { $gte: Math.max(1, round - OPP_WINDOW), $lt: round },
+    }).toArray();
+    const oppOf = (row) => DUZZA_FINALS_ABBREV_TO_FULL[row.opp]
+      || (Object.values(DUZZA_FINALS_ABBREV_TO_FULL).includes(row.opp) ? row.opp : null);
+    const oppMult = buildOpponentMultipliers(oppRows, { positions: MAIN_POSITIONS, scoreGame, oppOf, shrink: OPP_SHRINK });
+    const fixtureOpp = new Map(); // full club name -> this round's opponent (full club name)
+    for (const f of roundFixtures || []) {
+      if (f.HomeTeam) fixtureOpp.set(f.HomeTeam, f.AwayTeam);
+      if (f.AwayTeam) fixtureOpp.set(f.AwayTeam, f.HomeTeam);
+    }
+    for (const p of scoredPool) {
+      const mult = oppMult[fixtureOpp.get(DUZZA_FINALS_ABBREV_TO_FULL[p.team])];
+      if (!mult) continue;
+      p.rawScores = { ...p.scores };
+      for (const pos of MAIN_POSITIONS) {
+        if (p.scores[pos] != null) p.scores[pos] = Math.round(p.scores[pos] * (mult[pos] || 1) * 10) / 10;
+      }
+    }
+    console.log(`   ${C.dim}Opponent strength Round ${round}:  ${MAIN_POSITIONS.map(p => POS_SHORT[p]).join("   ")}${C.reset}`);
+    for (const club of fixtureOpp.keys()) {
+      const m = oppMult[club] || {};
+      console.log(`   ${C.dim}${club.padEnd(20)}${MAIN_POSITIONS.map(pos => (m[pos] || 1).toFixed(2).padStart(5)).join(" ")}${C.reset}`);
+    }
+
     const keepNames = new Set();
     if (finalsEntry?.Team && finalsEntry.TeamAutoPicked === true) {
       for (const slot of Object.values(finalsEntry.Team)) if (slot?.player) keepNames.add(slot.player);
@@ -1462,11 +1496,18 @@ async function main() {
     squad = pruneFinalsCandidates(scoredPool, { positions: MAIN_POSITIONS, topN: FINALS_PRUNE_TOP_N, keepNames });
     console.log(`   Pruned to ${squad.length} candidates for the joint optimiser (top ${FINALS_PRUNE_TOP_N}/position + already-picked)`);
 
-    // AFL named-22 selection status and byes don't apply the same way this
-    // deep into finals — every club in the pool is, by construction, already
-    // playing this round. Auto-exclusion relies on injury severity only.
+    // Byes don't apply this deep into finals — every club in the pool is, by
+    // construction, already playing. Named-22 status still does: a fit player
+    // can be dropped, and picking him costs the week. Duzza Finals round
+    // numbers ARE the AFL round numbers (see SYNC_ROUNDS in
+    // duzzaFinalsFixtures.js), so the season fetch works here unmapped.
+    process.stdout.write("   Fetching team selections...");
+    const { selections: finalsSel, source: finalsSelSource } = await fetchTeamSelections(round);
+    console.log(` ${finalsSelSource}`);
+    if (finalsSel) selectionStatus = buildSelectionStatus(squad, finalsSel);
+
     for (const p of squad) {
-      if (injSeverity(p.name) >= 3) autoExcluded.add(p.name);
+      if (injSeverity(p.name) >= 3 || selectionStatus?.get(p.name) === "out") autoExcluded.add(p.name);
     }
     if (autoExcluded.size > 0) {
       console.log(`   Auto-excluded: ${[...autoExcluded].map(dn).join(", ")}`);
@@ -1960,4 +2001,6 @@ module.exports = {
   bestGameScore, getLastCompletedRound, getEffectiveRound,
   loadTradeEvents, evaluateTradeEvents, buildTradeMessage,
   seasonHasFinished,
+  // scoring + optimiser, for backtest-opponent-weights.js
+  SCORE_FNS, MAIN_POSITIONS, scoreGame, scorePositionsFromGames, findOptimalLineup,
 };
