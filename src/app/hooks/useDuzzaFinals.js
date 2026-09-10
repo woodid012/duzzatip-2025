@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { POSITION_TYPES } from '@/app/lib/constants';
+import { getFinalsCurrentRound } from '@/app/lib/duzzaFinalsAutoPick';
 
 // Duzza Finals runs over AFL rounds 26–29 (Qualifying & Elimination Finals,
 // Semi Finals, Preliminary Finals, Grand Final) — kept local to this hook
@@ -65,8 +66,18 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   // ── Tabs & week selection ────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('team'); // 'team' | 'tips' | 'bracket'
-  const [activeWeek, setActiveWeek] = useState(DUZZA_FINALS_ROUNDS[0]);
+  // null until we know the week — starting at Week 1 made the Enter tab load
+  // (and fetch) Week 1, then flip to the real week once the bracket answered.
+  // Fixtures are already in AppContext, so seed from them straight away; the
+  // bracket's currentWeek still wins when it arrives (same rule, server-side).
+  const [activeWeek, setActiveWeek] = useState(null);
   const userChangedWeekRef = useRef(false);
+
+  useEffect(() => {
+    if (activeWeek != null || userChangedWeekRef.current) return;
+    const week = getFinalsCurrentRound(fixtures || []);
+    if (week != null) setActiveWeek(week);
+  }, [fixtures, activeWeek]);
 
   // ── Entrant being viewed/edited ──────────────────────────────────────
   const [selectedEntrantId, setSelectedEntrantId] = useState(initialUserId);
@@ -109,6 +120,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     } catch (err) {
       console.error('Error loading Duzza Finals bracket:', err);
       setBracketError(err.message);
+      setActiveWeek((w) => w ?? DUZZA_FINALS_ROUNDS[0]);
     } finally {
       setBracketLoading(false);
     }

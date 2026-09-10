@@ -104,7 +104,7 @@ export default function DuzzaFinalsPage() {
         >
           <div className="flex items-center gap-3">
             <select
-              value={activeWeek}
+              value={activeWeek ?? ''}
               onChange={(e) => handleWeekChange(Number(e.target.value))}
               className="dz-select-dark"
             >
@@ -146,7 +146,7 @@ export default function DuzzaFinalsPage() {
         </div>
         <div className="flex flex-col gap-2">
           <select
-            value={activeWeek}
+            value={activeWeek ?? ''}
             onChange={(e) => handleWeekChange(Number(e.target.value))}
             className="dz-select w-full"
           >
