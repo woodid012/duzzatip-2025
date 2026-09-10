@@ -751,9 +751,11 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
     // A successful call proves the AFL API is reachable — clear any open breaker.
     clearAflBreaker();
 
+    // Zero matches means the round mapping missed (the finals offset shifts),
+    // NOT that the round is unfinished — fall back to the stored scores rather
+    // than latching a round that's actually played as forever-incomplete.
     if (matches.length === 0) {
-      roundStatusCache.set(cacheKey, { complete: false, timestamp: now });
-      return false;
+      return roundCompleteFromFixtureData(round, year, cacheKey, now);
     }
 
     const complete = matches.every(m => m.status === 'CONCLUDED');

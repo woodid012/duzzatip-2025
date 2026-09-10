@@ -9,6 +9,8 @@ import {
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_CUT_COUNTS,
   isDuzzaFinalsRound,
+  roundHasPlayedOut,
+  GAME_DURATION_MS,
 } from '../src/app/lib/duzzaFinals';
 
 // ─── computeWeekOutcome ─────────────────────────────────────────────────────
@@ -364,5 +366,28 @@ describe('deriveBenchAndReserves', () => {
   test('tolerates missing inputs', () => {
     expect(deriveBenchAndReserves(undefined, undefined)).toEqual([]);
     expect(deriveBenchAndReserves([], null)).toEqual([]);
+  });
+});
+
+
+// ─── roundHasPlayedOut ──────────────────────────────────────────────────────
+// Backstop that keeps currentWeek off a week that finished days ago when the
+// AFL API can't confirm the round is complete.
+
+describe('roundHasPlayedOut', () => {
+  const bounce = Date.UTC(2026, 8, 3, 10, 10);
+  const lastBounce = Date.UTC(2026, 8, 5, 9, 35);
+
+  test('false while the round is still being played', () => {
+    expect(roundHasPlayedOut([bounce, lastBounce], lastBounce + 60 * 1000)).toBe(false);
+  });
+
+  test('true once the last game has run its full length', () => {
+    expect(roundHasPlayedOut([bounce, lastBounce], lastBounce + GAME_DURATION_MS)).toBe(true);
+  });
+
+  test('false when the round has no fixtures at all', () => {
+    expect(roundHasPlayedOut([], Date.now())).toBe(false);
+    expect(roundHasPlayedOut(undefined, Date.now())).toBe(false);
   });
 });

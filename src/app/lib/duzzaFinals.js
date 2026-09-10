@@ -20,6 +20,20 @@ export const DUZZA_FINALS_WEEK_LABELS = {
   29: 'Grand Final',
 };
 
+// A game is over this long after its first bounce — 2h of football plus
+// breaks, rounded up. Used only as a lower bound on "this week has finished
+// playing", never for live scoring.
+export const GAME_DURATION_MS = 4 * 60 * 60 * 1000;
+
+// True once every game of the round started long enough ago to have certainly
+// finished. Clock-only, so unlike isRoundComplete (AFL API) it can't be wrong
+// because an external service is down.
+export function roundHasPlayedOut(fixtureTimes, now = Date.now()) {
+  const times = (fixtureTimes || []).filter((t) => Number.isFinite(t));
+  if (times.length === 0) return false;
+  return now >= Math.max(...times) + GAME_DURATION_MS;
+}
+
 export function isDuzzaFinalsRound(round) {
   return DUZZA_FINALS_ROUNDS.includes(Number(round));
 }
@@ -534,7 +548,12 @@ export async function computeBracket(seasonDb, finalsDb, year) {
       }
     }
 
-    if (currentWeek === null && !roundComplete) {
+    // roundHasPlayedOut is the clock-only backstop for roundComplete, which
+    // comes from the external AFL API: an outage there — or a finals
+    // round-number mismatch returning zero matches — used to leave currentWeek
+    // parked on a week that bounced days ago, and every entrant landing on it
+    // was told they were locked out.
+    if (currentWeek === null && !roundComplete && !roundHasPlayedOut(roundFixtureTimes)) {
       currentWeek = round;
     }
 
