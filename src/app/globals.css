@@ -144,6 +144,12 @@ html {
   .dz-table tbody tr {
     @apply border-t border-slate-100 transition-colors hover:bg-slate-50/70;
   }
+  /* Tight variant for many-column tables (the finals pool: rank + name + four
+     weeks + total) so a phone fits every score column without scrolling. */
+  .dz-table-compact thead th,
+  .dz-table-compact tbody td {
+    @apply px-1.5 py-2 text-xs sm:px-4 sm:py-3 sm:text-sm;
+  }
 }
 
 /* ------------------------------------------------------------------ *

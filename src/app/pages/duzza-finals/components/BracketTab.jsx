@@ -12,7 +12,7 @@ const computeCutIndex = (week) => {
   return null;
 };
 
-function WeekColumn({ week, viewerUserId }) {
+function WeekColumn({ week, viewerUserId, isCurrent }) {
   const weekNumber = week.round - 25;
   const finalized = Array.isArray(week.eliminated);
   const isLive = week.fixturesKnown && !finalized && (week.scores || []).length > 0;
@@ -21,10 +21,16 @@ function WeekColumn({ week, viewerUserId }) {
   const cutIndex = computeCutIndex(week);
 
   return (
-    <div className="dz-surface p-3 sm:p-4 flex flex-col gap-3 min-w-0">
+    <div
+      className={`dz-surface p-3 sm:p-4 flex flex-col gap-3 min-w-0 ${
+        isCurrent ? 'ring-2 ring-blue-400 shadow-md' : ''
+      }`}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Week {weekNumber}</div>
+          <div className={`text-[10px] font-extrabold uppercase tracking-[0.1em] ${isCurrent ? 'text-blue-600' : 'text-slate-500'}`}>
+            Week {weekNumber}{isCurrent ? ' · Current' : ''}
+          </div>
           <h3 className="text-sm font-bold text-slate-900 truncate">{week.label}</h3>
         </div>
         {!week.fixturesKnown && (
@@ -116,6 +122,18 @@ export default function BracketTab({ bracket, bracketLoading, bracketError, view
 
   if (!bracket) return null;
 
+  // Once the bracket is done currentWeek just parks on the last round, so
+  // there's nothing "current" left to call out.
+  const currentRound = bracket.isComplete ? null : bracket.currentWeek;
+
+  // The current (live) week leads, so it's the first column on desktop and the
+  // top card on mobile; the rest follow in round order behind it.
+  const orderedWeeks = [...(bracket.weeks || [])].sort((a, b) => {
+    const aCurrent = a.round === currentRound ? 0 : 1;
+    const bCurrent = b.round === currentRound ? 0 : 1;
+    return aCurrent - bCurrent || a.round - b.round;
+  });
+
   const champions = bracket.coChampions?.length
     ? bracket.coChampions
     : (bracket.champion != null ? [bracket.champion] : []);
@@ -134,8 +152,13 @@ export default function BracketTab({ bracket, bracketLoading, bracketError, view
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {(bracket.weeks || []).map((week) => (
-          <WeekColumn key={week.round} week={week} viewerUserId={viewerUserId} />
+        {orderedWeeks.map((week) => (
+          <WeekColumn
+            key={week.round}
+            week={week}
+            viewerUserId={viewerUserId}
+            isCurrent={week.round === currentRound}
+          />
         ))}
       </div>
     </div>

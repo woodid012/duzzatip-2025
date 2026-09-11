@@ -20,6 +20,10 @@ const FALLBACK_ROUND_LABELS = {
 };
 const weekNumberForRound = (round) => round - 25;
 
+// Bracket/pool poll cadence while a finals week is live — matches the
+// per-round results view (src/app/finals/lib/useFinalsRoundResults.js).
+const BRACKET_REFRESH_INTERVAL_MS = 60 * 1000;
+
 const emptyEntry = () => ({ Team: {}, Tips: [], Name: '', LastUpdated: null });
 
 // Parse a saved `[{MatchNumber, Match, Tip, DeadCert}]` Tips array into the
@@ -98,19 +102,26 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
   // ── Bracket / results (drives default week, elimination state) ──────
   const [bracket, setBracket] = useState(null);
   const [bracketLoading, setBracketLoading] = useState(true);
+  const [bracketRefreshing, setBracketRefreshing] = useState(false);
   const [bracketError, setBracketError] = useState(null);
+  const [bracketUpdatedAt, setBracketUpdatedAt] = useState(null);
 
-  const fetchBracket = useCallback(async () => {
+  // `background` = a poll tick: keep the scores on screen (no skeleton, and a
+  // failed tick doesn't blow away the last good snapshot) so a live week's
+  // numbers tick over in place.
+  const fetchBracket = useCallback(async ({ background = false } = {}) => {
     try {
-      setBracketLoading(true);
+      if (background) setBracketRefreshing(true);
+      else setBracketLoading(true);
       setBracketError(null);
-      const res = await fetch(`/api/duzza-finals/results?year=${selectedYear}`);
+      const res = await fetch(`/api/duzza-finals/results?year=${selectedYear}`, { cache: 'no-store' });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `Failed to load bracket (${res.status})`);
       }
       const data = await res.json();
       setBracket(data);
+      setBracketUpdatedAt(new Date());
       if (!userChangedWeekRef.current && data?.currentWeek) {
         const clamped = DUZZA_FINALS_ROUNDS.includes(data.currentWeek)
           ? data.currentWeek
@@ -119,14 +130,36 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
       }
     } catch (err) {
       console.error('Error loading Duzza Finals bracket:', err);
-      setBracketError(err.message);
-      setActiveWeek((w) => w ?? DUZZA_FINALS_ROUNDS[0]);
+      if (!background) {
+        setBracketError(err.message);
+        setActiveWeek((w) => w ?? DUZZA_FINALS_ROUNDS[0]);
+      }
     } finally {
+      setBracketRefreshing(false);
       setBracketLoading(false);
     }
   }, [selectedYear]);
 
   useEffect(() => { fetchBracket(); }, [fetchBracket]);
+
+  // Keep the live week's scores moving: poll while the tab is visible and the
+  // finals haven't been decided. Refetch immediately on becoming visible too,
+  // so coming back to a backgrounded phone doesn't show minutes-old scores.
+  const finalsComplete = !!bracket?.isComplete;
+  useEffect(() => {
+    if (finalsComplete) return undefined;
+
+    const tick = () => {
+      if (document.visibilityState === 'visible') fetchBracket({ background: true });
+    };
+    const interval = setInterval(tick, BRACKET_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', tick);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [fetchBracket, finalsComplete]);
 
   const refreshBracket = useCallback(() => fetchBracket(), [fetchBracket]);
 
@@ -569,6 +602,8 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     // Bracket / results
     bracket,
     bracketLoading,
+    bracketRefreshing,
+    bracketUpdatedAt,
     bracketError,
     refreshBracket,
     isEliminated,

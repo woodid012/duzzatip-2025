@@ -45,7 +45,8 @@ export default function DuzzaFinalsPage() {
     handleTipSelect, handleDeadCertToggle,
     isEditingEntry, entryDirty, startEditingEntry, cancelEditingEntry, saveEntry,
     entryLocked, canEdit, isPastYear,
-    bracket, bracketLoading, bracketError, refreshBracket, viewerEliminated,
+    bracket, bracketLoading, bracketRefreshing, bracketUpdatedAt, bracketError,
+    refreshBracket, viewerEliminated,
     loading, error, actionError, saving, successMessage,
   } = useDuzzaFinals(isAdmin ? '' : selectedUserId, { isAdmin });
 
@@ -258,6 +259,8 @@ export default function DuzzaFinalsPage() {
               <PoolTab
                 bracket={bracket}
                 bracketLoading={bracketLoading}
+                bracketRefreshing={bracketRefreshing}
+                bracketUpdatedAt={bracketUpdatedAt}
                 bracketError={bracketError}
                 viewerUserId={!isAdmin ? selectedUserId : null}
                 onRefresh={refreshBracket}
@@ -329,6 +332,8 @@ export default function DuzzaFinalsPage() {
               <PoolTab
                 bracket={bracket}
                 bracketLoading={bracketLoading}
+                bracketRefreshing={bracketRefreshing}
+                bracketUpdatedAt={bracketUpdatedAt}
                 bracketError={bracketError}
                 viewerUserId={!isAdmin ? selectedUserId : null}
                 onRefresh={refreshBracket}
