@@ -2575,17 +2575,17 @@
     "HomeTeam": "Brisbane Lions",
     "AwayTeam": "Adelaide Crows",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 144,
+    "AwayTeamScore": 91,
+    "Winner": "Brisbane Lions"
   },
   {
     "MatchNumber": 216,
     "RoundNumber": 28,
-    "DateUtc": "2026-09-19 02:00:00Z",
+    "DateUtc": "2026-09-19 07:15:00Z",
     "Location": "TBC",
     "HomeTeam": "Hawthorn",
-    "AwayTeam": "To be announced",
+    "AwayTeam": "Brisbane Lions",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null,
