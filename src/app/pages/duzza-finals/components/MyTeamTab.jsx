@@ -3,6 +3,7 @@
 import { POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import PlayerSelect from './PlayerSelect';
 import EntryGuard, { isBlocked } from './EntryGuard';
+import { positionsByPlayer } from '@/app/lib/uniqueSelection';
 
 const getPositionDisplay = (position) => {
   if (position === 'Reserve A') return 'Reserve A';
@@ -43,6 +44,10 @@ export default function MyTeamTab({
       />
     );
   }
+
+  // Which position each player already fills, so the picker can flag a pick
+  // that will swap two slots rather than duplicate the player.
+  const heldPositions = positionsByPlayer(team);
 
   return (
     <div className="space-y-4">
@@ -103,6 +108,8 @@ export default function MyTeamTab({
                         playersByTeam={playersByTeam}
                         value={slot.player ? { player: slot.player, club: slot.club } : null}
                         onChange={(player, club) => handlePlayerChange(position, player, club)}
+                        heldPositions={heldPositions}
+                        position={position}
                         className="w-full"
                       />
                       {position === 'Bench' && (

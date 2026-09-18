@@ -5,6 +5,7 @@ import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { filterWritablePositions } from '@/app/lib/rollingLockout';
 import { canSeeOthers, submittedOnTimeIds } from '@/app/lib/submissionStatus';
+import { duplicatesIntroduced } from '@/app/lib/uniqueSelection';
 
 export async function GET(request) {
     try {
@@ -192,6 +193,35 @@ export async function POST(request) {
                 );
             }
             writable = enforced;
+        }
+
+        // One player, one position — the same name in two slots would score the
+        // one game twice. The UI swaps rather than duplicates, so this is the
+        // backstop for whatever gets past it: a direct API call, or half a swap
+        // surviving when the rolling lockout refused the other half.
+        const savingUserIds = Object.keys(writable).map(uid => parseInt(uid));
+        if (savingUserIds.length > 0) {
+            const currentRows = await collection
+                .find({ Round: roundNum, User: { $in: savingUserIds }, Active: 1 })
+                .toArray();
+            const currentByUser = {};
+            for (const row of currentRows) {
+                if (!currentByUser[row.User]) currentByUser[row.User] = {};
+                currentByUser[row.User][row.Position] = { player_name: row.Player_Name };
+            }
+
+            const conflicts = [];
+            for (const [userId, positions] of Object.entries(writable)) {
+                duplicatesIntroduced(currentByUser[parseInt(userId)] || {}, positions)
+                    .forEach(dupe => conflicts.push(`${dupe.playerName} in ${dupe.positions.join(' and ')}`));
+            }
+
+            if (conflicts.length > 0) {
+                return Response.json(
+                    { error: `A player can only fill one position — ${conflicts.join('; ')}` },
+                    { status: 409 }
+                );
+            }
         }
 
         // Create bulk operations array

@@ -9,6 +9,7 @@ import { FINALS_ROUNDS, FALLBACK_WEEK_LABELS, weekNumberForRound } from '../lib/
 import { LoadingSkeleton, ErrorCard, EmptyCard } from '../components/StatusCard';
 import TeamSlots from '../components/TeamSlots';
 import TipsList from '../components/TipsList';
+import { findPlayerPosition } from '@/app/lib/uniqueSelection';
 
 const emptyTeam = () => ({});
 const emptyTipsMap = () => ({});
@@ -149,6 +150,17 @@ export default function EnterPage() {
       if (!playerName) {
         next[position] = position === 'Bench' ? { backup_position: prev[position]?.backup_position || '' } : {};
       } else {
+        // One player, one position — the same name in two slots would score
+        // the one game twice, so a player already in the team swaps slots
+        // rather than being cloned into a second one.
+        const heldAt = findPlayerPosition(prev, playerName, position);
+        if (heldAt) {
+          const displaced = prev[position] || {};
+          const moved = displaced.player ? { player: displaced.player, club: displaced.club } : {};
+          next[heldAt] = heldAt === 'Bench'
+            ? { ...moved, backup_position: prev.Bench?.backup_position || '' }
+            : moved;
+        }
         next[position] = { ...(prev[position] || {}), player: playerName, club };
       }
       return next;

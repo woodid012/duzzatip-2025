@@ -10,6 +10,11 @@ export default function PlayerSelect({
   playersByTeam = {},
   value,
   onChange,
+  // Where each player already sits in this team, and which slot this picker
+  // is. A pick from a player held elsewhere swaps the two slots, so the list
+  // says so up front.
+  heldPositions = {},
+  position = null,
   disabled = false,
   placeholder = 'Select Player',
   className = '',
@@ -116,6 +121,9 @@ export default function PlayerSelect({
                       className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-black ${selected ? 'bg-blue-100 font-medium' : ''}`}
                     >
                       {p.name} <span className="text-slate-400">({club})</span>
+                      {heldPositions[p.name] && heldPositions[p.name] !== position && (
+                        <span className="ml-1 text-[11px] font-medium text-amber-600">in {heldPositions[p.name]}</span>
+                      )}
                     </button>
                   );
                 })}
