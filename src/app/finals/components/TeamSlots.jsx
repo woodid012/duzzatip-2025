@@ -2,10 +2,15 @@
 
 import { POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
 import PlayerSelect from './PlayerSelect';
+import { positionsByPlayer } from '@/app/lib/uniqueSelection';
 
 // The 9 team slots (6 scoring positions + Bench + Reserve A + Reserve B).
 // `team` is { [position]: { player, club, backup_position? } }.
 export default function TeamSlots({ playersByTeam, team, onPlayerChange, onBackupChange, disabled }) {
+  // Which position each player already fills, so the picker can flag a pick
+  // that will swap two slots rather than duplicate the player.
+  const heldPositions = positionsByPlayer(team);
+
   return (
     <div className="space-y-2.5">
       {POSITION_TYPES.map((position) => {
@@ -18,6 +23,8 @@ export default function TeamSlots({ playersByTeam, team, onPlayerChange, onBacku
                 playersByTeam={playersByTeam}
                 value={slot.player ? { player: slot.player, club: slot.club } : null}
                 onChange={(player, club) => onPlayerChange(position, player, club)}
+                heldPositions={heldPositions}
+                position={position}
                 disabled={disabled}
                 className="w-full"
               />

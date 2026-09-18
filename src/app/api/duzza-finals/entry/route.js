@@ -5,6 +5,7 @@ import { getFinalsSessionEntrant } from '@/app/lib/duzzaFinalsAuth';
 import { isRoundLocked } from '@/app/lib/roundAccess';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { POSITION_TYPES, BACKUP_POSITIONS, USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+import { findDuplicateSelections } from '@/app/lib/uniqueSelection';
 import {
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_WEEK_LABELS,
@@ -194,6 +195,21 @@ export const POST = createApiHandler(async (request, db) => {
         { status: 400 }
       );
     }
+
+    // One player, one position — the same name in two slots would score the
+    // one game twice. The pickers swap rather than duplicate; this catches
+    // anything that gets past them.
+    const duplicates = findDuplicateSelections(team);
+    if (duplicates.length > 0) {
+      const detail = duplicates
+        .map((dupe) => `${dupe.playerName} in ${dupe.positions.join(' and ')}`)
+        .join('; ');
+      return Response.json(
+        { error: `A player can only fill one position — ${detail}` },
+        { status: 400 }
+      );
+    }
+
     validatedTeam = team;
   }
 

@@ -13,6 +13,7 @@ import {
   positionLockReason as positionLockReasonFn,
 } from '@/app/lib/rollingLockout';
 import useRoundLockStatus from '@/app/hooks/useRoundLockStatus';
+import { findPlayerPosition } from '@/app/lib/uniqueSelection';
 
 export default function useTeamSelection() {
   const {
@@ -322,8 +323,21 @@ export default function useTeamSelection() {
     
     if (isPositionLocked(userId, position) && userId !== 'admin') {
       console.log(`Position ${position} is locked (game started), ignoring player change`);
-      return;
+      return { ok: false, reason: 'position-locked' };
     }
+
+    // One player, one position — the same name in two slots would score the
+    // one game twice. If this player is already in the team, the two slots
+    // swap rather than both holding them.
+    const currentTeam = editedTeams[userId] || {};
+    const heldAt = findPlayerPosition(currentTeam, newPlayerName, position);
+    if (heldAt && userId !== 'admin' && isPositionLocked(userId, heldAt)) {
+      // Their other slot is locked, so there's nothing to swap with — the pick
+      // would have to duplicate them, so it's refused outright.
+      console.log(`${newPlayerName} is locked into ${heldAt}, can't also fill ${position}`);
+      return { ok: false, reason: 'duplicate-locked', heldAt, playerName: newPlayerName };
+    }
+    const displacedPlayer = heldAt ? (currentTeam[position]?.player_name || '') : '';
 
     setEditedTeams(prev => {
       const newTeams = JSON.parse(JSON.stringify(prev)); // Deep clone
@@ -340,7 +354,20 @@ export default function useTeamSelection() {
           last_updated: new Date().toISOString()
         };
       }
-      
+
+      // Hand the slot they came from whoever this position was holding — an
+      // empty name when it was holding nobody, which clears that slot on save.
+      if (heldAt) {
+        newTeams[userId][heldAt] = {
+          player_name: displacedPlayer,
+          position: heldAt,
+          ...(newTeams[userId][heldAt]?.backup_position
+            ? { backup_position: newTeams[userId][heldAt].backup_position }
+            : {}),
+          last_updated: new Date().toISOString()
+        };
+      }
+
       return newTeams;
     });
 
@@ -350,6 +377,7 @@ export default function useTeamSelection() {
         newChangedPositions[userId] = {};
       }
       newChangedPositions[userId][position] = true;
+      if (heldAt) newChangedPositions[userId][heldAt] = true;
       return newChangedPositions;
     });
     
@@ -357,7 +385,9 @@ export default function useTeamSelection() {
     if (!isEditing) {
       setIsEditing(true);
     }
-  }, [localRound, isPositionLocked, isEditing]);
+
+    return { ok: true, swappedFrom: heldAt, displacedPlayer, playerName: newPlayerName };
+  }, [localRound, isPositionLocked, isEditing, editedTeams]);
 
   // Handle backup position change for bench players
   const handleBackupPositionChange = useCallback((userId, position, newPosition) => {

@@ -9,6 +9,7 @@ import { FINALS_ROUNDS, FALLBACK_WEEK_LABELS, weekNumberForRound } from '../lib/
 import { LoadingSkeleton, ErrorCard, EmptyCard } from '../components/StatusCard';
 import TeamSlots from '../components/TeamSlots';
 import TipsList from '../components/TipsList';
+import { applyFinalsPick } from '@/app/lib/uniqueSelection';
 
 const emptyTeam = () => ({});
 const emptyTipsMap = () => ({});
@@ -144,15 +145,10 @@ export default function EnterPage() {
 
   const handlePlayerChange = (position, playerName, club) => {
     if (!canEdit) return;
-    setTeam((prev) => {
-      const next = { ...prev };
-      if (!playerName) {
-        next[position] = position === 'Bench' ? { backup_position: prev[position]?.backup_position || '' } : {};
-      } else {
-        next[position] = { ...(prev[position] || {}), player: playerName, club };
-      }
-      return next;
-    });
+    // One player, one position — the same name in two slots would score the one
+    // game twice, so a player already in the team swaps slots rather than
+    // being cloned into a second one.
+    setTeam((prev) => applyFinalsPick(prev, position, playerName, club));
   };
 
   const handleBackupChange = (backupPosition) => {
