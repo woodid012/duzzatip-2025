@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
-import { findPlayerPosition } from '@/app/lib/uniqueSelection';
+import { applyFinalsPick } from '@/app/lib/uniqueSelection';
 import { POSITION_TYPES } from '@/app/lib/constants';
 import { getFinalsCurrentRound } from '@/app/lib/duzzaFinalsAutoPick';
 
@@ -266,26 +266,10 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   const handlePlayerChange = useCallback((position, playerName, club) => {
     if (!isEditingTeam) return;
-    setEditedTeam((prev) => {
-      const next = { ...prev };
-      if (!playerName) {
-        next[position] = position === 'Bench' ? { backup_position: prev[position]?.backup_position || '' } : {};
-      } else {
-        // One player, one position — the same name in two slots would score
-        // the one game twice, so a player already in the team swaps slots
-        // rather than being cloned into a second one.
-        const heldAt = findPlayerPosition(prev, playerName, position);
-        if (heldAt) {
-          const displaced = prev[position] || {};
-          const moved = displaced.player ? { player: displaced.player, club: displaced.club } : {};
-          next[heldAt] = heldAt === 'Bench'
-            ? { ...moved, backup_position: prev.Bench?.backup_position || '' }
-            : moved;
-        }
-        next[position] = { ...(prev[position] || {}), player: playerName, club };
-      }
-      return next;
-    });
+    // One player, one position — the same name in two slots would score the one
+    // game twice, so a player already in the team swaps slots rather than
+    // being cloned into a second one.
+    setEditedTeam((prev) => applyFinalsPick(prev, position, playerName, club));
     setTeamDirty(true);
   }, [isEditingTeam]);
 

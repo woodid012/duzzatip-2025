@@ -75,3 +75,32 @@ export function duplicatesIntroduced(storedTeam, incomingPositions) {
     dupe.positions.some(position => touched.has(position))
   );
 }
+
+// Applies a Duzza Finals pick to a team and hands back the new team. The
+// finals slot shape is { player, club } plus a Bench-only backup_position,
+// which belongs to the slot rather than to whoever fills it.
+//
+// A pick landing on a player already in the team swaps the two slots: this
+// position takes them, and the slot they came from takes whoever this
+// position was holding (empty when it was holding nobody). A null/empty
+// `playerName` just clears the slot.
+export function applyFinalsPick(team, position, playerName, club) {
+  const prev = team || {};
+  const next = { ...prev };
+  const benchBackup = (slot) => ({ backup_position: slot?.backup_position || '' });
+
+  if (!playerName) {
+    next[position] = position === 'Bench' ? benchBackup(prev.Bench) : {};
+    return next;
+  }
+
+  const heldAt = findPlayerPosition(prev, playerName, position);
+  if (heldAt) {
+    const displaced = prev[position] || {};
+    const moved = displaced.player ? { player: displaced.player, club: displaced.club } : {};
+    next[heldAt] = heldAt === 'Bench' ? { ...moved, ...benchBackup(prev.Bench) } : moved;
+  }
+
+  next[position] = { ...(prev[position] || {}), player: playerName, club };
+  return next;
+}

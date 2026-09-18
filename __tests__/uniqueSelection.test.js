@@ -1,4 +1,5 @@
 import {
+  applyFinalsPick,
   duplicatesIntroduced,
   findDuplicateSelections,
   findPlayerPosition,
@@ -128,5 +129,59 @@ describe('positionsByPlayer', () => {
       'Jeremy Cameron': 'Full Forward',
       'Nick Daicos': 'Midfielder',
     });
+  });
+});
+
+// The Duzza Finals pickers (the pool comp's own entry screens) run every pick
+// through applyFinalsPick, so a player can never end up in two slots.
+describe('applyFinalsPick', () => {
+  const team = {
+    'Full Forward': { player: 'Jeremy Cameron', club: 'GEE' },
+    Midfielder: { player: 'Nick Daicos', club: 'COL' },
+    Bench: { player: 'Zak Butters', club: 'PTA', backup_position: 'Ruck' },
+  };
+
+  test('an ordinary pick just fills the slot', () => {
+    const next = applyFinalsPick(team, 'Tackler', 'Tim English', 'WBD');
+    expect(next.Tackler).toEqual({ player: 'Tim English', club: 'WBD' });
+    expect(findDuplicateSelections(next)).toEqual([]);
+  });
+
+  test('picking a player already in the team swaps the two slots', () => {
+    const next = applyFinalsPick(team, 'Tackler', 'Nick Daicos', 'COL');
+    expect(next.Tackler).toEqual({ player: 'Nick Daicos', club: 'COL' });
+    expect(next.Midfielder).toEqual({});
+    expect(findDuplicateSelections(next)).toEqual([]);
+  });
+
+  test('the swap hands the displaced player the slot they came from', () => {
+    const next = applyFinalsPick(team, 'Full Forward', 'Nick Daicos', 'COL');
+    expect(next['Full Forward']).toEqual({ player: 'Nick Daicos', club: 'COL' });
+    expect(next.Midfielder).toEqual({ player: 'Jeremy Cameron', club: 'GEE' });
+    expect(findDuplicateSelections(next)).toEqual([]);
+  });
+
+  test('backup position belongs to the bench slot, not to whoever fills it', () => {
+    const swappedOut = applyFinalsPick(team, 'Midfielder', 'Zak Butters', 'PTA');
+    expect(swappedOut.Bench).toEqual({ player: 'Nick Daicos', club: 'COL', backup_position: 'Ruck' });
+
+    const swappedIn = applyFinalsPick(team, 'Bench', 'Nick Daicos', 'COL');
+    expect(swappedIn.Bench).toEqual({ player: 'Nick Daicos', club: 'COL', backup_position: 'Ruck' });
+    expect(swappedIn.Midfielder).toEqual({ player: 'Zak Butters', club: 'PTA' });
+  });
+
+  test('re-picking the player already in a slot leaves the rest alone', () => {
+    expect(applyFinalsPick(team, 'Midfielder', 'Nick Daicos', 'COL')).toEqual(team);
+  });
+
+  test('clearing empties the slot, keeping the bench backup position', () => {
+    expect(applyFinalsPick(team, 'Midfielder', null, null).Midfielder).toEqual({});
+    expect(applyFinalsPick(team, 'Bench', null, null).Bench).toEqual({ backup_position: 'Ruck' });
+  });
+
+  test('the original team is never mutated', () => {
+    const before = JSON.parse(JSON.stringify(team));
+    applyFinalsPick(team, 'Tackler', 'Nick Daicos', 'COL');
+    expect(team).toEqual(before);
   });
 });
