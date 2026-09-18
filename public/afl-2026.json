@@ -2587,9 +2587,9 @@
     "HomeTeam": "Sydney Swans",
     "AwayTeam": "Fremantle",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 71,
+    "AwayTeamScore": 83,
+    "Winner": "Fremantle"
   },
   {
     "MatchNumber": 216,
