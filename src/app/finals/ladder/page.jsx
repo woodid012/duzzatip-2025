@@ -46,6 +46,7 @@ export default function LadderPage() {
 
           <BracketMini
             weeks={results?.weeks}
+            currentWeek={results?.currentWeek}
             cumulativeLadder={results?.cumulativeLadder}
             champion={results?.champion}
             coChampions={results?.coChampions}
