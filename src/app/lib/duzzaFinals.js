@@ -458,6 +458,23 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
   });
 }
 
+// Has the round's player-stats data actually landed? A complete round whose
+// game_results are missing — the collection is rebuilt in place, and a read can
+// land mid-refresh — scores every entrant zero, and computeWeekOutcome reads a
+// field tied on zero as a tie at the cut line and spares all of them. That is
+// how Preliminary Finals week briefly showed 6 teams instead of 4. No stats
+// means the week simply hasn't finalized yet, which is the honest answer.
+export async function roundHasStats(seasonDb, round, year) {
+  try {
+    const count = await seasonDb
+      .collection(`${year}_game_results`)
+      .countDocuments({ round: Number(round) }, { limit: 1 });
+    return count > 0;
+  } catch {
+    return false;
+  }
+}
+
 // Replays rounds 26 -> 29, finalizing a round's eliminations only once
 // isRoundComplete() is true for it. Before that, scores shown are live/
 // partial and eliminated/survivors are null. Once a round fails to finalize,
@@ -561,7 +578,11 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     let survivors = null;
     let tieAtCutLine = false;
 
-    if (!bracketBroken && fixturesKnown && roundComplete) {
+    // A complete round still needs its stats in hand before the cut can be
+    // read off the scores — see roundHasStats.
+    const statsLanded = roundComplete ? await roundHasStats(seasonDb, round, year) : false;
+
+    if (!bracketBroken && fixturesKnown && roundComplete && statsLanded) {
       const outcome = computeWeekOutcome(
         scores.map((s) => ({ userId: s.userId, totalScore: s.totalScore })),
         cutCount
@@ -594,7 +615,7 @@ export async function computeBracket(seasonDb, finalsDb, year) {
       tieAtCutLine,
     });
 
-    if (!bracketBroken && fixturesKnown && roundComplete) {
+    if (!bracketBroken && fixturesKnown && roundComplete && statsLanded) {
       aliveAtStart = survivors;
     } else {
       bracketBroken = true;
