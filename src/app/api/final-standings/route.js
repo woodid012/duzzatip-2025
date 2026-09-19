@@ -1,4 +1,4 @@
-import { createApiHandler, getCollectionForYear, parseYearParam, blockWritesForPastYear } from '../../lib/apiUtils';
+import { createApiHandler, getCollectionForYear, parseYearParam, blockWritesForPastYear, withReadCache } from '../../lib/apiUtils';
 
 // GET — Retrieve saved final standings for a year
 export const GET = createApiHandler(async (request, db) => {
@@ -9,11 +9,11 @@ export const GET = createApiHandler(async (request, db) => {
   const doc = await collection.findOne({ year });
 
   if (doc) {
-    return Response.json({
+    return withReadCache(Response.json({
       year,
       standings: doc.standings,
       savedAt: doc.savedAt,
-    });
+    }), 60);
   }
 
   return Response.json({

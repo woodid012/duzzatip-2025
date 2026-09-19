@@ -20,8 +20,10 @@ export const GET = createApiHandler(async (request, db) => {
   }
 
   // Finals fixtures never arrive via the season pipeline (it only updates
-  // existing rows) — pull/refresh them here, throttled internally.
-  await syncFinalsFixtures(db, year);
+  // existing rows) — pull/refresh them here, throttled internally. Not
+  // awaited: the request that lands as the throttle expires shouldn't pay
+  // for the AFL round trips, the same way fixtureCache runs its refreshes.
+  syncFinalsFixtures(db, year).catch(() => {});
 
   const pool = await getPlayerPoolForRound(db, round, year);
 

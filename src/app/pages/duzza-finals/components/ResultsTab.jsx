@@ -56,12 +56,31 @@ export default function ResultsTab({ activeWeek, selectedEntrantId, weekLabel, f
 
   useEffect(() => { load(); }, [load]);
 
-  // Keep a live week ticking over without the user pulling to refresh.
+  // Keep a live week ticking over without the user pulling to refresh — but
+  // pause the poll when the tab is hidden (no point hitting the API for a
+  // backgrounded tab), and refetch immediately when it becomes visible again
+  // so it's never stale on return.
   const isLive = !!detail?.fixturesKnown && !detail?.roundComplete;
   useEffect(() => {
     if (!isLive) return;
-    const id = setInterval(() => load({ background: true }), 120000);
-    return () => clearInterval(id);
+    let interval = null;
+    const tick = () => load({ background: true });
+    const start = () => { if (!interval) interval = setInterval(tick, 120000); };
+    const stop = () => { if (interval) { clearInterval(interval); interval = null; } };
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        stop();
+      } else {
+        tick();   // catch up immediately on return
+        start();
+      }
+    };
+    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') start();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [isLive, load]);
 
   if (loading) return <LoadingSkeleton rows={4} />;

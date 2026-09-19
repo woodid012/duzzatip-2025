@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, createContext, useContext } from 'react';
+import { useEffect, useState, createContext, useContext, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
@@ -65,6 +65,69 @@ const FinalsSeasonToggle = ({ pathname, className = '' }) => {
     </div>
   );
 };
+
+// Shared bits ----------------------------------------------------------
+// Hoisted to module scope: defining these inside PagesLayout's render body
+// gave them a new component identity every render, so React would unmount
+// and remount them (nav links, the <select> losing focus) on every
+// layout-local state change. They now take as props whatever layout state
+// they used to close over.
+
+const NavLink = ({ item, pathname, onClick }) => {
+  const active = pathname === item.path;
+  return (
+    <Link
+      key={item.id}
+      href={item.path}
+      onClick={onClick}
+      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+        active
+          ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
+          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+      }`}
+    >
+      <NavIcon
+        id={item.id}
+        className={`h-[18px] w-[18px] flex-shrink-0 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`}
+      />
+      <span className="truncate">{item.name}</span>
+    </Link>
+  );
+};
+
+const UserSelect = ({ className = '', selectedUserId, onChange, authedUserId, isAdminAuthenticated }) => {
+  // Once signed in, the team is locked — sign out to switch.
+  const locked = authedUserId !== null || isAdminAuthenticated;
+  return (
+    <select
+      value={selectedUserId}
+      onChange={onChange}
+      disabled={locked}
+      title={locked ? 'Signed in — sign out to switch teams' : undefined}
+      className={`dz-select ${locked ? 'cursor-default appearance-none pr-3' : ''} ${className}`}
+    >
+      <option value="">Select Player</option>
+      {Object.entries(USER_NAMES).map(([id, name]) => (
+        <option key={id} value={id}>{name}</option>
+      ))}
+      {/* Admin isn't a pickable team — sign in via the nav's Admin entry.
+          The option only exists so the (disabled) select can display it. */}
+      {isAdminAuthenticated && <option value="admin">Admin</option>}
+    </select>
+  );
+};
+
+// Admin sign-in lives at the bottom of the nav (below Install App), not in
+// the player dropdown — admin is a mode, not a team. Hidden once authenticated.
+const AdminNavButton = ({ onClick, setShowAdminModal }) => (
+  <button
+    onClick={() => { setShowAdminModal(true); onClick?.(); }}
+    className="group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
+  >
+    <Lock className="h-[18px] w-[18px] flex-shrink-0 text-slate-400 group-hover:text-slate-600" />
+    <span className="truncate">Admin</span>
+  </button>
+);
 
 // Create context for selected user and admin authentication
 export const UserContext = createContext({
@@ -291,7 +354,7 @@ export default function PagesLayout({ children }) {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await fetch('/api/auth', {
         method: 'POST',
@@ -309,7 +372,7 @@ export default function PagesLayout({ children }) {
       localStorage.removeItem('selectedUserId');
       sessionStorage.removeItem('dz_guest');
     }
-  };
+  }, []);
 
   // Handle admin password submission — server-verified so admin also gets a
   // signed session cookie that bypasses the server-side privacy filters.
@@ -407,66 +470,35 @@ export default function PagesLayout({ children }) {
       ? 'bg-slate-100 text-slate-600'
       : 'bg-red-100 text-red-700';
 
-  // Shared bits ----------------------------------------------------------
-
-  const UserSelect = ({ className = '' }) => {
-    // Once signed in, the team is locked — sign out to switch.
-    const locked = authedUserId !== null || isAdminAuthenticated;
-    return (
-      <select
-        value={selectedUserId}
-        onChange={handleUserChange}
-        disabled={locked}
-        title={locked ? 'Signed in — sign out to switch teams' : undefined}
-        className={`dz-select ${locked ? 'cursor-default appearance-none pr-3' : ''} ${className}`}
-      >
-        <option value="">Select Player</option>
-        {Object.entries(USER_NAMES).map(([id, name]) => (
-          <option key={id} value={id}>{name}</option>
-        ))}
-        {/* Admin isn't a pickable team — sign in via the nav's Admin entry.
-            The option only exists so the (disabled) select can display it. */}
-        {isAdminAuthenticated && <option value="admin">Admin</option>}
-      </select>
-    );
-  };
-
-  const NavLink = ({ item, onClick }) => {
-    const active = pathname === item.path;
-    return (
-      <Link
-        key={item.id}
-        href={item.path}
-        onClick={onClick}
-        className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-          active
-            ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
-            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-        }`}
-      >
-        <NavIcon
-          id={item.id}
-          className={`h-[18px] w-[18px] flex-shrink-0 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`}
-        />
-        <span className="truncate">{item.name}</span>
-      </Link>
-    );
-  };
-
-  // Admin sign-in lives at the bottom of the nav (below Install App), not in
-  // the player dropdown — admin is a mode, not a team. Hidden once authenticated.
-  const AdminNavButton = ({ onClick }) => (
-    <button
-      onClick={() => { setShowAdminModal(true); onClick?.(); }}
-      className="group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
-    >
-      <Lock className="h-[18px] w-[18px] flex-shrink-0 text-slate-400 group-hover:text-slate-600" />
-      <span className="truncate">Admin</span>
-    </button>
-  );
   // Render it directly below the Install App group; guests don't see Install
   // App in their filtered nav, so for them it falls through to the nav's end.
   const installVisible = visibleGroups.flat().some((item) => item.id === 'install');
+
+  // Memoized so consumers of useUserContext() (13+ of them) don't re-render
+  // on every layout-local state change (mobile nav toggle, modal, etc.) —
+  // only when a value actually in this object changes. Must be declared
+  // before the early returns below (Rules of Hooks).
+  const userContextValue = useMemo(() => ({
+    selectedUserId,
+    setSelectedUserId,
+    isAdminAuthenticated,
+    setIsAdminAuthenticated,
+    authedUserId,
+    logout: handleLogout,
+    selectedYear,
+    setSelectedYear,
+    isPastYear,
+  }), [
+    selectedUserId,
+    setSelectedUserId,
+    isAdminAuthenticated,
+    setIsAdminAuthenticated,
+    authedUserId,
+    handleLogout,
+    selectedYear,
+    setSelectedYear,
+    isPastYear,
+  ]);
 
   // While the session cookie is being checked, show a brief splash so the app
   // doesn't flash the public view first and then re-render — one screen, not two.
@@ -494,17 +526,7 @@ export default function PagesLayout({ children }) {
 
   return (
     <ToastProvider>
-    <UserContext.Provider value={{
-      selectedUserId,
-      setSelectedUserId,
-      isAdminAuthenticated,
-      setIsAdminAuthenticated,
-      authedUserId,
-      logout: handleLogout,
-      selectedYear,
-      setSelectedYear,
-      isPastYear,
-    }}>
+    <UserContext.Provider value={userContextValue}>
       <div className="min-h-screen bg-background">
         {/* Player login modal (only when gating is enabled) */}
         {AUTH_GATING_ENABLED && authModal && (
@@ -587,7 +609,13 @@ export default function PagesLayout({ children }) {
             </div>
 
             <div className="flex flex-col items-end gap-1">
-              <UserSelect className="w-40 py-1.5 text-sm" />
+              <UserSelect
+                className="w-40 py-1.5 text-sm"
+                selectedUserId={selectedUserId}
+                onChange={handleUserChange}
+                authedUserId={authedUserId}
+                isAdminAuthenticated={isAdminAuthenticated}
+              />
               <div className="flex items-center gap-2">
                 {(authedUserId !== null || isAdminAuthenticated) && (
                   <button
@@ -693,10 +721,10 @@ export default function PagesLayout({ children }) {
                 {visibleGroups.map((group, groupIndex) => (
                   <div key={groupIndex} className="space-y-1">
                     {group.map((item) => (
-                      <NavLink key={item.id} item={item} onClick={() => setIsMobileNavOpen(false)} />
+                      <NavLink key={item.id} item={item} pathname={pathname} onClick={() => setIsMobileNavOpen(false)} />
                     ))}
                     {!isAdminAuthenticated && group.some((item) => item.id === 'install') && (
-                      <AdminNavButton onClick={() => setIsMobileNavOpen(false)} />
+                      <AdminNavButton onClick={() => setIsMobileNavOpen(false)} setShowAdminModal={setShowAdminModal} />
                     )}
                     {groupIndex < navigationGroups.length - 1 && (
                       <div className="my-2 border-t border-slate-100" />
@@ -704,13 +732,13 @@ export default function PagesLayout({ children }) {
                   </div>
                 ))}
                 {!isAdminAuthenticated && !installVisible && (
-                  <AdminNavButton onClick={() => setIsMobileNavOpen(false)} />
+                  <AdminNavButton onClick={() => setIsMobileNavOpen(false)} setShowAdminModal={setShowAdminModal} />
                 )}
                 {selectedUserId === 'admin' && (
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Debug</p>
                     {debugNavigationItems.map((item) => (
-                      <NavLink key={item.id} item={item} onClick={() => setIsMobileNavOpen(false)} />
+                      <NavLink key={item.id} item={item} pathname={pathname} onClick={() => setIsMobileNavOpen(false)} />
                     ))}
                   </div>
                 )}
@@ -778,7 +806,13 @@ export default function PagesLayout({ children }) {
               )}
 
               <div className="flex items-center gap-2">
-                <UserSelect className="w-44" />
+                <UserSelect
+                  className="w-44"
+                  selectedUserId={selectedUserId}
+                  onChange={handleUserChange}
+                  authedUserId={authedUserId}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                />
                 {selectedUserId === 'admin' && isAdminAuthenticated && (
                   <span className="dz-badge bg-amber-100 text-amber-700">Admin</span>
                 )}
@@ -810,22 +844,22 @@ export default function PagesLayout({ children }) {
                   {visibleGroups.map((group, groupIndex) => (
                     <div key={groupIndex} className="space-y-1">
                       {group.map((item) => (
-                        <NavLink key={item.id} item={item} />
+                        <NavLink key={item.id} item={item} pathname={pathname} />
                       ))}
                       {!isAdminAuthenticated && group.some((item) => item.id === 'install') && (
-                        <AdminNavButton />
+                        <AdminNavButton setShowAdminModal={setShowAdminModal} />
                       )}
                       {groupIndex < navigationGroups.length - 1 && (
                         <div className="my-2 border-t border-slate-100" />
                       )}
                     </div>
                   ))}
-                  {!isAdminAuthenticated && !installVisible && <AdminNavButton />}
+                  {!isAdminAuthenticated && !installVisible && <AdminNavButton setShowAdminModal={setShowAdminModal} />}
                   {selectedUserId === 'admin' && (
                     <div className="mt-2 border-t border-slate-100 pt-2">
                       <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Debug</p>
                       {debugNavigationItems.map((item) => (
-                        <NavLink key={item.id} item={item} />
+                        <NavLink key={item.id} item={item} pathname={pathname} />
                       ))}
                     </div>
                   )}

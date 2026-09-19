@@ -81,9 +81,22 @@ export async function GET(request) {
         // completion check below becomes a cache hit instead of risking its own
         // timeout-prone AFL call (which, on timeout, would wrongly hide the
         // star/crab + summary tiles for a round that's actually complete).
+        // Everything the per-user scoring needs is read here in one batch:
+        // one query per collection for all users, instead of a team_selection
+        // find and a tips find per user (16 round trips on a 5-connection pool).
+        const userIds = Object.keys(USER_NAMES);
+        const numericUserIds = userIds.map(id => parseInt(id));
         const dbReads = Promise.all([
             db.collection(`${year}_game_results`).find({ round: round }).toArray(),
-            db.collection(`${year}_players`).find({}).toArray(),
+            db.collection(`${year}_players`)
+                .find({}, { projection: { player_name: 1, team_name: 1 } })
+                .toArray(),
+            db.collection(`${year}_team_selection`)
+                .find({ Round: round, User: { $in: numericUserIds }, Active: 1 })
+                .toArray(),
+            db.collection(`${year}_tips`)
+                .find({ Round: parseInt(round), User: { $in: numericUserIds }, Active: 1 })
+                .toArray(),
         ]);
 
         const aflFixtures = await getAflFixtures(year, { force: forceRefresh });
@@ -94,7 +107,9 @@ export async function GET(request) {
             new Promise(resolve => setTimeout(() => resolve(false), 3000)),
         ]);
 
-        const [playerStats, playersData] = await dbReads;
+        const [playerStats, playersData, allTeamSelections, allTips] = await dbReads;
+        const teamSelectionByUser = groupByUser(allTeamSelections);
+        const tipsByUser = groupByUser(allTips);
 
         // Build player → fixture-name team map. Prefer the 2026_players
         // collection: it's the authoritative current-team list and is always
@@ -115,11 +130,13 @@ export async function GET(request) {
             }
         }
 
-        // Get all user results in parallel
-        const userIds = Object.keys(USER_NAMES);
+        // Score every user from the batched reads (no further DB access)
         const userResults = await Promise.all(userIds.map(async (userId) => {
             try {
-                const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures, year, playerTeamMap);
+                const userResult = await getUserRoundResult(round, userId, db, playerStats, aflFixtures, year, playerTeamMap, {
+                    teamSelection: teamSelectionByUser[userId] || [],
+                    tips: tipsByUser[userId] || [],
+                });
                 return { userId, userResult, totalScore: userResult.totalScore };
             } catch (error) {
                 console.error(`Error processing user ${userId}:`, error);
@@ -417,17 +434,30 @@ async function syncSimpleRoundResults(round, results, db, year = CURRENT_YEAR) {
     console.log(`Synced simple_round_results for round ${round} from completed results`);
 }
 
-// Use the exact same logic as your round-results API
-async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, year = CURRENT_YEAR, playerTeamMap = {}) {
+// Rows keyed by their User field as a string, matching USER_NAMES keys.
+function groupByUser(rows) {
+    const byUser = {};
+    for (const row of rows) {
+        (byUser[String(row.User)] ??= []).push(row);
+    }
+    return byUser;
+}
+
+// Use the exact same logic as your round-results API.
+// `preloaded` carries this user's team selection and tips when the caller has
+// already read them for every user; otherwise they're queried here.
+async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, year = CURRENT_YEAR, playerTeamMap = {}, preloaded = null) {
     try {
         // Get team selection - same as round-results API
-        const teamSelection = await db.collection(`${year}_team_selection`)
-            .find({
-                Round: round,
-                User: parseInt(userId),
-                Active: 1
-            })
-            .toArray();
+        const teamSelection = preloaded
+            ? preloaded.teamSelection
+            : await db.collection(`${year}_team_selection`)
+                .find({
+                    Round: round,
+                    User: parseInt(userId),
+                    Active: 1
+                })
+                .toArray();
 
         if (!teamSelection || teamSelection.length === 0) {
             console.log(`No team selection found for user ${userId} round ${round}`);
@@ -442,7 +472,7 @@ async function getUserRoundResult(round, userId, db, playerStats, aflFixtures, y
         // Calculate dead cert score directly (no self-fetch)
         let deadCertScore = 0;
         try {
-            deadCertScore = await calculateDeadCertScore(db, round, userId, aflFixtures, year);
+            deadCertScore = await calculateDeadCertScore(db, round, userId, aflFixtures, year, preloaded ? preloaded.tips : null);
         } catch (tippingError) {
             console.error(`Error calculating dead cert for user ${userId} round ${round}:`, tippingError);
         }
@@ -496,7 +526,7 @@ function createEmptyResult(userId) {
 }
 
 // Calculate dead cert score directly (same logic as tipping-results API)
-async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CURRENT_YEAR) {
+async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CURRENT_YEAR, preloadedTips = null) {
     try {
         const fixtures = aflFixtures;
 
@@ -511,8 +541,8 @@ async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CUR
             return 0;
         }
 
-        // Get tips from database
-        const tips = await db.collection(`${year}_tips`)
+        // Get tips from database (or the batch the caller already read)
+        const tips = preloadedTips || await db.collection(`${year}_tips`)
             .find({
                 Round: parseInt(round),
                 User: parseInt(userId),

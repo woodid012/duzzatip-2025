@@ -350,24 +350,30 @@ export async function refreshStaleConcludedStats(round, { token = null, force = 
                 if (cur === undefined || t < cur) earliestByTeam.set(r.team_name, t);
             }
 
-            let refreshed = 0;
-            for (const match of matches) {
-                if (match.status !== 'CONCLUDED' || !match.providerId) continue;
+            const stale = matches.filter(match => {
+                if (match.status !== 'CONCLUDED' || !match.providerId) return false;
                 const home = match.home?.team?.club?.name || match.home?.team?.name || '';
                 const away = match.away?.team?.club?.name || match.away?.team?.name || '';
                 const gameEnd = match.utcStartTime ? new Date(match.utcStartTime).getTime() + GAME_LENGTH_MS : 0;
                 const he = earliestByTeam.get(home);
                 const ae = earliestByTeam.get(away);
                 const allFinal = he !== undefined && ae !== undefined && gameEnd > 0 && he >= gameEnd && ae >= gameEnd;
-                if (allFinal && !force) continue; // already have post-siren stats
+                return !(allFinal && !force); // skip games we already hold post-siren stats for
+            });
 
+            // Each match is its own AFL call and its own set of team rows, so
+            // they pull and write side by side (as fetchAFLRoundStats does)
+            // rather than one after another.
+            const outcomes = await Promise.allSettled(stale.map(async (match) => {
+                const home = match.home?.team?.club?.name || match.home?.team?.name || '';
+                const away = match.away?.team?.club?.name || match.away?.team?.name || '';
                 const statsRes = await fetch(
                     `https://api.afl.com.au/cfs/afl/playerStats/match/${match.providerId}`,
                     { headers, signal: AbortSignal.timeout(10000) }
                 );
-                if (!statsRes.ok) continue;
+                if (!statsRes.ok) return false;
                 const players = mapMatchPlayers(await statsRes.json(), match, round);
-                if (players.length === 0) continue; // never wipe on a degraded response
+                if (players.length === 0) return false; // never wipe on a degraded response
                 // Replace only the teams we actually got fresh rows for — NOT
                 // the fixture's home/away. A half-degraded playerStats response
                 // (one side empty) would otherwise drop both teams but write
@@ -379,9 +385,10 @@ export async function refreshStaleConcludedStats(round, { token = null, force = 
                     { round, year: CURRENT_YEAR, team_name: { $in: teams } },
                     players
                 );
-                refreshed++;
                 console.log(`[stale-sync] Re-pulled final stats: R${round} ${home} v ${away} (${players.length} players)`);
-            }
+                return true;
+            }));
+            const refreshed = outcomes.filter(o => o.status === 'fulfilled' && o.value).length;
             staleLastRun.set(round, Date.now());
             return { refreshed };
         } catch (err) {

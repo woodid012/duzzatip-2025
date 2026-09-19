@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
-import { parseYearParam } from '@/app/lib/apiUtils';
+import { parseYearParam, withReadCache } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { canSeeOthers } from '@/app/lib/submissionStatus';
 
@@ -34,14 +34,17 @@ export async function GET(request) {
       ),
     ];
 
-    // Two DB queries total (was 16+ separate requests)
+    // Two DB queries total (was 16+ separate requests). Projection limited to
+    // the fields actually consumed below (indexing by User/Round, and
+    // MatchNumber/Team/DeadCert inside buildMatches).
+    const tipsProjection = { projection: { User: 1, Round: 1, MatchNumber: 1, Team: 1, DeadCert: 1, _id: 0 } };
     const [roundTips, yearTips] = await Promise.all([
       db.collection(`${collectionYear}_tips`)
-        .find({ Round: roundNum, Active: 1 })
+        .find({ Round: roundNum, Active: 1 }, tipsProjection)
         .toArray(),
       completedRoundNums.length > 0
         ? db.collection(`${collectionYear}_tips`)
-            .find({ Round: { $in: completedRoundNums }, Active: 1 })
+            .find({ Round: { $in: completedRoundNums }, Active: 1 }, tipsProjection)
             .toArray()
         : Promise.resolve([]),
     ]);
@@ -134,10 +137,10 @@ export async function GET(request) {
           hidden: true,
         };
       }
-      return NextResponse.json({ users, restricted: true });
+      return withReadCache(NextResponse.json({ users, restricted: true }), 15);
     }
 
-    return NextResponse.json({ users });
+    return withReadCache(NextResponse.json({ users }), 15);
   } catch (error) {
     console.error('tipping-results-all error:', error);
     return NextResponse.json(

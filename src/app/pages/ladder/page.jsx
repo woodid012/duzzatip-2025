@@ -9,6 +9,7 @@ import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 import { calculateFinalsFixtures, getFinalsResults } from '@/app/lib/finals_utils';
 import { useUserContext } from '../layout';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
+import useIsMobile from '@/app/hooks/useIsMobile';
 
 export default function LadderConsolidatedPage() {
   const { currentRound, selectedYear, fixtures } = useAppContext();
@@ -38,6 +39,12 @@ export default function LadderConsolidatedPage() {
 
   // Track the previous year so we can detect year changes
   const [prevYear, setPrevYear] = useState(selectedYear);
+
+  // undefined until mounted (keeps SSR markup stable), then true/false — once
+  // known we only mount the matching table instead of both.
+  const isMobile = useIsMobile();
+  const showMobile = isMobile !== false;
+  const showDesktop = isMobile !== true;
 
   // Sync selected round when currentRound loads or year changes
   useEffect(() => {
@@ -455,6 +462,7 @@ export default function LadderConsolidatedPage() {
       )}
 
       {/* Desktop Ladder Table */}
+      {showDesktop && (
       <div className="hidden md:block">
           <div className="dz-surface overflow-hidden">
             <div className="overflow-x-auto">
@@ -612,7 +620,9 @@ export default function LadderConsolidatedPage() {
             </div>
           </div>
         </div>
+      )}
       {/* Mobile Ladder Cards */}
+      {showMobile && (
       <div className="block md:hidden space-y-3">
           {ladderData.map((team, index) => {
             const currentRoundResult = getTeamCurrentRoundResult(team.userId);
@@ -714,6 +724,7 @@ export default function LadderConsolidatedPage() {
             );
           })}
         </div>
+      )}
 
       {/* Finals Info */}
       {selectedRound >= 21 && ladderData.length > 0 && (
