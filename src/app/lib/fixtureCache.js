@@ -540,12 +540,6 @@ async function overlayAflScores(fixtures, year, roundsToFetch = null) {
     }
   }
 
-  await Promise.all(
-    statusesToShare.map(({ round, complete }) =>
-      rememberRoundStatus(year, round, `${year}-${round}`, complete, now)
-    )
-  );
-
   // Only trip the breaker when EVERY round in this pass failed — a partial
   // success means the AFL API is actually up (just maybe slow/flaky for one
   // round), so it would be wrong to blind ourselves to it for 2 minutes.
@@ -572,6 +566,16 @@ async function overlayAflScores(fixtures, year, roundsToFetch = null) {
   }
 
   console.log(`AFL API: overlaid scores on ${updated}/${fixtures.length} fixtures`);
+
+  // Share what this pass learned about round completion, corroborated against
+  // the fixtures it just overlaid — NOT via getAflFixtures, which is the call
+  // we're inside and whose cache isn't populated yet.
+  await Promise.all(
+    statusesToShare.map(({ round, complete }) =>
+      rememberRoundStatus(year, round, `${year}-${round}`, complete, now, { fixtures: result })
+    )
+  );
+
   return { fixtures: result, liveRounds, evaluated };
 }
 
@@ -815,15 +819,22 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
 async function roundCompleteFromFixtureData(round, year, cacheKey, now) {
   try {
     const fixtures = await getAflFixtures(year);
-    const roundFixtures = fixtures.filter(f => f.RoundNumber === round);
-    const complete = roundFixtures.length > 0 && roundFixtures.every(
-      f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
-    );
-    await rememberRoundStatus(year, round, cacheKey, complete, now);
+    const complete = storedScoresComplete(fixtures, round);
+    await rememberRoundStatus(year, round, cacheKey, complete, now, { fixtures });
     return complete;
   } catch {
     return false;
   }
+}
+
+// Does the stored fixture data agree that this round is done? Used as a second
+// opinion before a completion is shared for the long term. A round with no
+// fixtures in the list can't corroborate anything, so it answers false.
+export function storedScoresComplete(fixtures, round) {
+  const roundFixtures = (fixtures || []).filter(f => Number(f.RoundNumber) === Number(round));
+  return roundFixtures.length > 0 && roundFixtures.every(
+    f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
+  );
 }
 
 function sharedRoundStatusKey(year, round) {
@@ -836,10 +847,30 @@ function sharedRoundStatusKey(year, round) {
 // promptly. Never overwrites a shared `true` with `false`: a partial or
 // degraded AFL response must not un-complete a round other instances have
 // already awarded.
-async function rememberRoundStatus(year, round, cacheKey, complete, now) {
+async function rememberRoundStatus(year, round, cacheKey, complete, now, { fixtures = null } = {}) {
   roundStatusCache.set(cacheKey, { complete, timestamp: now });
 
   const key = sharedRoundStatusKey(year, round);
-  if (!complete && (await getShared(key)) === true) return;
-  await setShared(key, complete, complete ? COMPLETE_LATCH_TTL : STATUS_CACHE_TTL);
+
+  if (!complete) {
+    // Never un-complete a round other instances have already awarded.
+    if ((await getShared(key)) === true) return;
+    await setShared(key, false, STATUS_CACHE_TTL);
+    return;
+  }
+
+  // `complete` comes from "every match the AFL API returned says CONCLUDED",
+  // which a short response would satisfy dishonestly — and a shared latch makes
+  // a false positive everyone's problem for the season, where an in-process one
+  // used to fade in two minutes. So the stored scores get a vote: they have to
+  // agree the round is fully played before the answer is latched. If they
+  // don't, it's shared only for the usual couple of minutes, and asked again.
+  const storedFixtures = fixtures ?? await getAflFixtures(year).catch(() => []);
+  const corroborated = storedScoresComplete(storedFixtures, round);
+  if (!corroborated) {
+    console.warn(
+      `Round ${round} (${year}) reported complete by the AFL API but stored scores disagree — not latching`
+    );
+  }
+  await setShared(key, true, corroborated ? COMPLETE_LATCH_TTL : STATUS_CACHE_TTL);
 }
