@@ -107,14 +107,25 @@ async function runSync(seasonDb, year) {
         existingInRound += 1;
       }
 
+      // A score is only ever written when the feed actually carries one. The
+      // AFL API omits the score field on LIVE matches and on degraded
+      // responses, and this sync re-pulls every finals round on every pass —
+      // so writing `?? null` blanked decided games' scores until a later good
+      // pass put them back, and every dead cert on those games came and went
+      // with it. A stored score is never overwritten with nothing; a new row
+      // just starts without one.
+      const hasScore = homeScore !== null && awayScore !== null;
+      if (!hasScore && m.status === 'CONCLUDED') {
+        console.warn(`Duzza Finals sync: ${home} v ${away} (round ${round}) is CONCLUDED but carries no score — leaving the stored one`);
+      }
+
       ops.push({
         updateOne: {
           filter: { year, RoundNumber: round, HomeTeam: home, AwayTeam: away },
           update: {
             $set: {
               DateUtc: toFixtureDate(m.utcStartTime),
-              HomeTeamScore: homeScore,
-              AwayTeamScore: awayScore,
+              ...(hasScore ? { HomeTeamScore: homeScore, AwayTeamScore: awayScore } : {}),
             },
             $setOnInsert: {
               year,
@@ -124,6 +135,8 @@ async function runSync(seasonDb, year) {
               // e.g. 2601, 2602 — disjoint from the season file's 1..N numbering
               // and stable for the life of the row (tips key on MatchNumber).
               MatchNumber: round * 100 + existingInRound,
+              // Mongo won't take a field in both $set and $setOnInsert.
+              ...(hasScore ? {} : { HomeTeamScore: null, AwayTeamScore: null }),
             },
           },
           upsert: true,
