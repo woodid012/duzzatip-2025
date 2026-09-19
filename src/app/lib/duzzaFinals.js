@@ -495,7 +495,7 @@ export function scoreEntrantsForRound(entrantIds, inputs) {
 // own. Deriving the pool per round used to re-read the whole player list and
 // re-aggregate the season's game_results four times per request for that one
 // boolean.
-async function loadBracketInputs(seasonDb, finalsDb, year, rounds) {
+async function loadBracketInputs(seasonDb, finalsDb, year, rounds, { frozenRounds = new Set() } = {}) {
   const [entrants, aflFixtures, entries, statRows] = await Promise.all([
     finalsDb.collection(`${year}_entrants`).find({}).toArray(),
     getAflFixtures(year).catch(() => []),
@@ -510,6 +510,13 @@ async function loadBracketInputs(seasonDb, finalsDb, year, rounds) {
       return [round, {
         roundFixtures,
         fixturesKnown: roundFixtures.length > 0,
+        // Tips — and so dead certs — settle per game, off its score. A week
+        // can't be decided while any game in it is still unscored, however
+        // "concluded" the AFL API says the round is: the cut would be applied
+        // without that game's dead certs, and the next week's matchup with it.
+        allGamesScored: roundFixtures.length > 0 && roundFixtures.every(
+          (f) => f.HomeTeamScore != null && f.AwayTeamScore != null
+        ),
         entryByEntrant: indexEntriesByEntrant(entries.filter((e) => Number(e.Round) === round)),
         statsMap: indexStatsByPlayer(roundStats),
         // A round whose stats haven't landed can't have its cut read off the
@@ -521,14 +528,57 @@ async function loadBracketInputs(seasonDb, finalsDb, year, rounds) {
   );
 
   // Only rounds with fixtures are worth asking about, and asking for all of
-  // them at once costs one round of latency rather than four.
-  const knownRounds = rounds.filter((round) => byRound.get(round).fixturesKnown);
+  // them at once costs one round of latency rather than four. A frozen week
+  // is already decided, so it isn't asked about at all.
+  const knownRounds = rounds.filter(
+    (round) => byRound.get(round).fixturesKnown && !frozenRounds.has(round)
+  );
   const completion = await Promise.all(
     knownRounds.map((round) => isRoundComplete(round, year).catch(() => false))
   );
   knownRounds.forEach((round, i) => { byRound.get(round).roundComplete = completion[i]; });
 
   return { entrants, aflFixtures, byRound };
+}
+
+// ── Frozen weeks ─────────────────────────────────────────────────────────
+// A finalized week is history. Once every game in it has a score and the cut
+// has been applied, nothing about it should move — least of all because a feed
+// hiccup blanked a score a day later and the Grand Final matchup silently
+// changed with it. So a week that finalizes is written to `${year}_week_results`
+// in the finals database, and every later computation reads it back from there
+// rather than re-deriving it from live inputs. Only an explicit Refresh
+// (`recompute: true`) re-derives — and re-freezes — a decided week.
+const weekResultsCollection = (finalsDb, year) => finalsDb.collection(`${year}_week_results`);
+
+async function loadFrozenWeeks(finalsDb, year) {
+  try {
+    const docs = await weekResultsCollection(finalsDb, year).find({ year }).toArray();
+    return new Map(docs.map((doc) => [Number(doc.round), doc]));
+  } catch (err) {
+    console.warn(`[finals] could not read frozen weeks for ${year}: ${err.message}`);
+    return new Map();
+  }
+}
+
+async function freezeWeek(finalsDb, year, week, ladderScores) {
+  try {
+    await weekResultsCollection(finalsDb, year).updateOne(
+      { year, round: week.round },
+      { $set: { year, round: week.round, week, ladderScores, frozenAt: new Date() } },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.warn(`[finals] could not freeze week ${week.round} for ${year}: ${err.message}`);
+  }
+}
+
+// The Grand Final's survivors are the champion(s).
+function crown(round, survivors) {
+  if (round !== DUZZA_FINALS_ROUNDS[DUZZA_FINALS_ROUNDS.length - 1]) return {};
+  if (survivors.length === 1) return { champion: survivors[0] };
+  if (survivors.length > 1) return { coChampions: survivors };
+  return {};
 }
 
 // Replays rounds 26 -> 29, finalizing a round's eliminations only once
@@ -546,14 +596,18 @@ async function loadBracketInputs(seasonDb, finalsDb, year, rounds) {
 // scores once for every entrant (ladderScores) and derives the knockout's
 // core-alive `scores` as a filtered subset of that same result, rather than
 // querying twice over overlapping id sets.
-export async function computeBracket(seasonDb, finalsDb, year) {
+export async function computeBracket(seasonDb, finalsDb, year, { recompute = false } = {}) {
   await seedEntrants(finalsDb, year);
+
+  // Decided weeks come back from the freezer; only Refresh re-derives them.
+  const frozen = recompute ? new Map() : await loadFrozenWeeks(finalsDb, year);
 
   const { entrants, aflFixtures, byRound } = await loadBracketInputs(
     seasonDb,
     finalsDb,
     year,
-    [...DUZZA_FINALS_ROUNDS]
+    [...DUZZA_FINALS_ROUNDS],
+    { frozenRounds: new Set(frozen.keys()) }
   );
 
   const { coreIds, allIds } = splitEntrantsBySource(entrants);
@@ -586,9 +640,33 @@ export async function computeBracket(seasonDb, finalsDb, year) {
   for (const round of DUZZA_FINALS_ROUNDS) {
     const cutCount = DUZZA_FINALS_CUT_COUNTS[round];
     const label = DUZZA_FINALS_WEEK_LABELS[round];
+
+    // A frozen week is replayed exactly as it was decided: same scores, same
+    // cut, same survivors carried into the next week.
+    const frozenWeek = frozen.get(round);
+    if (frozenWeek?.week) {
+      weeks.push(frozenWeek.week);
+      // An entrant removed since the week was frozen has no ladder row to add to.
+      applyWeekToLadder(
+        cumulativeLadder,
+        (frozenWeek.ladderScores || []).filter((s) => cumulativeLadder[Number(s.userId)]),
+        round
+      );
+      aliveAtStart = frozenWeek.week.survivors || [];
+      bracketBroken = false;
+      const crowned = crown(round, aliveAtStart);
+      if (crowned.champion !== undefined) champion = crowned.champion;
+      if (crowned.coChampions !== undefined) coChampions = crowned.coChampions;
+      continue;
+    }
+
     const roundAliveAtStart = bracketBroken ? null : aliveAtStart;
 
-    const { fixturesKnown, roundComplete, statsLanded } = byRound.get(round);
+    const { fixturesKnown, roundComplete, statsLanded, allGamesScored } = byRound.get(round);
+    // Every condition a cut needs: the knockout is intact, the round exists,
+    // the AFL calls it done, its player stats have landed, and every game in
+    // it has a score so every tip and dead cert has settled.
+    const canFinalize = !bracketBroken && fixturesKnown && roundComplete && statsLanded && allGamesScored;
 
     // A round has "commenced" once its first bounce is in the past.
     const roundFixtureTimes = aflFixtures
@@ -642,7 +720,7 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     let survivors = null;
     let tieAtCutLine = false;
 
-    if (!bracketBroken && fixturesKnown && roundComplete && statsLanded) {
+    if (canFinalize) {
       const outcome = computeWeekOutcome(
         scores.map((s) => ({ userId: s.userId, totalScore: s.totalScore })),
         cutCount
@@ -650,17 +728,12 @@ export async function computeBracket(seasonDb, finalsDb, year) {
       eliminated = outcome.eliminated;
       survivors = outcome.survivors;
       tieAtCutLine = outcome.tieAtCutLine;
-
-      if (round === DUZZA_FINALS_ROUNDS[DUZZA_FINALS_ROUNDS.length - 1]) {
-        if (survivors.length === 1) {
-          champion = survivors[0];
-        } else if (survivors.length > 1) {
-          coChampions = survivors;
-        }
-      }
+      const crowned = crown(round, survivors);
+      if (crowned.champion !== undefined) champion = crowned.champion;
+      if (crowned.coChampions !== undefined) coChampions = crowned.coChampions;
     }
 
-    weeks.push({
+    const week = {
       round,
       label,
       fixturesKnown,
@@ -673,10 +746,13 @@ export async function computeBracket(seasonDb, finalsDb, year) {
       eliminated,
       survivors,
       tieAtCutLine,
-    });
+    };
+    weeks.push(week);
 
-    if (!bracketBroken && fixturesKnown && roundComplete && statsLanded) {
+    if (canFinalize) {
       aliveAtStart = survivors;
+      // Decided — into the freezer, so it reads back the same way tomorrow.
+      await freezeWeek(finalsDb, year, week, ladderScores);
     } else {
       bracketBroken = true;
     }

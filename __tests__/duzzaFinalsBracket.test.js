@@ -22,12 +22,13 @@ const YEAR = 2026;
 const CORE_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 const HOUR = 60 * 60 * 1000;
 
-// Rounds 26 and 27 are done; 28 (the Preliminary Finals — "week 3") is under way.
+// Rounds 26 and 27 are done and scored; 28 (the Preliminary Finals — "week 3")
+// is under way, so its game has no score yet; 29 is still to come.
 const fixtures = [
-  { RoundNumber: 26, HomeTeam: 'Geelong Cats', AwayTeam: 'Collingwood', DateUtc: new Date(Date.now() - 14 * 24 * HOUR).toISOString() },
-  { RoundNumber: 27, HomeTeam: 'Geelong Cats', AwayTeam: 'Carlton', DateUtc: new Date(Date.now() - 7 * 24 * HOUR).toISOString() },
-  { RoundNumber: 28, HomeTeam: 'Collingwood', AwayTeam: 'Carlton', DateUtc: new Date(Date.now() - HOUR).toISOString() },
-  { RoundNumber: 29, HomeTeam: 'Geelong Cats', AwayTeam: 'Collingwood', DateUtc: new Date(Date.now() + 6 * 24 * HOUR).toISOString() },
+  { RoundNumber: 26, HomeTeam: 'Geelong Cats', AwayTeam: 'Collingwood', DateUtc: new Date(Date.now() - 14 * 24 * HOUR).toISOString(), HomeTeamScore: 88, AwayTeamScore: 74 },
+  { RoundNumber: 27, HomeTeam: 'Geelong Cats', AwayTeam: 'Carlton', DateUtc: new Date(Date.now() - 7 * 24 * HOUR).toISOString(), HomeTeamScore: 95, AwayTeamScore: 60 },
+  { RoundNumber: 28, HomeTeam: 'Collingwood', AwayTeam: 'Carlton', DateUtc: new Date(Date.now() - HOUR).toISOString(), HomeTeamScore: null, AwayTeamScore: null },
+  { RoundNumber: 29, HomeTeam: 'Geelong Cats', AwayTeam: 'Collingwood', DateUtc: new Date(Date.now() + 6 * 24 * HOUR).toISOString(), HomeTeamScore: null, AwayTeamScore: null },
 ];
 
 // Every core entrant picks one player of their own, so a round's stats decide
@@ -72,12 +73,21 @@ function makeDbs({ roundsWithStats, reads = [] }) {
     }),
   };
 
+  // Decided weeks land here, like `${year}_week_results` in the finals DB.
+  const frozenStore = new Map();
+
   const finalsDb = {
+    frozenStore,
     collection: (name) => ({
       bulkWrite: async () => ({}),
+      updateOne: async (filter, update) => {
+        if (name.endsWith('_week_results')) frozenStore.set(Number(filter.round), update.$set);
+        return {};
+      },
       find: (filter = {}) => ({
         toArray: async () => {
           reads.push(name);
+          if (name.endsWith('_week_results')) return [...frozenStore.values()];
           if (name.endsWith('_entrants')) return entrants;
           const wanted = Array.isArray(filter?.Round?.$in)
             ? filter.Round.$in.map(Number)
@@ -174,5 +184,88 @@ describe('computeBracket batches its reads', () => {
     await computeBracket(seasonDb, finalsDb, YEAR);
 
     expect(isRoundComplete.mock.calls.map(([round]) => round)).toEqual([26, 27, 28]);
+  });
+});
+
+// A round the AFL calls concluded can still have a game with no score in the
+// fixtures (a feed gap). Tips and dead certs settle per game, so deciding the
+// week then would cut without that game's dead certs — and name the next
+// week's matchup off it.
+describe('a week is only decided once every game in it has a score', () => {
+  const withUnscoredSemi = fixtures.flatMap((f) =>
+    f.RoundNumber === 27
+      ? [f, { ...f, HomeTeam: 'Hawthorn', AwayTeam: 'Brisbane Lions', DateUtc: f.DateUtc, HomeTeamScore: null, AwayTeamScore: null }]
+      : [f]
+  );
+
+  test('a complete round with an unscored game is left undecided', async () => {
+    getAflFixtures.mockResolvedValue(withUnscoredSemi);
+    const { seasonDb, finalsDb } = makeDbs({ roundsWithStats: [26, 27, 28] });
+
+    const bracket = await computeBracket(seasonDb, finalsDb, YEAR);
+
+    const semis = weekFor(bracket, 27);
+    expect(semis.roundComplete).toBe(true);
+    expect(semis.eliminated).toBeNull();
+    expect(semis.scores).toHaveLength(6); // still shown live, just not cut
+    expect(weekFor(bracket, 28).aliveAtStart).toBeNull();
+    expect(finalsDb.frozenStore.has(27)).toBe(false);
+  });
+
+  test('the same round decides normally once the score lands', async () => {
+    const { seasonDb, finalsDb } = makeDbs({ roundsWithStats: [26, 27, 28] });
+
+    const bracket = await computeBracket(seasonDb, finalsDb, YEAR);
+
+    expect(weekFor(bracket, 27).eliminated).toEqual([6, 5]);
+    expect(weekFor(bracket, 28).aliveAtStart).toEqual([1, 2, 3, 4]);
+  });
+});
+
+// Results don't change the week after the game. A decided week is frozen and
+// read back as decided, whatever the live inputs say later — only Refresh
+// re-derives it.
+describe('decided weeks are frozen', () => {
+  test('finalizing a week writes it to the freezer', async () => {
+    const { seasonDb, finalsDb } = makeDbs({ roundsWithStats: [26, 27, 28] });
+
+    await computeBracket(seasonDb, finalsDb, YEAR);
+
+    expect([...finalsDb.frozenStore.keys()].sort()).toEqual([26, 27]);
+    expect(finalsDb.frozenStore.get(27).week.eliminated).toEqual([6, 5]);
+    expect(finalsDb.frozenStore.get(27).ladderScores).toHaveLength(8);
+  });
+
+  test('a frozen week reads back as decided even if its inputs have since gone', async () => {
+    const dbs = makeDbs({ roundsWithStats: [26, 27, 28] });
+    await computeBracket(dbs.seasonDb, dbs.finalsDb, YEAR);
+
+    // The Semis' stats vanish (a refresh gap) and the AFL API forgets the round.
+    const later = makeDbs({ roundsWithStats: [26, 28] });
+    later.finalsDb.frozenStore.set(27, dbs.finalsDb.frozenStore.get(27));
+    later.finalsDb.frozenStore.set(26, dbs.finalsDb.frozenStore.get(26));
+    isRoundComplete.mockClear();
+
+    const bracket = await computeBracket(later.seasonDb, later.finalsDb, YEAR);
+
+    expect(weekFor(bracket, 27).eliminated).toEqual([6, 5]);
+    expect(weekFor(bracket, 28).aliveAtStart).toEqual([1, 2, 3, 4]);
+    expect(bracket.cumulativeLadder.find((e) => e.userId === 1).weeklyTotals['27']).toBe(99);
+    // Decided weeks aren't asked about again.
+    expect(isRoundComplete.mock.calls.map(([round]) => round)).toEqual([28, 29]);
+  });
+
+  test('Refresh re-derives a frozen week from live inputs', async () => {
+    const dbs = makeDbs({ roundsWithStats: [26, 27, 28] });
+    await computeBracket(dbs.seasonDb, dbs.finalsDb, YEAR);
+
+    const later = makeDbs({ roundsWithStats: [26, 28] });
+    later.finalsDb.frozenStore.set(27, dbs.finalsDb.frozenStore.get(27));
+    later.finalsDb.frozenStore.set(26, dbs.finalsDb.frozenStore.get(26));
+
+    const bracket = await computeBracket(later.seasonDb, later.finalsDb, YEAR, { recompute: true });
+
+    expect(weekFor(bracket, 27).eliminated).toBeNull(); // no stats now, so not decided
+    expect(weekFor(bracket, 28).aliveAtStart).toBeNull();
   });
 });
