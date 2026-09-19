@@ -17,11 +17,10 @@ export async function GET() {
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    const draftOrder = await resolveDraftOrder(db);
-    const picks = await collection
-      .find({ Active: 1 })
-      .sort({ pick_number: 1 })
-      .toArray();
+    const [draftOrder, picks] = await Promise.all([
+      resolveDraftOrder(db),
+      collection.find({ Active: 1 }).sort({ pick_number: 1 }).toArray(),
+    ]);
 
     const pickOrder = getDraftPickOrderForArray(draftOrder);
     const nextPickNumber = picks.length + 1;
@@ -71,13 +70,10 @@ export async function POST(request) {
     const { db } = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    const draftOrder = await resolveDraftOrder(db);
-
-    // Get current picks
-    const existingPicks = await collection
-      .find({ Active: 1 })
-      .sort({ pick_number: 1 })
-      .toArray();
+    const [draftOrder, existingPicks] = await Promise.all([
+      resolveDraftOrder(db),
+      collection.find({ Active: 1 }).sort({ pick_number: 1 }).toArray(),
+    ]);
 
     const nextPickNumber = existingPicks.length + 1;
 
@@ -106,7 +102,7 @@ export async function POST(request) {
     }
 
     // Insert the pick
-    await collection.insertOne({
+    const newPick = {
       pick_number: nextPickNumber,
       round: expectedPick.round,
       user_id: parseInt(userId),
@@ -114,16 +110,16 @@ export async function POST(request) {
       team_name: teamName,
       timestamp: new Date(),
       Active: 1,
-    });
+    };
+    await collection.insertOne(newPick);
 
     // Sync squads from draft after every pick
     await populateSquadsFromDraft(db);
 
-    // Return updated state
-    const updatedPicks = await collection
-      .find({ Active: 1 })
-      .sort({ pick_number: 1 })
-      .toArray();
+    // Return updated state — built in memory from the already-fetched
+    // existingPicks plus the newly inserted pick, in the same shape and order
+    // (ascending pick_number) as the find().sort() query it replaces.
+    const updatedPicks = [...existingPicks, newPick];
 
     const newNextPickNumber = updatedPicks.length + 1;
     const newNextPick = newNextPickNumber <= TOTAL_PICKS ? pickOrder[newNextPickNumber - 1] : null;
@@ -219,11 +215,10 @@ export async function PATCH(request) {
     await populateSquadsFromDraft(db);
 
     // Return updated state
-    const draftOrder = await resolveDraftOrder(db);
-    const updatedPicks = await collection
-      .find({ Active: 1 })
-      .sort({ pick_number: 1 })
-      .toArray();
+    const [draftOrder, updatedPicks] = await Promise.all([
+      resolveDraftOrder(db),
+      collection.find({ Active: 1 }).sort({ pick_number: 1 }).toArray(),
+    ]);
 
     const pickOrder = getDraftPickOrderForArray(draftOrder);
     const nextPickNumber = updatedPicks.length + 1;

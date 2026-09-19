@@ -3,13 +3,37 @@
 import { USER_NAMES } from './constants';
 import { getFixturesForRound } from './fixture_constants';
 
+// calculateFinalsFixtures recurses into itself (the grand final needs the
+// prelim, which needs the semis) and the ladder page asks for all three finals
+// rounds at once, so one render used to fetch the round-21 ladder up to seven
+// times and each week's results two or three. Concurrent calls for the same
+// key now share one request; the entry is dropped once it settles plus a short
+// grace period, so a later visit still gets a fresh read.
+const inFlight = new Map();
+const SHARE_GRACE_MS = 2000;
+
+function shareRequest(key, run) {
+  if (inFlight.has(key)) return inFlight.get(key);
+  const promise = run().finally(() => {
+    setTimeout(() => {
+      if (inFlight.get(key) === promise) inFlight.delete(key);
+    }, SHARE_GRACE_MS);
+  });
+  inFlight.set(key, promise);
+  return promise;
+}
+
 /**
  * Get the complete ladder at a specific round
  * @param {number} round - The round to get ladder for (typically 21)
  * @param {number|null} year - The year to get ladder for
  * @returns {Promise<Array>} Array of teams with their ladder positions
  */
-export async function getLadderAtRound(round = 21, year = null) {
+export function getLadderAtRound(round = 21, year = null) {
+  return shareRequest(`ladder:${round}:${year}`, () => fetchLadderAtRound(round, year));
+}
+
+async function fetchLadderAtRound(round, year) {
   try {
     const yearParam = year ? `&year=${year}` : '';
     const response = await fetch(`/api/simple-ladder?round=${round}${yearParam}`);
@@ -31,7 +55,11 @@ export async function getLadderAtRound(round = 21, year = null) {
  * @param {number|null} year - The year to get results for
  * @returns {Promise<Object>} Object containing match results
  */
-export async function getFinalsResults(round, year = null) {
+export function getFinalsResults(round, year = null) {
+  return shareRequest(`results:${round}:${year}`, () => fetchFinalsResults(round, year));
+}
+
+async function fetchFinalsResults(round, year) {
   try {
     const yearParam = year ? `&year=${year}` : '';
     // First try to get cached results

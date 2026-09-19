@@ -1,6 +1,7 @@
 // src/app/api/simple-ladder/route.js
 
 import { connectToDatabase } from '@/app/lib/mongodb';
+import { withReadCache } from '@/app/lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { parseYearParam } from '@/app/lib/apiUtils';
@@ -129,11 +130,18 @@ export async function GET(request) {
         
         // Get stored round results from database
         const maxRound = Math.min(upToRound, 21); // Cap at round 21 for regular season
-        
+
+        // One read for every round rather than one round trip per round: this
+        // loop used to await a findOne 21 times in series on every request.
+        const storedByRound = new Map(
+            (await db.collection(`${year}_simple_round_results`)
+                .find({ round: { $gte: 1, $lte: maxRound } })
+                .toArray())
+                .map(doc => [doc.round, doc])
+        );
+
         for (let round = 1; round <= maxRound; round++) {
-            // Get stored results for this round
-            const storedResults = await db.collection(`${year}_simple_round_results`)
-                .findOne({ round: round });
+            const storedResults = storedByRound.get(round);
             
             if (!storedResults || !storedResults.results) {
                 console.log(`No stored results for round ${round}`);
@@ -227,13 +235,13 @@ export async function GET(request) {
         
         // Get last update time
         const lastUpdate = await db.collection(`${year}_simple_round_results`)
-            .findOne({}, { sort: { lastUpdated: -1 } });
+            .findOne({}, { sort: { lastUpdated: -1 }, projection: { lastUpdated: 1 } });
         
-        return Response.json({
+        return withReadCache(Response.json({
             ladder: sortedLadder,
             lastUpdated: lastUpdate?.lastUpdated || null,
             upToRound: maxRound
-        });
+        }), 30);
         
     } catch (error) {
         console.error('API Error in GET /api/simple-ladder:', error);

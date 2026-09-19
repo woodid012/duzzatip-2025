@@ -1,4 +1,4 @@
-import { createApiHandler, getCollection, getCollectionForYear, parseYearParam } from '../../lib/apiUtils';
+import { createApiHandler, getCollection, getCollectionForYear, parseYearParam, withReadCache } from '../../lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getAflFixtures, isRoundComplete } from '@/app/lib/fixtureCache';
 
@@ -60,7 +60,7 @@ export const GET = createApiHandler(async (request, db) => {
 
       if (!cacheStale) {
         console.log(`Using cached tipping ladder up to round ${upToRound}`);
-        return Response.json({
+        return withReadCache(Response.json({
           upToRound,
           cached: true,
           live: false,
@@ -68,7 +68,7 @@ export const GET = createApiHandler(async (request, db) => {
           roundResults: cachedLadder.roundResults || {},
           cachedAt: cachedLadder.cachedAt,
           lastUpdated: cachedLadder.lastUpdated
-        });
+        }), 30);
       }
 
       console.log(`Tipping ladder cache stale (tips updated after cache), recalculating...`);
@@ -254,7 +254,7 @@ export const GET = createApiHandler(async (request, db) => {
       }
     }
 
-    return Response.json(responseData);
+    return withReadCache(Response.json(responseData), 30);
 
   } catch (error) {
     console.error('Consolidated tipping ladder error:', error);

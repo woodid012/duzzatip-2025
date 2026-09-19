@@ -1,4 +1,4 @@
-import { createApiHandler, getCollection, getCollectionForYear, parseYearParam, createSuccessResponse } from '../../lib/apiUtils';
+import { createApiHandler, getCollection, getCollectionForYear, parseYearParam, createSuccessResponse, withReadCache } from '../../lib/apiUtils';
 
 export const GET = createApiHandler(async (request, db) => {
     const { searchParams } = new URL(request.url);
@@ -28,5 +28,7 @@ export const GET = createApiHandler(async (request, db) => {
         return acc;
     }, {});
 
-    return createSuccessResponse(playersByTeam);
+    // The roster only moves when update-players runs, so a minute in the
+    // browser saves every squad/team page a fetch on the way back.
+    return withReadCache(createSuccessResponse(playersByTeam), 60);
 });

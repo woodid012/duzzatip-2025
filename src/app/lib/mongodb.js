@@ -13,17 +13,13 @@ class DatabaseConnection {
   }
 
   async connect() {
-    // Return existing connection if available
+    // Return the warm connection straight away. This used to ping Atlas first,
+    // which cost every API call a round trip before its real query. The driver
+    // already retries reads/writes and the 'error'/'serverClosed' handlers
+    // below drop a dead client, so the ping only ever confirmed what the next
+    // query would have found out anyway.
     if (this.client && this.db) {
-      try {
-        // Test connection health
-        await this.db.admin().ping();
-        return { client: this.client, db: this.db };
-      } catch (error) {
-        console.warn('Stale connection detected, reconnecting...', error.message);
-        this.client = null;
-        this.db = null;
-      }
+      return { client: this.client, db: this.db };
     }
 
     // Wait for existing connection attempt
@@ -70,12 +66,15 @@ class DatabaseConnection {
     try {
       await client.connect();
       const db = client.db('afl_database');
-      
-      // Ensure indexes exist for better performance
-      await this._ensureIndexes(db);
-      
+
       this.client = client;
       this.db = db;
+
+      // Indexes are ensured in the background: createIndex is a no-op once
+      // they exist, but each call is still a round trip, and a cold start was
+      // paying for all of them before it could run its first real query.
+      // Queries never depended on the index existing, only on it being fast.
+      this._ensureIndexes(db).catch(() => {});
       
       // Connection event handlers
       client.on('serverClosed', () => {
@@ -151,6 +150,24 @@ class DatabaseConnection {
         db.collection(`${currentYear}_tipping_ladder_cache`).createIndex(
           { year: 1, upToRound: 1 },
           { background: true, name: 'cache_year_round' }
+        ),
+        // Backs the finals-cache findOne({round, year}) and the ladder's
+        // per-round and final-totals reads.
+        db.collection(`${currentYear}_finals_cache`).createIndex(
+          { round: 1, year: 1 },
+          { background: true, name: 'finals_cache_round_year' }
+        ),
+        db.collection(`${currentYear}_final_totals`).createIndex(
+          { round: 1, userId: 1 },
+          { background: true, name: 'final_totals_round_user' }
+        ),
+        db.collection(`${currentYear}_simple_round_results`).createIndex(
+          { round: 1 },
+          { background: true, name: 'simple_round_results_round' }
+        ),
+        db.collection(`${currentYear}_ladder`).createIndex(
+          { round: 1 },
+          { background: true, name: 'ladder_round' }
         )
       ];
       
@@ -162,6 +179,32 @@ class DatabaseConnection {
     }
   }
   
+  // The duzza_finals database never had indexes, so every entries/entrants
+  // read was a collection scan. Entries are only ever written by upserts on
+  // {Entrant, Round}, so that pair is also made unique: two submits racing
+  // past the upsert can no longer leave two docs for one entrant-week.
+  async _ensureFinalsIndexes(finalsDb) {
+    try {
+      const currentYear = new Date().getFullYear();
+      await Promise.allSettled([
+        finalsDb.collection(`${currentYear}_entries`).createIndex(
+          { Entrant: 1, Round: 1 },
+          { background: true, unique: true, name: 'entries_entrant_round' }
+        ),
+        finalsDb.collection(`${currentYear}_entries`).createIndex(
+          { Round: 1 },
+          { background: true, name: 'entries_round' }
+        ),
+        finalsDb.collection(`${currentYear}_entrants`).createIndex(
+          { EntrantId: 1 },
+          { background: true, name: 'entrants_entrant_id' }
+        ),
+      ]);
+    } catch (error) {
+      console.warn('Failed to create some finals indexes:', error.message);
+    }
+  }
+
   async close() {
     if (this.client) {
       await this.client.close();
@@ -181,9 +224,15 @@ export async function connectToDatabase() {
 // Duzza Finals — ring-fenced side comp. Reuses the same singleton client (no
 // new connection pool) but points at a separate `duzza_finals` database, so
 // afl_database (and _ensureIndexes above) stay completely untouched.
+let finalsIndexesEnsured = false;
 export async function connectToFinalsDatabase() {
   const { client } = await dbConnection.connect();
-  return client.db('duzza_finals');
+  const finalsDb = client.db('duzza_finals');
+  if (!finalsIndexesEnsured) {
+    finalsIndexesEnsured = true;
+    dbConnection._ensureFinalsIndexes(finalsDb).catch(() => {});
+  }
+  return finalsDb;
 }
 
 // Graceful shutdown

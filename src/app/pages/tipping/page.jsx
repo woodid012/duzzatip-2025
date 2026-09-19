@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTipping from '@/app/hooks/useTipping';
+import useIsMobile from '@/app/hooks/useIsMobile';
 import { USER_NAMES, TEAM_LOGOS, CURRENT_YEAR } from '@/app/lib/constants';
 import { useToast } from '@/app/components/Toast';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
@@ -26,6 +27,12 @@ export default function TippingPage() {
   
   // For tracking button clicks
   const editClickedRef = useRef(false);
+
+  // undefined until mounted (keeps SSR markup stable), then true/false —
+  // once known we only mount the matching tree instead of both.
+  const isMobile = useIsMobile();
+  const showMobile = isMobile !== false;
+  const showDesktop = isMobile !== true;
   
   // Format date for display
   const formatDate = (date) => {
@@ -188,6 +195,7 @@ export default function TippingPage() {
   return (
     <>
       {/* MOBILE VIEW - Visible only on small screens */}
+      {showMobile && (
       <div className="block md:hidden">
         <MobileTippingView
           currentTeamDisplayName={currentTeamDisplayName}
@@ -222,8 +230,10 @@ export default function TippingPage() {
           handleFormSubmit={handleFormSubmit}
         />
       </div>
+      )}
 
       {/* DESKTOP VIEW - Hidden on small screens */}
+      {showDesktop && (
       <div className="hidden md:block">
         <DesktopTippingView
           currentTeamDisplayName={currentTeamDisplayName}
@@ -258,6 +268,7 @@ export default function TippingPage() {
           handleFormSubmit={handleFormSubmit}
         />
       </div>
+      )}
     </>
   );
 }

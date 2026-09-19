@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import { useUserContext } from '../layout';
 import { USER_NAMES } from '@/app/lib/constants';
@@ -96,31 +96,50 @@ export default function DraftPage() {
     Promise.all([fetchDraftState(), fetchPlayers()]).then(() => setLoading(false));
   }, [fetchDraftState, fetchPlayers]);
 
-  // Poll for updates every 3 seconds, but only while draft is in progress
+  // Poll for updates every 3 seconds while draft is in progress — but pause
+  // the poll when the tab is hidden (no point hitting the API for a
+  // backgrounded tab), and refetch immediately when it becomes visible again
+  // so it's never stale on return. Mirrors the tipping-ladder page's pattern.
   useEffect(() => {
     if (draftState?.status !== 'in_progress') return;
-    const interval = setInterval(fetchDraftState, 3000);
-    return () => clearInterval(interval);
+    let interval = null;
+    const tick = () => fetchDraftState();
+    const start = () => { if (!interval) interval = setInterval(tick, 3000); };
+    const stop = () => { if (interval) { clearInterval(interval); interval = null; } };
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        stop();
+      } else {
+        tick();   // catch up immediately on return
+        start();
+      }
+    };
+    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') start();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [fetchDraftState, draftState?.status]);
 
   // Get picked player names for filtering
-  const pickedPlayerNames = new Set(
+  const pickedPlayerNames = useMemo(() => new Set(
     (draftState?.picks || []).map(p => p.playerName.toLowerCase())
-  );
+  ), [draftState?.picks]);
 
   // Flatten all players and filter available ones
-  const allPlayers = Object.entries(players).flatMap(([team, teamPlayers]) =>
+  const allPlayers = useMemo(() => Object.entries(players).flatMap(([team, teamPlayers]) =>
     teamPlayers.map(p => ({ ...p, teamName: team }))
-  );
+  ), [players]);
 
-  const availablePlayers = allPlayers.filter(
+  const availablePlayers = useMemo(() => allPlayers.filter(
     p => !pickedPlayerNames.has(p.name.toLowerCase())
-  );
+  ), [allPlayers, pickedPlayerNames]);
 
   // Filter by team
-  const filteredPlayers = availablePlayers
+  const filteredPlayers = useMemo(() => availablePlayers
     .filter(p => !teamFilter || p.teamName === teamFilter)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name)), [availablePlayers, teamFilter]);
 
   const teams = Object.keys(players).sort();
 
@@ -232,7 +251,7 @@ export default function DraftPage() {
 
   // Build the draft board grid data
   // Columns are ordered by DRAFT_ORDER, rows are rounds
-  const buildBoardData = () => {
+  const boardData = useMemo(() => {
     if (!draftState) return [];
     const pickMap = {};
     draftState.picks.forEach(p => {
@@ -255,9 +274,7 @@ export default function DraftPage() {
       board.push({ round, picks: row });
     }
     return board;
-  };
-
-  const boardData = buildBoardData();
+  }, [draftState]);
 
   if (loading) {
     return (

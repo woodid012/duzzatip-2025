@@ -11,6 +11,7 @@
 // rather than reaching into fixtureCache's private helpers, per this comp's
 // ring-fencing rule.
 import { DUZZA_FINALS_ABBREV_TO_FULL } from './duzzaFinals';
+import { claimStamp } from './sharedCache';
 
 const AFL_COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
 const SYNC_ROUNDS = [25, 26, 27, 28, 29]; // wildcard + the four finals weeks
@@ -75,10 +76,17 @@ async function runSync(seasonDb, year) {
     if (outcome.status === 'rejected') continue;
     const { round, matches } = outcome.value;
 
-    // Count existing rows once per round so newly-confirmed games (wildcard
-    // winners slotting into placeholders) get the next stable MatchNumber in
-    // the round's `${round}${nn}` range without renumbering earlier inserts.
-    let existingInRound = await collection.countDocuments({ year, RoundNumber: round });
+    // Read the round's rows once so newly-confirmed games (wildcard winners
+    // slotting into placeholders) get the next stable MatchNumber in the
+    // round's `${round}${nn}` range without renumbering earlier inserts, and
+    // so the whole round goes to Mongo as one bulkWrite instead of a write
+    // per match.
+    const existingRows = await collection
+      .find({ year, RoundNumber: round }, { projection: { HomeTeam: 1, AwayTeam: 1, _id: 0 } })
+      .toArray();
+    let existingInRound = existingRows.length;
+    const known = new Set(existingRows.map((r) => `${r.HomeTeam}|${r.AwayTeam}`));
+    const ops = [];
 
     for (const m of matches) {
       // Prefer club.name (stable English) over team.name, which the AFL
@@ -92,43 +100,69 @@ async function runSync(seasonDb, year) {
       const homeScore = m.homeTeamScore?.matchScore?.totalScore ?? null;
       const awayScore = m.awayTeamScore?.matchScore?.totalScore ?? null;
 
-      const result = await collection.updateOne(
-        { year, RoundNumber: round, HomeTeam: home, AwayTeam: away },
-        {
-          $set: {
-            DateUtc: toFixtureDate(m.utcStartTime),
-            HomeTeamScore: homeScore,
-            AwayTeamScore: awayScore,
+      const key = `${home}|${away}`;
+      const isNew = !known.has(key);
+      if (isNew) {
+        known.add(key);
+        existingInRound += 1;
+      }
+
+      ops.push({
+        updateOne: {
+          filter: { year, RoundNumber: round, HomeTeam: home, AwayTeam: away },
+          update: {
+            $set: {
+              DateUtc: toFixtureDate(m.utcStartTime),
+              HomeTeamScore: homeScore,
+              AwayTeamScore: awayScore,
+            },
+            $setOnInsert: {
+              year,
+              RoundNumber: round,
+              HomeTeam: home,
+              AwayTeam: away,
+              // e.g. 2601, 2602 — disjoint from the season file's 1..N numbering
+              // and stable for the life of the row (tips key on MatchNumber).
+              MatchNumber: round * 100 + existingInRound,
+            },
           },
-          $setOnInsert: {
-            year,
-            RoundNumber: round,
-            HomeTeam: home,
-            AwayTeam: away,
-            // e.g. 2601, 2602 — disjoint from the season file's 1..N numbering
-            // and stable for the life of the row (tips key on MatchNumber).
-            MatchNumber: round * 100 + existingInRound + 1,
-          },
+          upsert: true,
         },
-        { upsert: true }
-      );
-      if (result.upsertedCount > 0) existingInRound += 1;
+      });
     }
+
+    if (ops.length > 0) await collection.bulkWrite(ops, { ordered: true });
   }
 }
 
 // Throttled, never-throwing entry point — call from any duzza-finals API
 // route. Shares one in-flight promise so concurrent requests don't stack
 // sync passes.
+// How long one instance's sync stands in for everyone else's. Deliberately
+// far shorter than the per-instance interval: the stamp is claimed before the
+// AFL pull, so a claimant whose pull fails would otherwise block every
+// instance for the whole interval — and this is the path a finals score lands
+// by, which the week's dead certs and the next week's matchup wait on.
+const SYNC_CLAIM_MS = 90 * 1000;
+
 export async function syncFinalsFixtures(seasonDb, year) {
   if (Date.now() - lastSyncAt < SYNC_INTERVAL_MS) return;
   if (syncInFlight) {
     await syncInFlight.catch(() => {});
     return;
   }
+  // The throttle above is per instance; the stamp makes it hold across
+  // instances, so a fleet of cold lambdas doesn't each pull the AFL feed.
+  // Losing the claim doesn't spend this instance's interval — it gets another
+  // go once the claim lapses, in case the claimant's pull failed.
+  if (!(await claimStamp(`finals-fixture-sync:${year}`, SYNC_CLAIM_MS))) return;
   lastSyncAt = Date.now();
   syncInFlight = runSync(seasonDb, year)
-    .catch((err) => console.warn(`Duzza Finals fixture sync failed: ${err.message}`))
+    .catch((err) => {
+      // A failed pull earns a retry on the next request, not in ten minutes.
+      lastSyncAt = 0;
+      console.warn(`Duzza Finals fixture sync failed: ${err.message}`);
+    })
     .finally(() => {
       syncInFlight = null;
     });

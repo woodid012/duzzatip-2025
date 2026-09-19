@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
@@ -26,12 +26,28 @@ export default function Squads() {
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [error, setError] = useState(null);
 
-  // Lookup injury by player name — keys are "Name (Team)"
+  // Lookup injury by player name — keys are "Name (Team)". Built once per
+  // `injuries` change instead of scanning Object.keys() for every player.
+  const injuryByName = useMemo(() => {
+    const map = {};
+    Object.keys(injuries || {}).forEach(key => {
+      const idx = key.indexOf(' (');
+      const bareName = idx === -1 ? key : key.slice(0, idx);
+      map[bareName] = injuries[key];
+    });
+    return map;
+  }, [injuries]);
   const getInjury = (name) => {
     if (!name) return null;
-    const match = Object.keys(injuries).find(k => k.startsWith(name + ' ('));
-    return match ? injuries[match] : null;
+    return injuryByName[name] || null;
   };
+
+  // All players across all clubs, sorted once, reused by every one of the 18
+  // slot <select>s per squad instead of re-flattening/re-sorting per slot.
+  const sortedAllPlayers = useMemo(
+    () => Object.values(players).flat().sort((a, b) => a.name.localeCompare(b.name)),
+    [players]
+  );
 
   // Fetch squads and players in parallel
   useEffect(() => {
@@ -232,14 +248,11 @@ export default function Squads() {
                         className="dz-select w-full text-sm"
                       >
                         <option value="">Select Player</option>
-                        {Object.values(players)
-                          .flat()
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map(p => (
-                            <option key={p.name} value={p.name}>
-                              {p.name} ({p.teamName})
-                            </option>
-                          ))}
+                        {sortedAllPlayers.map(p => (
+                          <option key={p.name} value={p.name}>
+                            {p.name} ({p.teamName})
+                          </option>
+                        ))}
                       </select>
                     )
                   ) : (

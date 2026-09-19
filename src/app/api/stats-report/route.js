@@ -99,8 +99,16 @@ async function sendTelegram(text) {
   return data.ok === true;
 }
 
-// ===== Build data =====
-async function buildPositionData(db, user = MY_USER) {
+// The 2025 season is frozen: the scan of `${YEAR_2025}_game_results` and the
+// scored player list derived from it never change within a running process
+// (it takes no per-request input), so it's computed once and reused. Squad
+// membership DOES vary per request (keyed by `user`), so it is deliberately
+// left out of this memo and still fetched live on every call below.
+let cachedPlayerData = null;
+
+async function buildPlayerData(db) {
+  if (cachedPlayerData) return cachedPlayerData;
+
   const debug = {};
 
   // Load 2025 game results — projection to only fetch needed fields (reduces data size)
@@ -128,6 +136,17 @@ async function buildPositionData(db, user = MY_USER) {
     players.push({ name: data.name, team: data.team, games: data.games.length, scores, best: bestPos(scores) });
   }
   debug.qualifiedPlayers = players.length;
+
+  cachedPlayerData = { players, debug };
+  return cachedPlayerData;
+}
+
+// ===== Build data =====
+async function buildPositionData(db, user = MY_USER) {
+  const { players, debug: cachedDebug } = await buildPlayerData(db);
+  // Copy so concurrent requests (and the per-user squadDocs count below)
+  // never mutate the shared cached debug object.
+  const debug = { ...cachedDebug };
 
   // Load squad
   const squadDocs = await db.collection('2026_squads')

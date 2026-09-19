@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
+import useIsMobile from '@/app/hooks/useIsMobile';
 
 export default function TippingLadderPage() {
   const { currentRound, selectedYear } = useAppContext();
@@ -17,6 +18,12 @@ export default function TippingLadderPage() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isLive, setIsLive] = useState(false);
+
+  // undefined until mounted (keeps SSR markup stable), then true/false — once
+  // known we only mount the matching table instead of both.
+  const isMobile = useIsMobile();
+  const showMobile = isMobile !== false;
+  const showDesktop = isMobile !== true;
 
   // Sync selected round when currentRound loads (unless user manually changed it)
   useEffect(() => {
@@ -192,6 +199,7 @@ export default function TippingLadderPage() {
       </ScoreboardHeader>
 
       {/* Desktop Ladder Table */}
+      {showDesktop && (
       <div className="hidden md:block">
         <div className="dz-surface overflow-hidden">
           <div className="overflow-x-auto">
@@ -260,8 +268,10 @@ export default function TippingLadderPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Mobile Ladder Cards */}
+      {showMobile && (
       <div className="block md:hidden space-y-3">
         {ladderData.map((tipper, index) => {
           const isLeader = index === 0;
@@ -392,6 +402,7 @@ export default function TippingLadderPage() {
           );
         })}
       </div>
+      )}
 
       {/* Scoring Rules Info */}
       <div className="mt-8 rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
