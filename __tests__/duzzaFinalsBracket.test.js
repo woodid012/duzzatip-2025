@@ -40,26 +40,35 @@ const entryFor = (entrantId, round) => ({
 });
 
 // Distinct scores, so each week's bottom two are unambiguous.
-const statsFor = (ids) => ids.map((id) => ({ player_name: `P${id}`, points: 100 - id, team_name: 'Geelong Cats', round: 0 }));
+const statsFor = (ids) => ids.map((id) => ({ player_name: `P${id}`, points: 100 - id, team_name: 'Geelong Cats' }));
 
-function makeDbs({ roundsWithStats }) {
+function makeDbs({ roundsWithStats, reads = [] }) {
   const entrants = CORE_IDS.map((id) => ({ EntrantId: id, Name: `Team ${id}`, Source: 'core' }));
   const entries = [26, 27, 28].flatMap((round) => CORE_IDS.map((id) => entryFor(id, round)));
 
   const gameResultsFor = (round) => (roundsWithStats.includes(round) ? statsFor(CORE_IDS) : []);
 
+  // The bracket reads all four rounds' stats in one query, so the fake honours
+  // both a single round and a { $in: [...] } batch.
+  const roundsIn = (filter) =>
+    Array.isArray(filter?.round?.$in) ? filter.round.$in.map(Number) : [Number(filter?.round)];
+
   const seasonDb = {
     collection: (name) => ({
       find: (filter = {}) => ({
         toArray: async () => {
+          reads.push(name);
           if (name.endsWith('_players')) {
             return CORE_IDS.map((id) => ({ player_id: id, player_name: `P${id}`, team_name: 'GEE' }));
           }
-          return gameResultsFor(Number(filter.round));
+          return roundsIn(filter).flatMap((round) =>
+            gameResultsFor(round).map((row) => ({ ...row, round }))
+          );
         },
       }),
       aggregate: () => ({ toArray: async () => [] }),
-      countDocuments: async (filter = {}) => gameResultsFor(Number(filter.round)).length,
+      countDocuments: async (filter = {}) =>
+        roundsIn(filter).reduce((n, round) => n + gameResultsFor(round).length, 0),
     }),
   };
 
@@ -67,10 +76,14 @@ function makeDbs({ roundsWithStats }) {
     collection: (name) => ({
       bulkWrite: async () => ({}),
       find: (filter = {}) => ({
-        toArray: async () =>
-          name.endsWith('_entrants')
-            ? entrants
-            : entries.filter((e) => e.Round === Number(filter.Round)),
+        toArray: async () => {
+          reads.push(name);
+          if (name.endsWith('_entrants')) return entrants;
+          const wanted = Array.isArray(filter?.Round?.$in)
+            ? filter.Round.$in.map(Number)
+            : [Number(filter?.Round)];
+          return entries.filter((e) => wanted.includes(e.Round));
+        },
       }),
     }),
   };
@@ -124,4 +137,42 @@ test('the same stats-less round finalizes normally once its stats land', async (
   expect(weekFor(bracket, 26).eliminated).toEqual([8, 7]);
   expect(weekFor(bracket, 27).eliminated).toEqual([6, 5]);
   expect(weekFor(bracket, 28).aliveAtStart).toHaveLength(4);
+});
+
+// The bracket is recomputed on every poll, so its cost is the dashboard's
+// cost: one query per collection for all four rounds at once, one completion
+// check per round with fixtures, and no touching the player list (all the
+// bracket wants from the pool is whether the round has fixtures at all).
+describe('computeBracket batches its reads', () => {
+  test('reads each collection once, not once per round', async () => {
+    const reads = [];
+    const { seasonDb, finalsDb } = makeDbs({ roundsWithStats: [26, 27, 28], reads });
+
+    await computeBracket(seasonDb, finalsDb, YEAR);
+
+    const countOf = (suffix) => reads.filter((name) => name.endsWith(suffix)).length;
+    expect(countOf('_game_results')).toBe(1);
+    expect(countOf('_entries')).toBe(1);
+    expect(countOf('_entrants')).toBe(1);
+    expect(countOf('_players')).toBe(0);
+  });
+
+  test('asks whether a round is complete once per round with fixtures', async () => {
+    const { seasonDb, finalsDb } = makeDbs({ roundsWithStats: [26, 27, 28] });
+
+    await computeBracket(seasonDb, finalsDb, YEAR);
+
+    // All four finals rounds have fixtures in this fixture list.
+    expect(isRoundComplete).toHaveBeenCalledTimes(4);
+    expect(isRoundComplete.mock.calls.map(([round]) => round)).toEqual([26, 27, 28, 29]);
+  });
+
+  test('a round with no fixtures is never asked about', async () => {
+    getAflFixtures.mockResolvedValue(fixtures.filter((f) => f.RoundNumber !== 29));
+    const { seasonDb, finalsDb } = makeDbs({ roundsWithStats: [26, 27, 28] });
+
+    await computeBracket(seasonDb, finalsDb, YEAR);
+
+    expect(isRoundComplete.mock.calls.map(([round]) => round)).toEqual([26, 27, 28]);
+  });
 });

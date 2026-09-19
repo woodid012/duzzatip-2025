@@ -363,25 +363,50 @@ export function deriveBenchAndReserves(selectedPlayers, positionScores) {
     }));
 }
 
-export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entrantIds, options = {}) {
-  const { detail = false } = options;
+// Loads one round's scoring inputs. Split out from computeWeeklyScores so
+// computeBracket can load all four rounds' inputs in one batch instead of
+// paying these round-trips per round — see loadBracketInputs.
+async function loadWeeklyScoreInputs(seasonDb, finalsDb, round, year) {
+  const [entries, gameResults, aflFixtures, roundEndPassed] = await Promise.all([
+    finalsDb.collection(`${year}_entries`).find({ Round: Number(round) }).toArray(),
+    seasonDb.collection(`${year}_game_results`).find({ round: Number(round) }).toArray(),
+    getAflFixtures(year),
+    isRoundComplete(round, year).catch(() => false),
+  ]);
 
-  const entries = await finalsDb.collection(`${year}_entries`).find({ Round: Number(round) }).toArray();
-  const entryByEntrant = new Map(entries.map((e) => [Number(e.Entrant), e]));
+  return {
+    entryByEntrant: indexEntriesByEntrant(entries),
+    statsMap: indexStatsByPlayer(gameResults),
+    roundFixtures: aflFixtures.filter((f) => Number(f.RoundNumber) === Number(round)),
+    roundEndPassed,
+  };
+}
 
-  const gameResults = await seasonDb.collection(`${year}_game_results`).find({ round: Number(round) }).toArray();
+export function indexEntriesByEntrant(entries) {
+  return new Map((entries || []).map((e) => [Number(e.Entrant), e]));
+}
+
+export function indexStatsByPlayer(gameResults) {
   const statsMap = {};
-  for (const stat of gameResults) {
+  for (const stat of gameResults || []) {
     if (stat.player_name) statsMap[stat.player_name] = stat;
   }
+  return statsMap;
+}
 
-  const aflFixtures = await getAflFixtures(year);
-  const roundFixtures = aflFixtures.filter((f) => Number(f.RoundNumber) === Number(round));
-  const completedFixtures = roundFixtures.filter(
+export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entrantIds, options = {}) {
+  const inputs = await loadWeeklyScoreInputs(seasonDb, finalsDb, round, year);
+  return scoreEntrantsForRound(entrantIds, { ...inputs, detail: options.detail });
+}
+
+// The scoring itself, over inputs already in hand — no I/O, so a caller that
+// batched its reads can score every round without touching the database again.
+export function scoreEntrantsForRound(entrantIds, inputs) {
+  const { entryByEntrant, statsMap, roundFixtures, roundEndPassed, detail = false } = inputs;
+
+  const completedFixtures = (roundFixtures || []).filter(
     (f) => f.HomeTeamScore !== null && f.AwayTeamScore !== null
   );
-
-  const roundEndPassed = await isRoundComplete(round, year).catch(() => false);
 
   return entrantIds.map((entrantId) => {
     const entry = entryByEntrant.get(Number(entrantId));
@@ -458,21 +483,52 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
   });
 }
 
-// Has the round's player-stats data actually landed? A complete round whose
-// game_results are missing — the collection is rebuilt in place, and a read can
-// land mid-refresh — scores every entrant zero, and computeWeekOutcome reads a
-// field tied on zero as a tie at the cut line and spares all of them. That is
-// how Preliminary Finals week briefly showed 6 teams instead of 4. No stats
-// means the week simply hasn't finalized yet, which is the honest answer.
-export async function roundHasStats(seasonDb, round, year) {
-  try {
-    const count = await seasonDb
-      .collection(`${year}_game_results`)
-      .countDocuments({ round: Number(round) }, { limit: 1 });
-    return count > 0;
-  } catch {
-    return false;
-  }
+// Every read the bracket needs, in two parallel waves instead of four rounds'
+// worth of serial round-trips. Wave one is independent (entrants, fixtures, and
+// all four rounds' entries and stats in one query each); wave two asks the AFL
+// API whether each round with fixtures has finished, which is the only part
+// that can't be known until wave one lands. After this the replay below is
+// pure — it never waits on anything.
+//
+// Note the bracket does NOT need the player pool: all it wants from it is
+// whether the round has fixtures at all, which the fixture list answers on its
+// own. Deriving the pool per round used to re-read the whole player list and
+// re-aggregate the season's game_results four times per request for that one
+// boolean.
+async function loadBracketInputs(seasonDb, finalsDb, year, rounds) {
+  const [entrants, aflFixtures, entries, statRows] = await Promise.all([
+    finalsDb.collection(`${year}_entrants`).find({}).toArray(),
+    getAflFixtures(year).catch(() => []),
+    finalsDb.collection(`${year}_entries`).find({ Round: { $in: rounds } }).toArray(),
+    seasonDb.collection(`${year}_game_results`).find({ round: { $in: rounds } }).toArray(),
+  ]);
+
+  const byRound = new Map(
+    rounds.map((round) => {
+      const roundFixtures = aflFixtures.filter((f) => Number(f.RoundNumber) === round);
+      const roundStats = statRows.filter((r) => Number(r.round) === round);
+      return [round, {
+        roundFixtures,
+        fixturesKnown: roundFixtures.length > 0,
+        entryByEntrant: indexEntriesByEntrant(entries.filter((e) => Number(e.Round) === round)),
+        statsMap: indexStatsByPlayer(roundStats),
+        // A round whose stats haven't landed can't have its cut read off the
+        // scores — everyone would sit on zero. See the guard in the replay.
+        statsLanded: roundStats.length > 0,
+        roundComplete: false,
+      }];
+    })
+  );
+
+  // Only rounds with fixtures are worth asking about, and asking for all of
+  // them at once costs one round of latency rather than four.
+  const knownRounds = rounds.filter((round) => byRound.get(round).fixturesKnown);
+  const completion = await Promise.all(
+    knownRounds.map((round) => isRoundComplete(round, year).catch(() => false))
+  );
+  knownRounds.forEach((round, i) => { byRound.get(round).roundComplete = completion[i]; });
+
+  return { entrants, aflFixtures, byRound };
 }
 
 // Replays rounds 26 -> 29, finalizing a round's eliminations only once
@@ -493,7 +549,13 @@ export async function roundHasStats(seasonDb, round, year) {
 export async function computeBracket(seasonDb, finalsDb, year) {
   await seedEntrants(finalsDb, year);
 
-  const entrants = await finalsDb.collection(`${year}_entrants`).find({}).toArray();
+  const { entrants, aflFixtures, byRound } = await loadBracketInputs(
+    seasonDb,
+    finalsDb,
+    year,
+    [...DUZZA_FINALS_ROUNDS]
+  );
+
   const { coreIds, allIds } = splitEntrantsBySource(entrants);
   const nameById = {};
   const sourceById = {};
@@ -521,16 +583,12 @@ export async function computeBracket(seasonDb, finalsDb, year) {
   let champion = null;
   let coChampions = null;
 
-  const aflFixtures = await getAflFixtures(year).catch(() => []);
-
   for (const round of DUZZA_FINALS_ROUNDS) {
     const cutCount = DUZZA_FINALS_CUT_COUNTS[round];
     const label = DUZZA_FINALS_WEEK_LABELS[round];
     const roundAliveAtStart = bracketBroken ? null : aliveAtStart;
 
-    const pool = await getPlayerPoolForRound(seasonDb, round, year);
-    const fixturesKnown = pool.fixturesKnown;
-    const roundComplete = fixturesKnown ? await isRoundComplete(round, year).catch(() => false) : false;
+    const { fixturesKnown, roundComplete, statsLanded } = byRound.get(round);
 
     // A round has "commenced" once its first bounce is in the past.
     const roundFixtureTimes = aflFixtures
@@ -545,7 +603,13 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     let ladderScores = [];
     let scores = [];
     if (fixturesKnown) {
-      const weekScores = await computeWeeklyScores(seasonDb, finalsDb, round, year, allIds);
+      const { entryByEntrant, statsMap, roundFixtures } = byRound.get(round);
+      const weekScores = scoreEntrantsForRound(allIds, {
+        entryByEntrant,
+        statsMap,
+        roundFixtures,
+        roundEndPassed: roundComplete,
+      });
 
       // Everyone enrolled shows on the display surfaces (ladder,
       // around-the-grounds) until the week actually commences — so all 8 core
@@ -577,10 +641,6 @@ export async function computeBracket(seasonDb, finalsDb, year) {
     let eliminated = null;
     let survivors = null;
     let tieAtCutLine = false;
-
-    // A complete round still needs its stats in hand before the cut can be
-    // read off the scores — see roundHasStats.
-    const statsLanded = roundComplete ? await roundHasStats(seasonDb, round, year) : false;
 
     if (!bracketBroken && fixturesKnown && roundComplete && statsLanded) {
       const outcome = computeWeekOutcome(
