@@ -10,6 +10,15 @@ import { CURRENT_YEAR, MAIN_SEASON_FINAL_ROUND } from '@/app/lib/constants';
 const toSeasonFixtures = (all) =>
   (all || []).filter((f) => Number(f.RoundNumber) <= MAIN_SEASON_FINAL_ROUND);
 import { processFixtures, calculateRoundInfo, getRoundInfo } from '@/app/lib/timeCalculations';
+import { readSnapshot, writeSnapshot } from '@/app/lib/clientSnapshot';
+
+// Every page waits on fixtures before it can fetch anything of its own, so a
+// cold start costs two serial round-trips before the first number appears.
+// Seeding from the last payload this tab saw removes the first one: round info
+// is derived from fixture dates on the client, so a slightly older list still
+// resolves the right round, and the fetch below replaces it either way.
+const FIXTURES_SNAPSHOT_MAX_AGE = 10 * 60 * 1000;
+const fixturesSnapshotKey = (year) => `tipping-data-fixtures:${year}`;
 
 // In AppContext.js, add a simple caching mechanism
 const cache = new Map(); // Add at the top of the file
@@ -87,63 +96,75 @@ export function AppProvider({ children }) {
 
   // This effect loads global data like fixtures and round info
   useEffect(() => {
-    const fetchFixtures = async () => {
-      try {
-        setLoading(prev => ({ ...prev, fixtures: true }));
+    // Turns a fixtures payload into the context's fixtures + round state.
+    // Shared by the snapshot seed and the network response so both land the
+    // same way — the snapshot stores the RAW payload, because processFixtures
+    // produces Dates that wouldn't survive a JSON round-trip.
+    const applyFixtures = (fixturesData) => {
+      const processedFixtures = processFixtures(fixturesData);
+      setFixtures(processedFixtures);
 
+      const seasonFixtures = toSeasonFixtures(processedFixtures);
+
+      // Round info first: it's what every page is actually waiting for.
+      // A past year is over, so it sits on its last round; the current year is
+      // worked out from the fixture dates.
+      let currentRoundInfo;
+      if (selectedYear !== CURRENT_YEAR) {
+        const maxRound = seasonFixtures.length > 0
+          ? Math.max(...seasonFixtures.map(f => f.RoundNumber))
+          : 1;
+        currentRoundInfo = { currentRound: maxRound, isError: false };
+      } else {
+        currentRoundInfo = calculateRoundInfo(seasonFixtures);
+      }
+      setCurrentRound(currentRoundInfo.currentRound);
+
+      const detailedRoundInfo = getRoundInfo(seasonFixtures, currentRoundInfo.currentRound);
+      const nextRoundInfo = getRoundInfo(seasonFixtures, currentRoundInfo.currentRound + 1);
+
+      setRoundInfo({
+        ...detailedRoundInfo,
+        nextRoundInfo // Include next round info
+      });
+
+      setLoading(prev => ({ ...prev, fixtures: false }));
+    };
+
+    const fetchFixtures = async () => {
+      // Paint from the last fixture list this tab saw, if it has one, rather
+      // than holding every page behind the network.
+      const seeded = readSnapshot(fixturesSnapshotKey(selectedYear), {
+        maxAgeMs: FIXTURES_SNAPSHOT_MAX_AGE,
+      });
+      if (seeded) {
+        applyFixtures(seeded);
+      } else {
+        setLoading(prev => ({ ...prev, fixtures: true }));
+      }
+
+      try {
         // Use internal API to avoid CORS issues with external API
         const response = await fetch(`/api/tipping-data?year=${selectedYear}`);
         if (!response.ok) {
           throw new Error(`Failed to load fixtures: ${response.status}`);
         }
-        
+
         const data = await response.json();
         const fixturesData = Array.isArray(data) ? data : data.fixtures;
-        console.log('AppContext: Raw fixtures data from API:', data);
 
-        // Process fixtures
-        const processedFixtures = processFixtures(fixturesData);
-        console.log('AppContext: Processed fixtures data:', processedFixtures);
-        setFixtures(processedFixtures);
-
-        const seasonFixtures = toSeasonFixtures(processedFixtures);
-
-        // CRITICAL CHANGE: Calculate round info immediately as first priority
-        console.log('Calculating current round as first priority...');
-
-        // For past years, default to the last round (season is complete)
-        // For current year, calculate based on fixture dates
-        let currentRoundInfo;
-        if (selectedYear !== CURRENT_YEAR) {
-          const maxRound = seasonFixtures.length > 0
-            ? Math.max(...seasonFixtures.map(f => f.RoundNumber))
-            : 1;
-          currentRoundInfo = { currentRound: maxRound, isError: false };
-          console.log(`AppContext: Past year detected, defaulting to last round (${maxRound})`);
-        } else {
-          currentRoundInfo = calculateRoundInfo(seasonFixtures);
-        }
-        setCurrentRound(currentRoundInfo.currentRound);
-        console.log('AppContext: Calculated currentRound:', currentRoundInfo.currentRound);
-
-        // Get detailed round info for the current round
-        const detailedRoundInfo = getRoundInfo(seasonFixtures, currentRoundInfo.currentRound);
-
-        // Add next round info
-        const nextRoundInfo = getRoundInfo(seasonFixtures, currentRoundInfo.currentRound + 1);
-        
-        setRoundInfo({
-          ...detailedRoundInfo,
-          nextRoundInfo // Include next round info
-        });
-        console.log('AppContext: Final roundInfo state:', { ...detailedRoundInfo, nextRoundInfo });
-        
-        setLoading(prev => ({ ...prev, fixtures: false }));
+        applyFixtures(fixturesData);
+        writeSnapshot(fixturesSnapshotKey(selectedYear), fixturesData);
       } catch (err) {
         console.error('Error loading fixtures:', err);
         setError(err.message);
         setLoading(prev => ({ ...prev, fixtures: false }));
-        
+
+        // Keep whatever the snapshot already put on screen — it's a real
+        // fixture list, and blanking it back to the Opening Round default
+        // would be strictly worse than showing it while the fetch retries.
+        if (seeded) return;
+
         // Set default values in case of error
         setCurrentRound(0);
         setRoundInfo({

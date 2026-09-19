@@ -1,6 +1,7 @@
 'use client';
 
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
+import { orderBracketWeeks } from '@/app/lib/bracketOrder';
 
 // Where the cut line falls in a sorted (desc) scores array — everything at or
 // after this index is cut (finalized week) or "on the bubble" (live week).
@@ -126,13 +127,9 @@ export default function BracketTab({ bracket, bracketLoading, bracketError, view
   // there's nothing "current" left to call out.
   const currentRound = bracket.isComplete ? null : bracket.currentWeek;
 
-  // The current (live) week leads, so it's the first column on desktop and the
-  // top card on mobile; the rest follow in round order behind it.
-  const orderedWeeks = [...(bracket.weeks || [])].sort((a, b) => {
-    const aCurrent = a.round === currentRound ? 0 : 1;
-    const bCurrent = b.round === currentRound ? 0 : 1;
-    return aCurrent - bCurrent || a.round - b.round;
-  });
+  // Newest first: the live week leads, then back through the weeks behind it.
+  // A week yet to start isn't shown — see orderBracketWeeks.
+  const orderedWeeks = orderBracketWeeks(bracket.weeks, bracket.currentWeek);
 
   const champions = bracket.coChampions?.length
     ? bracket.coChampions

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { applyFinalsPick } from '@/app/lib/uniqueSelection';
+import { readSnapshot, writeSnapshot } from '@/app/lib/clientSnapshot';
 import { POSITION_TYPES } from '@/app/lib/constants';
 import { getFinalsCurrentRound } from '@/app/lib/duzzaFinalsAutoPick';
 
@@ -101,8 +102,15 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
   }, [initialUserId]);
 
   // ── Bracket / results (drives default week, elimination state) ──────
-  const [bracket, setBracket] = useState(null);
-  const [bracketLoading, setBracketLoading] = useState(true);
+  // Seed from the last bracket this tab saw, so coming back to the page paints
+  // the week straight away and the refetch happens behind it. A stale snapshot
+  // can't linger: fetchBracket runs on mount regardless.
+  const bracketSnapshotKey = `duzza-finals-bracket:${selectedYear}`;
+  const [bracket, setBracket] = useState(() => readSnapshot(bracketSnapshotKey) ?? null);
+  const [bracketLoading, setBracketLoading] = useState(() => !readSnapshot(bracketSnapshotKey));
+  // What's on screen, readable from inside fetchBracket without making the
+  // bracket a dependency of it (which would re-trigger the fetch it feeds).
+  const bracketRef = useRef(bracket);
   const [bracketRefreshing, setBracketRefreshing] = useState(false);
   const [bracketError, setBracketError] = useState(null);
   const [bracketUpdatedAt, setBracketUpdatedAt] = useState(null);
@@ -110,18 +118,29 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
   // `background` = a poll tick: keep the scores on screen (no skeleton, and a
   // failed tick doesn't blow away the last good snapshot) so a live week's
   // numbers tick over in place.
-  const fetchBracket = useCallback(async ({ background = false } = {}) => {
+  // `force` = the Refresh button: skip the server's shared snapshot and make it
+  // recompute. An ordinary mount is happy with the snapshot.
+  const fetchBracket = useCallback(async ({ background = false, force = false } = {}) => {
     try {
-      if (background) setBracketRefreshing(true);
+      // Only an empty screen gets the skeleton — a refetch over data already
+      // showing is a background refresh, however it was triggered.
+      if (background || bracketRef.current) setBracketRefreshing(true);
       else setBracketLoading(true);
       setBracketError(null);
-      const res = await fetch(`/api/duzza-finals/results?year=${selectedYear}`, { cache: 'no-store' });
+      const res = await fetch(
+        `/api/duzza-finals/results?year=${selectedYear}${force ? '&refresh=1' : ''}`,
+        // A poll is a freshness check, so it always goes to the network; the
+        // read-cache header is there for navigations.
+        { cache: 'no-store' }
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `Failed to load bracket (${res.status})`);
       }
       const data = await res.json();
       setBracket(data);
+      bracketRef.current = data;
+      writeSnapshot(`duzza-finals-bracket:${selectedYear}`, data);
       setBracketUpdatedAt(new Date());
       if (!userChangedWeekRef.current && data?.currentWeek) {
         const clamped = DUZZA_FINALS_ROUNDS.includes(data.currentWeek)
@@ -162,7 +181,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     };
   }, [fetchBracket, finalsComplete]);
 
-  const refreshBracket = useCallback(() => fetchBracket(), [fetchBracket]);
+  const refreshBracket = useCallback(() => fetchBracket({ force: true }), [fetchBracket]);
 
   // ── Player pool for the active week ──────────────────────────────────
   const [pool, setPool] = useState({ fixturesKnown: false, teamsPlaying: [], playersByTeam: {} });

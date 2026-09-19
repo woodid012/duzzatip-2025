@@ -1,4 +1,5 @@
 import { connectToDatabase } from "@/app/lib/mongodb";
+import { withReadCache } from "@/app/lib/apiUtils";
 
 const YEAR = 2026;
 
@@ -11,10 +12,15 @@ export async function GET() {
       return Response.json({ players: {}, updated: null });
     }
 
-    return Response.json({
-      players: doc.players,
-      updated: doc.updated?.toISOString() || null,
-    });
+    // Injury flags are scraped periodically, not live — five minutes in the
+    // browser is well inside how often they actually change.
+    return withReadCache(
+      Response.json({
+        players: doc.players,
+        updated: doc.updated?.toISOString() || null,
+      }),
+      300
+    );
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }

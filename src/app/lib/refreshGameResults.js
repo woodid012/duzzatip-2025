@@ -147,23 +147,73 @@ async function ensureGameResultsIndexes(collection) {
     }
 }
 
-// insertMany that tolerates the unique-index guard: under a concurrent race some
-// rows may already exist (E11000). With ordered:false the rest still insert; we
-// swallow ONLY duplicate-key errors and rethrow anything genuine.
-async function insertManyTolerant(collection, docs) {
-    if (!docs.length) return { insertedCount: 0 };
+// bulkWrite that tolerates the unique-index guard: under a concurrent race two
+// writers can upsert the same key at once (E11000). With ordered:false the rest
+// still land; we swallow ONLY duplicate-key errors and rethrow anything genuine.
+async function bulkWriteTolerant(collection, ops) {
+    if (!ops.length) return { writtenCount: 0 };
+    const written = (r) => (r?.upsertedCount ?? 0) + (r?.matchedCount ?? 0);
     try {
-        const r = await collection.insertMany(docs, { ordered: false });
-        return { insertedCount: r.insertedCount };
+        return { writtenCount: written(await collection.bulkWrite(ops, { ordered: false })) };
     } catch (err) {
         const writeErrors = Array.isArray(err.writeErrors) ? err.writeErrors : [];
         const onlyDup = writeErrors.length > 0 ? writeErrors.every(e => e.code === 11000) : err.code === 11000;
         if (onlyDup) {
-            console.warn(`[dedup-guard] tolerated ${writeErrors.length || 1} duplicate-key row(s) on ${collection.collectionName} insert`);
-            return { insertedCount: err.result?.insertedCount ?? err.insertedCount ?? 0 };
+            console.warn(`[dedup-guard] tolerated ${writeErrors.length || 1} duplicate-key row(s) on ${collection.collectionName} write`);
+            return { writtenCount: written(err.result) };
         }
         throw err;
     }
+}
+
+let refreshPassCounter = 0;
+function nextRefreshBatch() {
+    refreshPassCounter += 1;
+    return `${Date.now().toString(36)}-${refreshPassCounter}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Replaces the rows `scope` covers WITHOUT ever leaving a gap a reader can fall
+// into. Deleting the round first and inserting after left a window where the
+// round read as having no stats at all, and a request landing in it scored
+// every team zero — which the Duzza Finals cut then read as a tie at the cut
+// line and spared the whole field, so a week that should start with 4 teams
+// briefly showed 6.
+//
+// Instead: upsert every incoming row over its natural key, stamped with this
+// pass's id, then delete only what the pass didn't touch (rows for players no
+// longer in the set, and pre-stamp rows, which $ne matches). A concurrent
+// reader always sees either the old row or the new one.
+async function replaceRowsWithoutGap(collection, scope, docs) {
+    const refreshBatch = nextRefreshBatch();
+    // Rows written after this pass began belong to a concurrent, fresher pass
+    // (another lambda refreshing the same round) — prune what predates us, not
+    // what overtook us. created_at is absent on rows written before this
+    // scheme existed, so those still prune.
+    const startedAt = new Date();
+
+    const { writtenCount } = await bulkWriteTolerant(
+        collection,
+        docs.map((doc) => ({
+            replaceOne: {
+                filter: {
+                    year: doc.year,
+                    round: doc.round,
+                    player_name: doc.player_name,
+                    match_number: doc.match_number,
+                },
+                replacement: { ...doc, refreshBatch },
+                upsert: true,
+            },
+        }))
+    );
+
+    const pruned = await collection.deleteMany({
+        ...scope,
+        refreshBatch: { $ne: refreshBatch },
+        $or: [{ created_at: { $lt: startedAt } }, { created_at: { $exists: false } }],
+    });
+
+    return { writtenCount, prunedCount: pruned?.deletedCount ?? 0 };
 }
 
 export async function updateGameResults(statsData, round, { merge = false } = {}) {
@@ -182,9 +232,12 @@ export async function updateGameResults(statsData, round, { merge = false } = {}
             return { insertedCount: 0, skipped: true, reason: 'nothing_live' };
         }
         const teams = [...new Set(processedData.map(r => r.team_name).filter(Boolean))];
-        await collection.deleteMany({ round, year: CURRENT_YEAR, team_name: { $in: teams } });
-        const result = await insertManyTolerant(collection, processedData);
-        return { insertedCount: result.insertedCount, merged: true, teams: teams.length };
+        const result = await replaceRowsWithoutGap(
+            collection,
+            { round, year: CURRENT_YEAR, team_name: { $in: teams } },
+            processedData
+        );
+        return { insertedCount: result.writtenCount, merged: true, teams: teams.length };
     }
 
     // Full replace: never let a partial/degraded refresh replace a fuller stored set.
@@ -197,9 +250,12 @@ export async function updateGameResults(statsData, round, { merge = false } = {}
         return { insertedCount: 0, skipped: true, reason: 'suspect_shrink', existingCount, newCount: processedData.length };
     }
 
-    await collection.deleteMany({ round: round, year: CURRENT_YEAR });
-    const result = await insertManyTolerant(collection, processedData);
-    return { insertedCount: result.insertedCount };
+    const result = await replaceRowsWithoutGap(
+        collection,
+        { round: round, year: CURRENT_YEAR },
+        processedData
+    );
+    return { insertedCount: result.writtenCount };
 }
 
 // Per-process throttle so the auto-refresh from fixtureCache doesn't hammer
@@ -312,14 +368,17 @@ export async function refreshStaleConcludedStats(round, { token = null, force = 
                 if (!statsRes.ok) continue;
                 const players = mapMatchPlayers(await statsRes.json(), match, round);
                 if (players.length === 0) continue; // never wipe on a degraded response
-                // Delete only the teams we actually got fresh rows for — NOT the
-                // fixture's home/away. A half-degraded playerStats response (one
-                // side empty) would otherwise delete both teams but re-insert
-                // only one, wiping the missing side's stats. Mirrors the safe
-                // merge path in updateGameResults.
+                // Replace only the teams we actually got fresh rows for — NOT
+                // the fixture's home/away. A half-degraded playerStats response
+                // (one side empty) would otherwise drop both teams but write
+                // back only one, wiping the missing side's stats. Mirrors the
+                // safe merge path in updateGameResults.
                 const teams = [...new Set(players.map(r => r.team_name).filter(Boolean))];
-                await collection.deleteMany({ round, year: CURRENT_YEAR, team_name: { $in: teams } });
-                await insertManyTolerant(collection, players);
+                await replaceRowsWithoutGap(
+                    collection,
+                    { round, year: CURRENT_YEAR, team_name: { $in: teams } },
+                    players
+                );
                 refreshed++;
                 console.log(`[stale-sync] Re-pulled final stats: R${round} ${home} v ${away} (${players.length} players)`);
             }

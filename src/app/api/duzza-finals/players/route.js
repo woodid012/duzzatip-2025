@@ -1,4 +1,4 @@
-import { createApiHandler, parseYearParam, createSuccessResponse } from '@/app/lib/apiUtils';
+import { createApiHandler, parseYearParam, createSuccessResponse, withReadCache } from '@/app/lib/apiUtils';
 import { DUZZA_FINALS_ROUNDS, isDuzzaFinalsRound, getPlayerPoolForRound } from '@/app/lib/duzzaFinals';
 import { syncFinalsFixtures } from '@/app/lib/duzzaFinalsFixtures';
 
@@ -25,11 +25,16 @@ export const GET = createApiHandler(async (request, db) => {
 
   const pool = await getPlayerPoolForRound(db, round, year);
 
-  return createSuccessResponse({
-    round,
-    year,
-    fixturesKnown: pool.fixturesKnown,
-    teamsPlaying: pool.teamsPlaying,
-    playersByTeam: pool.playersByTeam,
-  });
+  // The week's player pool only changes when the AFL publishes the next
+  // week's fixtures, so a couple of minutes in the browser costs nothing.
+  return withReadCache(
+    createSuccessResponse({
+      round,
+      year,
+      fixturesKnown: pool.fixturesKnown,
+      teamsPlaying: pool.teamsPlaying,
+      playersByTeam: pool.playersByTeam,
+    }),
+    120
+  );
 });

@@ -1,4 +1,4 @@
-import { createApiHandler, parseYearParam, createSuccessResponse } from '@/app/lib/apiUtils';
+import { createApiHandler, parseYearParam, createSuccessResponse, withReadCache } from '@/app/lib/apiUtils';
 import { syncFinalsFixtures } from '@/app/lib/duzzaFinalsFixtures';
 import { connectToFinalsDatabase } from '@/app/lib/mongodb';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
@@ -7,6 +7,7 @@ import { isRoundLocked } from '@/app/lib/roundAccess';
 import { getAflFixtures, isRoundComplete } from '@/app/lib/fixtureCache';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
+import { getShared, setShared } from '@/app/lib/sharedCache';
 import {
   DUZZA_FINALS_ROUNDS,
   DUZZA_FINALS_WEEK_LABELS,
@@ -16,6 +17,19 @@ import {
   computeBracket,
   seedEntrants,
 } from '@/app/lib/duzzaFinals';
+
+// The bracket is the same for everyone (only ?detail=1 is privacy-filtered),
+// it's polled once a minute by every open tab, and recomputing it is the
+// dashboard's main cost — so one instance's computation stands in for all of
+// them for a few seconds. Short enough that a live week's scores still move at
+// the poll's pace; long enough that a crowd watching the same week costs one
+// computation between them. The Refresh button bypasses it.
+const BRACKET_SNAPSHOT_TTL = 20 * 1000;
+
+// Browser-side caching for the same reason, one step closer to the user. Ten
+// seconds is under the client's one-minute poll, so a poll still reaches the
+// network while a navigation back to the page paints instantly.
+const READ_CACHE_SECONDS = 10;
 
 function invalidRoundResponse() {
   return Response.json(
@@ -140,10 +154,17 @@ export const GET = createApiHandler(async (request, db) => {
   const finalsDb = await connectToFinalsDatabase();
 
   if (round !== null) {
-    return await getRoundDetail(request, db, finalsDb, round, year);
+    return withReadCache(await getRoundDetail(request, db, finalsDb, round, year), READ_CACHE_SECONDS);
   }
 
-  const bracket = await computeBracket(db, finalsDb, year);
+  const forceFresh = searchParams.get('refresh') === '1';
+  const snapshotKey = `duzza-finals-bracket:${year}`;
 
-  return createSuccessResponse({ year, ...bracket });
+  let bracket = forceFresh ? undefined : await getShared(snapshotKey);
+  if (bracket === undefined) {
+    bracket = await computeBracket(db, finalsDb, year);
+    await setShared(snapshotKey, bracket, BRACKET_SNAPSHOT_TTL);
+  }
+
+  return withReadCache(createSuccessResponse({ year, ...bracket }), READ_CACHE_SECONDS);
 });

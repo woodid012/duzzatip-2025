@@ -1,11 +1,16 @@
 'use client';
 
 import { weekNumberForRound } from '../lib/constants';
+import { orderBracketWeeks } from '@/app/lib/bracketOrder';
 
 // Compact secondary view of the core-8 knockout (bottom 2 cut each week,
 // Grand Final head-to-head) — informational only for open entrants, who
 // don't take part in it. Names resolved from cumulativeLadder.
-export default function BracketMini({ weeks, cumulativeLadder, champion, coChampions, isComplete }) {
+export default function BracketMini({ weeks, currentWeek, cumulativeLadder, champion, coChampions, isComplete }) {
+  // Same order as the main bracket: live week first, back through the weeks
+  // behind it, nothing that hasn't started.
+  const orderedWeeks = orderBracketWeeks(weeks, currentWeek);
+
   const nameById = {};
   (cumulativeLadder || []).forEach((e) => { nameById[e.userId] = e.name; });
 
@@ -41,7 +46,7 @@ export default function BracketMini({ weeks, cumulativeLadder, champion, coChamp
             </tr>
           </thead>
           <tbody>
-            {(weeks || []).map((week) => {
+            {orderedWeeks.map((week) => {
               const finalized = Array.isArray(week.eliminated);
               const isLive = week.fixturesKnown && !finalized && (week.scores || []).length > 0;
               return (

@@ -2,7 +2,7 @@ import { CURRENT_YEAR } from '@/app/lib/constants';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { getAflFixtures } from '@/app/lib/fixtureCache';
-import { parseYearParam, blockWritesForPastYear } from '@/app/lib/apiUtils';
+import { parseYearParam, blockWritesForPastYear, withReadCache } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { canSetDeadCert, lockedTipMatchNumbers } from '@/app/lib/rollingLockout';
 import { canSeeOthers, didSubmitOnTime } from '@/app/lib/submissionStatus';
@@ -84,11 +84,15 @@ export async function GET(request) {
         lastUpdated
       };
 
-      return NextResponse.json(response);
+      // The viewer's own tips — short enough that a save is reflected on the
+      // next load, long enough to cover a navigation round trip.
+      return withReadCache(NextResponse.json(response), 10);
     }
 
-    // If no round/userId, just return fixtures
-    return NextResponse.json(fixtures);
+    // If no round/userId, just return fixtures. Every page waits on this one
+    // before it can fetch anything of its own, so letting the browser reuse it
+    // takes a whole round-trip off each navigation.
+    return withReadCache(NextResponse.json(fixtures), 60);
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json(

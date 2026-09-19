@@ -179,18 +179,45 @@ async function refreshStats({
 
         if (write) {
           // Per-game merge: replace only these two teams' rows for this round, so
-          // we never disturb other games in the round. ordered:false + swallow
-          // E11000 so the unique game_results index (which prevents duplicate
-          // rows) degrades a concurrent race gracefully instead of throwing.
-          await col.deleteMany({ round, year, team_name: { $in: [homeTeam, awayTeam] } });
+          // we never disturb other games in the round. Upsert first and prune
+          // after (stamped with this pass's id) rather than deleting first —
+          // deleting left a window where the site read the round as having no
+          // stats at all, which scored every finals team zero and made the
+          // Duzza Finals cut spare a field it should have cut. ordered:false +
+          // swallow E11000 so the unique game_results index (which prevents
+          // duplicate rows) degrades a concurrent race gracefully.
+          const refreshBatch = `cli-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+          const startedAt = new Date();
           try {
-            await col.insertMany(players, { ordered: false });
+            await col.bulkWrite(
+              players.map((doc) => ({
+                replaceOne: {
+                  filter: {
+                    year: doc.year,
+                    round: doc.round,
+                    player_name: doc.player_name,
+                    match_number: doc.match_number,
+                  },
+                  replacement: { ...doc, refreshBatch },
+                  upsert: true,
+                },
+              })),
+              { ordered: false }
+            );
           } catch (err) {
             const writeErrors = Array.isArray(err.writeErrors) ? err.writeErrors : [];
             const onlyDup = writeErrors.length > 0 ? writeErrors.every(e => e.code === 11000) : err.code === 11000;
             if (!onlyDup) throw err;
             warn(`⚠ ${label}: tolerated ${writeErrors.length || 1} duplicate-key row(s)`);
           }
+          await col.deleteMany({
+            round,
+            year,
+            team_name: { $in: [homeTeam, awayTeam] },
+            refreshBatch: { $ne: refreshBatch },
+            // Leave alone anything a concurrent, fresher pass wrote after us.
+            $or: [{ created_at: { $lt: startedAt } }, { created_at: { $exists: false } }],
+          });
         }
       }
     }
