@@ -162,7 +162,9 @@ export const GET = createApiHandler(async (request, db) => {
 
   let bracket = forceFresh ? undefined : await getShared(snapshotKey);
   if (bracket === undefined) {
-    bracket = await computeBracket(db, finalsDb, year);
+    // Refresh also re-derives weeks the bracket has already frozen — the one
+    // way a decided week's numbers can change.
+    bracket = await computeBracket(db, finalsDb, year, { recompute: forceFresh });
     await setShared(snapshotKey, bracket, BRACKET_SNAPSHOT_TTL);
   }
 
