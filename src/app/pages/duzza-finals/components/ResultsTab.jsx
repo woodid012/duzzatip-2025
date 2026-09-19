@@ -39,7 +39,10 @@ export default function ResultsTab({ activeWeek, selectedEntrantId, weekLabel, f
       background ? setRefreshing(true) : setLoading(true);
       setError(null);
       const res = await fetch(
-        `/api/duzza-finals/results?round=${activeWeek}&detail=1&year=${selectedYear}`
+        `/api/duzza-finals/results?round=${activeWeek}&detail=1&year=${selectedYear}`,
+        // A poll is a freshness check, and a save has to show up on the very
+        // next one — so it always goes to the network, like the bracket poll.
+        { cache: 'no-store' }
       );
       if (!res.ok) throw new Error(`Failed to load results (${res.status})`);
       setDetail(await res.json());
