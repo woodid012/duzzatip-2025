@@ -44,15 +44,17 @@ export const createSuccessResponse = (data) => {
 };
 
 // Lets a browser reuse a read it just made — a navigation back to a page it
-// was on a moment ago paints from cache instead of waiting on the network,
-// and stale-while-revalidate lets it show that copy while the fresh one is on
-// its way. Always `private`: several of these responses are filtered per
-// viewer and must never sit in a shared CDN.
-export const withReadCache = (response, maxAgeSeconds, staleSeconds = maxAgeSeconds * 6) => {
-  response.headers.set(
-    'Cache-Control',
-    `private, max-age=${maxAgeSeconds}, stale-while-revalidate=${staleSeconds}`
-  );
+// was on a moment ago paints from cache instead of waiting on the network.
+// Always `private`: several of these responses are filtered per viewer and
+// must never sit in a shared CDN.
+//
+// Deliberately no stale-while-revalidate. A POST to one URL doesn't invalidate
+// a cached GET of another, so with it a just-saved dead cert could be shown
+// missing from the results for the whole stale window — the cache served the
+// pre-save answer and revalidated only in the background. max-age alone bounds
+// that to `maxAgeSeconds`, after which the next read waits for a fresh answer.
+export const withReadCache = (response, maxAgeSeconds) => {
+  response.headers.set('Cache-Control', `private, max-age=${maxAgeSeconds}`);
   return response;
 };
 
