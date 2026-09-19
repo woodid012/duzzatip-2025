@@ -43,6 +43,19 @@ export const createSuccessResponse = (data) => {
   return Response.json(data, { status: 200 });
 };
 
+// Lets a browser reuse a read it just made — a navigation back to a page it
+// was on a moment ago paints from cache instead of waiting on the network,
+// and stale-while-revalidate lets it show that copy while the fresh one is on
+// its way. Always `private`: several of these responses are filtered per
+// viewer and must never sit in a shared CDN.
+export const withReadCache = (response, maxAgeSeconds, staleSeconds = maxAgeSeconds * 6) => {
+  response.headers.set(
+    'Cache-Control',
+    `private, max-age=${maxAgeSeconds}, stale-while-revalidate=${staleSeconds}`
+  );
+  return response;
+};
+
 export const validateRequest = (request, requiredFields = []) => {
   if (request.method === 'POST' || request.method === 'PUT') {
     const body = request.body;

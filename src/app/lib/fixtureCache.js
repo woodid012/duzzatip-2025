@@ -4,6 +4,7 @@
 // Scores are overlaid from the AFL API for started games and written back to MongoDB.
 
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { claimStamp, getShared, setShared } from '@/app/lib/sharedCache';
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
 import path from 'path';
@@ -18,6 +19,13 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 // Separate cache for round completion status (shorter TTL during live games)
 const roundStatusCache = new Map();
 const STATUS_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+// A finished round stays finished, so the shared answer can be kept for as
+// long as the season — nobody needs to ask the AFL API about it again.
+const COMPLETE_LATCH_TTL = 180 * 24 * 60 * 60 * 1000; // ~a season
+// How long one instance's score overlay stands in for everyone else's. Well
+// inside the 5-minute per-instance fixture cache, so this only ever makes a
+// cold instance's data fresher than it used to be, never staler.
+const AFL_OVERLAY_SHARED_TTL = 60 * 1000;
 
 // Hard wall-clock budget for the AFL score overlay as a whole (on top of the
 // per-fetch timeouts) — belt-and-braces against the overlay taking longer than
@@ -494,6 +502,9 @@ async function overlayAflScores(fixtures, year, roundsToFetch = null) {
   // rounds race the same wall-clock window instead of stacking their timeouts.
   const combinedScores = {};
   const liveRounds = new Set();
+  // Statuses learned here are worth sharing with the other instances, but the
+  // writes are held until the loop is done so they go out in one pass.
+  const statusesToShare = [];
   const settled = await Promise.allSettled(
     startedRounds.map(localRound =>
       fetchAflApiScoresForRound(localRound + roundOffset, token)
@@ -524,9 +535,16 @@ async function overlayAflScores(fixtures, year, roundsToFetch = null) {
     const ck = `${year}-${localRound}`;
     const prior = roundStatusCache.get(ck);
     if (!(prior && prior.complete)) {
+      statusesToShare.push({ round: localRound, complete });
       roundStatusCache.set(ck, { complete, timestamp: now });
     }
   }
+
+  await Promise.all(
+    statusesToShare.map(({ round, complete }) =>
+      rememberRoundStatus(year, round, `${year}-${round}`, complete, now)
+    )
+  );
 
   // Only trip the breaker when EVERY round in this pass failed — a partial
   // success means the AFL API is actually up (just maybe slow/flaky for one
@@ -625,7 +643,16 @@ async function fetchFreshFixtures(year, now) {
       return recurring.has(matchupKey(f));
     });
 
-    if (needsScore.length > 0) {
+    // The overlay is the expensive, external part of this path, and it writes
+    // whatever it learns back into Mongo — so once any instance has run it,
+    // every other instance's plain Mongo read is already just as fresh. Claim
+    // a shared stamp and let the losers skip straight to serving the stored
+    // fixtures instead of each paying their own AFL round-trip on a cold start.
+    const overlayDue = needsScore.length > 0
+      ? await claimStamp(`afl-overlay:${year}`, AFL_OVERLAY_SHARED_TTL)
+      : false;
+
+    if (overlayDue) {
       try {
         // Only hit the AFL API for the rounds that actually need scoring.
         const roundsNeeded = [...new Set(needsScore.map(f => Number(f.RoundNumber)))];
@@ -723,6 +750,18 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
     return cached.complete;
   }
 
+  // Nothing in this instance's memory — ask the shared layer before paying for
+  // an answer. This is what stops two requests seconds apart disagreeing
+  // because they landed on differently-warmed instances: whichever one computes
+  // the answer, every instance then reads the same one. A latched `true` is
+  // permanent (a round never un-completes), so it needs no freshness check.
+  const sharedKey = sharedRoundStatusKey(year, round);
+  const shared = await getShared(sharedKey);
+  if (shared !== undefined) {
+    roundStatusCache.set(cacheKey, { complete: shared, timestamp: now });
+    return shared;
+  }
+
   // Circuit breaker open — the AFL API is known-down for the cooldown window.
   // Skip straight to the fixture-data fallback instead of paying another
   // timeout on a host we already know is unreachable.
@@ -762,7 +801,7 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
     const statuses = [...new Set(matches.map(m => m.status))];
     console.log(`Round ${round} (API round ${apiRound}) statuses: ${statuses.join(', ')} → complete: ${complete}`);
 
-    roundStatusCache.set(cacheKey, { complete, timestamp: now });
+    await rememberRoundStatus(year, round, cacheKey, complete, now);
     return complete;
   } catch (err) {
     console.error(`Failed to check round ${round} completion:`, err.message);
@@ -780,9 +819,27 @@ async function roundCompleteFromFixtureData(round, year, cacheKey, now) {
     const complete = roundFixtures.length > 0 && roundFixtures.every(
       f => f.HomeTeamScore !== null && f.AwayTeamScore !== null
     );
-    roundStatusCache.set(cacheKey, { complete, timestamp: now });
+    await rememberRoundStatus(year, round, cacheKey, complete, now);
     return complete;
   } catch {
     return false;
   }
+}
+
+function sharedRoundStatusKey(year, round) {
+  return `round-complete:${year}:${round}`;
+}
+
+// Records a round's completion for this instance AND for every other one. A
+// `true` is latched permanently — a played round never un-plays — while a
+// `false` only holds for the status TTL, so a round finishing is picked up
+// promptly. Never overwrites a shared `true` with `false`: a partial or
+// degraded AFL response must not un-complete a round other instances have
+// already awarded.
+async function rememberRoundStatus(year, round, cacheKey, complete, now) {
+  roundStatusCache.set(cacheKey, { complete, timestamp: now });
+
+  const key = sharedRoundStatusKey(year, round);
+  if (!complete && (await getShared(key)) === true) return;
+  await setShared(key, complete, complete ? COMPLETE_LATCH_TTL : STATUS_CACHE_TTL);
 }

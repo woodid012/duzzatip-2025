@@ -8,6 +8,7 @@ import { isRoundLocked } from '../src/app/lib/roundAccess';
 import { getAflFixtures, isRoundComplete } from '../src/app/lib/fixtureCache';
 import { refreshGameResultsForRound, refreshStaleConcludedStats } from '../src/app/lib/refreshGameResults';
 import { getPlayerPoolForRound, computeWeeklyScores, computeBracket, seedEntrants } from '../src/app/lib/duzzaFinals';
+import { getShared, setShared } from '../src/app/lib/sharedCache';
 
 jest.mock('../src/app/lib/mongodb', () => ({
   connectToDatabase: jest.fn(),
@@ -24,6 +25,10 @@ jest.mock('../src/app/lib/fixtureCache', () => ({
 jest.mock('../src/app/lib/refreshGameResults', () => ({
   refreshGameResultsForRound: jest.fn(),
   refreshStaleConcludedStats: jest.fn(),
+}));
+jest.mock('../src/app/lib/sharedCache', () => ({
+  getShared: jest.fn(),
+  setShared: jest.fn(),
 }));
 jest.mock('../src/app/lib/duzzaFinals', () => ({
   DUZZA_FINALS_ROUNDS: [26, 27, 28, 29],
@@ -74,6 +79,8 @@ beforeEach(() => {
   getPlayerPoolForRound.mockResolvedValue({ fixturesKnown: true });
   seedEntrants.mockResolvedValue(undefined);
   computeBracket.mockResolvedValue({ weeks: [] });
+  getShared.mockResolvedValue(undefined); // no snapshot stored yet
+  setShared.mockResolvedValue(undefined);
   refreshGameResultsForRound.mockResolvedValue(undefined);
   refreshStaleConcludedStats.mockResolvedValue(undefined);
   computeWeeklyScores.mockImplementation(async (_season, _finals, _round, _year, ids) =>
@@ -178,6 +185,47 @@ test('bracket requests ignore refresh without a selected detail round', async ()
   expect(refreshGameResultsForRound).not.toHaveBeenCalled();
   expect(refreshStaleConcludedStats).not.toHaveBeenCalled();
   expect(getAflFixtures).not.toHaveBeenCalled();
+});
+
+// Every open tab polls the bracket once a minute and they all want the same
+// answer, so one instance's computation stands in for the rest for a few
+// seconds — and, just as importantly, they all get the SAME answer.
+describe('bracket snapshot', () => {
+  test('a stored snapshot is served without recomputing', async () => {
+    getShared.mockResolvedValue({ weeks: [{ round: 28 }] });
+
+    const response = await GET(request(''));
+
+    expect(await response.json()).toEqual({ year: CURRENT_YEAR, weeks: [{ round: 28 }] });
+    expect(computeBracket).not.toHaveBeenCalled();
+    expect(setShared).not.toHaveBeenCalled();
+  });
+
+  test('a miss computes the bracket and shares it', async () => {
+    await GET(request(''));
+
+    expect(computeBracket).toHaveBeenCalledTimes(1);
+    const [key, value, ttl] = setShared.mock.calls[0];
+    expect(key).toBe(`duzza-finals-bracket:${CURRENT_YEAR}`);
+    expect(value).toEqual({ weeks: [] });
+    expect(ttl).toBeGreaterThan(0);
+  });
+
+  test('the Refresh button bypasses the snapshot', async () => {
+    getShared.mockResolvedValue({ weeks: [{ round: 28, stale: true }] });
+
+    const response = await GET(request('refresh=1'));
+
+    expect(await response.json()).toEqual({ year: CURRENT_YEAR, weeks: [] });
+    expect(computeBracket).toHaveBeenCalledTimes(1);
+    expect(setShared).toHaveBeenCalledTimes(1);
+  });
+
+  test('read responses tell the browser it may reuse them briefly', async () => {
+    const response = await GET(request(''));
+
+    expect(response.headers.get('Cache-Control')).toMatch(/^private, max-age=\d+/);
+  });
 });
 
 test.each([
