@@ -2599,17 +2599,17 @@
     "HomeTeam": "Hawthorn",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 122,
+    "AwayTeamScore": 131,
+    "Winner": "Brisbane Lions"
   },
   {
     "MatchNumber": 218,
     "RoundNumber": 29,
     "DateUtc": "2026-09-26 04:30:00Z",
     "Location": "MCG",
-    "HomeTeam": "To be announced",
-    "AwayTeam": "To be announced",
+    "HomeTeam": "Fremantle",
+    "AwayTeam": "Brisbane Lions",
     "Group": null,
     "HomeTeamScore": null,
     "AwayTeamScore": null,
