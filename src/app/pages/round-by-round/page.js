@@ -5,34 +5,52 @@
 import React, { useState, useEffect } from 'react';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import { useAppContext } from '@/app/context/AppContext';
-import { USER_NAMES } from '@/app/lib/constants';
+import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
 
 export default function RoundByRoundPage() {
-  const { selectedYear } = useAppContext();
+  const { selectedYear, roundInfo } = useAppContext();
+  const currentRound = roundInfo?.currentRound;
   const [roundData, setRoundData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // The current season's cut-off comes from the fixture-derived round; wait
+    // for it rather than guessing, so no live round is fetched twice.
+    if (selectedYear === CURRENT_YEAR && (currentRound === null || currentRound === undefined)) return;
+
     const fetchAllRoundData = async () => {
       try {
         setLoading(true);
         const allData = {};
 
-        // Load all 21 rounds in parallel
         const totalRounds = 21;
         const roundNumbers = Array.from({ length: totalRounds }, (_, i) => i + 1);
 
-        const responses = await Promise.all(
-          roundNumbers.map(round =>
+        // Every completed round comes back in one read; only rounds without a
+        // stored snapshot (in progress, or not yet synced) are scored live.
+        const summary = await fetch(`/api/round-by-round?year=${selectedYear}`)
+          .then(res => (res.ok ? res.json() : null))
+          .catch(() => null);
+        const stored = summary?.rounds || {};
+
+        const lastRoundToScore = selectedYear === CURRENT_YEAR
+          ? Math.min(totalRounds, currentRound || totalRounds)
+          : totalRounds;
+        const liveRounds = roundNumbers.filter(round => !stored[round] && round <= lastRoundToScore);
+
+        const liveResponses = await Promise.all(
+          liveRounds.map(round =>
             fetch(`/api/consolidated-round-results?round=${round}&year=${selectedYear}`)
               .then(res => (res.ok ? res.json() : null))
               .catch(() => null)
           )
         );
+        const liveByRound = {};
+        liveRounds.forEach((round, i) => { liveByRound[round] = liveResponses[i]; });
 
-        responses.forEach((data, i) => {
-          const round = i + 1;
+        roundNumbers.forEach(round => {
+          const data = stored[round] ? { results: stored[round] } : liveByRound[round];
           if (!data?.results) return;
 
           // Process each user's data for this round
@@ -100,7 +118,7 @@ export default function RoundByRoundPage() {
     };
 
     fetchAllRoundData();
-  }, [selectedYear]);
+  }, [selectedYear, currentRound]);
 
   if (loading) {
     return (

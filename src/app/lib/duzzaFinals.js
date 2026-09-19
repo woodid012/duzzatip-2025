@@ -6,6 +6,7 @@
 import { USER_NAMES, TEAM_LOGOS } from './constants';
 import { calculateTeamScores } from './scoreCalculations';
 import { getAflFixtures, isRoundComplete } from './fixtureCache';
+import { withShared } from './sharedCache';
 import { RESERVE_A_POSITIONS, RESERVE_B_POSITIONS } from './rollingLockout';
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -272,20 +273,40 @@ export async function seedEntrants(finalsDb, year) {
 // `${year}_game_results` row when they've played this season — the roster
 // snapshot can go stale across trades, but who they actually ran out for
 // last game can't. The snapshot only decides for players with no games.
-export async function getPlayerPoolForRound(seasonDb, round, year) {
-  const players = await seasonDb
-    .collection(`${year}_players`)
-    .find({}, { projection: { player_id: 1, player_name: 1, team_name: 1, _id: 0 } })
-    .toArray();
+// Latest club per player is a whole-season scan of game_results, and the
+// pool is read on every players poll, results-detail poll and team submit.
+// The answer only moves when a round's stats land, so it's shared across
+// instances for a few minutes and memoised here in between.
+const LATEST_CLUB_TTL_MS = 5 * 60 * 1000;
+let latestClubMemo = { year: null, at: 0, rows: null };
 
-  const latestClubRows = await seasonDb
-    .collection(`${year}_game_results`)
-    .aggregate([
-      { $match: { team_name: { $ne: null } } },
-      { $sort: { round: -1 } },
-      { $group: { _id: '$player_name', team: { $first: '$team_name' } } },
-    ])
-    .toArray();
+async function getLatestClubRows(seasonDb, year) {
+  if (latestClubMemo.year === year && latestClubMemo.rows && Date.now() - latestClubMemo.at < LATEST_CLUB_TTL_MS) {
+    return latestClubMemo.rows;
+  }
+  const rows = await withShared(`finals-latest-club:${year}`, LATEST_CLUB_TTL_MS, () =>
+    seasonDb
+      .collection(`${year}_game_results`)
+      .aggregate([
+        { $match: { team_name: { $ne: null } } },
+        { $sort: { round: -1 } },
+        { $group: { _id: '$player_name', team: { $first: '$team_name' } } },
+      ])
+      .toArray()
+  );
+  latestClubMemo = { year, at: Date.now(), rows };
+  return rows;
+}
+
+export async function getPlayerPoolForRound(seasonDb, round, year) {
+  const [players, latestClubRows, aflFixtures] = await Promise.all([
+    seasonDb
+      .collection(`${year}_players`)
+      .find({}, { projection: { player_id: 1, player_name: 1, team_name: 1, _id: 0 } })
+      .toArray(),
+    getLatestClubRows(seasonDb, year),
+    getAflFixtures(year),
+  ]);
   // game_results stores FULL club names — convert to the 3-letter codes the
   // pool is keyed on; an unmappable name falls back to the roster snapshot.
   const latestClubByPlayer = new Map(
@@ -299,7 +320,6 @@ export async function getPlayerPoolForRound(seasonDb, round, year) {
     return acc;
   }, {});
 
-  const aflFixtures = await getAflFixtures(year);
   return derivePlayerPool(playersByTeam, aflFixtures, round);
 }
 

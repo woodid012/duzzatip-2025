@@ -61,14 +61,24 @@ function resolveViewer(request) {
 // once it's locked (isRoundLocked), EXCEPT the caller's own entry, which is
 // always visible pre-lockout too — mirrors the entry route's privacy rule.
 // An unauthenticated caller pre-lockout gets entrantDetails: [].
-async function getRoundDetail(request, seasonDb, finalsDb, round, year) {
+// The core entrants are upserted once per instance: the upsert is a no-op
+// after the first time and this runs on every detail poll.
+const seededYears = new Set();
+async function seedEntrantsOnce(finalsDb, year) {
+  if (seededYears.has(year)) return;
+  await seedEntrants(finalsDb, year);
+  seededYears.add(year);
+}
+
+async function getRoundDetail(request, seasonDb, finalsDb, round, year, { forceFresh = false } = {}) {
   const label = DUZZA_FINALS_WEEK_LABELS[round];
-  const pool = await getPlayerPoolForRound(seasonDb, round, year);
+  const [pool, locked] = await Promise.all([
+    getPlayerPoolForRound(seasonDb, round, year),
+    isRoundLocked(round, year),
+    seedEntrantsOnce(finalsDb, year),
+  ]);
   const fixturesKnown = pool.fixturesKnown;
   const roundComplete = fixturesKnown ? await isRoundComplete(round, year).catch(() => false) : false;
-  const locked = await isRoundLocked(round, year);
-
-  await seedEntrants(finalsDb, year);
 
   const entrants = await finalsDb.collection(`${year}_entrants`).find({}).toArray();
   const nameById = {};
@@ -98,7 +108,16 @@ async function getRoundDetail(request, seasonDb, finalsDb, round, year) {
 
   let entrantDetails = [];
   if (fixturesKnown && visibleIds.length > 0) {
-    const scores = await computeWeeklyScores(seasonDb, finalsDb, round, year, visibleIds, { detail: true });
+    // Same idea as the bracket snapshot below: once a week is locked every
+    // viewer sees the same set, so one instance's scoring stands in for all
+    // of them for a few seconds. The key carries the visible set, so a
+    // pre-lockout viewer never reads another viewer's filtered answer.
+    const scoresKey = `duzza-finals-detail:${year}:${round}:${[...visibleIds].sort((a, b) => a - b).join(',')}`;
+    let scores = forceFresh ? undefined : await getShared(scoresKey);
+    if (scores === undefined) {
+      scores = await computeWeeklyScores(seasonDb, finalsDb, round, year, visibleIds, { detail: true });
+      await setShared(scoresKey, scores, BRACKET_SNAPSHOT_TTL);
+    }
     entrantDetails = scores.map((s) => ({
       userId: s.userId,
       name: nameById[s.userId] || null,
@@ -132,8 +151,10 @@ export const GET = createApiHandler(async (request, db) => {
   }
 
   // Finals fixtures never arrive via the season pipeline (it only updates
-  // existing rows) — pull/refresh them here, throttled internally.
-  await syncFinalsFixtures(db, year);
+  // existing rows) — pull/refresh them here, throttled internally. Not
+  // awaited: the request that lands as the throttle expires shouldn't pay
+  // for the AFL round trips, the same way fixtureCache runs its refreshes.
+  syncFinalsFixtures(db, year).catch(() => {});
 
   if (round !== null && searchParams.get('refresh') === '1' && year === CURRENT_YEAR) {
     // Match the in-season Refresh button: await fresh stats before reading
@@ -153,11 +174,12 @@ export const GET = createApiHandler(async (request, db) => {
 
   const finalsDb = await connectToFinalsDatabase();
 
+  const forceFresh = searchParams.get('refresh') === '1';
+
   if (round !== null) {
-    return withReadCache(await getRoundDetail(request, db, finalsDb, round, year), READ_CACHE_SECONDS);
+    return withReadCache(await getRoundDetail(request, db, finalsDb, round, year, { forceFresh }), READ_CACHE_SECONDS);
   }
 
-  const forceFresh = searchParams.get('refresh') === '1';
   const snapshotKey = `duzza-finals-bracket:${year}`;
 
   let bracket = forceFresh ? undefined : await getShared(snapshotKey);

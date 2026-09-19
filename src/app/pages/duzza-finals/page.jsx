@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useUserContext } from '../layout';
 import useDuzzaFinals from '@/app/hooks/useDuzzaFinals';
+import useIsMobile from '@/app/hooks/useIsMobile';
 import { USER_NAMES } from '@/app/lib/constants';
 import { useToast } from '@/app/components/Toast';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
@@ -56,6 +57,13 @@ export default function DuzzaFinalsPage() {
   // from the hook's `activeTab` (team | tips | bracket), which drives the
   // three-tab desktop nav.
   const [mobileTab, setMobileTab] = useState('enter');
+
+  // undefined until mounted (keeps SSR markup stable), then true/false — once
+  // known we only mount the matching tab tree, so a hidden ResultsTab doesn't
+  // fetch/poll in the background.
+  const isMobile = useIsMobile();
+  const showMobile = isMobile !== false;
+  const showDesktop = isMobile !== true;
 
   const handleSaveTeam = async () => {
     const ok = await saveTeam();
@@ -188,6 +196,7 @@ export default function DuzzaFinalsPage() {
       )}
 
       {/* ===== Desktop: Team / Tips / Bracket ===== */}
+      {showDesktop && (
       <div className="hidden md:block">
         <div className="flex gap-1 mb-4 border-b border-slate-200">
           {DESKTOP_TABS.map((tab) => (
@@ -269,8 +278,10 @@ export default function DuzzaFinalsPage() {
           </>
         )}
       </div>
+      )}
 
       {/* ===== Mobile: Enter (Team + Tips merged) / Bracket / Pool ===== */}
+      {showMobile && (
       <div className="block md:hidden">
         <div className="flex gap-1 mb-4 border-b border-slate-200">
           {MOBILE_TABS.map((tab) => (
@@ -342,6 +353,7 @@ export default function DuzzaFinalsPage() {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

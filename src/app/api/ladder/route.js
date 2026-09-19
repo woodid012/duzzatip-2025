@@ -1,6 +1,7 @@
 // src/app/api/ladder/route.js
 
 import { connectToDatabase } from '@/app/lib/mongodb';
+import { withReadCache } from '@/app/lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { parseYearParam } from '@/app/lib/apiUtils';
@@ -42,12 +43,12 @@ export async function GET(request) {
         
         if (isValidCache) {
             console.log(`Returning valid cached ladder for round ${round} (${cachedLadder.calculatedFrom})`);
-            return Response.json({
+            return withReadCache(Response.json({
                 standings: cachedLadder.standings,
                 lastUpdated: cachedLadder.lastUpdated,
                 fromCache: true,
                 calculatedFrom: cachedLadder.calculatedFrom
-            });
+            }), 30);
         }
         
         // If cache is missing, stale, or from wrong source, build fresh ladder
@@ -72,12 +73,12 @@ export async function GET(request) {
             );
         }
         
-        return Response.json({
+        return withReadCache(Response.json({
             standings: calculatedLadder,
             lastUpdated: lastUpdated,
             fromCache: false,
             calculated: true
-        });
+        }), 30);
         
     } catch (error) {
         console.error('API Error in GET /api/ladder:', error);
@@ -118,12 +119,15 @@ export async function POST(request) {
             const ladderCollection = db.collection(`${CURRENT_YEAR}_ladder`);
             const bulkLadderOps = [];
             
+            // Every per-round ladder is built from the same totals, read once.
+            const allTotals = await getStoredFinalTotalsByRound(Math.min(round, 21), db);
+
             // Calculate and store ladder for each round up to current
             for (let r = 1; r <= round; r++) {
                 console.log(`Storing ladder state for round ${r}`);
                 
                 // Calculate ladder up to round r
-                const ladderUpToRound = await buildLadderFromStoredFinalTotals(r, db);
+                const ladderUpToRound = await buildLadderFromStoredFinalTotals(r, db, CURRENT_YEAR, allTotals);
                 
                 bulkLadderOps.push({
                     updateOne: {
@@ -326,8 +330,13 @@ async function buildLadderFromScratchCalculations(currentRound, db) {
 /**
  * Build ladder using stored Final Totals (for regular GET requests)
  */
-async function buildLadderFromStoredFinalTotals(currentRound, db, year = CURRENT_YEAR) {
+async function buildLadderFromStoredFinalTotals(currentRound, db, year = CURRENT_YEAR, preloadedTotals = null) {
     console.log(`Building ladder from stored Final Totals for round ${currentRound} (year ${year})`);
+
+    const lastRound = Math.min(currentRound, 21);
+    // One read covers every round; this used to be one query per round in
+    // series, and the refresh path called it once per round on top of that.
+    const totalsByRound = preloadedTotals || await getStoredFinalTotalsByRound(lastRound, db, year);
     
     const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
         userId,
@@ -343,8 +352,8 @@ async function buildLadderFromStoredFinalTotals(currentRound, db, year = CURRENT
     }));
 
     // Process rounds 1 through currentRound
-    for (let round = 1; round <= Math.min(currentRound, 21); round++) {
-        const finalTotals = await getStoredFinalTotals(round, db, year);
+    for (let round = 1; round <= lastRound; round++) {
+        const finalTotals = totalsByRound[round];
 
         if (!finalTotals || Object.keys(finalTotals).length === 0) {
             console.log(`No stored Final Totals available for round ${round}, skipping`);
@@ -479,6 +488,27 @@ async function storeFinalTotalsFromAPI(round, roundResults, db) {
     } catch (error) {
         console.error(`Error storing Final Totals from API for round ${round}:`, error);
     }
+}
+
+/**
+ * Final Totals for rounds 1..maxRound in one query, keyed by round then userId.
+ */
+async function getStoredFinalTotalsByRound(maxRound, db, year = CURRENT_YEAR) {
+    const byRound = {};
+    try {
+        const results = await db.collection(`${year}_final_totals`)
+            .find({ round: { $gte: 1, $lte: maxRound } }, { projection: { round: 1, userId: 1, finalTotal: 1 } })
+            .toArray();
+
+        results.forEach(result => {
+            if (result.userId && result.finalTotal !== undefined) {
+                (byRound[result.round] ??= {})[result.userId] = result.finalTotal || 0;
+            }
+        });
+    } catch (error) {
+        console.error(`Error getting stored Final Totals for rounds 1-${maxRound}:`, error);
+    }
+    return byRound;
 }
 
 /**

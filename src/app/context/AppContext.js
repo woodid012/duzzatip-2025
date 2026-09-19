@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useState, useContext, useEffect, useRef } from 'react';
+import { createContext, useState, useContext, useEffect, useRef, useCallback, useMemo } from 'react';
 import { CURRENT_YEAR, MAIN_SEASON_FINAL_ROUND } from '@/app/lib/constants';
 
 // The season pages' round logic lives in a 0-24 world; AFL finals rounds
@@ -20,26 +20,6 @@ import { readSnapshot, writeSnapshot } from '@/app/lib/clientSnapshot';
 const FIXTURES_SNAPSHOT_MAX_AGE = 10 * 60 * 1000;
 const fixturesSnapshotKey = (year) => `tipping-data-fixtures:${year}`;
 
-// In AppContext.js, add a simple caching mechanism
-const cache = new Map(); // Add at the top of the file
-
-const fetchWithCache = async (url, expiry = 5 * 60 * 1000) => {
-  const cachedResponse = cache.get(url);
-  if (cachedResponse && Date.now() - cachedResponse.timestamp < expiry) {
-    return cachedResponse.data;
-  }
-
-  // Delete expired entry before re-fetching
-  if (cachedResponse) {
-    cache.delete(url);
-  }
-
-  const response = await fetch(url);
-  const data = await response.json();
-  cache.set(url, { data, timestamp: Date.now() });
-  return data;
-};
-
 // Create context
 const AppContext = createContext();
 
@@ -57,14 +37,10 @@ export function AppProvider({ children }) {
     isError: false
   });
   const [allUsers, setAllUsers] = useState({});
-  const [squads, setSquads] = useState({});
-  const [teamSelections, setTeamSelections] = useState({});
   const [injuries, setInjuries] = useState({});
   const [loading, setLoading] = useState({
     fixtures: true,
-    users: true,
-    squads: false,
-    teamSelections: false
+    users: true
   });
   const [error, setError] = useState(null);
   const [userChangedRound, setUserChangedRound] = useState(false);
@@ -183,86 +159,24 @@ export function AppProvider({ children }) {
     fetchFixtures();
   }, [selectedYear]);
 
-  // Check for early round advancement periodically
-  const hasAdvancedRef = useRef(false);
+  // Refs mirroring the latest state, kept current in an effect below, so
+  // callbacks that need up-to-date values (notably the hourly interval
+  // further down) can read them without the callback/effect needing to be
+  // re-created every time the state changes — that's what let the interval
+  // hold a stale `currentRound` for up to an hour.
+  const currentRoundRef = useRef(currentRound);
+  const roundInfoRef = useRef(roundInfo);
+  const userChangedRoundRef = useRef(userChangedRound);
+  const fixturesRef = useRef(fixtures);
   useEffect(() => {
-    // Only run this if we have fixtures loaded
-    if (fixtures.length === 0) return;
-
-    // Check if we should advance immediately (only once per round)
-    if (roundInfo.shouldAdvanceToNextRound && !hasAdvancedRef.current) {
-      hasAdvancedRef.current = true;
-      advanceToAppropriateRound();
-    }
-
-    // Set up an interval to check for round advancement
-    const checkInterval = setInterval(() => {
-      hasAdvancedRef.current = false; // Allow advancement check again
-      // Get fresh round info
-      const currentRoundInfo = getSpecificRoundInfo(currentRound);
-
-      // Check if we should advance
-      if (currentRoundInfo.shouldAdvanceToNextRound) {
-        hasAdvancedRef.current = true;
-        advanceToAppropriateRound();
-      }
-    }, 60 * 60 * 1000); // Check every hour
-
-    // Clean up interval on unmount
-    return () => clearInterval(checkInterval);
-  }, [fixtures]); // Only re-run when fixtures change, not currentRound
-
-  // Load squad data
-  const fetchSquads = async () => {
-    try {
-      setLoading(prev => ({ ...prev, squads: true }));
-      
-      const response = await fetch(`/api/squads?year=${selectedYear}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch squads');
-      }
-      
-      const data = await response.json();
-      setSquads(data);
-      
-      setLoading(prev => ({ ...prev, squads: false }));
-      return data;
-    } catch (err) {
-      console.error('Error fetching squads:', err);
-      setError(err.message);
-      setLoading(prev => ({ ...prev, squads: false }));
-      return null;
-    }
-  };
-
-  // Load team selections for a specific round
-  const fetchTeamSelections = async (round) => {
-    try {
-      setLoading(prev => ({ ...prev, teamSelections: true }));
-      
-      const targetRound = round;
-      
-      const response = await fetch(`/api/team-selection?round=${targetRound}&year=${selectedYear}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch team selections');
-      }
-      
-      const data = await response.json();
-      setTeamSelections(data);
-      
-      setLoading(prev => ({ ...prev, teamSelections: false }));
-      return data;
-    } catch (err) {
-      console.error('Error fetching team selections:', err);
-      setError(err.message);
-      setLoading(prev => ({ ...prev, teamSelections: false }));
-      return null;
-    }
-  };
+    currentRoundRef.current = currentRound;
+    roundInfoRef.current = roundInfo;
+    userChangedRoundRef.current = userChangedRound;
+    fixturesRef.current = fixtures;
+  });
 
   // Get info for a specific round
-  const getSpecificRoundInfo = (roundNumber) => {
+  const getSpecificRoundInfo = useCallback((roundNumber) => {
     // If fixtures aren't loaded yet, return default info
     if (!fixtures || fixtures.length === 0) {
       return {
@@ -274,10 +188,10 @@ export function AppProvider({ children }) {
         isError: true
       };
     }
-    
+
     // Get round info for requested round
     const info = getRoundInfo(toSeasonFixtures(fixtures), roundNumber);
-    
+
     // For round 0, add round 1 info
     if (roundNumber === 0) {
       const round1Info = getRoundInfo(fixtures, 1);
@@ -287,70 +201,101 @@ export function AppProvider({ children }) {
         nextRoundLockoutDate: round1Info.lockoutDate
       };
     }
-    
+
     return info;
-  };
+  }, [fixtures]);
 
   // Update current round and fetch data for that round
-  const changeRound = (roundNumber) => {
+  const changeRound = useCallback((roundNumber) => {
     // If user manually changes the round, set the flag
-    if (roundNumber !== currentRound) {
+    if (roundNumber !== currentRoundRef.current) {
       setUserChangedRound(true);
     }
-    
+
     // Update round information
     const newRoundInfo = getSpecificRoundInfo(roundNumber);
     setRoundInfo(newRoundInfo);
     setCurrentRound(roundNumber);
-  };
+  }, [getSpecificRoundInfo]);
 
-  // Automatically advance to the appropriate round
-  const advanceToAppropriateRound = () => {
+  // Automatically advance to the appropriate round. Reads state through the
+  // refs above so its identity — and the hourly interval that calls it —
+  // never has to change just because currentRound/roundInfo changed.
+  const advanceToAppropriateRound = useCallback(() => {
     // Skip automatic advancement if user has manually changed the round
-    if (userChangedRound) {
+    if (userChangedRoundRef.current) {
       return;
     }
-    
-    const now = new Date();
-    
+
     // We've removed special handling for Round 0 -> Round 1 transition
-    
+
     // The season ends at round 24 — never auto-advance into the AFL finals
     // rounds (those belong to the Duzza Finals side comp).
-    const canAdvance = currentRound < MAIN_SEASON_FINAL_ROUND;
+    const canAdvance = currentRoundRef.current < MAIN_SEASON_FINAL_ROUND;
 
     // If current round info says we should advance to next round early
-    if (roundInfo.shouldAdvanceToNextRound && canAdvance) {
-      console.log(`Advancing to Round ${currentRound + 1} early (2 days before first fixture)`);
-      changeRound(currentRound + 1);
+    if (roundInfoRef.current.shouldAdvanceToNextRound && canAdvance) {
+      console.log(`Advancing to Round ${currentRoundRef.current + 1} early (2 days before first fixture)`);
+      changeRound(currentRoundRef.current + 1);
       return;
     }
 
     // If current round is locked and there's a next round available
-    if (roundInfo.isLocked && roundInfo.nextRoundInfo && canAdvance) {
-      changeRound(currentRound + 1);
+    if (roundInfoRef.current.isLocked && roundInfoRef.current.nextRoundInfo && canAdvance) {
+      changeRound(currentRoundRef.current + 1);
       return;
     }
-    
+
     // Otherwise calculate the appropriate round
-    if (fixtures && fixtures.length > 0) {
-      const calculatedInfo = calculateRoundInfo(toSeasonFixtures(fixtures));
-      
+    if (fixturesRef.current && fixturesRef.current.length > 0) {
+      const calculatedInfo = calculateRoundInfo(toSeasonFixtures(fixturesRef.current));
+
       // Only change if the calculated round is different
-      if (calculatedInfo.currentRound !== currentRound) {
+      if (calculatedInfo.currentRound !== currentRoundRef.current) {
         changeRound(calculatedInfo.currentRound);
       }
     }
-  };
+  }, [changeRound]);
+
+  // Check for early round advancement periodically
+  const hasAdvancedRef = useRef(false);
+  useEffect(() => {
+    // Only run this if we have fixtures loaded
+    if (fixtures.length === 0) return;
+
+    // Check if we should advance immediately (only once per round)
+    if (roundInfoRef.current.shouldAdvanceToNextRound && !hasAdvancedRef.current) {
+      hasAdvancedRef.current = true;
+      advanceToAppropriateRound();
+    }
+
+    // Set up an interval to check for round advancement
+    const checkInterval = setInterval(() => {
+      hasAdvancedRef.current = false; // Allow advancement check again
+      // Get fresh round info — via the ref, so this always sees the latest
+      // currentRound even though the interval itself isn't re-created.
+      const currentRoundInfo = getSpecificRoundInfo(currentRoundRef.current);
+
+      // Check if we should advance
+      if (currentRoundInfo.shouldAdvanceToNextRound) {
+        hasAdvancedRef.current = true;
+        advanceToAppropriateRound();
+      }
+    }, 60 * 60 * 1000); // Check every hour
+
+    // Clean up interval on unmount
+    return () => clearInterval(checkInterval);
+    // getSpecificRoundInfo/advanceToAppropriateRound only change identity
+    // when fixtures changes, so this still only re-runs on fixtures changing
+    // — not on every currentRound change — matching the original intent.
+  }, [fixtures, getSpecificRoundInfo, advanceToAppropriateRound]);
 
   // Create context value
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     // State
     currentRound,
     roundInfo,
     fixtures,
-    squads,
-    teamSelections,
     loading,
     error,
     selectedYear,
@@ -360,11 +305,22 @@ export function AppProvider({ children }) {
     // Actions
     changeRound,
     advanceToAppropriateRound,
-    fetchSquads,
-    fetchTeamSelections,
     getSpecificRoundInfo,
     setSelectedYear,
-  };
+  }), [
+    currentRound,
+    roundInfo,
+    fixtures,
+    loading,
+    error,
+    selectedYear,
+    isPastYear,
+    injuries,
+    changeRound,
+    advanceToAppropriateRound,
+    getSpecificRoundInfo,
+    setSelectedYear,
+  ]);
 
   return (
     <AppContext.Provider value={contextValue}>

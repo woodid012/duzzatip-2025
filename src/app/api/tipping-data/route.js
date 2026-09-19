@@ -43,16 +43,15 @@ export async function GET(request) {
         (await canSeeOthers(db, 'tips', parseInt(round), { isAdmin, viewerId: ownId }, year));
       const visibleTips = canSeeAll ? tips : [];
 
-      // Get last updated time (only when the viewer may see this user's tips)
-      const lastUpdate = canSeeAll
-        ? await tipsCollection
-            .find({ Round: parseInt(round), User: parseInt(userId), Active: 1 })
-            .sort({ LastUpdated: -1 })
-            .limit(1)
-            .toArray()
-        : [];
-
-      const lastUpdated = lastUpdate.length > 0 ? lastUpdate[0].LastUpdated : null;
+      // Get last updated time (only when the viewer may see this user's tips).
+      // Derived in memory from the `tips` array already fetched above instead
+      // of re-running the identical query just to sort/limit it.
+      const lastUpdated = canSeeAll
+        ? tips.reduce(
+            (max, t) => (t.LastUpdated && (!max || t.LastUpdated > max) ? t.LastUpdated : max),
+            null
+          )
+        : null;
 
       // Get fixtures for this round
       const roundFixtures = fixtures.filter(f => f.RoundNumber.toString() === round);

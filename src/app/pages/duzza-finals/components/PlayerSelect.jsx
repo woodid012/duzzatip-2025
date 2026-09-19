@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 // Grouped, searchable player picker for Duzza Finals team selection.
 // `playersByTeam` is { ABBREV: [{ id, name, teamName }] } from the players API.
@@ -37,19 +37,28 @@ export default function PlayerSelect({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const clubs = Object.keys(playersByTeam).sort();
-  const q = search.trim().toLowerCase();
   const selectedLabel = value?.player ? `${value.player} (${value.club})` : '';
 
-  const groups = clubs
-    .filter((club) => !clubFilter || club === clubFilter)
-    .map((club) => ({
-      club,
-      players: (playersByTeam[club] || [])
-        .filter((p) => !q || p.name.toLowerCase().includes(q) || club.toLowerCase().includes(q))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    }))
-    .filter((g) => g.players.length > 0);
+  // Both derived only from the dropdown's own state, and only ever rendered
+  // while it's open — skip the filter/sort work entirely while closed.
+  const clubs = useMemo(
+    () => (isOpen ? Object.keys(playersByTeam).sort() : []),
+    [isOpen, playersByTeam]
+  );
+
+  const groups = useMemo(() => {
+    if (!isOpen) return [];
+    const q = search.trim().toLowerCase();
+    return clubs
+      .filter((club) => !clubFilter || club === clubFilter)
+      .map((club) => ({
+        club,
+        players: (playersByTeam[club] || [])
+          .filter((p) => !q || p.name.toLowerCase().includes(q) || club.toLowerCase().includes(q))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .filter((g) => g.players.length > 0);
+  }, [isOpen, clubs, playersByTeam, search, clubFilter]);
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>

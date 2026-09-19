@@ -5,6 +5,7 @@ import { USER_NAMES, TEAM_LOGOS, CURRENT_YEAR } from '@/app/lib/constants';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
+import useIsMobile from '@/app/hooks/useIsMobile';
 
 const TippingResultsGrid = () => {
   const { currentRound, roundInfo, getSpecificRoundInfo, selectedYear, fixtures: appFixtures } = useAppContext();
@@ -23,22 +24,16 @@ const TippingResultsGrid = () => {
   const [isLockoutPassed, setIsLockoutPassed] = useState(false);
 
   // Mobile view states
-  const [isMobile, setIsMobile] = useState(false);
+  // undefined until mounted (keeps SSR markup stable); true/false once the
+  // matching media query is known. Replaces a per-resize-event listener with
+  // one that only fires when the `md` breakpoint is actually crossed.
+  const isMobile = useIsMobile();
+  const showMobile = isMobile !== false;
+  const showDesktop = isMobile !== true;
   const [selectedUser, setSelectedUser] = useState('');
   // Which mobile tab is showing. Lives here (not in the child) so it survives the
   // loading→loaded remount that happens on every round change. Defaults to Fixtures.
   const [mobileTab, setMobileTab] = useState('fixtures');
-
-  // Check if mobile on mount and resize
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Update selectedRound when currentRound changes
   useEffect(() => {
@@ -225,6 +220,7 @@ const TippingResultsGrid = () => {
   return (
     <div className="w-full">
       {/* Mobile View */}
+      {showMobile && (
       <div className="block md:hidden">
         <MobileTippingResults
           meId={selectedUserId}
@@ -243,10 +239,12 @@ const TippingResultsGrid = () => {
           currentRound={currentRound}
         />
       </div>
+      )}
 
       {/* Desktop View */}
+      {showDesktop && (
       <div className="hidden md:block">
-        <DesktopTippingResults 
+        <DesktopTippingResults
           selectedRound={selectedRound}
           setSelectedRound={setSelectedRound}
           displayRound={displayRound}
@@ -263,6 +261,7 @@ const TippingResultsGrid = () => {
           currentRound={currentRound}
         />
       </div>
+      )}
     </div>
   );
 };
@@ -671,155 +670,6 @@ function MobileStandings({ meId, ranked, rankOf, allUserTips, yearTotals, totalG
         {legend('border-emerald-200 bg-emerald-50 text-slate-600', 'DC hit', '+6', 'text-emerald-600')}
         {legend('border-red-200 bg-red-50 text-slate-600', 'DC miss', '−12', 'text-red-600')}
       </div>
-    </div>
-  );
-}
-
-// Mobile Individual Tips Component
-function MobileIndividualTips({ 
-  getSortedUsers, 
-  selectedUser, 
-  setSelectedUser, 
-  allUserTips, 
-  fixtures, 
-  getTeamAbbreviation, 
-  getWinningTeam,
-  restricted,
-  meId
-}) {
-  // Your own tips always; anyone else's only once the API has released them.
-  const canSee = !restricted || String(selectedUser) === String(meId);
-  return (
-    <div className="space-y-4">
-      {/* User Selection */}
-      <div className="dz-surface p-4">
-        <label className="block text-sm font-medium text-slate-900 mb-2">Select Player:</label>
-        <select
-          value={selectedUser}
-          onChange={(e) => setSelectedUser(e.target.value)}
-          className="dz-select w-full"
-        >
-          <option value="">Choose a player</option>
-          {getSortedUsers().map(([userId, userName]) => (
-            <option key={userId} value={userId}>
-              {userName}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Individual Tips */}
-      {selectedUser && allUserTips[selectedUser] && (
-        <div className="space-y-3">
-          <div className="dz-surface p-4">
-            <h3 className="font-semibold text-slate-900 mb-2">
-              {USER_NAMES[selectedUser]}'s Tips
-            </h3>
-            <div className="text-sm text-slate-600">
-              Round Score: {allUserTips[selectedUser]?.correctTips || 0}
-              {allUserTips[selectedUser]?.deadCertScore !== 0 && (
-                <span className={allUserTips[selectedUser]?.deadCertScore > 0 ? "text-emerald-600" : "text-red-600"}>
-                  {allUserTips[selectedUser]?.deadCertScore > 0 ? " +" : " "}{allUserTips[selectedUser]?.deadCertScore || 0}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {fixtures.map(fixture => {
-            const matchTip = allUserTips[selectedUser]?.matches?.find(m => m.matchNumber === fixture.MatchNumber);
-            const isCorrect = matchTip?.correct;
-            const isDeadCert = matchTip?.deadCert;
-            const isDefault = matchTip?.isDefault;
-            const isMatchCompleted = fixture.HomeTeamScore !== null && fixture.AwayTeamScore !== null;
-            const revealed = canSee;
-            
-            return (
-              <div key={fixture.MatchNumber} className="dz-surface p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="text-sm text-slate-600">Game {fixture.MatchNumber}</div>
-                  {isDeadCert && (
-                    <div className={`text-xs px-2 py-1 rounded ${
-                      isMatchCompleted ?
-                        (isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800') :
-                        'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {isMatchCompleted ? 
-                        (isCorrect ? '+6' : '-12') :
-                        'DC'
-                      }
-                    </div>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 items-center">
-                  {/* Home Team */}
-                  <div className="text-center">
-                    <div className={`font-medium ${
-                      matchTip?.tip === fixture.HomeTeam ?
-                        (isCorrect ? 'text-emerald-600' : isMatchCompleted ? 'text-red-600' : 'text-blue-600') :
-                        (isMatchCompleted ? 'text-slate-900' : 'text-blue-600')
-                    }`}>
-                      {getTeamAbbreviation(fixture.HomeTeam)}
-                      {matchTip?.tip === fixture.HomeTeam && (
-                        <span className="ml-1 text-xs">
-                          {revealed ? '✓' : ''}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm text-slate-500">HOME</div>
-                    <div className="text-lg font-bold">
-                      {fixture.HomeTeamScore ?? '-'}
-                    </div>
-                  </div>
-                  
-                  {/* VS */}
-                  <div className="text-center">
-                    <div className="text-slate-400 font-medium">VS</div>
-                    {revealed ? (
-                      <div className="text-xs mt-1">
-                        {matchTip?.tip ? (
-                          <span className={`font-medium ${
-                            isMatchCompleted ?
-                              (isCorrect ? 'text-emerald-600' : 'text-red-600') :
-                              (matchTip?.tip === fixture.HomeTeam ? 'text-blue-600' : 'text-slate-900')
-                          }`}>
-                            {getTeamAbbreviation(matchTip.tip)}
-                            {isDefault && ' (Def)'}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">No tip</span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-500 mt-1">Locked</div>
-                    )}
-                  </div>
-                  
-                  {/* Away Team */}
-                  <div className="text-center">
-                    <div className={`font-medium ${
-                      matchTip?.tip === fixture.AwayTeam ?
-                        (isCorrect ? 'text-emerald-600' : isMatchCompleted ? 'text-red-600' : 'text-slate-900') :
-                        (isMatchCompleted ? 'text-slate-900' : 'text-slate-900')
-                    }`}>
-                      {getTeamAbbreviation(fixture.AwayTeam)}
-                      {matchTip?.tip === fixture.AwayTeam && (
-                        <span className="ml-1 text-xs">
-                          {revealed ? '✓' : ''}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm text-slate-500">AWAY</div>
-                    <div className="text-lg font-bold">
-                      {fixture.AwayTeamScore ?? '-'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
