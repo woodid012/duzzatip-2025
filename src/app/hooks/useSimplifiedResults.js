@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { readSnapshot, writeSnapshot } from '@/app/lib/clientSnapshot';
+
+const roundSnapshotKey = (round, year) => `round-results:${year}:${round}`;
 import { useAppContext } from '@/app/context/AppContext';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { calculateFinalsFixtures, isFinalRound } from '@/app/lib/finals_utils';
@@ -57,6 +60,21 @@ export default function useSimplifiedResults() {
     // The most-recently-completed round still needs a fresh fetch in case scores
     // or player stats landed late — fixtureCache auto-triggers a game_results
     // refresh whenever new fixture scores arrive, so the API call is the gate.
+    // The last payload this session saw for this round. Kept in memory only
+    // (see writeSnapshot's `session` option): these payloads are filtered for
+    // the current viewer, so they must not be readable after a reload, when the
+    // tab could be signed in as somebody else.
+    const seeded = readSnapshot(roundSnapshotKey(round, selectedYear));
+    if (seeded) {
+      // Paint what we had and refresh behind it, rather than replacing a page
+      // full of scores with a staged loading screen.
+      setRoundData(seeded.roundData);
+      setFixtures(seeded.fixtures);
+      setLoadingStage('complete');
+      setLoadingMessage('');
+      setIsRefreshing(true);
+    }
+
     const isHistoricalRound = currentRound !== undefined && round < currentRound - 1;
     if (isHistoricalRound && roundCache.has(round)) {
       const cachedData = roundCache.get(round);
@@ -64,6 +82,7 @@ export default function useSimplifiedResults() {
       setFixtures(cachedData.fixtures);
       setLoadingStage('complete');
       setLoadingMessage('');
+      setIsRefreshing(false);
       return;
     }
     roundCache.delete(round);
@@ -107,6 +126,11 @@ export default function useSimplifiedResults() {
       // identity or survive past lockout. Always update React state.
       if (!data.restricted) {
         roundCache.set(round, { roundData: data, fixtures: fixturesData });
+        writeSnapshot(
+          roundSnapshotKey(round, selectedYear),
+          { roundData: data, fixtures: fixturesData },
+          { session: false }
+        );
       } else {
         roundCache.delete(round);
       }
@@ -115,12 +139,17 @@ export default function useSimplifiedResults() {
       // Stage 4: Complete — page is visible
       setLoadingStage('complete');
       setLoadingMessage('');
+      setIsRefreshing(false);
 
       // game_results now auto-refresh from fixtureCache whenever new AFL scores
       // land, so no separate manual stats-refresh fetch is needed here.
 
     } catch (err) {
       console.error('Error loading round data:', err);
+      setIsRefreshing(false);
+      // Scores already on screen beat an error page: the seeded payload is real
+      // data, just a moment old.
+      if (seeded) return;
       setError(err.message);
       setLoadingStage('error');
       setLoadingMessage(`Error loading round ${round}`);
@@ -153,6 +182,11 @@ export default function useSimplifiedResults() {
         const data = await response.json();
         if (!data.restricted) {
           roundCache.set(round, { roundData: data, fixtures: fixturesData });
+          writeSnapshot(
+            roundSnapshotKey(round, selectedYear),
+            { roundData: data, fixtures: fixturesData },
+            { session: false }
+          );
         } else {
           roundCache.delete(round);
         }
