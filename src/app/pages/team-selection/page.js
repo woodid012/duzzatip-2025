@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
 import { useUserContext } from '../layout';
 import useTeamSelection from '@/app/hooks/useTeamSelection';
@@ -20,6 +20,26 @@ const INJURY_BADGES = {
   DOUBT:   { icon: "🩹", color: "text-purple-500", tip: "DOUBT" },
   MANAGED: { icon: "🩹", color: "text-blue-400",   tip: "MANAGED" },
 };
+
+// Stable, shared empty fallbacks — so `team={teams[id] || EMPTY_TEAM}` etc. don't
+// hand a freshly-allocated {}/[] to a memoized TeamCard on every render.
+const EMPTY_TEAM = {};
+const EMPTY_SQUAD = [];
+const EMPTY_SCORES = {};
+
+// Build a lookup from bare player name to injury once per `injuries` change,
+// instead of scanning Object.keys(injuries) for every player rendered.
+// Injury keys are "Name (Team)" — matching semantics preserved: strip
+// everything from the first " (" onward to get the bare name.
+function buildInjuryByName(injuries) {
+  const map = {};
+  Object.keys(injuries || {}).forEach(key => {
+    const idx = key.indexOf(' (');
+    const bareName = idx === -1 ? key : key.slice(0, idx);
+    map[bareName] = injuries[key];
+  });
+  return map;
+}
 
 export default function TeamSelectionPage() {
   // Get just the current round from the app context for initial display
@@ -67,13 +87,14 @@ export default function TeamSelectionPage() {
 
   // injuries comes from AppContext (fetched once globally)
 
-  // Lookup injury by player name — keys are "Name (Team)"
+  // Lookup injury by player name — keys are "Name (Team)". Built once per
+  // `injuries` change rather than scanning Object.keys() on every lookup.
+  const injuryByName = useMemo(() => buildInjuryByName(injuries), [injuries]);
   const getInjury = (name) => {
     if (!name) return null;
-    const match = Object.keys(injuries).find(k => k.startsWith(name + ' ('));
-    return match ? injuries[match] : null;
+    return injuryByName[name] || null;
   };
-  
+
   // Admin override state - separate from the hook's isEditing
   const [adminEditMode, setAdminEditMode] = useState(false);
   
@@ -115,7 +136,9 @@ export default function TeamSelectionPage() {
 
   // A pick that lands on someone already in the team swaps the two slots; the
   // hook says what it did so the change isn't a silent surprise.
-  const handlePlayerSelect = (userId, position, playerName) => {
+  // Wrapped in useCallback so its identity is stable across renders — it's
+  // handed to memoized TeamCard components as onPlayerChange.
+  const handlePlayerSelect = useCallback((userId, position, playerName) => {
     const result = handlePlayerChange(userId, position, playerName);
 
     if (result?.reason === 'duplicate-locked') {
@@ -136,7 +159,7 @@ export default function TeamSelectionPage() {
     }
 
     return result;
-  };
+  }, [handlePlayerChange, addToast]);
 
   // Admin edit handlers
   const handleAdminEditClick = () => {
@@ -489,8 +512,8 @@ export default function TeamSelectionPage() {
             key={selectedUserId}
             userId={selectedUserId}
             userName={USER_NAMES[selectedUserId]}
-            team={teams[selectedUserId] || {}}
-            squad={squads[selectedUserId]?.players || []}
+            team={teams[selectedUserId] || EMPTY_TEAM}
+            squad={squads[selectedUserId]?.players || EMPTY_SQUAD}
             isEditing={inEditMode}
             isAdmin={isAdmin}
             isPositionLocked={isPositionLocked}
@@ -499,10 +522,10 @@ export default function TeamSelectionPage() {
             isRoundPartiallyLocked={isRoundPartiallyLocked}
             onPlayerChange={handlePlayerSelect}
             onBackupPositionChange={handleBackupPositionChange}
-            onCopyFromPrevious={() => copyFromPreviousRound(selectedUserId)}
+            onCopyFromPrevious={copyFromPreviousRound}
             duplicateWarnings={duplicateWarnings}
             injuries={injuries}
-            playerScores={playerScores[selectedUserId] || {}}
+            playerScores={playerScores[selectedUserId] || EMPTY_SCORES}
           />
         ) : (
           // Show all teams (for admin or when no user is selected)
@@ -511,8 +534,8 @@ export default function TeamSelectionPage() {
               key={userId}
               userId={userId}
               userName={userName}
-              team={teams[userId] || {}}
-              squad={squads[userId]?.players || []}
+              team={teams[userId] || EMPTY_TEAM}
+              squad={squads[userId]?.players || EMPTY_SQUAD}
               isEditing={inEditMode}
               isAdmin={isAdmin}
               isPositionLocked={isPositionLocked}
@@ -521,9 +544,9 @@ export default function TeamSelectionPage() {
               isRoundPartiallyLocked={isRoundPartiallyLocked}
               onPlayerChange={handlePlayerSelect}
               onBackupPositionChange={handleBackupPositionChange}
-              onCopyFromPrevious={() => copyFromPreviousRound(userId)}
+              onCopyFromPrevious={copyFromPreviousRound}
               duplicateWarnings={duplicateWarnings}
-              playerScores={playerScores[userId] || {}}
+              playerScores={playerScores[userId] || EMPTY_SCORES}
             />
           ))
         )}
@@ -584,8 +607,11 @@ export default function TeamSelectionPage() {
   );
 }
 
-// Team card component
-function TeamCard({
+// Team card component. Memoized: with 9 positions rendered per card and up to
+// 8 cards on screen (admin view), re-running the squad sort/filter/map and
+// re-rendering every card on every parent state change (e.g. another card's
+// edit) was the main cost this component was hit with.
+const TeamCard = memo(function TeamCard({
   userId,
   userName,
   team,
@@ -603,11 +629,12 @@ function TeamCard({
   injuries = {},
   playerScores = {}
 }) {
-  // Lookup injury by player name — keys are "Name (Team)"
+  // Lookup injury by player name — keys are "Name (Team)". Built once per
+  // `injuries` change rather than scanning Object.keys() for every player.
+  const injuryByName = useMemo(() => buildInjuryByName(injuries), [injuries]);
   const getInjury = (name) => {
     if (!name) return null;
-    const match = Object.keys(injuries).find(k => k.startsWith(name + ' ('));
-    return match ? injuries[match] : null;
+    return injuryByName[name] || null;
   };
 
   // State for toggling visibility on mobile
@@ -620,16 +647,25 @@ function TeamCard({
     return position;
   };
 
-  // Copy from previous with UI feedback
+  // Copy from previous with UI feedback. onCopyFromPrevious is the stable
+  // handler from the hook — userId is applied here rather than the parent
+  // wrapping it in a new closure on every render (which would defeat memo).
   const handleCopyFromPrevious = () => {
     console.log(`Copying previous round for user ${userId}`);
-    onCopyFromPrevious();
+    onCopyFromPrevious(userId);
   };
 
   // Where each player already sits in this team. A pick from one of these
   // swaps the two slots rather than duplicating the player, so the dropdown
   // says so up front.
   const positionByPlayer = useMemo(() => positionsByPlayer(team), [team]);
+
+  // Sort the squad once per squad change instead of re-sorting it for every
+  // one of the 9 positions rendered below.
+  const sortedSquad = useMemo(
+    () => [...squad].sort((a, b) => a.name.localeCompare(b.name)),
+    [squad]
+  );
 
   // Check if a player is duplicated in this team
   const isDuplicatePlayer = (playerName, position) => {
@@ -704,9 +740,8 @@ function TeamCard({
                       <SearchableSelect
                         value={playerData?.player_name || ''}
                         onChange={(val) => onPlayerChange(userId, position, val)}
-                        options={squad
+                        options={sortedSquad
                           .filter(p => !posLocked ? !isPlayerGameStarted(p.name, userId) : true)
-                          .sort((a, b) => a.name.localeCompare(b.name))
                           .map(p => {
                             const heldAt = positionByPlayer[p.name];
                             return {
@@ -784,4 +819,4 @@ function TeamCard({
       )}
     </div>
   );
-}
+});

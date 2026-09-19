@@ -15,7 +15,7 @@ import { calculateFinalsFixtures, isFinalRound, getFinalsRoundName } from '@/app
 import { useUserContext } from '../layout';
 
 // Import the modular components
-import { TeamScoreCard, WelcomeScreen } from './components';
+import { TeamScoreCard } from './components';
 // Import a new component we'll create for the enhanced round summary
 import EnhancedRoundSummary from './components/EnhancedRoundSummary';
 import MobileLiveScoreboard from './components/MobileLiveScoreboard';
@@ -224,8 +224,10 @@ export default function ResultsPage() {
   }, [getTeamScores, allTeamScores]);
   const liveCount = liveUserIds.length;
 
-  // Function to sort and arrange team cards
-  const getTeamCardsOrder = () => {
+  // Sort and arrange team cards. Was recomputed on every render (including the
+  // 60-second scoreboard tick) despite depending only on a few values — now
+  // only re-derived when one of those actually changes.
+  const teamCardsOrder = useMemo(() => {
     if (orderedFixtures && orderedFixtures.length > 0) {
       return orderedFixtures.flatMap((fixture) => {
         const homeUserId = fixture.home?.toString();
@@ -257,7 +259,7 @@ export default function ResultsPage() {
         return scoreB - scoreA;
       });
     }
-  };
+  }, [orderedFixtures, selectedUserId, allTeamScores]);
 
   // Show progressive loading UI
   if (loading) {
@@ -450,7 +452,7 @@ export default function ResultsPage() {
       {/* Desktop Team Cards Section - Original layout */}
       <div className="hidden sm:block">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {getTeamCardsOrder().map(userId => {
+          {teamCardsOrder.map(userId => {
             if (!userId || !USER_NAMES[userId]) return null;
             
             const userTeamScores = getTeamScores(userId);

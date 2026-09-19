@@ -45,6 +45,20 @@ export default function useTeamSelection() {
   const retryCountRef = useRef(0);
   const squadsFetchedRef = useRef(false);
 
+  // "Latest value" refs for state that changes on every keystroke (editedTeams,
+  // changedPositions) or toggles frequently (isEditing). Callbacks below read
+  // these instead of closing over the state directly, so their identities stay
+  // stable across renders that don't otherwise need to change them — which
+  // matters because they're handed to React.memo'd TeamCard components.
+  const teamsRef = useRef(teams);
+  teamsRef.current = teams;
+  const editedTeamsRef = useRef(editedTeams);
+  editedTeamsRef.current = editedTeams;
+  const isEditingRef = useRef(isEditing);
+  isEditingRef.current = isEditing;
+  const changedPositionsRef = useRef(changedPositions);
+  changedPositionsRef.current = changedPositions;
+
   // Sync local round when currentRound loads
   useEffect(() => {
     if (currentRound !== null && !userChangedRound) {
@@ -146,14 +160,18 @@ export default function useTeamSelection() {
     if (rnd === null || rnd === undefined) return null;
     // Future rounds are never locked
     if (rnd > currentRound) return null;
-    const currentTeams = isEditing ? editedTeams : teams;
+    // Read teams/editedTeams/isEditing via refs rather than closing over the
+    // state directly — those change on every keystroke while editing, and this
+    // function's identity feeds isPositionLocked/isPlayerGameStarted, which are
+    // handed straight to memoized TeamCard components.
+    const currentTeams = isEditingRef.current ? editedTeamsRef.current : teamsRef.current;
     return positionLockReasonFn(currentTeams[userId] || {}, position, {
       fixtures,
       round: rnd,
       clubOf: clubOfFor(userId),
       submittedOnTime: submittedOnTimeFor(userId),
     });
-  }, [localRound, currentRound, teams, editedTeams, isEditing, clubOfFor, fixtures, submittedOnTimeFor]);
+  }, [localRound, currentRound, clubOfFor, fixtures, submittedOnTimeFor]);
 
   const isPositionLocked = useCallback((userId, position, roundNumber) => {
     return getPositionLockReason(userId, position, roundNumber) !== null;
@@ -231,11 +249,12 @@ export default function useTeamSelection() {
             userTeam => userTeam?.['Bench']?.player_name && !userTeam['Bench'].backup_position
           );
           if (hasMissingBackup) {
+            // Rare: only a bench player with no backup recorded reaches here,
+            // so the previous round is read on demand rather than every load.
             try {
-              const prevRound = localRound - 1;
-              const prevRes = await fetch(`/api/team-selection?round=${prevRound}&year=${selectedYear}`);
-              if (prevRes.ok) {
-                const prevData = await prevRes.json();
+              const prevRes = await fetch(`/api/team-selection?round=${localRound - 1}&year=${selectedYear}`);
+              const prevData = prevRes.ok ? await prevRes.json() : null;
+              if (prevData) {
                 Object.entries(teamsData).forEach(([userId, userTeam]) => {
                   if (userTeam?.['Bench']?.player_name && !userTeam['Bench'].backup_position) {
                     const prevBackup = prevData[userId]?.['Bench']?.backup_position;
@@ -297,7 +316,7 @@ export default function useTeamSelection() {
     return () => {
       isMounted = false;
     };
-  }, [localRound, fetchSquads, fetchTeamSelections]);
+  }, [localRound, fetchSquads, fetchTeamSelections, selectedYear]);
 
   // Reset refs when local round or year changes
   useEffect(() => {
@@ -329,7 +348,7 @@ export default function useTeamSelection() {
     // One player, one position — the same name in two slots would score the
     // one game twice. If this player is already in the team, the two slots
     // swap rather than both holding them.
-    const currentTeam = editedTeams[userId] || {};
+    const currentTeam = editedTeamsRef.current[userId] || {};
     const heldAt = findPlayerPosition(currentTeam, newPlayerName, position);
     if (heldAt && userId !== 'admin' && isPositionLocked(userId, heldAt)) {
       // Their other slot is locked, so there's nothing to swap with — the pick
@@ -382,12 +401,12 @@ export default function useTeamSelection() {
     });
     
     // Ensure we're in editing mode
-    if (!isEditing) {
+    if (!isEditingRef.current) {
       setIsEditing(true);
     }
 
     return { ok: true, swappedFrom: heldAt, displacedPlayer, playerName: newPlayerName };
-  }, [localRound, isPositionLocked, isEditing, editedTeams]);
+  }, [isPositionLocked]);
 
   // Handle backup position change for bench players
   const handleBackupPositionChange = useCallback((userId, position, newPosition) => {
@@ -435,10 +454,10 @@ export default function useTeamSelection() {
     });
     
     // Ensure we're in editing mode
-    if (!isEditing) {
+    if (!isEditingRef.current) {
       setIsEditing(true);
     }
-  }, [localRound, isPositionLocked, isEditing]);
+  }, [fixtures, localRound, isPositionLocked]);
 
   // Copy from previous round
   const copyFromPreviousRound = useCallback(async (userId) => {
@@ -468,12 +487,12 @@ export default function useTeamSelection() {
       }
 
       // Create new EditedTeams object with previous round data
-      const newEditedTeams = { ...editedTeams };
-      
+      const newEditedTeams = { ...editedTeamsRef.current };
+
       if (!newEditedTeams[userId]) {
         newEditedTeams[userId] = {};
       }
-      
+
       // Copy all positions from the previous round
       Object.entries(prevRoundData[userId]).forEach(([position, data]) => {
         newEditedTeams[userId][position] = {
@@ -483,9 +502,9 @@ export default function useTeamSelection() {
           last_updated: new Date().toISOString()
         };
       });
-      
+
       // Mark all positions as changed
-      const newChangedPositions = { ...changedPositions };
+      const newChangedPositions = { ...changedPositionsRef.current };
       if (!newChangedPositions[userId]) {
         newChangedPositions[userId] = {};
       }
@@ -508,7 +527,7 @@ export default function useTeamSelection() {
     } finally {
       setLoadingLocal(false);
     }
-  }, [localRound, editedTeams, changedPositions]);
+  }, [localRound, selectedYear]);
 
   // Save team selections
 // Update the saveTeamSelections function in src/app/hooks/useTeamSelection.js
