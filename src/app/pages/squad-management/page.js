@@ -30,27 +30,33 @@ export default function SquadManagementPage() {
   // Function to reload squad data after changes
   const reloadSquadData = async () => {
     if (!selectedUserId) return;
-    
+
     try {
-      // Get updated squad data
-      const squadRes = await fetch(`/api/squads?year=${selectedYear}`);
+      // Fetch squad + history in parallel rather than one after the other.
+      // A history failure shouldn't fail the whole reload, so it catches its
+      // own error and resolves to null instead of rejecting the Promise.all.
+      const historyPromise = fetch(`/api/squads?userId=${selectedUserId}`, {
+        method: 'OPTIONS'
+      }).catch(historyError => {
+        console.warn('Squad history not available:', historyError);
+        return null;
+      });
+
+      const [squadRes, historyRes] = await Promise.all([
+        fetch(`/api/squads?year=${selectedYear}`),
+        historyPromise
+      ]);
+
       if (!squadRes.ok) throw new Error('Failed to fetch updated squad');
       const squadData = await squadRes.json();
-      
+
       // Get updated history
       let transactions = [];
-      try {
-        const historyRes = await fetch(`/api/squads?userId=${selectedUserId}`, {
-          method: 'OPTIONS'
-        });
-        if (historyRes.ok) {
-          const historyData = await historyRes.json();
-          transactions = historyData.transactions || [];
-        }
-      } catch (historyError) {
-        console.warn('Squad history not available:', historyError);
+      if (historyRes && historyRes.ok) {
+        const historyData = await historyRes.json();
+        transactions = historyData.transactions || [];
       }
-      
+
       // Process squad data
       const userSquad = squadData[selectedUserId];
       if (userSquad && userSquad.players) {
@@ -81,29 +87,39 @@ export default function SquadManagementPage() {
       
       try {
         setLoading(true);
-        
+
+        // Fetch squads, history and players all in parallel instead of one
+        // after another — none of the three actually depends on another's
+        // result. A history failure shouldn't fail the whole load, so it
+        // catches its own error and resolves to null instead of rejecting
+        // the Promise.all.
+        const historyPromise = fetch(`/api/squads?userId=${selectedUserId}`, {
+          method: 'OPTIONS'
+        }).catch(historyError => {
+          console.warn('Squad history not available:', historyError);
+          return null;
+        });
+
+        const [squadRes, historyRes, playersRes] = await Promise.all([
+          fetch(`/api/squads?year=${selectedYear}`),
+          historyPromise,
+          fetch(`/api/players?year=${selectedYear}`)
+        ]);
+
         // Get all squads
-        const squadRes = await fetch(`/api/squads?year=${selectedYear}`);
         if (!squadRes.ok) throw new Error('Failed to fetch squad');
         const squadData = await squadRes.json();
-        
+
         // Store all squads for trading purposes
         setAllUserSquads(squadData);
-        
+
         // Get squad history (if you've implemented this endpoint)
         let transactions = [];
-        try {
-          const historyRes = await fetch(`/api/squads?userId=${selectedUserId}`, {
-            method: 'OPTIONS'
-          });
-          if (historyRes.ok) {
-            const historyData = await historyRes.json();
-            transactions = historyData.transactions || [];
-          }
-        } catch (historyError) {
-          console.warn('Squad history not available:', historyError);
+        if (historyRes && historyRes.ok) {
+          const historyData = await historyRes.json();
+          transactions = historyData.transactions || [];
         }
-        
+
         // Process squad data
         const userSquad = squadData[selectedUserId];
         if (userSquad && userSquad.players) {
@@ -125,8 +141,7 @@ export default function SquadManagementPage() {
           });
         }
         
-        // Fetch available players
-        const playersRes = await fetch(`/api/players?year=${selectedYear}`);
+        // Process available players (fetched in parallel above)
         if (!playersRes.ok) throw new Error('Failed to fetch players');
         const playersData = await playersRes.json();
         
@@ -241,12 +256,11 @@ export default function SquadManagementPage() {
         // Reset editing state
         setEditingPlayer(null);
         setTransactionType('');
-        
-        // Reload squad data to ensure consistency
-        setTimeout(() => {
-          reloadSquadData();
-        }, 500);
-        
+
+        // Reload squad data to ensure consistency, right away rather than
+        // after a fixed delay — the mutation response has already resolved.
+        await reloadSquadData();
+
         return;
       }
 
@@ -316,10 +330,9 @@ export default function SquadManagementPage() {
           transactions: [...squadData.transactions, newTransaction]
         });
         
-        // Reload squad data to ensure consistency
-        setTimeout(() => {
-          reloadSquadData();
-        }, 500);
+        // Reload squad data to ensure consistency, right away rather than
+        // after a fixed delay — the mutation response has already resolved.
+        await reloadSquadData();
       }
 
       // Reset editing state
@@ -386,10 +399,9 @@ export default function SquadManagementPage() {
         transactions: [...prevData.transactions, newTransaction]
       }));
 
-      // Reload squad data to ensure consistency
-      setTimeout(() => {
-        reloadSquadData();
-      }, 500);
+      // Reload squad data to ensure consistency, right away rather than
+      // after a fixed delay — the mutation response has already resolved.
+      await reloadSquadData();
 
       // Reset form fields but keep transaction type
       setNewPlayerName('');
