@@ -5,6 +5,7 @@ import { withReadCache } from '@/app/lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { parseYearParam } from '@/app/lib/apiUtils';
+import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 
 /**
  * GET - Retrieve ladder data from stored round results
@@ -256,7 +257,7 @@ export async function POST(request) {
     try {
         const body = await request.json();
         const { round, refreshAll } = body;
-        const year = body.year || CURRENT_YEAR;
+        const year = parseInt(body.year) || CURRENT_YEAR;
         const { db } = await connectToDatabase();
         const collection = db.collection(`${year}_simple_round_results`);
 
@@ -392,10 +393,10 @@ export async function POST(request) {
 
             // Store in database
             await collection.updateOne(
-                { round: round },
+                { round: parseInt(round) },
                 { 
                     $set: { 
-                        round: round,
+                        round: parseInt(round),
                         results: roundData,
                         lastUpdated: new Date()
                     } 
@@ -423,6 +424,9 @@ export async function POST(request) {
  */
 export async function DELETE(request) {
     try {
+        if (getSessionUser(request)?.uid !== ADMIN_UID) {
+            return Response.json({ error: 'Not authorised' }, { status: 403 });
+        }
         const { searchParams } = new URL(request.url);
         const round = searchParams.get('round');
         const year = parseYearParam(searchParams);

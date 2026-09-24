@@ -31,33 +31,30 @@ on:
 jobs:
   trigger:
     runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.NOTIFY_SECRET }}
+      ROUND_INPUT: ${{ github.event.inputs.round }}
     steps:
       - name: Manual forced trigger
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.force == 'true'
         run: |
           EXTRA=""
-          if [ -n "${{ github.event.inputs.round }}" ]; then EXTRA="&round=${{ github.event.inputs.round }}"; fi
-          echo "Forcing DuzzaTip trigger (round='${{ github.event.inputs.round }}')..."
-          curl -s -X POST "https://duzzatip.vercel.app/api/lockout-notify?token=${{ secrets.NOTIFY_SECRET }}&force=1$EXTRA"
+          if [ -n "$ROUND_INPUT" ]; then EXTRA="&round=$(printf %s "$ROUND_INPUT" | jq -sRr @uri)"; fi
+          echo "Forcing DuzzaTip trigger (round='$ROUND_INPUT')..."
+          curl -s -X POST "https://duzzatip.vercel.app/api/lockout-notify?token=$TOKEN&force=1$EXTRA"
 
-      - name: Probe teams
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.force != 'true'
-        id: probe
-        run: |
-          RESULT=$(curl -s "https://duzzatip.vercel.app/api/lockout-notify?probe=1&token=${{ secrets.NOTIFY_SECRET }}")
-          echo "result=$RESULT" >> $GITHUB_OUTPUT
-          echo $RESULT
-
-      - name: Trigger if announced and not locked
+      - name: Probe teams and trigger if announced and not locked
         if: github.event_name != 'workflow_dispatch' || github.event.inputs.force != 'true'
         run: |
-          ANNOUNCED=$(echo '${{ steps.probe.outputs.result }}' | jq '.announced')
-          LOCKED=$(echo '${{ steps.probe.outputs.result }}' | jq '.lockout.locked')
-          ROUND=$(echo '${{ steps.probe.outputs.result }}' | jq '.round')
+          RESULT=$(curl -s "https://duzzatip.vercel.app/api/lockout-notify?probe=1&token=$TOKEN")
+          echo "$RESULT"
+          ANNOUNCED=$(printf %s "$RESULT" | jq '.announced')
+          LOCKED=$(printf %s "$RESULT" | jq '.lockout.locked')
+          ROUND=$(printf %s "$RESULT" | jq '.round')
           echo "Round=$ROUND announced=$ANNOUNCED locked=$LOCKED"
           if [ "$ANNOUNCED" = "true" ] && [ "$LOCKED" = "false" ]; then
             echo "Triggering DuzzaTip..."
-            curl -s -X POST "https://duzzatip.vercel.app/api/lockout-notify?token=${{ secrets.NOTIFY_SECRET }}"
+            curl -s -X POST "https://duzzatip.vercel.app/api/lockout-notify?token=$TOKEN"
           else
             echo "Skipping - not announced or already locked"
           fi

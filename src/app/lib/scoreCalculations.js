@@ -1,9 +1,6 @@
 import { USER_NAMES, POSITION_TYPES, BACKUP_POSITIONS } from './constants';
 import { POSITIONS } from './scoring_rules';
-
-// Define which positions are handled by which reserve
-const RESERVE_A_POSITIONS = ['Full Forward', 'Tall Forward', 'Ruck'];
-const RESERVE_B_POSITIONS = ['Offensive', 'Midfielder', 'Tackler'];
+import { RESERVE_A_POSITIONS, RESERVE_B_POSITIONS } from './rollingLockout';
 
 /**
  * Calculates score for a position with proper null checks.
@@ -18,6 +15,7 @@ export const calculateScore = (position, stats, backupPosition = null) => {
 
   // Add default values for stats that might be missing
   const safeStats = {
+    ...stats,
     kicks: stats.kicks || 0,
     handballs: stats.handballs || 0,
     marks: stats.marks || 0,
@@ -25,7 +23,6 @@ export const calculateScore = (position, stats, backupPosition = null) => {
     hitouts: stats.hitouts || 0,
     goals: stats.goals || 0,
     behinds: stats.behinds || 0,
-    ...stats
   };
 
   // If it's a bench position, use the backup position for scoring
@@ -85,7 +82,7 @@ export const calculateTeamScores = (
   deadCertScore,
   roundEndPassed
 ) => {
-  const userTeam = teamSelection.selectedPlayers || {};
+  const userTeam = teamSelection.selectedPlayers || [];
   const debugData = []; // For debugging, can be removed later
 
   // Extract bench players with their backup positions

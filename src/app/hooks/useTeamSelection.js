@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '@/app/context/AppContext';
-import { CURRENT_YEAR } from '@/app/lib/constants';
 import {
   clubGameStart,
   firstGameStart,
@@ -64,7 +63,7 @@ export default function useTeamSelection() {
     if (currentRound !== null && !userChangedRound) {
       setLocalRound(currentRound);
     }
-  }, [currentRound]);
+  }, [currentRound, userChangedRound]);
 
   // Create stable fetch functions using useCallback
   const fetchSquads = useCallback(async () => {
@@ -565,7 +564,7 @@ const saveTeamSelections = useCallback(async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        year: CURRENT_YEAR,
+        year: selectedYear,
         round: parseInt(localRound),
         team_selection: changedTeamSelection
       })
@@ -587,7 +586,7 @@ const saveTeamSelections = useCallback(async () => {
     setErrorLocal(err.message || 'Failed to save changes');
     return false;
   }
-}, [localRound, isPositionLocked, changedPositions, editedTeams, refreshLockStatus]);
+}, [localRound, isPositionLocked, changedPositions, editedTeams, refreshLockStatus, selectedYear]);
   // Cancel editing and revert changes
   const cancelEditing = useCallback(() => {
     setEditedTeams(teams);

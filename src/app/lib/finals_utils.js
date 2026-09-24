@@ -81,66 +81,10 @@ async function fetchFinalsResults(round, year) {
 
     const data = await response.json();
     const results = data.results || {};
-
-    // Cache the results for future use
-    if (Object.keys(results).length > 0) {
-      await cacheFinalsResults(round, results, data.fixtures, year);
-    }
-
     return results;
   } catch (error) {
     console.error(`Error fetching finals results for round ${round}:`, error);
     return null;
-  }
-}
-
-/**
- * Cache finals results for faster future access
- * @param {number} round - The finals round
- * @param {Object} results - The match results
- * @param {Array} fixtures - The fixtures data
- */
-async function cacheFinalsResults(round, results, fixtures = [], year = null) {
-  try {
-    // Extract winners for quick access
-    const winners = {};
-
-    // For each fixture, determine the winner
-    if (fixtures && fixtures.length > 0) {
-      fixtures.forEach(fixture => {
-        const homeResult = results[fixture.home];
-        const awayResult = results[fixture.away];
-
-        if (homeResult && awayResult) {
-          const homeScore = homeResult.totalScore || 0;
-          const awayScore = awayResult.totalScore || 0;
-
-          if (homeScore > awayScore) {
-            winners[`${fixture.home}_vs_${fixture.away}`] = fixture.home;
-          } else if (awayScore > homeScore) {
-            winners[`${fixture.home}_vs_${fixture.away}`] = fixture.away;
-          }
-        }
-      });
-    }
-
-    await fetch('/api/finals-cache', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        round,
-        results,
-        fixtures,
-        winners,
-        year
-      })
-    });
-    
-    console.log(`Cached finals results for round ${round}`);
-  } catch (error) {
-    console.error(`Error caching finals results for round ${round}:`, error);
   }
 }
 

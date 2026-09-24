@@ -217,6 +217,7 @@ export default function Squads() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg sm:text-xl font-bold text-slate-900 min-w-0 truncate">{USER_NAMES[userId] || `User ${userId}`}</h2>
               <button
+                aria-label={`Toggle ${USER_NAMES[userId] || `User ${userId}`} squad`}
                 onClick={() => {
                   const element = document.getElementById(`squad-${userId}`);
                   if (element) {

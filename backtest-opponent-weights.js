@@ -25,7 +25,7 @@ const { findTeamSlug } = require("./src/app/lib/lockoutShared");
 const { buildOpponentMultipliers, pruneFinalsCandidates } = require("./src/app/lib/duzzaFinalsAutoPick");
 
 const MONGODB_URI = process.env.MONGODB_URI ||
-  "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+  (() => { throw new Error("MONGODB_URI is not set (.env.local)"); })();
 const DB_NAME = "afl_database";
 const YEARS = [2024, 2025, 2026];
 const WINDOWS = [4, 6, 8, "all"];

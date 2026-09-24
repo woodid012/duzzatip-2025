@@ -4,63 +4,6 @@ export const CURRENT_YEAR = new Date().getFullYear();
 
 // Initial values
 export const LATEST_ROUND = 0;
-export const IS_ROUND_ACTIVE = false;
-export const ROUND_LOCKOUT_TIME = null;
-
-// Function to check if a round is active
-export const getRoundStatus = (fixtures, roundNumber) => {
-  if (!fixtures || !fixtures.length) return false;
-  
-  const roundFixtures = fixtures.filter(f => f.RoundNumber.toString() === roundNumber.toString());
-  if (!roundFixtures.length) return false;
-  
-  const now = new Date();
-  const firstMatch = new Date(roundFixtures[0].DateUtc);
-  const lastMatch = new Date(roundFixtures[roundFixtures.length - 1].DateUtc);
-  
-  return now >= firstMatch && now <= lastMatch;
-};
-
-// Function to get the latest round
-export const getLatestRound = (fixtures) => {
-  if (!fixtures || !fixtures.length) return 1; // Default to round 1
-  
-  const now = new Date();
-  const futureFixtures = fixtures.filter(f => new Date(f.DateUtc) > now);
-  
-  if (futureFixtures.length === 0) {
-    return Math.max(...fixtures.map(f => f.RoundNumber));
-  }
-  
-  return futureFixtures[0].RoundNumber;
-};
-
-// Function to get round lockout time (earliest game in Melbourne time)
-export const getRoundLockoutTime = (fixtures, roundNumber) => {
-  if (!fixtures || !fixtures.length) return null;
-  
-  // Filter for the active round
-  const roundFixtures = fixtures.filter(fixture =>
-    fixture.RoundNumber.toString() === roundNumber.toString()
-  );
-
-  if (!roundFixtures.length) return null;
-
-  // Sort by raw UTC date and get earliest, then format
-  roundFixtures.sort((a, b) =>
-    new Date(a.DateUtc) - new Date(b.DateUtc)
-  );
-
-  return new Date(roundFixtures[0].DateUtc).toLocaleString('en-AU', {
-    timeZone: 'Australia/Melbourne',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true
-  });
-};
 
 // The main comp's last round (its Grand Final). AFL finals rounds (25+, the
 // Duzza Finals side comp) exist in the fixtures collection but must never

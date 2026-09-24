@@ -1,6 +1,6 @@
 /**
  * DuzzaTip 2026 — Update Players API Route
- * GET /api/update-players?token=...
+ * GET /api/update-players (admin session only)
  *
  * Fetches all AFL player rosters from the official AFL API and upserts
  * to MongoDB `2026_players` collection. Also syncs team names in squads.
@@ -11,6 +11,7 @@ export const revalidate = 0;
 
 import { connectToDatabase } from "@/app/lib/mongodb";
 import { CURRENT_YEAR } from "@/app/lib/constants";
+import { getSessionUser, ADMIN_UID } from "@/app/lib/auth";
 
 const AFL_COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
 
@@ -50,6 +51,9 @@ async function getAFLToken() {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function GET(request) {
+  if (getSessionUser(request)?.uid !== ADMIN_UID) {
+    return Response.json({ error: "Not authorised" }, { status: 403 });
+  }
   try {
     const token = await getAFLToken();
     const headers = { "x-media-mis-token": token };

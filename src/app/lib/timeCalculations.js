@@ -29,43 +29,6 @@ export function convertToMelbourneTime(dateUtc, formatString = true) {
 }
 
 /**
- * Parse a Melbourne time string into a Date object
- * @param {string} timeStr - Time string in format "3 April 2025 at 7:30 pm"
- * @returns {Date|null} Parsed date object or null if invalid
- */
-export function parseMelbourneTime(timeStr) {
-  if (!timeStr) return null;
-  try {
-    // Expected format: "3 April 2025 at 7:30 pm"
-    const match = timeStr.match(/^(\d+)\s+(\w+)\s+(\d{4})\s+at\s+(\d+):(\d+)\s+(am|pm)$/i);
-    if (!match) {
-      console.warn('Invalid date format:', timeStr);
-      return null;
-    }
-
-    const [_, day, month, year, hours, minutes, period] = match;
-    
-    let hour = parseInt(hours);
-    if (period.toLowerCase() === 'pm' && hour !== 12) {
-      hour += 12;
-    } else if (period.toLowerCase() === 'am' && hour === 12) {
-      hour = 0;
-    }
-    
-    const date = new Date(`${month} ${day}, ${year} ${hour}:${minutes}:00`);
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date created:', timeStr);
-      return null;
-    }
-    
-    return date;
-  } catch (error) {
-    console.error('Error parsing Melbourne time:', error);
-    return null;
-  }
-}
-
-/**
  * Process fixtures with Melbourne time
  * @param {Array} fixtures - Array of fixture objects
  * @returns {Array} Processed fixtures with Melbourne dates
@@ -97,14 +60,13 @@ export function calculateRoundInfo(fixtures, currentDate = null) {
 
   try {
     // Sort fixtures by date
-    const sortedFixtures = fixtures.sort((a, b) => 
+    const sortedFixtures = [...fixtures].sort((a, b) => 
       a.DateUtc - b.DateUtc
     );
 
     // Use provided date, test date, or real date
     const now = currentDate || (USE_TEST_DATE ? TEST_DATE : new Date());
     console.log('Current date (Melbourne):', convertToMelbourneTime(now));
-
 
     // Find next fixture
     const nextFixture = sortedFixtures.find(fixture => 
@@ -333,70 +295,4 @@ export function getRoundInfo(fixtures, roundNumber) {
       isError: true
     };
   }
-}
-
-/**
- * Converts time between different Australian time zones
- * @param {Date|string} date - Date to convert
- * @param {string} fromTimeZone - Source time zone ('AEST', 'AEDT', 'AWST', etc.)
- * @param {string} toTimeZone - Target time zone ('AEST', 'AEDT', 'AWST', etc.)
- * @param {boolean} formatString - Whether to return a formatted string
- * @returns {Date|string} Converted time
- */
-export function convertBetweenTimeZones(date, fromTimeZone, toTimeZone, formatString = true) {
-  // Time zone offset map in hours
-  const timeZoneOffsets = {
-    'AEST': 10,  // Australian Eastern Standard Time
-    'AEDT': 11,  // Australian Eastern Daylight Time
-    'ACST': 9.5, // Australian Central Standard Time
-    'ACDT': 10.5,// Australian Central Daylight Time
-    'AWST': 8,   // Australian Western Standard Time
-    'UTC': 0     // Universal Time Coordinated
-  };
-  
-  if (timeZoneOffsets[fromTimeZone] === undefined || timeZoneOffsets[toTimeZone] === undefined) {
-    console.error('Invalid time zone specified');
-    return date;
-  }
-  
-  // Parse the date if it's a string
-  const dateObj = typeof date === 'string' ? new Date(date) : new Date(date);
-  
-  // Calculate the time difference in milliseconds
-  const offsetDiff = (timeZoneOffsets[toTimeZone] - timeZoneOffsets[fromTimeZone]) * 60 * 60 * 1000;
-  
-  // Apply the offset
-  const convertedDate = new Date(dateObj.getTime() + offsetDiff);
-  
-  // Return as date object or formatted string
-  if (!formatString) return convertedDate;
-  
-  // Format the date string based on the target time zone
-  return convertedDate.toLocaleString('en-AU', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true
-  });
-}
-
-/**
- * Specifically converts Melbourne time (AEST/AEDT) to Perth time (AWST)
- * @param {Date|string} date - Date in Melbourne time
- * @param {boolean} formatString - Whether to return a formatted string
- * @returns {Date|string} Date in Perth time
- */
-export function melbourneToPerthTime(date, formatString = true) {
-  // Determine if date is in AEST or AEDT based on month
-  // This is a simplification - a proper implementation would check exact DST dates
-  const dateObj = typeof date === 'string' ? new Date(date) : new Date(date);
-  const month = dateObj.getMonth(); // 0-11
-  
-  // Australia DST is roughly October to April
-  const isDST = month >= 9 || month <= 3; 
-  const fromTimeZone = isDST ? 'AEDT' : 'AEST';
-  
-  return convertBetweenTimeZones(date, fromTimeZone, 'AWST', formatString);
 }

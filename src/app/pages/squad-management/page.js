@@ -433,7 +433,7 @@ export default function SquadManagementPage() {
       <div className="text-center p-10">
         <h2 className="text-2xl font-bold mb-4">Please Select a Player</h2>
         <p className="text-slate-600">
-          Use the dropdown in the top right to select which player's squad you want to manage.
+          Use the dropdown in the top right to select which player&apos;s squad you want to manage.
         </p>
       </div>
     );

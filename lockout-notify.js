@@ -62,7 +62,7 @@ const STATE_FILE = pathMod.join(__dirname, ".notified-rounds.json");
 
 // MongoDB connection — prefer env var; fall back to the shared league cluster.
 const MONGODB_URI = process.env.MONGODB_URI ||
-  "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+  (() => { throw new Error("MONGODB_URI is not set (.env.local)"); })();
 
 // Short team names for trade reporting (keyed by user_id)
 const USER_SHORT = {

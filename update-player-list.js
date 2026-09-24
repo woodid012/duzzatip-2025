@@ -26,7 +26,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const DRY_RUN = process.argv.includes('--dry-run');
 
 const MONGODB_URI = process.env.MONGODB_URI ||
-  "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+  (() => { throw new Error("MONGODB_URI is not set (.env.local)"); })();
 
 const TEAM_ABBREV = {
   "Adelaide Crows":    "ADE",

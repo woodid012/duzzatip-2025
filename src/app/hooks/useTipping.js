@@ -48,7 +48,7 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
     if (currentRound !== null && !userChangedRound) {
       setLocalRound(currentRound);
     }
-  }, [currentRound]);
+  }, [currentRound, userChangedRound]);
 
   // Update selectedUserId when initialUserId changes (from context)
   // But only for non-admin users - admin manages team selection locally
@@ -148,11 +148,14 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
       return;
     }
     
+    if (localRound == null) return;
+
     // Don't reload data if editing and the user/round hasn't changed
     if (isEditing && isInitializedRef.current) {
       return;
     }
-    
+
+    let cancelled = false;
     const loadTips = async () => {
       try {
         setLoadingLocal(true);
@@ -167,6 +170,7 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
         }
         
         const data = await response.json();
+        if (cancelled) return;
         const tipsData = data.tips || {};
         const lastUpdated = data.lastUpdated || null;
         
@@ -200,22 +204,23 @@ export default function useTipping(initialUserId = '', { isAdmin = false } = {})
         isInitializedRef.current = true;
         
       } catch (err) {
+        if (cancelled) return;
         console.error('Error loading tips:', err);
         setErrorLocal(err.message);
       } finally {
-        setLoadingLocal(false);
+        if (!cancelled) setLoadingLocal(false);
       }
     };
 
     loadTips();
     
-    // Cleanup function - make sure to clear isEditing when user/round changes
+    // Drop a late response for a round or user that is no longer shown.
+    // handleRoundChange and changeUser reset isEditing themselves.
     return () => {
-      if (isEditing) {
-        console.log("Cleaning up editing state on user/round change");
-        setIsEditing(false);
-      }
+      cancelled = true;
     };
+    // isEditing is left out on purpose: starting an edit must not reload the tips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localRound, selectedUserId, roundFixtures, selectedYear]);
 
   // Handle local round change

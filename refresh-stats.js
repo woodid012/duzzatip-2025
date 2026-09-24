@@ -40,7 +40,7 @@ const { AFL_COMP_SEASON_ID, getAFLToken } = require("./src/app/lib/lockoutShared
 
 const YEAR = 2026;
 const MONGODB_URI = process.env.MONGODB_URI ||
-  "mongodb+srv://dbwooding88:HUz1BwQHnDjKJPjC@duzzatip.ohjmn.mongodb.net/?retryWrites=true&w=majority&appName=Duzzatip";
+  (() => { throw new Error("MONGODB_URI is not set (.env.local)"); })();
 
 // A concluded game's stats are "final-captured" only if its stored rows were
 // written AFTER the game ended. AFL matches run ~2.5h; allow a 3h buffer so a

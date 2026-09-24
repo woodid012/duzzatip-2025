@@ -144,7 +144,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('tipping-results-all error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to calculate results' },
+      { error: 'Failed to calculate results' },
       { status: 500 }
     );
   }

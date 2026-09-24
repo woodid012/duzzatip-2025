@@ -22,6 +22,7 @@ export async function GET() {
       300
     );
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error('injuries error:', e);
+    return Response.json({ error: 'Failed to load injuries' }, { status: 500 });
   }
 }

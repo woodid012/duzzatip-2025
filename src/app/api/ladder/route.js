@@ -5,6 +5,7 @@ import { withReadCache } from '@/app/lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
 import { parseYearParam } from '@/app/lib/apiUtils';
+import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 
 /**
  * GET handler for ladder data.
@@ -91,6 +92,9 @@ export async function GET(request) {
  */
 export async function POST(request) {
     try {
+        if (getSessionUser(request)?.uid !== ADMIN_UID) {
+            return Response.json({ error: 'Not authorised' }, { status: 403 });
+        }
         const data = await request.json();
         const { round, standings, forceRecalculate, calculateRoundSummary, refreshLadder } = data;
         

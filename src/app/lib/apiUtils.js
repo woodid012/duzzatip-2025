@@ -34,11 +34,6 @@ export const blockWritesForPastYear = (year) => {
   return null;
 };
 
-export const handleApiError = (error, customMessage = 'Operation failed') => {
-  console.error('API Error:', error);
-  return Response.json({ error: customMessage }, { status: 500 });
-};
-
 export const createSuccessResponse = (data) => {
   return Response.json(data, { status: 200 });
 };
@@ -58,21 +53,3 @@ export const withReadCache = (response, maxAgeSeconds) => {
   return response;
 };
 
-export const validateRequest = (request, requiredFields = []) => {
-  if (request.method === 'POST' || request.method === 'PUT') {
-    const body = request.body;
-    const missingFields = requiredFields.filter(field => !body[field]);
-    
-    if (missingFields.length > 0) {
-      return {
-        isValid: false,
-        error: Response.json(
-          { error: `Missing required fields: ${missingFields.join(', ')}` },
-          { status: 400 }
-        )
-      };
-    }
-  }
-  
-  return { isValid: true };
-};

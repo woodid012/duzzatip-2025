@@ -56,7 +56,6 @@ export async function GET(request) {
         console.error('API Error:', error);
         return Response.json({
             error: 'Failed to update round stats',
-            details: error.message,
         }, { status: 500 });
     }
 }

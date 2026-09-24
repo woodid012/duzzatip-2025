@@ -19,7 +19,7 @@ const INJURY_URL = "https://www.afl.com.au/matches/injury-list";
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function checkAuth(request) {
   const secret = process.env.NOTIFY_SECRET;
-  if (!secret) return true;
+  if (!secret) return false;
   const auth = request.headers.get("authorization") || "";
   if (auth.startsWith("Bearer ") && auth.slice(7) === secret) return true;
   const { searchParams } = new URL(request.url);

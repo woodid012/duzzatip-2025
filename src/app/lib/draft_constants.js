@@ -7,12 +7,6 @@ export const ROUNDS_PER_DRAFT = 18;
 export const USERS_PER_DRAFT = 8;
 export const TOTAL_PICKS = ROUNDS_PER_DRAFT * USERS_PER_DRAFT; // 144
 
-// Generate full snake pick order using the hardcoded DRAFT_ORDER
-// Odd rounds: 1→8, Even rounds: 8→1
-export function getDraftPickOrder() {
-  return getDraftPickOrderForArray(DRAFT_ORDER);
-}
-
 // Generate full snake pick order for a given draft order array
 export function getDraftPickOrderForArray(draftOrder) {
   const picks = [];

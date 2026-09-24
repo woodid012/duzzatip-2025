@@ -784,7 +784,7 @@ async function runDuzzaFinalsFlow({ db, round, lockout, sendType, dry, finalsFix
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function checkAuth(request) {
   const secret = process.env.NOTIFY_SECRET;
-  if (!secret) return true; // no secret configured — open (not recommended)
+  if (!secret) return false; // no secret configured — closed
   const auth = request.headers.get("authorization") || "";
   if (auth.startsWith("Bearer ") && auth.slice(7) === secret) return true;
   const { searchParams } = new URL(request.url);
@@ -874,6 +874,7 @@ async function handler(request) {
   // finals rounds to exist in `${YEAR}_fixtures`.
   if (!isFinalsRound && roundArg == null && seasonHasFinished(fixtures)) {
     try {
+      const { db } = await connectToDatabase();
       await syncFinalsFixtures(db, YEAR);
       const allFixtures = await getAflFixtures(YEAR);
       const finalsOnly = allFixtures.filter(f => DUZZA_FINALS_ROUNDS.includes(Number(f.RoundNumber)));

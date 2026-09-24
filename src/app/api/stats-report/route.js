@@ -77,7 +77,7 @@ function bestPos(scores) {
 // ===== Auth =====
 function checkAuth(request) {
   const secret = process.env.NOTIFY_SECRET;
-  if (!secret) return true; // no secret set = open
+  if (!secret) return false; // no secret set = closed
   const { searchParams } = new URL(request.url);
   const tokenParam = searchParams.get('token');
   const authHeader = request.headers.get('authorization') || '';

@@ -39,7 +39,7 @@ export default function useSimplifiedResults() {
   // Clear cache when year changes
   useEffect(() => {
     roundCache.clear();
-  }, [selectedYear]);
+  }, [selectedYear, roundCache]);
 
   // Initialize round from context
   useEffect(() => {
@@ -106,7 +106,9 @@ export default function useSimplifiedResults() {
         // For regular season, use static fixtures
         fixturesData = getFixturesForRound(round);
       }
-      
+      // A newer round was selected while this one loaded.
+      if (activeRoundRef.current !== round) return;
+
       setFixtures(fixturesData || []);
 
       // Stage 3: Load results immediately (don't wait for stats refresh)
@@ -120,6 +122,7 @@ export default function useSimplifiedResults() {
       }
 
       const data = await response.json();
+      if (activeRoundRef.current !== round) return;
 
       // Cache fixtures + round data — but NEVER cache a privacy-restricted
       // (own-team-only / empty) payload, so it can't be replayed for another
@@ -145,6 +148,7 @@ export default function useSimplifiedResults() {
       // land, so no separate manual stats-refresh fetch is needed here.
 
     } catch (err) {
+      if (activeRoundRef.current !== round) return;
       console.error('Error loading round data:', err);
       setIsRefreshing(false);
       // Scores already on screen beat an error page: the seeded payload is real
@@ -154,7 +158,7 @@ export default function useSimplifiedResults() {
       setLoadingStage('error');
       setLoadingMessage(`Error loading round ${round}`);
     }
-  }, [selectedYear, currentRound]);
+  }, [selectedYear, currentRound, roundCache]);
 
   // Load data when round changes
   useEffect(() => {

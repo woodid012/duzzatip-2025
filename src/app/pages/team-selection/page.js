@@ -316,7 +316,7 @@ export default function TeamSelectionPage() {
       <div className="text-center p-10">
         <h2 className="dz-title mb-4">Please Select a Player</h2>
         <p className="dz-subtitle">
-          Use the dropdown in the top right to select which player's team you want to view or edit.
+          Use the dropdown in the top right to select which player&apos;s team you want to view or edit.
         </p>
       </div>
     );
@@ -577,9 +577,9 @@ export default function TeamSelectionPage() {
       <div className="mt-8 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl">
         <h3 className="text-lg font-semibold mb-2 text-blue-800">Reserve System</h3>
         <ul className="list-disc pl-5 text-blue-700 text-sm space-y-1">
-          <li><strong>Reserve A</strong> automatically covers: Full Forward, Tall Forward, and Ruck positions if a player doesn't play</li>
-          <li><strong>Reserve B</strong> automatically covers: Offensive, Midfielder, and Tackler positions if a player doesn't play</li>
-          <li>Each reserve can only be used once if multiple players don't play</li>
+          <li><strong>Reserve A</strong> automatically covers: Full Forward, Tall Forward, and Ruck positions if a player doesn&apos;t play</li>
+          <li><strong>Reserve B</strong> automatically covers: Offensive, Midfielder, and Tackler positions if a player doesn&apos;t play</li>
+          <li>Each reserve can only be used once if multiple players don&apos;t play</li>
           <li>Bench players with specific backup positions take priority over reserves</li>
         </ul>
       </div>
@@ -590,7 +590,7 @@ export default function TeamSelectionPage() {
           <h3 className="text-lg font-semibold mb-2 text-amber-800">Admin Controls</h3>
           <p className="text-amber-700">
             As an admin user, you can edit and save team selections for any round, regardless of whether 
-            it's locked for regular users. This allows you to fix issues or make adjustments as needed.
+            it&apos;s locked for regular users. This allows you to fix issues or make adjustments as needed.
           </p>
           <div className="mt-4 bg-white p-3 rounded-lg border border-amber-200">
             <p className="font-medium text-amber-800">Current Admin Settings:</p>
@@ -699,6 +699,8 @@ const TeamCard = memo(function TeamCard({
             </button>
           )}
           <button
+            aria-label="Toggle team"
+            aria-expanded={isExpanded}
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-slate-900 hover:text-slate-900 sm:hidden"
           >

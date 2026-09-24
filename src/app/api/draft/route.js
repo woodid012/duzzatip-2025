@@ -1,5 +1,6 @@
 import { connectToDatabase } from '../../lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
+import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { getDraftPickOrderForArray, TOTAL_PICKS, DRAFT_ORDER, ROUNDS_PER_DRAFT, USERS_PER_DRAFT, loadDraftOrderFromDB } from '@/app/lib/draft_constants';
 
 const COLLECTION_NAME = `${CURRENT_YEAR}_draft_picks`;
@@ -65,6 +66,11 @@ export async function POST(request) {
 
     if (!userId || !playerName || !teamName) {
       return Response.json({ error: 'Missing required fields: userId, playerName, teamName' }, { status: 400 });
+    }
+
+    const sess = getSessionUser(request);
+    if (!sess || (sess.uid !== ADMIN_UID && Number(sess.uid) !== Number(userId))) {
+      return Response.json({ error: 'Not authorised' }, { status: 403 });
     }
 
     const { db } = await connectToDatabase();
@@ -152,6 +158,9 @@ export async function POST(request) {
 // PATCH — Admin actions (delete pick, edit pick, reset draft)
 export async function PATCH(request) {
   try {
+    if (getSessionUser(request)?.uid !== ADMIN_UID) {
+      return Response.json({ error: 'Not authorised' }, { status: 403 });
+    }
     const body = await request.json();
     const { action } = body;
 
