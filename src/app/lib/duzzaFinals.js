@@ -8,6 +8,7 @@ import { calculateTeamScores } from './scoreCalculations';
 import { getAflFixtures, isRoundComplete } from './fixtureCache';
 import { withShared } from './sharedCache';
 import { RESERVE_A_POSITIONS, RESERVE_B_POSITIONS } from './rollingLockout';
+import { isMatchComplete, matchWinner, totalTips } from './tipScoring';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -159,26 +160,6 @@ export function computeWeekOutcome(scores, cutCount) {
   return { eliminated, survivors, cutApplied: eliminated.length > 0, tieAtCutLine };
 }
 
-// Dead-cert scoring for COMPLETED matches only: same rule as the main comp
-// (consolidated-round-results/route.js calculateScores) — correct tip scores
-// 0 by itself (correctTips tracked for display only), +6 for a correct dead
-// cert, -12 for a wrong one.
-export function computeDeadCertFromMatches(matchesWithTips) {
-  let correctTips = 0;
-  let deadCertScore = 0;
-
-  for (const m of matchesWithTips) {
-    if (m.correct) {
-      correctTips++;
-      if (m.deadCert) deadCertScore += 6;
-    } else if (m.deadCert) {
-      deadCertScore -= 12;
-    }
-  }
-
-  return { correctTips, deadCertScore };
-}
-
 // Splits an entrants list (from `${year}_entrants`) into knockout-eligible
 // core ids vs open-registration invited ids. Anything not explicitly
 // Source:'invited' is treated as core — invited is the opt-in category, core
@@ -211,7 +192,7 @@ export function applyWeekToLadder(cumulativeLadder, weekScores, round) {
 }
 
 // Annotates a team's submitted Tips against the round's real fixtures (ALL
-// fixtures, not just completed ones — unlike computeDeadCertFromMatches this
+// fixtures, not just completed ones — unlike the score in scoreEntrantsForRound this
 // is for display, so an unresolved match's tip is reported 'pending' rather
 // than omitted). Same "Draw never counts as correct" convention as elsewhere.
 export function annotateTips(tips, roundFixtures) {
@@ -230,14 +211,7 @@ export function annotateTips(tips, roundFixtures) {
       return { matchNumber: Number(tip.MatchNumber), match, tip: tip.Tip, deadCert, correct: 'pending' };
     }
 
-    const winningTeam =
-      fixture.HomeTeamScore > fixture.AwayTeamScore
-        ? fixture.HomeTeam
-        : fixture.AwayTeamScore > fixture.HomeTeamScore
-        ? fixture.AwayTeam
-        : 'Draw';
-
-    return { matchNumber: Number(tip.MatchNumber), match, tip: tip.Tip, deadCert, correct: tip.Tip === winningTeam };
+    return { matchNumber: Number(tip.MatchNumber), match, tip: tip.Tip, deadCert, correct: tip.Tip === matchWinner(fixture) };
   });
 }
 
@@ -424,9 +398,7 @@ export async function computeWeeklyScores(seasonDb, finalsDb, round, year, entra
 export function scoreEntrantsForRound(entrantIds, inputs) {
   const { entryByEntrant, statsMap, roundFixtures, roundEndPassed, detail = false } = inputs;
 
-  const completedFixtures = (roundFixtures || []).filter(
-    (f) => f.HomeTeamScore !== null && f.AwayTeamScore !== null
-  );
+  const completedFixtures = (roundFixtures || []).filter(isMatchComplete);
 
   return entrantIds.map((entrantId) => {
     const entry = entryByEntrant.get(Number(entrantId));
@@ -447,22 +419,16 @@ export function scoreEntrantsForRound(entrantIds, inputs) {
       .filter((p) => p.playerName);
 
     // Dead cert score from the entry's Tips array against completed fixtures
-    // only. Same "Draw never counts as correct" convention as
-    // consolidated-round-results/route.js's calculateDeadCertScore: a drawn
-    // match's winningTeam is the literal string 'Draw', which no tip can equal.
+    // only (Tip scoring rules in ./tipScoring). Unlike the main comp, a
+    // finals entry with no tip for a match is NOT defaulted to the home team:
+    // the match simply counts as not correct.
     const tips = entry.Tips || [];
     const matchesWithTips = completedFixtures.map((f) => {
       const tip = tips.find((t) => Number(t.MatchNumber) === Number(f.MatchNumber));
-      const winningTeam =
-        f.HomeTeamScore > f.AwayTeamScore
-          ? f.HomeTeam
-          : f.AwayTeamScore > f.HomeTeamScore
-          ? f.AwayTeam
-          : 'Draw';
-      const correct = Boolean(tip && tip.Tip === winningTeam);
+      const correct = Boolean(tip && tip.Tip === matchWinner(f));
       return { correct, deadCert: Boolean(tip && tip.DeadCert) };
     });
-    const { correctTips, deadCertScore } = computeDeadCertFromMatches(matchesWithTips);
+    const { correctTips, deadCertScore } = totalTips(matchesWithTips);
 
     const teamScoreData = calculateTeamScores(
       entrantId,

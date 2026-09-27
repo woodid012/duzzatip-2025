@@ -4,6 +4,7 @@ import { getAflFixtures } from '@/app/lib/fixtureCache';
 import { parseYearParam, withReadCache } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { canSeeOthers } from '@/app/lib/submissionStatus';
+import { isMatchComplete, scoreTip, totalTips } from '@/app/lib/tipScoring';
 
 export async function GET(request) {
   try {
@@ -29,7 +30,7 @@ export async function GET(request) {
     const completedRoundNums = [
       ...new Set(
         fixtures
-          .filter(f => f.HomeTeamScore !== null && f.AwayTeamScore !== null)
+          .filter(isMatchComplete)
           .map(f => f.RoundNumber)
       ),
     ];
@@ -82,7 +83,7 @@ export async function GET(request) {
       // --- Round results ---
       const userRoundTips = roundTipsByUser[userId] || [];
       const roundMatches = buildMatches(roundFixtures, userRoundTips);
-      const roundScores = computeScores(roundMatches.filter(m => m.isCompleted));
+      const roundScores = totalTips(roundMatches);
 
       // --- Year totals ---
       let yearCorrect = 0;
@@ -91,13 +92,10 @@ export async function GET(request) {
 
       for (const completedRound of completedRoundNums) {
         const completedFixtures = fixtures.filter(
-          f =>
-            f.RoundNumber === completedRound &&
-            f.HomeTeamScore !== null &&
-            f.AwayTeamScore !== null
+          f => f.RoundNumber === completedRound && isMatchComplete(f)
         );
         const tipsForRound = userYearTips[completedRound] || [];
-        const scores = computeScores(buildMatches(completedFixtures, tipsForRound));
+        const scores = totalTips(buildMatches(completedFixtures, tipsForRound));
         yearCorrect += scores.correctTips;
         yearDC += scores.deadCertScore;
       }
@@ -151,49 +149,5 @@ export async function GET(request) {
 }
 
 function buildMatches(fixtures, tips) {
-  return fixtures.map(match => {
-    const tip = tips.find(t => t.MatchNumber === match.MatchNumber);
-    const isCompleted = match.HomeTeamScore !== null && match.AwayTeamScore !== null;
-    const tipTeam = tip ? tip.Team : match.HomeTeam;
-    const isDefault = !tip;
-    const isDeadCert = tip ? tip.DeadCert : false;
-
-    let isCorrect = false;
-    if (isCompleted) {
-      const winner =
-        match.HomeTeamScore > match.AwayTeamScore
-          ? match.HomeTeam
-          : match.AwayTeamScore > match.HomeTeamScore
-          ? match.AwayTeam
-          : 'Draw';
-      isCorrect = tipTeam === winner;
-    }
-
-    return {
-      matchNumber: match.MatchNumber,
-      homeTeam: match.HomeTeam,
-      awayTeam: match.AwayTeam,
-      homeScore: match.HomeTeamScore,
-      awayScore: match.AwayTeamScore,
-      tip: tipTeam,
-      deadCert: isDeadCert,
-      correct: isCompleted ? isCorrect : null,
-      isDefault,
-      isCompleted,
-    };
-  });
-}
-
-function computeScores(completedMatches) {
-  let correctTips = 0;
-  let deadCertScore = 0;
-  for (const match of completedMatches) {
-    if (match.correct) {
-      correctTips++;
-      if (match.deadCert) deadCertScore += 6;
-    } else if (match.deadCert) {
-      deadCertScore -= 12;
-    }
-  }
-  return { correctTips, deadCertScore };
+  return fixtures.map(match => scoreTip(match, tips.find(t => t.MatchNumber === match.MatchNumber)));
 }

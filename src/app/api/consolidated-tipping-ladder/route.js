@@ -1,6 +1,7 @@
 import { createApiHandler, getCollection, getCollectionForYear, parseYearParam, withReadCache } from '../../lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getAflFixtures, isRoundComplete } from '@/app/lib/fixtureCache';
+import { isMatchComplete, scoreTip, totalTips } from '@/app/lib/tipScoring';
 
 // Efficiently calculate entire tipping ladder with minimal database queries
 export const GET = createApiHandler(async (request, db) => {
@@ -117,58 +118,29 @@ export const GET = createApiHandler(async (request, db) => {
         const roundTips = userTips[round] || [];
         
         // Get completed matches for this round
-        const completedMatches = fixtures.filter(match => 
-          match.RoundNumber === round &&
-          match.HomeTeamScore !== null &&
-          match.AwayTeamScore !== null
+        const completedMatches = fixtures.filter(match =>
+          match.RoundNumber === round && isMatchComplete(match)
         );
 
-        let roundCorrectTips = 0;
-        let roundDCScore = 0;
-        const roundMatches = [];
+        const scored = completedMatches.map(match =>
+          scoreTip(match, roundTips.find(t => t.MatchNumber === match.MatchNumber))
+        );
+        const roundTotals = totalTips(scored);
+        const roundCorrectTips = roundTotals.correctTips;
+        const roundDCScore = roundTotals.deadCertScore;
+        correctDCCount += roundTotals.correctDeadCerts;
+        wrongDCCount += roundTotals.wrongDeadCerts;
+        totalDCCount += roundTotals.correctDeadCerts + roundTotals.wrongDeadCerts;
 
-        // Process each completed match
-        completedMatches.forEach(match => {
-          const tip = roundTips.find(t => t.MatchNumber === match.MatchNumber);
-          
-          // Determine winning team
-          const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
-            ? match.HomeTeam 
-            : match.AwayTeamScore > match.HomeTeamScore 
-              ? match.AwayTeam 
-              : 'Draw';
-          
-          // Default to home team if no tip
-          const tipTeam = tip ? tip.Team : match.HomeTeam;
-          const isDeadCert = tip ? tip.DeadCert : false;
-          const isCorrect = tipTeam === winningTeam;
-          
-          // Update round stats
-          if (isCorrect) {
-            roundCorrectTips++;
-            if (isDeadCert) {
-              roundDCScore += 6;
-              correctDCCount++;
-            }
-          } else if (isDeadCert) {
-            roundDCScore -= 12;
-            wrongDCCount++;
-          }
-          
-          if (isDeadCert) {
-            totalDCCount++;
-          }
-          
-          roundMatches.push({
-            matchNumber: match.MatchNumber,
-            homeTeam: match.HomeTeam,
-            awayTeam: match.AwayTeam,
-            tip: tipTeam,
-            deadCert: isDeadCert,
-            correct: isCorrect,
-            isDefault: !tip
-          });
-        });
+        const roundMatches = scored.map(m => ({
+          matchNumber: m.matchNumber,
+          homeTeam: m.homeTeam,
+          awayTeam: m.awayTeam,
+          tip: m.tip,
+          deadCert: m.deadCert,
+          correct: m.correct,
+          isDefault: m.isDefault
+        }));
 
         // Store round results
         if (!roundResults[round]) {
