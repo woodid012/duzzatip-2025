@@ -12,8 +12,7 @@ export const revalidate = 0;
 
 import { connectToDatabase } from "@/app/lib/mongodb";
 import { CURRENT_YEAR } from "@/app/lib/constants";
-
-const AFL_COMP_SEASON_ID = 85;
+import { AFL_COMP_SEASON_ID, getAFLToken } from "@/app/lib/lockoutShared";
 
 const TEAM_ABBREV = {
   "Adelaide Crows":    "ADE",
@@ -35,17 +34,6 @@ const TEAM_ABBREV = {
   "West Coast Eagles": "WCE",
   "Western Bulldogs":  "WBD",
 };
-
-async function getAFLToken() {
-  const res = await fetch("https://api.afl.com.au/cfs/afl/WMCTok", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Origin": "https://www.afl.com.au" },
-    body: "{}",
-    signal: AbortSignal.timeout(8000),
-  });
-  const data = await res.json();
-  return data.token;
-}
 
 // Normalise for fuzzy comparison: lowercase, strip punctuation, collapse spaces
 function norm(name) {

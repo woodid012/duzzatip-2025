@@ -9,8 +9,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
 import path from 'path';
 import fs from 'fs/promises';
-
-const AFL_COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
+import { getAFLToken, aflMatchesUrl } from '@/app/lib/lockoutShared';
 
 // Per-year cache
 const fixtureCache = new Map();
@@ -189,7 +188,7 @@ async function fetchAflDates(rounds, token, roundOffset) {
   const settled = await Promise.allSettled(
     rounds.map(async localRound => {
       const res = await fetch(
-        `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${localRound + roundOffset}&pageSize=30`,
+        aflMatchesUrl(localRound + roundOffset, 30),
         { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(3000) }
       );
       if (!res.ok) throw new Error(`AFL matches HTTP ${res.status}`);
@@ -352,14 +351,7 @@ async function getAflToken() {
   const now = Date.now();
   if (cachedToken && (now - cachedTokenAt) < AFL_AUTH_TTL) return cachedToken;
   try {
-    const res = await fetch('https://api.afl.com.au/cfs/afl/WMCTok', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Origin': 'https://www.afl.com.au' },
-      body: '{}',
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!res.ok) throw new Error(`AFL token HTTP ${res.status}`);
-    const { token } = await res.json();
+    const token = await getAFLToken(3000);
     cachedToken = token;
     cachedTokenAt = now;
     clearAflBreaker();
@@ -390,7 +382,7 @@ async function getRoundOffset(token) {
 // keyed by normalised "homeTeam|awayTeam".
 async function fetchAflApiScoresForRound(apiRound, token) {
   const res = await fetch(
-    `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${apiRound}&pageSize=20`,
+    aflMatchesUrl(apiRound),
     { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(3000) }
   );
   if (!res.ok) throw new Error(`AFL matches HTTP ${res.status}`);
@@ -786,7 +778,7 @@ export async function isRoundComplete(round, year = CURRENT_YEAR) {
     const apiRound = round + offset;
 
     const res = await fetch(
-      `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${apiRound}&pageSize=20`,
+      aflMatchesUrl(apiRound),
       { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(3000) }
     );
     const data = await res.json();

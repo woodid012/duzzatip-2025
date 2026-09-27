@@ -7,13 +7,13 @@
 // upserted as they firm up (wildcard winners resolve placeholder slots), and
 // scores/dates are kept fresh on subsequent runs.
 //
-// Deliberately self-contained (own AFL token fetch, own name normalisation)
-// rather than reaching into fixtureCache's private helpers, per this comp's
-// ring-fencing rule.
+// Deliberately self-contained (own name normalisation) rather than reaching
+// into fixtureCache's private helpers, per this comp's ring-fencing rule. The
+// AFL token and matches URL come from the shared lockoutShared module.
 import { DUZZA_FINALS_ABBREV_TO_FULL } from './duzzaFinals';
 import { claimStamp } from './sharedCache';
+import { getAFLToken, aflMatchesUrl } from './lockoutShared';
 
-const AFL_COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
 const SYNC_ROUNDS = [25, 26, 27, 28, 29]; // wildcard + the four finals weeks
 const SYNC_INTERVAL_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 4000;
@@ -42,21 +42,9 @@ function toFixtureDate(utcStartTime) {
   return `${iso.slice(0, 10)} ${iso.slice(11, 19)}Z`;
 }
 
-async function fetchAflToken() {
-  const res = await fetch('https://api.afl.com.au/cfs/afl/WMCTok', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: 'https://www.afl.com.au' },
-    body: '{}',
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`AFL token HTTP ${res.status}`);
-  const { token } = await res.json();
-  return token;
-}
-
 async function fetchRoundMatches(token, round) {
   const res = await fetch(
-    `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${round}&pageSize=30`,
+    aflMatchesUrl(round, 30),
     { headers: { 'x-media-mis-token': token }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
   );
   if (!res.ok) throw new Error(`AFL matches HTTP ${res.status}`);
@@ -65,7 +53,7 @@ async function fetchRoundMatches(token, round) {
 }
 
 async function runSync(seasonDb, year) {
-  const token = await fetchAflToken();
+  const token = await getAFLToken(FETCH_TIMEOUT_MS);
   const collection = seasonDb.collection(`${year}_fixtures`);
 
   const settled = await Promise.allSettled(
