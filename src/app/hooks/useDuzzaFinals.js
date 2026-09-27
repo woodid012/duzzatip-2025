@@ -6,66 +6,22 @@ import { applyFinalsPick } from '@/app/lib/uniqueSelection';
 import { readSnapshot, writeSnapshot } from '@/app/lib/clientSnapshot';
 import { POSITION_TYPES } from '@/app/lib/constants';
 import { getFinalsCurrentRound } from '@/app/lib/duzzaFinalsAutoPick';
-
-// Duzza Finals runs over AFL rounds 26–29 (Qualifying & Elimination Finals,
-// Semi Finals, Preliminary Finals, Grand Final) — kept local to this hook
-// (not imported from the backend-owned src/app/lib/duzzaFinals.js) so the
-// frontend has no build-order dependency on that file existing yet. These
-// are display fallbacks only; once the results API responds, its per-week
-// `label` is preferred.
-export const DUZZA_FINALS_ROUNDS = [26, 27, 28, 29];
-const FALLBACK_ROUND_LABELS = {
-  26: 'Qualifying & Elimination Finals',
-  27: 'Semi Finals',
-  28: 'Preliminary Finals',
-  29: 'Grand Final',
-};
-const weekNumberForRound = (round) => round - 25;
+import { FINALS_ROUNDS, FALLBACK_WEEK_LABELS, weekNumberForRound } from '@/app/finals/lib/constants';
+import {
+  draftTipsMap,
+  selectTip,
+  toggleDeadCert,
+  setBenchBackup,
+  buildEntryPayload,
+  defaultWeekFromCurrent,
+  canEditEntry,
+} from '@/app/lib/duzzaFinalsEntryDraft';
 
 // Bracket/pool poll cadence while a finals week is live — matches the
 // per-round results view (src/app/finals/lib/useFinalsRoundResults.js).
 const BRACKET_REFRESH_INTERVAL_MS = 60 * 1000;
 
 const emptyEntry = () => ({ Team: {}, Tips: [], Name: '', LastUpdated: null });
-
-// Parse a saved `[{MatchNumber, Match, Tip, DeadCert}]` Tips array into the
-// `{ [matchNumber]: { team, deadCert } }` map the tips tab edits against.
-const tipsArrayToMap = (tipsArray) => {
-  const map = {};
-  (tipsArray || []).forEach((t) => {
-    if (t && t.MatchNumber != null) {
-      map[t.MatchNumber] = { team: t.Tip || '', deadCert: !!t.DeadCert };
-    }
-  });
-  return map;
-};
-
-// Only fully-filled positions are sent — an empty/cleared slot (no player
-// picked, or picked then cleared) is omitted rather than sent as `{}`, since
-// the server flags any *present* key missing a player/club as an invalid
-// position. A half-finished team is fine to save; a malformed one isn't.
-const buildCleanedTeam = (team) => {
-  const cleaned = {};
-  Object.entries(team || {}).forEach(([position, slot]) => {
-    if (slot && slot.player && slot.club) {
-      cleaned[position] = position === 'Bench'
-        ? { player: slot.player, club: slot.club, backup_position: slot.backup_position }
-        : { player: slot.player, club: slot.club };
-    }
-  });
-  return cleaned;
-};
-
-// Only games with a tip actually selected are sent.
-const buildTipsArray = (weekFixtures, tipsMap) =>
-  (weekFixtures || [])
-    .filter((f) => tipsMap[f.MatchNumber]?.team)
-    .map((f) => ({
-      MatchNumber: f.MatchNumber,
-      Match: `${f.HomeTeam} v ${f.AwayTeam}`,
-      Tip: tipsMap[f.MatchNumber].team,
-      DeadCert: !!tipsMap[f.MatchNumber].deadCert,
-    }));
 
 export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } = {}) {
   const { fixtures, selectedYear, isPastYear } = useAppContext();
@@ -142,17 +98,16 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
       bracketRef.current = data;
       writeSnapshot(`duzza-finals-bracket:${selectedYear}`, data);
       setBracketUpdatedAt(new Date());
-      if (!userChangedWeekRef.current && data?.currentWeek) {
-        const clamped = DUZZA_FINALS_ROUNDS.includes(data.currentWeek)
-          ? data.currentWeek
-          : DUZZA_FINALS_ROUNDS[0];
-        setActiveWeek(clamped);
-      }
+      const week = defaultWeekFromCurrent(data?.currentWeek, {
+        userChangedWeek: userChangedWeekRef.current,
+        clampUnknown: true,
+      });
+      if (week != null) setActiveWeek(week);
     } catch (err) {
       console.error('Error loading Duzza Finals bracket:', err);
       if (!background) {
         setBracketError(err.message);
-        setActiveWeek((w) => w ?? DUZZA_FINALS_ROUNDS[0]);
+        setActiveWeek((w) => w ?? FINALS_ROUNDS[0]);
       }
     } finally {
       setBracketRefreshing(false);
@@ -255,10 +210,13 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   // Being knocked out of the bracket doesn't stop you entering — cut entrants
   // keep playing for the pool, so eligibility is just locked/fixtures/entrant.
-  const canEdit = !isPastYear
-    && pool.fixturesKnown
-    && !!selectedEntrantId
-    && (isAdmin || !entryLocked);
+  const canEdit = canEditEntry({
+    hasEntrant: !!selectedEntrantId,
+    fixturesKnown: pool.fixturesKnown,
+    locked: entryLocked,
+    isAdmin,
+    isPastYear,
+  });
 
   // ── Team editing ──────────────────────────────────────────────────────
   const [editedTeam, setEditedTeam] = useState({});
@@ -294,10 +252,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   const handleBackupPositionChange = useCallback((newPosition) => {
     if (!isEditingTeam) return;
-    setEditedTeam((prev) => ({
-      ...prev,
-      Bench: { ...(prev.Bench || {}), backup_position: newPosition },
-    }));
+    setEditedTeam((prev) => setBenchBackup(prev, newPosition));
     setTeamDirty(true);
   }, [isEditingTeam]);
 
@@ -306,16 +261,13 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     try {
       setSaving(true);
       setActionError(null);
-      const cleanedTeam = buildCleanedTeam(editedTeam);
+      const payload = buildEntryPayload({
+        round: activeWeek, userId: selectedEntrantId, year: selectedYear, team: editedTeam,
+      });
       const res = await fetch('/api/duzza-finals/entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          round: activeWeek,
-          userId: selectedEntrantId,
-          team: cleanedTeam,
-          year: selectedYear,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to save team');
@@ -323,7 +275,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
         ...prev,
         [selectedEntrantId]: {
           ...(prev[selectedEntrantId] || emptyEntry()),
-          Team: cleanedTeam,
+          Team: payload.team,
           LastUpdated: new Date().toISOString(),
         },
       }));
@@ -349,13 +301,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   // Default un-tipped games to the home team for display, same convention as
   // the main tipping page — purely a display default, not saved until edited.
-  const savedTipsMap = tipsArrayToMap(savedEntry.Tips);
-  const displayTipsMap = { ...savedTipsMap };
-  weekFixtures.forEach((f) => {
-    if (!displayTipsMap[f.MatchNumber]) {
-      displayTipsMap[f.MatchNumber] = { team: f.HomeTeam, deadCert: false, isDefault: true };
-    }
-  });
+  const displayTipsMap = draftTipsMap(savedEntry.Tips, weekFixtures, { homeTeamDefault: true });
 
   const [editedTips, setEditedTips] = useState({});
   const [isEditingTips, setIsEditingTips] = useState(false);
@@ -378,21 +324,13 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
 
   const handleTipSelect = useCallback((matchNumber, team) => {
     if (!isEditingTips) return;
-    setEditedTips((prev) => {
-      const currentTeam = prev[matchNumber]?.team;
-      const isChangingTeam = currentTeam && currentTeam !== team;
-      const deadCert = isChangingTeam ? false : prev[matchNumber]?.deadCert;
-      return { ...prev, [matchNumber]: { team, deadCert, isDefault: false } };
-    });
+    setEditedTips((prev) => selectTip(prev, matchNumber, team));
     setTipsDirty(true);
   }, [isEditingTips]);
 
   const handleDeadCertToggle = useCallback((matchNumber) => {
     if (!isEditingTips) return;
-    setEditedTips((prev) => ({
-      ...prev,
-      [matchNumber]: { ...prev[matchNumber], deadCert: !prev[matchNumber]?.deadCert },
-    }));
+    setEditedTips((prev) => toggleDeadCert(prev, matchNumber));
     setTipsDirty(true);
   }, [isEditingTips]);
 
@@ -401,16 +339,14 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     try {
       setSaving(true);
       setActionError(null);
-      const tipsArray = buildTipsArray(weekFixtures, editedTips);
+      const payload = buildEntryPayload({
+        round: activeWeek, userId: selectedEntrantId, year: selectedYear,
+        tipsMap: editedTips, weekFixtures,
+      });
       const res = await fetch('/api/duzza-finals/entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          round: activeWeek,
-          userId: selectedEntrantId,
-          tips: tipsArray,
-          year: selectedYear,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to save tips');
@@ -418,7 +354,7 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
         ...prev,
         [selectedEntrantId]: {
           ...(prev[selectedEntrantId] || emptyEntry()),
-          Tips: tipsArray,
+          Tips: payload.tips,
           LastUpdated: new Date().toISOString(),
         },
       }));
@@ -485,18 +421,14 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
     try {
       setSaving(true);
       setActionError(null);
-      const cleanedTeam = buildCleanedTeam(editedTeam);
-      const tipsArray = buildTipsArray(weekFixtures, editedTips);
+      const payload = buildEntryPayload({
+        round: activeWeek, userId: selectedEntrantId, year: selectedYear,
+        team: editedTeam, tipsMap: editedTips, weekFixtures,
+      });
       const res = await fetch('/api/duzza-finals/entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          round: activeWeek,
-          userId: selectedEntrantId,
-          team: cleanedTeam,
-          tips: tipsArray,
-          year: selectedYear,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to save');
@@ -504,8 +436,8 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
         ...prev,
         [selectedEntrantId]: {
           ...(prev[selectedEntrantId] || emptyEntry()),
-          Team: cleanedTeam,
-          Tips: tipsArray,
+          Team: payload.team,
+          Tips: payload.tips,
           LastUpdated: new Date().toISOString(),
         },
       }));
@@ -527,9 +459,9 @@ export default function useDuzzaFinals(initialUserId = '', { isAdmin = false } =
   }, [canEdit, selectedEntrantId, activeWeek, selectedYear, editedTeam, editedTips, weekFixtures]);
 
   // ── Week selector & labels ────────────────────────────────────────────
-  const weekOptions = DUZZA_FINALS_ROUNDS.map((round) => {
+  const weekOptions = FINALS_ROUNDS.map((round) => {
     const bracketWeek = (bracket?.weeks || []).find((w) => w.round === round);
-    const label = bracketWeek?.label || FALLBACK_ROUND_LABELS[round];
+    const label = bracketWeek?.label || FALLBACK_WEEK_LABELS[round];
     return {
       round,
       weekNumber: weekNumberForRound(round),

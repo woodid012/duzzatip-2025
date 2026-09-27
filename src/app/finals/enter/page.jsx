@@ -10,44 +10,18 @@ import { LoadingSkeleton, ErrorCard, EmptyCard } from '../components/StatusCard'
 import TeamSlots from '../components/TeamSlots';
 import TipsList from '../components/TipsList';
 import { applyFinalsPick } from '@/app/lib/uniqueSelection';
+import {
+  draftTipsMap,
+  selectTip,
+  toggleDeadCert,
+  setBenchBackup,
+  buildEntryPayload,
+  defaultWeekFromCurrent,
+  canEditEntry,
+} from '@/app/lib/duzzaFinalsEntryDraft';
 
 const emptyTeam = () => ({});
 const emptyTipsMap = () => ({});
-
-function tipsArrayToMap(tipsArray) {
-  const map = {};
-  (tipsArray || []).forEach((t) => {
-    if (t && t.MatchNumber != null) {
-      map[t.MatchNumber] = { team: t.Tip || '', deadCert: !!t.DeadCert };
-    }
-  });
-  return map;
-}
-
-// Only fully-filled positions are sent — the server rejects a *present* key
-// missing a player/club, but a half-finished team (some slots empty) is fine.
-function buildCleanedTeam(team) {
-  const cleaned = {};
-  Object.entries(team || {}).forEach(([position, slot]) => {
-    if (slot && slot.player && slot.club) {
-      cleaned[position] = position === 'Bench'
-        ? { player: slot.player, club: slot.club, backup_position: slot.backup_position }
-        : { player: slot.player, club: slot.club };
-    }
-  });
-  return cleaned;
-}
-
-function buildTipsArray(weekFixtures, tipsMap) {
-  return (weekFixtures || [])
-    .filter((f) => tipsMap[f.MatchNumber]?.team)
-    .map((f) => ({
-      MatchNumber: f.MatchNumber,
-      Match: `${f.HomeTeam} v ${f.AwayTeam}`,
-      Tip: tipsMap[f.MatchNumber].team,
-      DeadCert: !!tipsMap[f.MatchNumber].deadCert,
-    }));
-}
 
 export default function EnterPage() {
   const { entrantId, name, loading: authLoading } = useFinalsAuth();
@@ -57,9 +31,11 @@ export default function EnterPage() {
   const [activeWeek, setActiveWeek] = useState(FINALS_ROUNDS[0]);
   const userChangedWeekRef = useRef(false);
   useEffect(() => {
-    if (!userChangedWeekRef.current && results?.currentWeek && FINALS_ROUNDS.includes(results.currentWeek)) {
-      setActiveWeek(results.currentWeek);
-    }
+    const week = defaultWeekFromCurrent(results?.currentWeek, {
+      userChangedWeek: userChangedWeekRef.current,
+      clampUnknown: false,
+    });
+    if (week != null) setActiveWeek(week);
   }, [results?.currentWeek]);
 
   const weekOptions = FINALS_ROUNDS.map((round) => {
@@ -133,15 +109,16 @@ export default function EnterPage() {
   useEffect(() => {
     if (!savedEntry) return;
     setTeam({ ...(savedEntry.Team || {}) });
-    const map = tipsArrayToMap(savedEntry.Tips);
-    weekFixtures.forEach((f) => {
-      if (!map[f.MatchNumber]) map[f.MatchNumber] = { team: '', deadCert: false };
-    });
-    setTipsMap(map);
+    setTipsMap(draftTipsMap(savedEntry.Tips, weekFixtures, { homeTeamDefault: false }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedEntry]);
 
-  const canEdit = !authLoading && entrantId != null && pool.fixturesKnown && !locked;
+  const canEdit = canEditEntry({
+    authLoading,
+    hasEntrant: entrantId != null,
+    fixturesKnown: pool.fixturesKnown,
+    locked,
+  });
 
   const handlePlayerChange = (position, playerName, club) => {
     if (!canEdit) return;
@@ -153,22 +130,17 @@ export default function EnterPage() {
 
   const handleBackupChange = (backupPosition) => {
     if (!canEdit) return;
-    setTeam((prev) => ({ ...prev, Bench: { ...(prev.Bench || {}), backup_position: backupPosition } }));
+    setTeam((prev) => setBenchBackup(prev, backupPosition));
   };
 
   const handleTipSelect = (matchNumber, teamPicked) => {
     if (!canEdit) return;
-    setTipsMap((prev) => {
-      const currentTeam = prev[matchNumber]?.team;
-      const changingTeam = currentTeam && currentTeam !== teamPicked;
-      const deadCert = changingTeam ? false : prev[matchNumber]?.deadCert;
-      return { ...prev, [matchNumber]: { team: teamPicked, deadCert } };
-    });
+    setTipsMap((prev) => selectTip(prev, matchNumber, teamPicked));
   };
 
   const handleDeadCertToggle = (matchNumber) => {
     if (!canEdit) return;
-    setTipsMap((prev) => ({ ...prev, [matchNumber]: { ...prev[matchNumber], deadCert: !prev[matchNumber]?.deadCert } }));
+    setTipsMap((prev) => toggleDeadCert(prev, matchNumber));
   };
 
   // ── Save ─────────────────────────────────────────────────────────────
@@ -182,15 +154,11 @@ export default function EnterPage() {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      const cleanedTeam = buildCleanedTeam(team);
-      const tipsArray = buildTipsArray(weekFixtures, tipsMap);
-      await postJSON('/api/duzza-finals/entry', {
-        round: activeWeek,
-        userId: entrantId,
-        team: cleanedTeam,
-        tips: tipsArray,
+      const payload = buildEntryPayload({
+        round: activeWeek, userId: entrantId, team, tipsMap, weekFixtures,
       });
-      setSavedEntry({ Team: cleanedTeam, Tips: tipsArray });
+      await postJSON('/api/duzza-finals/entry', payload);
+      setSavedEntry({ Team: payload.team, Tips: payload.tips });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {

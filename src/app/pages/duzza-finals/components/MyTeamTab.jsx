@@ -1,7 +1,7 @@
 'use client';
 
 import { POSITION_TYPES, BACKUP_POSITIONS } from '@/app/lib/constants';
-import PlayerSelect from './PlayerSelect';
+import PlayerSelect from '@/app/finals/components/PlayerSelect';
 import EntryGuard, { isBlocked } from './EntryGuard';
 import { positionsByPlayer } from '@/app/lib/uniqueSelection';
 
@@ -111,6 +111,7 @@ export default function MyTeamTab({
                         heldPositions={heldPositions}
                         position={position}
                         className="w-full"
+                        variant="classic"
                       />
                       {position === 'Bench' && (
                         <select

@@ -2,6 +2,7 @@
 
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
 import { orderBracketWeeks } from '@/app/lib/bracketOrder';
+import { weekNumberForRound } from '@/app/finals/lib/constants';
 
 // Where the cut line falls in a sorted (desc) scores array — everything at or
 // after this index is cut (finalized week) or "on the bubble" (live week).
@@ -14,7 +15,7 @@ const computeCutIndex = (week) => {
 };
 
 function WeekColumn({ week, viewerUserId, isCurrent }) {
-  const weekNumber = week.round - 25;
+  const weekNumber = weekNumberForRound(week.round);
   const finalized = Array.isArray(week.eliminated);
   const isLive = week.fixturesKnown && !finalized && (week.scores || []).length > 0;
 
