@@ -8,6 +8,7 @@ import { getAflFixtures, isRoundComplete as checkRoundComplete } from '@/app/lib
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 import { canSeeOthers } from '@/app/lib/submissionStatus';
+import { isMatchComplete, scoreTip, totalTips } from '@/app/lib/tipScoring';
 import { refreshGameResultsForRound, refreshStaleConcludedStats } from '@/app/lib/refreshGameResults';
 // Map team abbreviations (from 2026_players) to full fixture names.
 // Includes both our canonical 3-letter codes and the AFL API's 4-letter
@@ -532,9 +533,7 @@ async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CUR
 
         // Filter completed matches for the round
         const completedMatches = fixtures.filter(match =>
-            match.RoundNumber.toString() === round.toString() &&
-            match.HomeTeamScore !== null &&
-            match.AwayTeamScore !== null
+            match.RoundNumber.toString() === round.toString() && isMatchComplete(match)
         );
 
         if (completedMatches.length === 0) {
@@ -549,78 +548,20 @@ async function calculateDeadCertScore(db, round, userId, aflFixtures, year = CUR
                 Active: 1
             }).toArray();
 
-        // Get all matches for this round (including those without scores yet)
-        const allRoundMatches = fixtures.filter(match => 
+        // Score every match in the round; unscored (incomplete) ones count for nothing
+        const allRoundMatches = fixtures.filter(match =>
             match.RoundNumber.toString() === round.toString()
         );
+        const { deadCertScore } = totalTips(allRoundMatches.map(match =>
+            scoreTip(match, tips.find(t => t.MatchNumber === match.MatchNumber))
+        ));
 
-        // Process all matches with tips
-        const allMatchesWithTips = [];
-        
-        allRoundMatches.forEach(match => {
-            const tip = tips.find(t => t.MatchNumber === match.MatchNumber);
-            
-            const isCompleted = match.HomeTeamScore !== null && match.AwayTeamScore !== null;
-            
-            let isCorrect = false;
-            let tipTeam = tip ? tip.Team : match.HomeTeam; // Default to home team
-            let isDefault = !tip;
-            let isDeadCert = tip ? tip.DeadCert : false;
-            
-            if (isCompleted) {
-                const winningTeam = match.HomeTeamScore > match.AwayTeamScore 
-                    ? match.HomeTeam 
-                    : match.AwayTeamScore > match.HomeTeamScore 
-                        ? match.AwayTeam 
-                        : 'Draw';
-                        
-                isCorrect = tipTeam === winningTeam;
-            }
-            
-            allMatchesWithTips.push({
-                matchNumber: match.MatchNumber,
-                homeTeam: match.HomeTeam,
-                awayTeam: match.AwayTeam,
-                homeScore: match.HomeTeamScore,
-                awayScore: match.AwayTeamScore,
-                tip: tipTeam,
-                deadCert: isDeadCert,
-                correct: isCompleted ? isCorrect : null,
-                isDefault: isDefault,
-                isCompleted: isCompleted
-            });
-        });
-        
-        // Calculate dead cert score (only count completed matches)
-        const { deadCertScore } = calculateScores(
-            allMatchesWithTips.filter(m => m.isCompleted)
-        );
-        
         return deadCertScore;
         
     } catch (error) {
         console.error(`Error calculating dead cert score for user ${userId} round ${round}:`, error);
         return 0;
     }
-}
-
-// Helper function to calculate scores from completed matches (same as tipping-results API)
-function calculateScores(completedMatches) {
-    let correctTips = 0;
-    let deadCertScore = 0;
-    
-    completedMatches.forEach(match => {
-        if (match.correct) {
-            correctTips++;
-            if (match.deadCert) {
-                deadCertScore += 6;
-            }
-        } else if (match.deadCert) {
-            deadCertScore -= 12;
-        }
-    });
-    
-    return { correctTips, deadCertScore };
 }
 
 // Calculate team scores with substitutions (same logic as useResults hook)

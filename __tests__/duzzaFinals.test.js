@@ -1,6 +1,5 @@
 import {
   computeWeekOutcome,
-  computeDeadCertFromMatches,
   derivePlayerPool,
   splitEntrantsBySource,
   applyWeekToLadder,
@@ -110,39 +109,6 @@ describe('computeWeekOutcome', () => {
     expect(result.eliminated).toEqual([2]);
     expect(result.survivors).toEqual([1]);
     expect(result.tieAtCutLine).toBe(false);
-  });
-});
-
-// ─── computeDeadCertFromMatches ─────────────────────────────────────────────
-
-describe('computeDeadCertFromMatches', () => {
-  test('mix of correct dead cert (+6), wrong dead cert (-12), and plain tips', () => {
-    const matches = [
-      { correct: true, deadCert: true },   // +6
-      { correct: false, deadCert: true },  // -12
-      { correct: true, deadCert: false },  // 0 (correctTips++ only)
-      { correct: false, deadCert: false }, // 0
-    ];
-    const result = computeDeadCertFromMatches(matches);
-    expect(result.correctTips).toBe(2);
-    expect(result.deadCertScore).toBe(6 - 12);
-  });
-
-  test('no matches → zero everything', () => {
-    const result = computeDeadCertFromMatches([]);
-    expect(result.correctTips).toBe(0);
-    expect(result.deadCertScore).toBe(0);
-  });
-
-  test('all correct dead certs stack', () => {
-    const matches = [
-      { correct: true, deadCert: true },
-      { correct: true, deadCert: true },
-      { correct: true, deadCert: true },
-    ];
-    const result = computeDeadCertFromMatches(matches);
-    expect(result.correctTips).toBe(3);
-    expect(result.deadCertScore).toBe(18);
   });
 });
 
