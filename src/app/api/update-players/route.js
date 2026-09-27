@@ -12,8 +12,7 @@ export const revalidate = 0;
 import { connectToDatabase } from "@/app/lib/mongodb";
 import { CURRENT_YEAR } from "@/app/lib/constants";
 import { getSessionUser, ADMIN_UID } from "@/app/lib/auth";
-
-const AFL_COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
+import { AFL_COMP_SEASON_ID, getAFLToken } from "@/app/lib/lockoutShared";
 
 // AFL API team abbreviations used in our DB
 const TEAM_ABBREV = {
@@ -36,18 +35,6 @@ const TEAM_ABBREV = {
   "West Coast Eagles":  "WCE",
   "Western Bulldogs":   "WBD",
 };
-
-// ── AFL API auth ──────────────────────────────────────────────────────────────
-async function getAFLToken() {
-  const res = await fetch("https://api.afl.com.au/cfs/afl/WMCTok", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Origin": "https://www.afl.com.au" },
-    body: "{}",
-    signal: AbortSignal.timeout(8000),
-  });
-  const data = await res.json();
-  return data.token;
-}
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function GET(request) {

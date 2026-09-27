@@ -107,16 +107,27 @@ function aflTeamNameToSlug(aflName) {
 }
 
 // ── AFL API ─────────────────────────────────────────────────────────────────
-async function getAFLToken() {
-  const res = await fetch("https://api.afl.com.au/cfs/afl/WMCTok", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Origin": "https://www.afl.com.au" },
-    body: "{}",
-    signal: AbortSignal.timeout(8000),
-  });
+// The one AFL token fetch for every caller (Next routes, lib code, root CLI
+// scripts). Throws on network error, timeout, or non-2xx; callers that want a
+// soft failure catch at the call site. Pass a stricter timeout where latency
+// matters (fixtureCache uses 3s).
+const AFL_TOKEN_URL = "https://api.afl.com.au/cfs/afl/WMCTok";
+const AFL_TOKEN_REQUEST = {
+  method: "POST",
+  headers: { "Content-Type": "application/json", "Origin": "https://www.afl.com.au" },
+  body: "{}",
+};
+
+async function getAFLToken(timeoutMs = 8000) {
+  const res = await fetch(AFL_TOKEN_URL, { ...AFL_TOKEN_REQUEST, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`AFL token HTTP ${res.status}`);
   const data = await res.json();
   return data.token;
+}
+
+// /afl/v2/matches for one API round of the current comp season.
+function aflMatchesUrl(roundNumber, pageSize = 20) {
+  return `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${roundNumber}&pageSize=${pageSize}`;
 }
 
 // Fetch named-22 + emergencies per team for a given round, via the official
@@ -129,7 +140,7 @@ async function fetchAFLTeamSelections(roundNumber) {
     const headers = { "x-media-mis-token": token };
 
     const matchesRes = await fetch(
-      `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${roundNumber}&pageSize=20`,
+      aflMatchesUrl(roundNumber),
       { headers, signal: AbortSignal.timeout(10000) }
     );
     const matchesData = await matchesRes.json();
@@ -344,7 +355,10 @@ module.exports = {
   normName,
   findTeamSlug,
   aflTeamNameToSlug,
+  AFL_TOKEN_URL,
+  AFL_TOKEN_REQUEST,
   getAFLToken,
+  aflMatchesUrl,
   fetchAFLTeamSelections,
   fetchSquiggleTips,
   fetchSportsbetOdds,

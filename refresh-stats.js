@@ -36,7 +36,7 @@
 require("dotenv").config({ path: ".env.local" });
 
 const { MongoClient } = require("mongodb");
-const { AFL_COMP_SEASON_ID, getAFLToken } = require("./src/app/lib/lockoutShared");
+const { getAFLToken, aflMatchesUrl } = require("./src/app/lib/lockoutShared");
 
 const YEAR = 2026;
 const MONGODB_URI = process.env.MONGODB_URI ||
@@ -49,7 +49,7 @@ const GAME_LENGTH_MS = 3 * 60 * 60 * 1000;
 
 async function fetchMatches(token, round) {
   const res = await fetch(
-    `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${round}&pageSize=20`,
+    aflMatchesUrl(round),
     { headers: { "x-media-mis-token": token }, signal: AbortSignal.timeout(10000) }
   );
   if (!res.ok) throw new Error(`AFL matches HTTP ${res.status}`);

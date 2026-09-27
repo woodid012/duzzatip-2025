@@ -39,7 +39,7 @@ const fs   = require("fs");
 const path = require("path");
 const { MongoClient } = require("mongodb");
 const {
-  AFL_COMP_SEASON_ID,
+  aflMatchesUrl,
   getAFLToken,
   aflTeamNameToSlug,
   findTeamSlug,
@@ -60,7 +60,7 @@ function matchKey(round, homeSlug, awaySlug) {
 
 async function fetchAflRound(token, apiRound) {
   const res = await fetch(
-    `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${apiRound}&pageSize=30`,
+    aflMatchesUrl(apiRound, 30),
     { headers: { "x-media-mis-token": token }, signal: AbortSignal.timeout(10000) }
   );
   if (!res.ok) throw new Error(`AFL matches HTTP ${res.status}`);

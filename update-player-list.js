@@ -20,8 +20,8 @@
 require('dotenv').config({ path: '.env.local' });
 const { execSync } = require('child_process');
 const { MongoClient } = require('mongodb');
+const { AFL_COMP_SEASON_ID, AFL_TOKEN_URL, AFL_TOKEN_REQUEST } = require('./src/app/lib/lockoutShared');
 
-const COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
 const CURRENT_YEAR = new Date().getFullYear();
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -61,11 +61,7 @@ function curl(url, opts = {}) {
 
 async function fetchAflRoster() {
   console.log('Fetching AFL API token...');
-  const tok = curl('https://api.afl.com.au/cfs/afl/WMCTok', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Origin': 'https://www.afl.com.au' },
-    body: '{}',
-  });
+  const tok = curl(AFL_TOKEN_URL, AFL_TOKEN_REQUEST);
   const hdrs = { 'x-media-mis-token': tok.token };
 
   console.log('Fetching teams...');
@@ -79,7 +75,7 @@ async function fetchAflRoster() {
     const abbrev = TEAM_ABBREV[englishName] || team.abbreviation;
     process.stdout.write(`  ${abbrev}...`);
     const data = curl(
-      `https://aflapi.afl.com.au/afl/v2/squads?teamId=${team.id}&compSeasonId=${COMP_SEASON_ID}&pageSize=1000`,
+      `https://aflapi.afl.com.au/afl/v2/squads?teamId=${team.id}&compSeasonId=${AFL_COMP_SEASON_ID}&pageSize=1000`,
       { headers: hdrs }
     );
     const players = data.squad?.players || [];

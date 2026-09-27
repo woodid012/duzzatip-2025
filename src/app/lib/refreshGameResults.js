@@ -6,19 +6,7 @@
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { CURRENT_YEAR } from '@/app/lib/constants';
 
-const AFL_COMP_SEASON_ID = 85; // 2026 Toyota AFL Premiership
-
-async function getAFLToken() {
-    const res = await fetch("https://api.afl.com.au/cfs/afl/WMCTok", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Origin": "https://www.afl.com.au" },
-        body: "{}",
-        signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) throw new Error(`AFL token fetch failed: HTTP ${res.status}`);
-    const data = await res.json();
-    return data.token;
-}
+import { getAFLToken, aflMatchesUrl } from '@/app/lib/lockoutShared';
 
 // Map one match's AFL playerStats payload into game_results rows (one per
 // player). Shared by the full round fetch and the stale-game re-pull so the
@@ -76,7 +64,7 @@ export async function fetchAFLRoundStats(round, providedToken = null, { liveOnly
     const headers = { "x-media-mis-token": token };
 
     const matchesRes = await fetch(
-        `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${round}&pageSize=20`,
+        aflMatchesUrl(round),
         { headers, signal: AbortSignal.timeout(10000) }
     );
     const matchesData = await matchesRes.json();
@@ -329,7 +317,7 @@ export async function refreshStaleConcludedStats(round, { token = null, force = 
             const tok = token || await getAFLToken();
             const headers = { "x-media-mis-token": tok };
             const matchesRes = await fetch(
-                `https://aflapi.afl.com.au/afl/v2/matches?competitionId=1&compSeasonId=${AFL_COMP_SEASON_ID}&roundNumber=${round}&pageSize=20`,
+                aflMatchesUrl(round),
                 { headers, signal: AbortSignal.timeout(10000) }
             );
             if (!matchesRes.ok) throw new Error(`AFL matches HTTP ${matchesRes.status}`);
