@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { withReadCache } from '@/app/lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
+import { tallyLadder, sortLadder } from '@/app/lib/ladderTotals';
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 
@@ -110,25 +111,6 @@ export async function GET(request) {
             }
         }
 
-        // Initialize ladder
-        const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
-            userId,
-            userName,
-            played: 0,
-            wins: 0,
-            losses: 0,
-            draws: 0,
-            pointsFor: 0,
-            pointsAgainst: 0,
-            percentage: 0,
-            points: 0,
-            highScore: 0,
-            lowScore: null,
-            formHistory: [],
-            starsTotal: 0,
-            crabsTotal: 0,
-        }));
-        
         // Get stored round results from database
         const maxRound = Math.min(upToRound, 21); // Cap at round 21 for regular season
 
@@ -141,6 +123,7 @@ export async function GET(request) {
                 .map(doc => [doc.round, doc])
         );
 
+        const rounds = [];
         for (let round = 1; round <= maxRound; round++) {
             const storedResults = storedByRound.get(round);
             
@@ -148,91 +131,32 @@ export async function GET(request) {
                 console.log(`No stored results for round ${round}`);
                 continue;
             }
-            
-            // Get fixtures for this round
-            const fixtures = getFixturesForRound(round);
-            
-            // Process each fixture
-            fixtures.forEach(fixture => {
-                const homeUserId = String(fixture.home);
-                const awayUserId = String(fixture.away);
-                
-                const homeScore = storedResults.results[homeUserId]?.totalScore || 0;
-                const awayScore = storedResults.results[awayUserId]?.totalScore || 0;
-                
-                // Skip if both scores are 0
-                if (homeScore === 0 && awayScore === 0) {
-                    return;
-                }
-                
-                // Find ladder entries
-                const homeLadder = ladder.find(entry => entry.userId === homeUserId);
-                const awayLadder = ladder.find(entry => entry.userId === awayUserId);
-                
-                if (homeLadder && awayLadder) {
-                    // Update games played
-                    homeLadder.played += 1;
-                    awayLadder.played += 1;
 
-                    // Update points for/against
-                    homeLadder.pointsFor += homeScore;
-                    homeLadder.pointsAgainst += awayScore;
-                    awayLadder.pointsFor += awayScore;
-                    awayLadder.pointsAgainst += homeScore;
-
-                    // Update wins/losses/draws and ladder points
-                    let homeResult, awayResult;
-                    if (homeScore > awayScore) {
-                        homeLadder.wins += 1;
-                        homeLadder.points += 4;
-                        awayLadder.losses += 1;
-                        homeResult = 'W'; awayResult = 'L';
-                    } else if (awayScore > homeScore) {
-                        awayLadder.wins += 1;
-                        awayLadder.points += 4;
-                        homeLadder.losses += 1;
-                        homeResult = 'L'; awayResult = 'W';
-                    } else {
-                        homeLadder.draws += 1;
-                        homeLadder.points += 2;
-                        awayLadder.draws += 1;
-                        awayLadder.points += 2;
-                        homeResult = 'D'; awayResult = 'D';
-                    }
-
-                    // Track high/low scores, form, stars, crabs
-                    if (homeScore > homeLadder.highScore) homeLadder.highScore = homeScore;
-                    if (round > 0 && homeScore > 0 && (homeLadder.lowScore === null || homeScore < homeLadder.lowScore)) homeLadder.lowScore = homeScore;
-                    homeLadder.formHistory.push(homeResult);
-                    if (storedResults.results[homeUserId]?.hasStar) homeLadder.starsTotal += 1;
-                    if (storedResults.results[homeUserId]?.hasCrab) homeLadder.crabsTotal += 1;
-
-                    if (awayScore > awayLadder.highScore) awayLadder.highScore = awayScore;
-                    if (round > 0 && awayScore > 0 && (awayLadder.lowScore === null || awayScore < awayLadder.lowScore)) awayLadder.lowScore = awayScore;
-                    awayLadder.formHistory.push(awayResult);
-                    if (storedResults.results[awayUserId]?.hasStar) awayLadder.starsTotal += 1;
-                    if (storedResults.results[awayUserId]?.hasCrab) awayLadder.crabsTotal += 1;
-                }
-            });
+            const scores = Object.fromEntries(
+                Object.entries(storedResults.results).map(([userId, result]) => [userId, result?.totalScore])
+            );
+            rounds.push({ round, fixtures: getFixturesForRound(round), scores });
         }
-        
-        // Calculate percentages and finalise new stats
+
+        const ladder = tallyLadder(USER_NAMES, rounds, ({ row, userId, score, result, round }) => {
+            const stored = storedByRound.get(round).results[userId];
+            // Track high/low scores, form, stars, crabs
+            if (score > row.highScore) row.highScore = score;
+            if (round > 0 && score > 0 && (row.lowScore === null || score < row.lowScore)) row.lowScore = score;
+            row.formHistory.push(result);
+            if (stored?.hasStar) row.starsTotal += 1;
+            if (stored?.hasCrab) row.crabsTotal += 1;
+        }, () => ({ highScore: 0, lowScore: null, formHistory: [], starsTotal: 0, crabsTotal: 0 }));
+
+        // This route's percentage is a 2dp string; finalise the extra stats
         ladder.forEach(team => {
-            team.percentage = team.pointsAgainst === 0
-                ? (team.pointsFor > 0 ? (team.pointsFor * 100).toFixed(2) : '0.00')
-                : ((team.pointsFor / team.pointsAgainst) * 100).toFixed(2);
+            team.percentage = team.percentage.toFixed(2);
             team.lowScore = team.lowScore === null ? 0 : team.lowScore;
             team.form = team.formHistory.slice(-5).reverse();
             delete team.formHistory;
         });
-        
-        // Sort ladder by points, then percentage
-        const sortedLadder = ladder.sort((a, b) => {
-            if (b.points !== a.points) {
-                return b.points - a.points;
-            }
-            return parseFloat(b.percentage) - parseFloat(a.percentage);
-        });
+
+        const sortedLadder = sortLadder(ladder);
         
         // Get last update time
         const lastUpdate = await db.collection(`${year}_simple_round_results`)
