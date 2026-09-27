@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import ScoreboardHeader from '@/app/components/ScoreboardHeader';
 import { useAppContext } from '@/app/context/AppContext';
 import { USER_NAMES, CURRENT_YEAR } from '@/app/lib/constants';
+import { roundByRoundTotals } from '@/app/lib/ladderTotals';
 
 export default function RoundByRoundPage() {
   const { selectedYear, roundInfo } = useAppContext();
@@ -22,7 +23,6 @@ export default function RoundByRoundPage() {
     const fetchAllRoundData = async () => {
       try {
         setLoading(true);
-        const allData = {};
 
         const totalRounds = 21;
         const roundNumbers = Array.from({ length: totalRounds }, (_, i) => i + 1);
@@ -49,63 +49,10 @@ export default function RoundByRoundPage() {
         const liveByRound = {};
         liveRounds.forEach((round, i) => { liveByRound[round] = liveResponses[i]; });
 
-        roundNumbers.forEach(round => {
-          const data = stored[round] ? { results: stored[round] } : liveByRound[round];
-          if (!data?.results) return;
-
-          // Process each user's data for this round
-          Object.entries(data.results).forEach(([userId, userResult]) => {
-            if (!allData[userId]) {
-              allData[userId] = {
-                rounds: {},
-                seasonTotals: {
-                  playerScore: 0,
-                  deadCertScore: 0,
-                  totalScore: 0,
-                  wins: 0,
-                  losses: 0,
-                  draws: 0,
-                  pointsFor: 0,
-                  pointsAgainst: 0,
-                },
-              };
-            }
-
-            allData[userId].rounds[round] = {
-              playerScore: userResult.playerScore || 0,
-              deadCertScore: userResult.deadCertScore || 0,
-              totalScore: userResult.totalScore || 0,
-              matchResult: userResult.matchResult,
-              opponent: userResult.opponent,
-              opponentScore: userResult.opponentScore || 0,
-              pointsFor: userResult.pointsFor || userResult.totalScore || 0,
-              pointsAgainst: userResult.pointsAgainst || userResult.opponentScore || 0,
-              isHome: userResult.isHome,
-              hasStar: userResult.hasStar,
-              hasCrab: userResult.hasCrab,
-              substitutionsUsed: userResult.substitutionsUsed || [],
-            };
-
-            allData[userId].seasonTotals.playerScore += userResult.playerScore || 0;
-            allData[userId].seasonTotals.deadCertScore += userResult.deadCertScore || 0;
-            allData[userId].seasonTotals.totalScore += userResult.totalScore || 0;
-            allData[userId].seasonTotals.pointsFor += userResult.pointsFor || userResult.totalScore || 0;
-            allData[userId].seasonTotals.pointsAgainst += userResult.pointsAgainst || userResult.opponentScore || 0;
-
-            if (userResult.matchResult === 'W') allData[userId].seasonTotals.wins++;
-            else if (userResult.matchResult === 'L') allData[userId].seasonTotals.losses++;
-            else if (userResult.matchResult === 'D') allData[userId].seasonTotals.draws++;
-          });
-        });
-
-        // Calculate percentages for each user
-        Object.keys(allData).forEach(userId => {
-          const totals = allData[userId].seasonTotals;
-          totals.percentage = totals.pointsAgainst === 0 
-            ? (totals.pointsFor > 0 ? totals.pointsFor * 100 : 0)
-            : ((totals.pointsFor / totals.pointsAgainst) * 100);
-          totals.played = totals.wins + totals.losses + totals.draws;
-        });
+        const roundResults = roundNumbers
+          .map(round => [round, stored[round] || liveByRound[round]?.results])
+          .filter(([, results]) => results);
+        const allData = roundByRoundTotals(roundResults);
 
         setRoundData(allData);
         console.log("Round-by-Round data fetched:", allData);

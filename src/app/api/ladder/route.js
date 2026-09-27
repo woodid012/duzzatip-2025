@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/app/lib/mongodb';
 import { withReadCache } from '@/app/lib/apiUtils';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { getFixturesForRound } from '@/app/lib/fixture_constants';
+import { tallyLadder, sortLadder } from '@/app/lib/ladderTotals';
 import { parseYearParam } from '@/app/lib/apiUtils';
 import { getSessionUser, ADMIN_UID } from '@/app/lib/auth';
 
@@ -208,18 +209,7 @@ export async function POST(request) {
 async function buildLadderFromScratchCalculations(currentRound, db) {
     console.log(`Building ladder from scratch using consolidated-round-results API for rounds 1-${currentRound}`);
     
-    const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
-        userId,
-        userName,
-        played: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        pointsFor: 0,
-        pointsAgainst: 0,
-        percentage: 0,
-        points: 0
-    }));
+    const rounds = [];
 
     // Fetch all rounds in parallel (batches of 5 to limit concurrency)
     const maxRound = Math.min(currentRound, 21);
@@ -261,72 +251,25 @@ async function buildLadderFromScratchCalculations(currentRound, db) {
             await storeRoundResultsFromAPI(round, roundResults, db);
             await storeFinalTotalsFromAPI(round, roundResults, db);
 
-            // Update ladder with this round's results
-            const fixtures = getFixturesForRound(round);
-
-            fixtures.forEach((fixture) => {
+            // Only fixtures with a result for both sides count on this path
+            const fixtures = getFixturesForRound(round).filter((fixture) => {
                 const homeUserId = String(fixture.home);
                 const awayUserId = String(fixture.away);
-
-                const homeResult = roundResults[homeUserId];
-                const awayResult = roundResults[awayUserId];
-
-                if (!homeResult || !awayResult) {
+                if (!roundResults[homeUserId] || !roundResults[awayUserId]) {
                     console.log(`Round ${round}: Missing results for ${USER_NAMES[homeUserId]} vs ${USER_NAMES[awayUserId]}, skipping`);
-                    return;
+                    return false;
                 }
-
-                const homeScore = homeResult.totalScore || 0;
-                const awayScore = awayResult.totalScore || 0;
-
-                // Skip if both scores are 0
-                if (homeScore === 0 && awayScore === 0) {
-                    console.log(`Round ${round}: No scores for ${USER_NAMES[homeUserId]} vs ${USER_NAMES[awayUserId]}, skipping`);
-                    return;
-                }
-
-                console.log(`Round ${round}: ${USER_NAMES[homeUserId]} (${homeScore}) vs ${USER_NAMES[awayUserId]} (${awayScore})`);
-
-                const homeLadder = ladder.find(entry => entry.userId === homeUserId);
-                const awayLadder = ladder.find(entry => entry.userId === awayUserId);
-
-                if (homeLadder && awayLadder) {
-                    homeLadder.played++;
-                    awayLadder.played++;
-                    homeLadder.pointsFor += homeScore;
-                    homeLadder.pointsAgainst += awayScore;
-                    awayLadder.pointsFor += awayScore;
-                    awayLadder.pointsAgainst += homeScore;
-
-                    if (homeScore > awayScore) {
-                        homeLadder.wins++;
-                        homeLadder.points += 4;
-                        awayLadder.losses++;
-                    } else if (awayScore > homeScore) {
-                        awayLadder.wins++;
-                        awayLadder.points += 4;
-                        homeLadder.losses++;
-                    } else {
-                        homeLadder.draws++;
-                        homeLadder.points += 2;
-                        awayLadder.draws++;
-                        awayLadder.points += 2;
-                    }
-                }
+                return true;
             });
+            const scores = Object.fromEntries(
+                Object.entries(roundResults).map(([userId, result]) => [userId, result?.totalScore])
+            );
+            rounds.push({ round, fixtures, scores });
         }
     }
 
-    // Calculate percentages
-    ladder.forEach(team => {
-        team.percentage = team.pointsAgainst === 0
-            ? (team.pointsFor > 0 ? Number((team.pointsFor * 100).toFixed(2)) : 0)
-            : Number(((team.pointsFor / team.pointsAgainst) * 100).toFixed(2));
-    });
+    const sortedLadder = toLadderResponseRows(tallyLadder(USER_NAMES, rounds));
 
-    // Sort ladder by points, then percentage
-    const sortedLadder = ladder.sort((a, b) => b.points - a.points || parseFloat(b.percentage) - parseFloat(a.percentage));
-    
     console.log(`Complete ladder calculation finished using consolidated-round-results API for rounds 1-${currentRound}`);
     return sortedLadder;
 }
@@ -342,20 +285,8 @@ async function buildLadderFromStoredFinalTotals(currentRound, db, year = CURRENT
     // series, and the refresh path called it once per round on top of that.
     const totalsByRound = preloadedTotals || await getStoredFinalTotalsByRound(lastRound, db, year);
     
-    const ladder = Object.entries(USER_NAMES).map(([userId, userName]) => ({
-        userId,
-        userName,
-        played: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        pointsFor: 0,
-        pointsAgainst: 0,
-        percentage: 0,
-        points: 0
-    }));
-
-    // Process rounds 1 through currentRound
+    // Rounds 1 through currentRound
+    const rounds = [];
     for (let round = 1; round <= lastRound; round++) {
         const finalTotals = totalsByRound[round];
 
@@ -364,54 +295,18 @@ async function buildLadderFromStoredFinalTotals(currentRound, db, year = CURRENT
             continue;
         }
 
-        const fixtures = getFixturesForRound(round);
-
-        fixtures.forEach((fixture) => {
-            const homeUserId = String(fixture.home);
-            const awayUserId = String(fixture.away);
-            
-            const homeScore = finalTotals[homeUserId] || 0;
-            const awayScore = finalTotals[awayUserId] || 0;
-            
-            if (homeScore === 0 && awayScore === 0) return;
-            
-            const homeLadder = ladder.find(entry => entry.userId === homeUserId);
-            const awayLadder = ladder.find(entry => entry.userId === awayUserId);
-            
-            if (homeLadder && awayLadder) {
-                homeLadder.played++;
-                awayLadder.played++;
-                homeLadder.pointsFor += homeScore;
-                homeLadder.pointsAgainst += awayScore;
-                awayLadder.pointsFor += awayScore;
-                awayLadder.pointsAgainst += homeScore;
-                
-                if (homeScore > awayScore) {
-                    homeLadder.wins++;
-                    homeLadder.points += 4;
-                    awayLadder.losses++;
-                } else if (awayScore > homeScore) {
-                    awayLadder.wins++;
-                    awayLadder.points += 4;
-                    homeLadder.losses++;
-                } else {
-                    homeLadder.draws++;
-                    homeLadder.points += 2;
-                    awayLadder.draws++;
-                    awayLadder.points += 2;
-                }
-            }
-        });
+        rounds.push({ round, fixtures: getFixturesForRound(round), scores: finalTotals });
     }
 
-    // Calculate percentages
-    ladder.forEach(team => {
-        team.percentage = team.pointsAgainst === 0
-            ? (team.pointsFor > 0 ? Number((team.pointsFor * 100).toFixed(2)) : 0)
-            : Number(((team.pointsFor / team.pointsAgainst) * 100).toFixed(2));
-    });
+    return toLadderResponseRows(tallyLadder(USER_NAMES, rounds));
+}
 
-    return ladder.sort((a, b) => b.points - a.points || parseFloat(b.percentage) - parseFloat(a.percentage));
+// This route's percentage is a number rounded to 2dp.
+function toLadderResponseRows(ladder) {
+    ladder.forEach(team => {
+        team.percentage = Number(team.percentage.toFixed(2));
+    });
+    return sortLadder(ladder);
 }
 
 /**
