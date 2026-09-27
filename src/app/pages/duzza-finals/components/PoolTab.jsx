@@ -1,12 +1,12 @@
 'use client';
 
 import { USER_NAMES, TEAM_LOGOS } from '@/app/lib/constants';
-import { DUZZA_FINALS_ROUNDS } from '@/app/hooks/useDuzzaFinals';
+import { FINALS_ROUNDS, weekNumberForRound } from '@/app/finals/lib/constants';
 
 const getWeeklyTotal = (entry, round) => {
   if (!entry?.weeklyTotals) return undefined;
   if (Array.isArray(entry.weeklyTotals)) {
-    const idx = DUZZA_FINALS_ROUNDS.indexOf(round);
+    const idx = FINALS_ROUNDS.indexOf(round);
     return idx >= 0 ? entry.weeklyTotals[idx] : undefined;
   }
   return entry.weeklyTotals[round] ?? entry.weeklyTotals[String(round)];
@@ -79,12 +79,12 @@ export default function PoolTab({
                 <tr>
                   <th className="w-6 sm:w-8">#</th>
                   <th>Team</th>
-                  {DUZZA_FINALS_ROUNDS.map((round) => (
+                  {FINALS_ROUNDS.map((round) => (
                     <th
                       key={round}
                       className={`text-right ${round === currentRound ? 'text-blue-600' : ''}`}
                     >
-                      {round === currentRound && isLive ? '●' : ''}<span className="hidden sm:inline">Wk </span>{round - 25}
+                      {round === currentRound && isLive ? '●' : ''}<span className="hidden sm:inline">Wk </span>{weekNumberForRound(round)}
                     </th>
                   ))}
                   <th className="text-right">Tot</th>
@@ -106,7 +106,7 @@ export default function PoolTab({
                           {entry.name || USER_NAMES[entry.userId] || entry.userId}
                         </span>
                       </td>
-                      {DUZZA_FINALS_ROUNDS.map((round) => (
+                      {FINALS_ROUNDS.map((round) => (
                         <td
                           key={round}
                           className={`text-right tabular-nums ${

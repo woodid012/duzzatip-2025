@@ -8,6 +8,7 @@ import Logo from '@/app/components/Logo';
 import { getNavigationGroups, debugNavigationItems } from '@/app/lib/navigationConfig';
 import { CURRENT_YEAR, USER_NAMES } from '@/app/lib/constants';
 import { isDuzzaFinalsWindow } from '@/app/lib/duzzaFinalsWindow';
+import { FINALS_ROUNDS, weekNumberForRound } from '@/app/finals/lib/constants';
 import { ToastProvider } from '@/app/components/Toast';
 import RoundStatus from '@/app/components/RoundStatus';
 import AuthModal from '@/app/components/AuthModal';
@@ -426,7 +427,7 @@ export default function PagesLayout({ children }) {
     if (!onFinalsPage || !fixtures || fixtures.length === 0) return null;
     const now = Date.now();
     const rounds = [...new Set(
-      fixtures.filter((f) => Number(f.RoundNumber) >= 26).map((f) => Number(f.RoundNumber))
+      fixtures.filter((f) => Number(f.RoundNumber) >= FINALS_ROUNDS[0]).map((f) => Number(f.RoundNumber))
     )].sort((a, b) => a - b);
     if (rounds.length === 0) return null;
     // The week whose first bounce is still ahead, else the latest known week.
@@ -453,7 +454,7 @@ export default function PagesLayout({ children }) {
       timeZone: 'Australia/Melbourne',
       day: 'numeric', month: 'long', hour: 'numeric', minute: 'numeric', hour12: true,
     });
-    return { week: active - 25, lockout, locked: now >= firstBounce };
+    return { week: weekNumberForRound(active), lockout, locked: now >= firstBounce };
   })();
 
   // Once a round is locked, show its status (In Progress / Complete / Locked)

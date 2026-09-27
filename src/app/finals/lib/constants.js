@@ -1,7 +1,6 @@
-// Local, deliberately duplicated display constants for the standalone
-// Finals app — mirrors the FALLBACK_ROUND_LABELS pattern in
-// src/app/hooks/useDuzzaFinals.js (kept local rather than imported from the
-// backend-owned src/app/lib/duzzaFinals.js, which this app doesn't touch).
+// Client-safe display constants for both finals UIs (the standalone /finals
+// app and /pages/duzza-finals). Kept apart from the backend-owned
+// src/app/lib/duzzaFinals.js, which pulls in server-only modules.
 // The API's own per-week `label` is always preferred once it's loaded; these
 // are just what renders before that first response lands.
 export const FINALS_ROUNDS = [26, 27, 28, 29];
