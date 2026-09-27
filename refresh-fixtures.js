@@ -46,8 +46,7 @@ const {
 } = require("./src/app/lib/lockoutShared");
 
 const YEAR = 2026;
-const MONGODB_URI = process.env.MONGODB_URI ||
-  (() => { throw new Error("MONGODB_URI is not set (.env.local)"); })();
+const MONGODB_URI = process.env.MONGODB_URI;
 
 // AFL "2026-06-25T09:30:00.000+0000" → file format "2026-06-25 09:30:00Z" (UTC).
 function toFileDate(utcStartTime) {
@@ -170,6 +169,7 @@ async function refreshFixtures({
   }
 
   if (updateMongo) {
+    if (!mongoUri) throw new Error("MONGODB_URI is not set (.env.local)");
     let client;
     try {
       client = new MongoClient(mongoUri);
