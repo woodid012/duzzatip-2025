@@ -2611,8 +2611,8 @@
     "HomeTeam": "Fremantle",
     "AwayTeam": "Brisbane Lions",
     "Group": null,
-    "HomeTeamScore": null,
-    "AwayTeamScore": null,
-    "Winner": ""
+    "HomeTeamScore": 89,
+    "AwayTeamScore": 96,
+    "Winner": "Brisbane Lions"
   }
 ]
